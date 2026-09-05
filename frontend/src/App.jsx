@@ -7,6 +7,7 @@ import Layout from './components/Layout';
 import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
 import UsersPage from './pages/UsersPage';
+import CreditSimulatorPage from './pages/CreditSimulatorPage';
 
 function App() {
   return (
@@ -33,7 +34,16 @@ function App() {
                 </RoleProtectedRoute>
               }
             />
+            <Route
+              path="/simulador-credito"
+              element={
+                <RoleProtectedRoute allowedRoles={['ASOCIADO']}>
+                  <CreditSimulatorPage />
+                </RoleProtectedRoute>
+              }
+            />
           </Route>
+
 
 
           {/* Redirección por defecto */}

@@ -5,8 +5,8 @@ const db = require('./src/config/db');
 const server = app.listen(0, async () => {
   const testPort = server.address().port;
   console.log('\n=========================================');
-  console.log('🧪 INICIANDO PRUEBAS DEL CRUD DE USUARIOS (3FN - id_persona)');
-  console.log(`📡 Puerto de prueba: ${testPort}`);
+  console.log('[SUITE] INICIANDO PRUEBAS DEL CRUD DE USUARIOS (3FN - id_persona)');
+  console.log(`[INFO] Puerto de prueba: ${testPort}`);
   console.log('=========================================\n');
 
   // Limpieza inicial para idempotencia de pruebas
@@ -77,9 +77,9 @@ const server = app.listen(0, async () => {
     const resNoToken = await request('/api/usuarios', 'GET');
     console.log('   Status:', resNoToken.status, '(Esperado: 401)');
     if (resNoToken.status === 401) {
-      console.log('   ✅ PRUEBA 1 SUPERADA: Rutas protegidas correctamente');
+      console.log('   [PASS] PRUEBA 1 SUPERADA: Rutas protegidas correctamente');
     } else {
-      console.error('   ❌ PRUEBA 1 FALLÓ', resNoToken.body);
+      console.error('   [FAIL] PRUEBA 1 FALLÓ', resNoToken.body);
     }
 
     // 2. Login para obtener token JWT de Administrador
@@ -90,7 +90,7 @@ const server = app.listen(0, async () => {
     });
     const token = loginRes.body.token;
     if (token) {
-      console.log('   ✅ Token obtenido exitosamente con código corporativo 1001 (id_persona: ' + loginRes.body.user?.id_persona + ')');
+      console.log('   [PASS] Token obtenido exitosamente con código corporativo 1001 (id_persona: ' + loginRes.body.user?.id_persona + ')');
     } else {
       throw new Error('No se pudo obtener token de autenticación');
     }
@@ -101,9 +101,9 @@ const server = app.listen(0, async () => {
     console.log('   Status:', resAllUsers.status);
     console.log('   Total usuarios encontrados:', resAllUsers.body.total);
     if (resAllUsers.status === 200 && Array.isArray(resAllUsers.body.data)) {
-      console.log('   ✅ PRUEBA 3 SUPERADA: Listado de usuarios obtenido');
+      console.log('   [PASS] PRUEBA 3 SUPERADA: Listado de usuarios obtenido');
     } else {
-      console.error('   ❌ PRUEBA 3 FALLÓ', resAllUsers.body);
+      console.error('   [FAIL] PRUEBA 3 FALLÓ', resAllUsers.body);
     }
 
     // 4. GET /api/usuarios con filtro ?estado=ACTIVO
@@ -112,9 +112,9 @@ const server = app.listen(0, async () => {
     const allAreActive = resActiveUsers.body.data.every((u) => u.estado === 'ACTIVO');
     console.log('   Total activos:', resActiveUsers.body.total, '| ¿Todos activos?:', allAreActive);
     if (resActiveUsers.status === 200 && allAreActive) {
-      console.log('   ✅ PRUEBA 4 SUPERADA: Filtro por estado activo funciona');
+      console.log('   [PASS] PRUEBA 4 SUPERADA: Filtro por estado activo funciona');
     } else {
-      console.error('   ❌ PRUEBA 4 FALLÓ', resActiveUsers.body);
+      console.error('   [FAIL] PRUEBA 4 FALLÓ', resActiveUsers.body);
     }
 
     // 5. POST /api/usuarios: Crear nuevo usuario con código corporativo 9999
@@ -134,9 +134,9 @@ const server = app.listen(0, async () => {
     let createdUserPersonaId = resCreate.body.data?.id_persona;
 
     if (resCreate.status === 201 && createdUserPersonaId && resCreate.body.data?.codigo_corporativo === '9999') {
-      console.log('   ✅ PRUEBA 5 SUPERADA: Usuario creado con id_persona como PK y FK');
+      console.log('   [PASS] PRUEBA 5 SUPERADA: Usuario creado con id_persona como PK y FK');
     } else {
-      console.error('   ❌ PRUEBA 5 FALLÓ', resCreate.body);
+      console.error('   [FAIL] PRUEBA 5 FALLÓ', resCreate.body);
     }
 
     // 6. Probar Login del usuario recién creado usando su Código Corporativo
@@ -147,9 +147,9 @@ const server = app.listen(0, async () => {
     });
     console.log('   Status:', resLoginNew.status, '(Esperado: 200)');
     if (resLoginNew.status === 200 && resLoginNew.body.token) {
-      console.log('   ✅ PRUEBA 6 SUPERADA: Login por Código Corporativo validado correctamente');
+      console.log('   [PASS] PRUEBA 6 SUPERADA: Login por Código Corporativo validado correctamente');
     } else {
-      console.error('   ❌ PRUEBA 6 FALLÓ', resLoginNew.body);
+      console.error('   [FAIL] PRUEBA 6 FALLÓ', resLoginNew.body);
     }
 
     // 7. PUT /api/usuarios/:id: Actualizar datos del usuario
@@ -163,9 +163,9 @@ const server = app.listen(0, async () => {
     console.log('   Nombre actualizado:', resUpdate.body.data?.nombre);
     console.log('   Rol actualizado:', resUpdate.body.data?.rol);
     if (resUpdate.status === 200 && resUpdate.body.data?.rol === 'OPERADOR') {
-      console.log('   ✅ PRUEBA 7 SUPERADA: Datos de usuario actualizados');
+      console.log('   [PASS] PRUEBA 7 SUPERADA: Datos de usuario actualizados');
     } else {
-      console.error('   ❌ PRUEBA 7 FALLÓ', resUpdate.body);
+      console.error('   [FAIL] PRUEBA 7 FALLÓ', resUpdate.body);
     }
 
     // 8. DELETE /api/usuarios/:id: Borrado lógico auditado
@@ -174,18 +174,18 @@ const server = app.listen(0, async () => {
     console.log('   Status:', resDelete.status, '(Esperado: 200)');
     console.log('   Estado retornado:', resDelete.body.data?.estado);
     if (resDelete.status === 200 && resDelete.body.data?.estado === 'INACTIVO') {
-      console.log('   ✅ PRUEBA 8 SUPERADA: Borrado lógico aplicado exitosamente');
+      console.log('   [PASS] PRUEBA 8 SUPERADA: Borrado lógico aplicado exitosamente');
     } else {
-      console.error('   ❌ PRUEBA 8 FALLÓ', resDelete.body);
+      console.error('   [FAIL] PRUEBA 8 FALLÓ', resDelete.body);
     }
 
     // 9. Verificar que el usuario no fue eliminado físicamente de la BD
     console.log('\n9. Verificando persistencia y borrado lógico en PostgreSQL...');
     const dbCheck = await db.query('SELECT id_persona, estado FROM usuarios WHERE id_persona = $1', [createdUserPersonaId]);
     if (dbCheck.rows.length > 0 && dbCheck.rows[0].estado === 'INACTIVO') {
-      console.log('   ✅ PRUEBA 9 SUPERADA: Registro preservado en BD con estado INACTIVO (No hubo DELETE físico)');
+      console.log('   [PASS] PRUEBA 9 SUPERADA: Registro preservado en BD con estado INACTIVO (No hubo DELETE físico)');
     } else {
-      console.error('   ❌ PRUEBA 9 FALLÓ');
+      console.error('   [FAIL] PRUEBA 9 FALLÓ');
     }
 
     // 10. Intentar iniciar sesión con el usuario desactivado
@@ -197,13 +197,13 @@ const server = app.listen(0, async () => {
     console.log('   Status:', resInactiveLogin.status, '(Esperado: 403)');
     console.log('   Mensaje:', resInactiveLogin.body.message);
     if (resInactiveLogin.status === 403) {
-      console.log('   ✅ PRUEBA 10 SUPERADA: Acceso bloqueado para usuario inactivo');
+      console.log('   [PASS] PRUEBA 10 SUPERADA: Acceso bloqueado para usuario inactivo');
     } else {
-      console.error('   ❌ PRUEBA 10 FALLÓ', resInactiveLogin.body);
+      console.error('   [FAIL] PRUEBA 10 FALLÓ', resInactiveLogin.body);
     }
 
     console.log('\n=========================================');
-    console.log('🎉 TODAS LAS PRUEBAS CRUD SUPERADAS CON ÉXITO');
+    console.log('[SUCCESS] TODAS LAS PRUEBAS CRUD SUPERADAS CON ÉXITO');
     console.log('=========================================\n');
   } catch (error) {
     console.error('Error durante las pruebas CRUD:', error);

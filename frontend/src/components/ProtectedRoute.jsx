@@ -1,28 +1,28 @@
 import React from 'react';
-import { Navigate, useLocation, Outlet } from 'react-router-dom';
+import { Navigate, Outlet } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Loader2 } from 'lucide-react';
 
 /**
  * Componente para proteger rutas privadas
- * Redirige a /login si no hay una sesión activa
+ * Redirige a /login inmediatamente si no hay sesión activa o el token fue destruido
  */
 export const ProtectedRoute = ({ allowedRoles, children }) => {
   const { isAuthenticated, isLoading, user } = useAuth();
-  const location = useLocation();
+  const hasToken = !!localStorage.getItem('coop_token');
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-slate-900 text-white">
-        <Loader2 className="w-10 h-10 text-emerald-500 animate-spin mb-4" />
-        <p className="text-slate-400 font-medium text-sm">Verificando sesión segura...</p>
+      <div className="min-h-screen flex flex-col items-center justify-center bg-slate-100 text-slate-700">
+        <Loader2 className="w-10 h-10 text-emerald-700 animate-spin mb-4" />
+        <p className="font-medium text-sm">Verificando sesión segura...</p>
       </div>
     );
   }
 
-  if (!isAuthenticated) {
-    // Redirigir a /login guardando la ruta previa
-    return <Navigate to="/login" state={{ from: location }} replace />;
+  // Si no está autenticado o no existe el token en storage, expulsar a /login con replace
+  if (!isAuthenticated || !hasToken) {
+    return <Navigate to="/login" replace />;
   }
 
   // Validación opcional por roles

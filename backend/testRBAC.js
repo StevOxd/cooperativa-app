@@ -4,8 +4,8 @@ const { app } = require('./src/server');
 const server = app.listen(0, async () => {
   const testPort = server.address().port;
   console.log('\n=========================================');
-  console.log('🧪 INICIANDO PRUEBAS DE RBAC (CONTROL DE ROLES - 3FN)');
-  console.log(`📡 Puerto de prueba: ${testPort}`);
+  console.log('[SUITE] INICIANDO PRUEBAS DE RBAC (CONTROL DE ROLES - 3FN)');
+  console.log(`[INFO] Puerto de prueba: ${testPort}`);
   console.log('=========================================\n');
 
   const request = (path, method, data, token) => {
@@ -65,9 +65,9 @@ const server = app.listen(0, async () => {
     console.log('   Status:', meRes.status, '(Esperado: 200)');
     console.log('   Usuario:', meRes.body.user?.nombre, '| Rol:', meRes.body.user?.rol);
     if (meRes.status === 200 && meRes.body.user?.rol === 'OPERADOR') {
-      console.log('   ✅ PRUEBA 2 SUPERADA: GET /api/auth/me accesible para OPERADOR');
+      console.log('   [PASS] PRUEBA 2 SUPERADA: GET /api/auth/me accesible para OPERADOR');
     } else {
-      console.error('   ❌ PRUEBA 2 FALLÓ', meRes.body);
+      console.error('   [FAIL] PRUEBA 2 FALLÓ', meRes.body);
     }
 
     // 3. Probar GET /api/usuarios con OPERADOR (Debe denegar 403)
@@ -79,9 +79,9 @@ const server = app.listen(0, async () => {
       getRes.status === 403 &&
       getRes.body.message === 'Acceso denegado: Se requieren permisos de Administrador'
     ) {
-      console.log('   ✅ PRUEBA 3 SUPERADA: GET /api/usuarios bloqueado con 403 y mensaje exacto');
+      console.log('   [PASS] PRUEBA 3 SUPERADA: GET /api/usuarios bloqueado con 403 y mensaje exacto');
     } else {
-      console.error('   ❌ PRUEBA 3 FALLÓ', getRes.body);
+      console.error('   [FAIL] PRUEBA 3 FALLÓ', getRes.body);
     }
 
     // 4. Probar POST /api/usuarios con OPERADOR (Debe denegar 403)
@@ -104,9 +104,9 @@ const server = app.listen(0, async () => {
       postRes.status === 403 &&
       postRes.body.message === 'Acceso denegado: Se requieren permisos de Administrador'
     ) {
-      console.log('   ✅ PRUEBA 4 SUPERADA: POST /api/usuarios bloqueado con 403');
+      console.log('   [PASS] PRUEBA 4 SUPERADA: POST /api/usuarios bloqueado con 403');
     } else {
-      console.error('   ❌ PRUEBA 4 FALLÓ', postRes.body);
+      console.error('   [FAIL] PRUEBA 4 FALLÓ', postRes.body);
     }
 
     // 5. Probar PUT /api/usuarios/1 con OPERADOR (Debe denegar 403)
@@ -123,9 +123,9 @@ const server = app.listen(0, async () => {
       putRes.status === 403 &&
       putRes.body.message === 'Acceso denegado: Se requieren permisos de Administrador'
     ) {
-      console.log('   ✅ PRUEBA 5 SUPERADA: PUT /api/usuarios/1 bloqueado con 403');
+      console.log('   [PASS] PRUEBA 5 SUPERADA: PUT /api/usuarios/1 bloqueado con 403');
     } else {
-      console.error('   ❌ PRUEBA 5 FALLÓ', putRes.body);
+      console.error('   [FAIL] PRUEBA 5 FALLÓ', putRes.body);
     }
 
     // 6. Probar DELETE /api/usuarios/1 con OPERADOR (Debe denegar 403)
@@ -137,9 +137,9 @@ const server = app.listen(0, async () => {
       delRes.status === 403 &&
       delRes.body.message === 'Acceso denegado: Se requieren permisos de Administrador'
     ) {
-      console.log('   ✅ PRUEBA 6 SUPERADA: DELETE /api/usuarios/1 bloqueado con 403');
+      console.log('   [PASS] PRUEBA 6 SUPERADA: DELETE /api/usuarios/1 bloqueado con 403');
     } else {
-      console.error('   ❌ PRUEBA 6 FALLÓ', delRes.body);
+      console.error('   [FAIL] PRUEBA 6 FALLÓ', delRes.body);
     }
 
     // 7. Autenticar como ADMINISTRADOR y verificar acceso permitido
@@ -155,13 +155,13 @@ const server = app.listen(0, async () => {
     console.log('   Status:', adminGet.status, '(Esperado: 200)');
     console.log('   Total usuarios encontrados:', adminGet.body.total);
     if (adminGet.status === 200 && adminGet.body.success) {
-      console.log('   ✅ PRUEBA 8 SUPERADA: Acceso concedido al ADMINISTRADOR');
+      console.log('   [PASS] PRUEBA 8 SUPERADA: Acceso concedido al ADMINISTRADOR');
     } else {
-      console.error('   ❌ PRUEBA 8 FALLÓ', adminGet.body);
+      console.error('   [FAIL] PRUEBA 8 FALLÓ', adminGet.body);
     }
 
     console.log('\n=========================================');
-    console.log('🎉 TODAS LAS PRUEBAS RBAC SUPERADAS CON ÉXITO');
+    console.log('[SUCCESS] TODAS LAS PRUEBAS RBAC SUPERADAS CON ÉXITO');
     console.log('=========================================\n');
   } catch (error) {
     console.error('Error durante las pruebas RBAC:', error);

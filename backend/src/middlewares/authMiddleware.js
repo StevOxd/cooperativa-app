@@ -1,10 +1,18 @@
 const jwt = require('jsonwebtoken');
 require('dotenv').config();
 
-const JWT_SECRET = process.env.JWT_SECRET || 'super_secret_jwt_key_cooperativa_2026';
+const JWT_SECRET = process.env.JWT_SECRET;
 
 /**
- * Middleware para verificar la validez del token JWT en las solicitudes protegidas
+ * Middleware para verificar la validez y vigencia del token JWT en solicitudes protegidas.
+ * Extrae el token de la cabecera `Authorization: Bearer <token>`, valida su firma criptográfica
+ * e inyecta la carga decodificada (`id_persona`, `rol`, `email`, `codigo_corporativo`) en `req.user`.
+ *
+ * @function verifyToken
+ * @param {import('express').Request} req - Objeto de solicitud HTTP de Express.
+ * @param {import('express').Response} res - Objeto de respuesta HTTP de Express.
+ * @param {import('express').NextFunction} next - Función para continuar al siguiente middleware.
+ * @returns {void|import('express').Response} Retorna 401 si falta o expiró el token, 403 si es inválido.
  */
 const verifyToken = (req, res, next) => {
   const authHeader = req.headers['authorization'] || req.headers['Authorization'];
@@ -48,8 +56,12 @@ const verifyToken = (req, res, next) => {
 };
 
 /**
- * Middleware para verificar roles de usuario autorizados
- * @param  {...string} allowedRoles - Roles permitidos para acceder a la ruta
+ * Middleware de Control de Acceso Basado en Roles (RBAC).
+ * Verifica que el rol del usuario autenticado coincida con al menos uno de los roles permitidos.
+ *
+ * @function checkRole
+ * @param {...('ADMINISTRADOR'|'OPERADOR'|'ASOCIADO')} allowedRoles - Lista de roles con permiso de acceso.
+ * @returns {function(import('express').Request, import('express').Response, import('express').NextFunction): void} Middleware de Express.
  */
 const checkRole = (...allowedRoles) => {
   return (req, res, next) => {

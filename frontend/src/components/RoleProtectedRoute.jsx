@@ -13,9 +13,9 @@ export const RoleProtectedRoute = ({ allowedRoles = ['ADMINISTRADOR'], children 
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-slate-900 text-white">
-        <Loader2 className="w-10 h-10 text-emerald-500 animate-spin mb-4" />
-        <p className="text-slate-400 font-medium text-sm">Verificando permisos de acceso...</p>
+      <div className="min-h-screen flex flex-col items-center justify-center bg-slate-100 text-slate-700">
+        <Loader2 className="w-10 h-10 text-emerald-700 animate-spin mb-4" />
+        <p className="font-medium text-sm">Verificando permisos de acceso...</p>
       </div>
     );
   }
@@ -31,7 +31,7 @@ export const RoleProtectedRoute = ({ allowedRoles = ['ADMINISTRADOR'], children 
         to="/dashboard"
         state={{
           accessDenied: true,
-          message: 'Acceso denegado: Se requieren permisos de Administrador para ingresar a esta sección.',
+          message: `Acceso denegado: Se requieren permisos de ${allowedRoles.join(', ')} para ingresar a esta sección.`,
         }}
         replace
       />

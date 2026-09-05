@@ -16,6 +16,13 @@ router.use(checkRole('ADMINISTRADOR'));
 router.get('/', userController.getUsers);
 
 /**
+ * @route   GET /api/usuarios/auditoria/eventos-recientes
+ * @desc    Obtener los últimos eventos de auditoría y seguridad
+ * @access  Privado (ADMINISTRADOR)
+ */
+router.get('/auditoria/eventos-recientes', userController.getRecentSecurityEvents);
+
+/**
  * @route   GET /api/usuarios/:id
  * @desc    Obtener detalle de un usuario por ID
  * @access  Privado
@@ -42,5 +49,12 @@ router.put('/:id', userController.updateUser);
  * @access  Privado
  */
 router.delete('/:id', userController.deleteUser);
+
+/**
+ * @route   PATCH /api/usuarios/:id/desbloquear
+ * @desc    Desbloquear usuario bloqueado por intentos fallidos (1 clic)
+ * @access  Privado (ADMINISTRADOR)
+ */
+router.patch('/:id/desbloquear', userController.desbloquearUsuario);
 
 module.exports = router;

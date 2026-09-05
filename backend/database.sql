@@ -8,6 +8,7 @@
 
 -- Limpieza previa en cascada para reejecución limpia en TablePlus / psql
 DROP TABLE IF EXISTS transacciones CASCADE;
+DROP TABLE IF EXISTS solicitudes_traslado_apertura CASCADE;
 DROP TABLE IF EXISTS solicitudes_credito CASCADE;
 DROP TABLE IF EXISTS cuentas CASCADE;
 DROP TABLE IF EXISTS tipos_cuenta CASCADE;
@@ -20,8 +21,12 @@ DROP TABLE IF EXISTS permisos CASCADE;
 DROP TABLE IF EXISTS roles CASCADE;
 
 -- =============================================================================
--- 1. MÓDULO DE SEGURIDAD Y CONTROL DE ACCESO (RBAC DINÁMICO)
+-- 1. MÓDULO DE SEGURIDAD Y CONTROL DE ACCESO (ROLES Y PERMISOS)
 -- =============================================================================
+-- NOTA DE ARQUITECTURA: La autorización operativa del sistema se gestiona de forma
+-- estricta y canónica mediante roles.codigo (ADMINISTRADOR, OPERADOR, ASOCIADO) en
+-- los middlewares del backend. Las tablas permisos y roles_permisos se definen como
+-- catálogo extensible para soporte de permisos granulares a nivel de acción futura.
 
 CREATE TABLE roles (
     id_rol SERIAL PRIMARY KEY,
@@ -56,6 +61,7 @@ CREATE TABLE personas (
     segundo_nombre VARCHAR(50),
     primer_apellido VARCHAR(50) NOT NULL,
     segundo_apellido VARCHAR(50),
+    nombre_completo VARCHAR(255) GENERATED ALWAYS AS (TRIM(primer_nombre || ' ' || COALESCE(segundo_nombre || ' ', '') || primer_apellido || COALESCE(' ' || segundo_apellido, ''))) STORED,
     telefono VARCHAR(20),
     direccion TEXT,
     fecha_nacimiento DATE,
@@ -70,6 +76,10 @@ CREATE TABLE usuarios (
     email VARCHAR(150) UNIQUE NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
     estado VARCHAR(20) NOT NULL DEFAULT 'ACTIVO' CHECK (estado IN ('ACTIVO', 'INACTIVO')),
+    intentos_fallidos INT DEFAULT 0,
+    bloqueado_hasta TIMESTAMP WITH TIME ZONE NULL,
+    sesion_activa_id VARCHAR(255) NULL,
+    ultimo_ping TIMESTAMP WITH TIME ZONE NULL,
     ultimo_acceso TIMESTAMP WITH TIME ZONE,
     fecha_creacion TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
@@ -80,7 +90,7 @@ CREATE TABLE usuarios (
 
 CREATE TABLE historial_estados_usuario (
     id_historial_estado SERIAL PRIMARY KEY,
-    id_usuario_modificado INT NOT NULL REFERENCES usuarios(id_persona) ON DELETE CASCADE,
+    id_usuario_modificado INT NOT NULL REFERENCES usuarios(id_persona) ON DELETE RESTRICT ON UPDATE CASCADE,
     estado_anterior VARCHAR(20),
     estado_nuevo VARCHAR(20) NOT NULL,
     id_rol_anterior INT REFERENCES roles(id_rol),
@@ -106,7 +116,9 @@ CREATE TABLE tipos_cuenta (
     id_tipo_cuenta SERIAL PRIMARY KEY,
     nombre VARCHAR(100) NOT NULL,
     tasa_interes_anual NUMERIC(5, 2) NOT NULL DEFAULT 0.00,
-    monto_minimo_apertura NUMERIC(12, 2) NOT NULL DEFAULT 0.00
+    monto_minimo_apertura NUMERIC(12, 2) NOT NULL DEFAULT 0.00,
+    descripcion TEXT,
+    beneficios TEXT
 );
 
 CREATE TABLE cuentas (
@@ -125,13 +137,49 @@ CREATE TABLE solicitudes_credito (
     id_asociado INT NOT NULL REFERENCES asociados(id_asociado) ON DELETE RESTRICT,
     monto_solicitado NUMERIC(14, 2) NOT NULL CHECK (monto_solicitado > 0),
     plazo_meses INT NOT NULL CHECK (plazo_meses > 0),
-    tasa_interes NUMERIC(5, 2) NOT NULL,
-    cuota_mensual_estimada NUMERIC(14, 2) NOT NULL,
+    tasa_interes NUMERIC(5, 2) NOT NULL CHECK (tasa_interes >= 0),
+    cuota_mensual_estimada NUMERIC(14, 2) NOT NULL CHECK (cuota_mensual_estimada > 0),
     estado VARCHAR(20) NOT NULL DEFAULT 'PENDIENTE' CHECK (estado IN ('PENDIENTE', 'EN_ANALISIS', 'APROBADA', 'RECHAZADA', 'DESEMBOLSADA')),
     id_analista INT REFERENCES usuarios(id_persona),
     observaciones TEXT,
     fecha_solicitud TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE TABLE solicitudes_traslado_apertura (
+    id_solicitud SERIAL PRIMARY KEY,
+    numero_caso VARCHAR(20) UNIQUE NOT NULL,
+    id_asociado INT NOT NULL REFERENCES asociados(id_asociado) ON DELETE RESTRICT,
+    id_cuenta_origen INT NOT NULL REFERENCES cuentas(id_cuenta) ON DELETE RESTRICT,
+    id_cuenta_destino INT REFERENCES cuentas(id_cuenta) ON DELETE RESTRICT,
+    id_tipo_cuenta_destino INT NOT NULL REFERENCES tipos_cuenta(id_tipo_cuenta) ON DELETE RESTRICT,
+    monto NUMERIC(14, 2) NOT NULL CHECK (monto > 0),
+    tipo_operacion VARCHAR(30) NOT NULL CHECK (tipo_operacion IN ('TRASLADO_DIRECTO', 'APERTURA_Y_TRASLADO')),
+    estado VARCHAR(20) DEFAULT 'PENDIENTE' CHECK (estado IN ('PENDIENTE', 'APROBADO', 'RECHAZADO')),
+    id_operador_resuelve INT REFERENCES usuarios(id_persona) ON DELETE RESTRICT,
+    observaciones_operador TEXT,
+    fecha_solicitud TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    fecha_resolucion TIMESTAMP WITH TIME ZONE,
+    CONSTRAINT chk_traslado_cuentas_diferentes CHECK (id_cuenta_destino IS NULL OR id_cuenta_origen <> id_cuenta_destino)
+);
+
+-- Secuencia atómica y trigger para correlativo de casos (Previene condiciones de carrera)
+CREATE SEQUENCE IF NOT EXISTS seq_numero_caso_traslado START WITH 100;
+
+CREATE OR REPLACE FUNCTION trg_generar_numero_caso()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF NEW.numero_caso IS NULL OR NEW.numero_caso = '' THEN
+        NEW.numero_caso := 'CASO-' || TO_CHAR(CURRENT_DATE, 'YYYY') || '-' || LPAD(nextval('seq_numero_caso_traslado')::text, 4, '0');
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_set_numero_caso ON solicitudes_traslado_apertura;
+CREATE TRIGGER trg_set_numero_caso
+    BEFORE INSERT ON solicitudes_traslado_apertura
+    FOR EACH ROW
+    EXECUTE FUNCTION trg_generar_numero_caso();
 
 CREATE TABLE transacciones (
     id_transaccion SERIAL PRIMARY KEY,
@@ -146,19 +194,32 @@ CREATE TABLE transacciones (
 );
 
 -- =============================================================================
--- 5. ÍNDICES PARA RENDIMIENTO Y BÚSQUEDA RÁPIDA
+-- 5. ÍNDICES PARA RENDIMIENTO Y BÚSQUEDA RÁPIDA (OPTIMIZADOS SEGÚN AUDITORÍA)
 -- =============================================================================
+-- NOTA: Los índices para codigo_corporativo, email, cui_dpi, id_persona (asociados)
+-- y numero_cuenta se omiten manualmente aquí porque PostgreSQL crea índices B-Tree
+-- únicos implícitos de forma automática para todas las restricciones PRIMARY KEY y UNIQUE.
 
-CREATE INDEX idx_usuarios_codigo_corporativo ON usuarios(codigo_corporativo);
-CREATE INDEX idx_usuarios_email ON usuarios(email);
+-- 5.1 Índices de cobertura en Claves Foráneas (Prevenir Sequential Scans)
 CREATE INDEX idx_usuarios_rol ON usuarios(id_rol);
-CREATE INDEX idx_personas_cui ON personas(cui_dpi);
-CREATE INDEX idx_asociados_persona ON asociados(id_persona);
-CREATE INDEX idx_cuentas_numero ON cuentas(numero_cuenta);
-CREATE INDEX idx_cuentas_asociado ON cuentas(id_asociado);
-CREATE INDEX idx_transacciones_cuenta ON transacciones(id_cuenta);
-CREATE INDEX idx_transacciones_fecha ON transacciones(fecha_transaccion);
 CREATE INDEX idx_historial_usuario ON historial_estados_usuario(id_usuario_modificado);
+CREATE INDEX idx_historial_modificado_por ON historial_estados_usuario(id_modificado_por);
+CREATE INDEX idx_cuentas_asociado ON cuentas(id_asociado);
+CREATE INDEX idx_cuentas_tipo_cuenta ON cuentas(id_tipo_cuenta);
+CREATE INDEX idx_solicitudes_credito_asociado ON solicitudes_credito(id_asociado);
+CREATE INDEX idx_solicitudes_credito_analista ON solicitudes_credito(id_analista) WHERE id_analista IS NOT NULL;
+CREATE INDEX idx_solicitudes_traslado_asociado ON solicitudes_traslado_apertura(id_asociado);
+CREATE INDEX idx_solicitudes_traslado_origen ON solicitudes_traslado_apertura(id_cuenta_origen);
+CREATE INDEX idx_solicitudes_traslado_destino ON solicitudes_traslado_apertura(id_cuenta_destino) WHERE id_cuenta_destino IS NOT NULL;
+CREATE INDEX idx_solicitudes_traslado_tipo_destino ON solicitudes_traslado_apertura(id_tipo_cuenta_destino);
+CREATE INDEX idx_solicitudes_traslado_operador ON solicitudes_traslado_apertura(id_operador_resuelve) WHERE id_operador_resuelve IS NOT NULL;
+CREATE INDEX idx_transacciones_usuario_registra ON transacciones(id_usuario_registra) WHERE id_usuario_registra IS NOT NULL;
+
+-- 5.2 Índices compuestos y parciales de alto rendimiento
+CREATE INDEX idx_transacciones_cuenta_fecha ON transacciones(id_cuenta, fecha_transaccion DESC);
+CREATE INDEX idx_solicitudes_traslado_pendientes ON solicitudes_traslado_apertura(fecha_solicitud ASC) WHERE estado = 'PENDIENTE';
+CREATE INDEX idx_solicitudes_traslado_asociado_fecha ON solicitudes_traslado_apertura(id_asociado, fecha_solicitud DESC);
+CREATE INDEX idx_solicitudes_credito_asociado_fecha ON solicitudes_credito(id_asociado, fecha_solicitud DESC);
 
 -- =============================================================================
 -- 6. DATOS SEMILLA (SEED DATA)
@@ -253,12 +314,14 @@ INSERT INTO usuarios (id_persona, id_rol, codigo_corporativo, email, password_ha
 (16, 3, '3000', 'inactivo@cooperativa.com', '$2a$10$vNPUEupr.jaRBJ/2vUE4CurM.mZqeEc1PTGrA8Pds020v2tm0T1Ey', 'INACTIVO');
 
 -- 6.6 Insertar Tipos de Cuenta
-INSERT INTO tipos_cuenta (id_tipo_cuenta, nombre, tasa_interes_anual, monto_minimo_apertura) VALUES
-(1, 'Aportaciones Ordinarias', 6.50, 100.00),
-(2, 'Ahorro a la Vista (Corriente)', 3.00, 50.00),
-(3, 'Ahorro a Plazo Fijo (12 Meses)', 8.25, 1000.00);
+INSERT INTO tipos_cuenta (id_tipo_cuenta, nombre, tasa_interes_anual, monto_minimo_apertura, descripcion, beneficios) VALUES
+(1, 'Aportaciones Ordinarias', 6.50, 100.00, 'Cuenta de aportación obligatoria para membresía y derechos cooperativistas.', 'Derecho a voz y voto, dividendos anuales, acceso a cartera de créditos preferencial.'),
+(2, 'Ahorro a la Vista (Corriente)', 3.00, 50.00, 'Cuenta de ahorro libre con disponibilidad inmediata de sus fondos.', 'Retiros ilimitados, sin costo por manejo de cuenta, acceso a banca web.'),
+(3, 'Ahorro a Plazo Fijo (12 Meses)', 8.25, 1000.00, 'Inversión a plazo determinado de 12 meses con rendimiento de alta tasa fija.', 'Tasa preferencial de hasta 8.25%, capitalización al vencimiento, opción de renovación automática.'),
+(4, 'Cuenta de Planilla', 1.50, 0.00, 'Cuenta especial receptora del salario patronal mensual con beneficios de traslado.', 'Apertura sin monto mínimo, exenta de cobros operativos, traslado inmediato a subcuentas.'),
+(5, 'Ahorro Programado (Metas)', 5.50, 25.00, 'Ahorro programado con aportes mensuales automáticos para cumplir sus metas financieras.', 'Tasa de interés del 5.50%, débito automático configurable, flexibilidad de plazos.');
 
-SELECT setval('tipos_cuenta_id_tipo_cuenta_seq', 3, true);
+SELECT setval('tipos_cuenta_id_tipo_cuenta_seq', 5, true);
 
 -- 6.7 Insertar Asociados (Membresías)
 INSERT INTO asociados (id_asociado, id_persona, fecha_ingreso, estado_asociado) VALUES
@@ -275,8 +338,13 @@ SELECT setval('asociados_id_asociado_seq', 6, true);
 INSERT INTO cuentas (numero_cuenta, id_asociado, id_tipo_cuenta, saldo_disponible, saldo_reserva, estado) VALUES
 ('CTA-APORT-001', 1, 1, 3500.00, 500.00, 'ACTIVA'),
 ('CTA-AHORR-001', 1, 2, 12500.00, 0.00, 'ACTIVA'),
+('CTA-PLAN-001', 1, 4, 15000.00, 0.00, 'ACTIVA'),
 ('CTA-APORT-002', 2, 1, 2800.00, 500.00, 'ACTIVA'),
 ('CTA-PLAZO-002', 2, 3, 50000.00, 0.00, 'ACTIVA'),
+('CTA-PLAN-002', 2, 4, 12000.00, 0.00, 'ACTIVA'),
 ('CTA-APORT-003', 3, 1, 4100.00, 500.00, 'ACTIVA'),
+('CTA-PLAN-003', 3, 4, 8500.00, 0.00, 'ACTIVA'),
 ('CTA-APORT-004', 4, 1, 1500.00, 500.00, 'ACTIVA'),
-('CTA-APORT-005', 5, 1, 6200.00, 500.00, 'ACTIVA');
+('CTA-PLAN-004', 4, 4, 11000.00, 0.00, 'ACTIVA'),
+('CTA-APORT-005', 5, 1, 6200.00, 500.00, 'ACTIVA'),
+('CTA-PLAN-005', 5, 4, 9500.00, 0.00, 'ACTIVA');

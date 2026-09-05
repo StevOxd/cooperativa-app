@@ -5,8 +5,8 @@ const { app } = require('./src/server');
 const server = app.listen(0, async () => {
   const testPort = server.address().port;
   console.log('\n=========================================');
-  console.log('🧪 INICIANDO PRUEBAS DE AUTENTICACIÓN (3FN)');
-  console.log(`📡 Puerto de prueba: ${testPort}`);
+  console.log('[SUITE] INICIANDO PRUEBAS DE AUTENTICACIÓN (3FN)');
+  console.log(`[INFO] Puerto de prueba: ${testPort}`);
   console.log('=========================================\n');
 
   const request = (path, method, data, token) => {
@@ -64,10 +64,10 @@ const server = app.listen(0, async () => {
     console.log('   Cód. Corporativo:', res1.body.user?.codigo_corporativo);
     console.log('   Rol en respuesta:', res1.body.user?.rol);
     if (res1.status === 200 && res1.body.token && res1.body.user?.rol === 'ADMINISTRADOR') {
-      console.log('   ✅ PRUEBA 1 SUPERADA');
+      console.log('   [PASS] PRUEBA 1 SUPERADA');
       adminToken = res1.body.token;
     } else {
-      console.error('   ❌ PRUEBA 1 FALLÓ', res1.body);
+      console.error('   [FAIL] PRUEBA 1 FALLÓ', res1.body);
     }
 
     // Prueba 1b: Login exitoso usando Código Corporativo (1001)
@@ -79,9 +79,9 @@ const server = app.listen(0, async () => {
     console.log('   Status:', res1b.status);
     console.log('   Usuario autenticado:', res1b.body.user?.nombre);
     if (res1b.status === 200 && res1b.body.token && res1b.body.user?.codigo_corporativo === '1001') {
-      console.log('   ✅ PRUEBA 1b SUPERADA: Login flexible con Código Corporativo funciona');
+      console.log('   [PASS] PRUEBA 1b SUPERADA: Login flexible con Código Corporativo funciona');
     } else {
-      console.error('   ❌ PRUEBA 1b FALLÓ', res1b.body);
+      console.error('   [FAIL] PRUEBA 1b FALLÓ', res1b.body);
     }
 
 
@@ -94,9 +94,9 @@ const server = app.listen(0, async () => {
     console.log('   Status:', res2.status, '(Esperado: 401)');
     console.log('   Mensaje:', res2.body.message);
     if (res2.status === 401) {
-      console.log('   ✅ PRUEBA 2 SUPERADA');
+      console.log('   [PASS] PRUEBA 2 SUPERADA');
     } else {
-      console.error('   ❌ PRUEBA 2 FALLÓ', res2.body);
+      console.error('   [FAIL] PRUEBA 2 FALLÓ', res2.body);
     }
 
     // Prueba 3: Login con usuario inactivo
@@ -108,9 +108,9 @@ const server = app.listen(0, async () => {
     console.log('   Status:', res3.status, '(Esperado: 403)');
     console.log('   Mensaje:', res3.body.message);
     if (res3.status === 403) {
-      console.log('   ✅ PRUEBA 3 SUPERADA');
+      console.log('   [PASS] PRUEBA 3 SUPERADA');
     } else {
-      console.error('   ❌ PRUEBA 3 FALLÓ', res3.body);
+      console.error('   [FAIL] PRUEBA 3 FALLÓ', res3.body);
     }
 
     // Prueba 4: verifyToken con token válido (GET /api/auth/me)
@@ -119,9 +119,9 @@ const server = app.listen(0, async () => {
     console.log('   Status:', res4.status, '(Esperado: 200)');
     console.log('   Usuario autenticado:', res4.body.user?.nombre);
     if (res4.status === 200 && res4.body.user?.email === 'admin@cooperativa.com') {
-      console.log('   ✅ PRUEBA 4 SUPERADA');
+      console.log('   [PASS] PRUEBA 4 SUPERADA');
     } else {
-      console.error('   ❌ PRUEBA 4 FALLÓ', res4.body);
+      console.error('   [FAIL] PRUEBA 4 FALLÓ', res4.body);
     }
 
     // Prueba 5: verifyToken sin token (GET /api/auth/me)
@@ -130,9 +130,9 @@ const server = app.listen(0, async () => {
     console.log('   Status:', res5.status, '(Esperado: 401)');
     console.log('   Mensaje:', res5.body.message);
     if (res5.status === 401) {
-      console.log('   ✅ PRUEBA 5 SUPERADA');
+      console.log('   [PASS] PRUEBA 5 SUPERADA');
     } else {
-      console.error('   ❌ PRUEBA 5 FALLÓ', res5.body);
+      console.error('   [FAIL] PRUEBA 5 FALLÓ', res5.body);
     }
 
     // Prueba 6: verifyToken con token inválido/falso
@@ -141,13 +141,13 @@ const server = app.listen(0, async () => {
     console.log('   Status:', res6.status, '(Esperado: 403)');
     console.log('   Mensaje:', res6.body.message);
     if (res6.status === 403) {
-      console.log('   ✅ PRUEBA 6 SUPERADA');
+      console.log('   [PASS] PRUEBA 6 SUPERADA');
     } else {
-      console.error('   ❌ PRUEBA 6 FALLÓ', res6.body);
+      console.error('   [FAIL] PRUEBA 6 FALLÓ', res6.body);
     }
 
     console.log('\n=========================================');
-    console.log('🎉 TODAS LAS PRUEBAS COMPLETADAS CON ÉXITO');
+    console.log('[SUCCESS] TODAS LAS PRUEBAS COMPLETADAS CON ÉXITO');
     console.log('=========================================\n');
   } catch (error) {
     console.error('Error durante las pruebas:', error);

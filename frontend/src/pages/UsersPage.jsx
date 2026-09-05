@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { getSocket } from '../services/socket';
 import {
   Users,
   UserPlus,
@@ -12,6 +13,8 @@ import {
   XCircle,
   Loader2,
   AlertCircle,
+  AlertTriangle,
+  Unlock,
   X,
   Lock,
   Mail,
@@ -56,9 +59,9 @@ export const UsersPage = () => {
     estado: 'ACTIVO',
   });
 
-  const fetchUsers = async () => {
+  const fetchUsers = async (showLoading = true) => {
     try {
-      setLoading(true);
+      if (showLoading) setLoading(true);
       const params = {};
       if (filterEstado) params.estado = filterEstado;
       if (searchTerm) params.search = searchTerm;
@@ -71,13 +74,55 @@ export const UsersPage = () => {
       console.error('Error al cargar usuarios:', error);
       setErrorMessage(error.response?.data?.message || 'No se pudieron cargar los usuarios del servidor.');
     } finally {
-      setLoading(false);
+      if (showLoading) setLoading(false);
     }
   };
 
   useEffect(() => {
     fetchUsers();
   }, [filterEstado]);
+
+  // Escuchar eventos de presencia en tiempo real vía Socket.io
+  useEffect(() => {
+    const socket = getSocket();
+    if (socket) {
+      const handlePresence = (data) => {
+        if (data && data.id_persona !== undefined) {
+          setUsers((prevUsers) =>
+            prevUsers.map((u) => {
+              const uId = Number(u.id_persona || u.id);
+              if (uId === Number(data.id_persona)) {
+                return { ...u, en_linea: Boolean(data.en_linea) };
+              }
+              return u;
+            })
+          );
+        } else {
+          fetchUsers(false);
+        }
+      };
+      socket.on('presence_update', handlePresence);
+      return () => {
+        socket.off('presence_update', handlePresence);
+      };
+    }
+  }, []);
+
+  // Desbloqueo administrativo en 1 clic
+  const handleDesbloquear = async (userId) => {
+    try {
+      setErrorMessage('');
+      setSuccessMessage('');
+      const response = await api.patch(`/usuarios/${userId}/desbloquear`);
+      if (response.data?.success) {
+        setSuccessMessage(response.data.message || 'Usuario desbloqueado exitosamente.');
+        fetchUsers(false);
+      }
+    } catch (error) {
+      console.error('Error al desbloquear usuario:', error);
+      setErrorMessage(error.response?.data?.message || 'Error al desbloquear al usuario.');
+    }
+  };
 
   const handleSearchSubmit = (e) => {
     e.preventDefault();
@@ -297,6 +342,7 @@ export const UsersPage = () => {
                   <th className="px-6 py-3 font-semibold">Teléfono</th>
                   <th className="px-6 py-3 font-semibold">Rol</th>
                   <th className="px-6 py-3 font-semibold">Estado</th>
+                  <th className="px-6 py-3 font-semibold">Presencia</th>
                   <th className="px-6 py-3 font-semibold">Fecha Registro</th>
                   {user?.rol === 'ADMINISTRADOR' && (
                     <th className="px-6 py-3 font-semibold text-right">Acciones</th>
@@ -334,6 +380,7 @@ export const UsersPage = () => {
                         {u.rol}
                       </span>
                     </td>
+                    {/* Columna Estado (Intacta con borrado lógico ACTIVO / INACTIVO) */}
                     <td className="px-6 py-4">
                       <span
                         className={`inline-flex items-center space-x-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold ${
@@ -349,6 +396,38 @@ export const UsersPage = () => {
                         />
                         <span>{u.estado}</span>
                       </span>
+                    </td>
+                    {/* Columna Presencia y Control de Bloqueo por Fuerza Bruta */}
+                    <td className="px-6 py-4">
+                      {u.bloqueado_por_intentos ? (
+                        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-1.5">
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-300 shadow-2xs">
+                            <AlertTriangle className="w-3 h-3 mr-1 text-amber-600" />
+                            Bloqueado por Intentos
+                          </span>
+                          {user?.rol === 'ADMINISTRADOR' && (
+                            <button
+                              type="button"
+                              onClick={() => handleDesbloquear(u.id_persona || u.id)}
+                              title="Desbloquear cuenta de usuario con un solo clic"
+                              className="inline-flex items-center px-2 py-0.5 text-xs font-semibold text-amber-900 bg-amber-200/80 hover:bg-amber-300 border border-amber-400/60 rounded-md transition-colors cursor-pointer"
+                            >
+                              <Unlock className="w-3 h-3 mr-1" />
+                              Desbloquear
+                            </button>
+                          )}
+                        </div>
+                      ) : u.en_linea ? (
+                        <span className="inline-flex items-center space-x-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                          <span>En línea</span>
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center space-x-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-500 border border-slate-200">
+                          <span className="w-2 h-2 rounded-full bg-slate-400" />
+                          <span>Desconectado</span>
+                        </span>
+                      )}
                     </td>
                     <td className="px-6 py-4 text-slate-500 text-xs">
                       {new Date(u.fecha_creacion).toLocaleDateString('es-GT', {

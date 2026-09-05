@@ -1,5 +1,6 @@
 const bcrypt = require('bcryptjs');
 const db = require('../config/db');
+const socketService = require('../services/socketService');
 
 const ROLES_PERMITIDOS = ['ADMINISTRADOR', 'OPERADOR', 'ASOCIADO'];
 const ESTADOS_PERMITIDOS = ['ACTIVO', 'INACTIVO'];
@@ -60,6 +61,10 @@ const getUsers = async (req, res) => {
         r.codigo AS rol, 
         r.nombre AS rol_nombre,
         u.estado, 
+        u.intentos_fallidos,
+        u.bloqueado_hasta,
+        u.sesion_activa_id,
+        u.ultimo_ping,
         u.ultimo_acceso,
         u.fecha_creacion
       FROM usuarios u
@@ -71,10 +76,30 @@ const getUsers = async (req, res) => {
 
     const result = await db.query(queryText, values);
 
+    // Calcular estado de presencia y bloqueo por intentos en tiempo real
+    const now = new Date();
+    const dosMinutosEnMs = 2 * 60 * 1000;
+
+    const mappedUsers = result.rows.map((u) => {
+      const tieneSesion = Boolean(u.sesion_activa_id);
+      const socketActivo = socketService.isUserConnected(u.id_persona);
+      const pingReciente = Boolean(u.ultimo_ping && (now - new Date(u.ultimo_ping)) < dosMinutosEnMs);
+      const en_linea = Boolean(tieneSesion && (socketActivo || pingReciente));
+
+      const bloqueadoPorTiempo = u.bloqueado_hasta && new Date(u.bloqueado_hasta) > now;
+      const bloqueadoPorIntentos = Boolean(bloqueadoPorTiempo || (u.intentos_fallidos >= 3));
+
+      return {
+        ...u,
+        en_linea,
+        bloqueado_por_intentos: bloqueadoPorIntentos,
+      };
+    });
+
     return res.status(200).json({
       success: true,
-      total: result.rows.length,
-      data: result.rows,
+      total: mappedUsers.length,
+      data: mappedUsers,
     });
   } catch (error) {
     console.error('Error en userController.getUsers:', error);
@@ -635,8 +660,16 @@ const updateUser = async (req, res) => {
 };
 
 /**
- * Borrado lógico auditado de un usuario por id_persona
- * DELETE /api/usuarios/:id
+ * Realiza el borrado lógico auditado de un usuario del sistema.
+ * Actualiza el estado del registro a 'INACTIVO' e inserta una traza inmutable
+ * en la tabla `historial_estados_usuario`. No elimina datos físicos.
+ *
+ * @async
+ * @function deleteUser
+ * @param {import('express').Request} req - Objeto de solicitud HTTP de Express.
+ * @param {string} req.params.id - Identificador (id_persona o codigo_corporativo) del usuario.
+ * @param {import('express').Response} res - Objeto de respuesta HTTP de Express.
+ * @returns {Promise<import('express').Response>} Retorna 200 con el usuario desactivado, 404 si no existe, o 500 en error interno.
  */
 const deleteUser = async (req, res) => {
   const client = await db.pool.connect();
@@ -663,6 +696,9 @@ const deleteUser = async (req, res) => {
 
     // 1. Actualizar estado a 'INACTIVO'
     await client.query('UPDATE usuarios SET estado = $1 WHERE id_persona = $2', ['INACTIVO', targetUserPersonaId]);
+
+    // 1b. Sincronizar ciclo de vida financiero en asociados (prevenir membresías activas para usuarios dados de baja)
+    await client.query("UPDATE asociados SET estado_asociado = 'INACTIVO' WHERE id_persona = $1", [targetUserPersonaId]);
 
     // 2. Registrar en historial_estados_usuario con id_modificado_por
     await client.query(
@@ -711,6 +747,120 @@ const deleteUser = async (req, res) => {
   }
 };
 
+/**
+ * Desbloqueo administrativo de cuenta tras intentos fallidos (1 clic)
+ * PATCH /api/usuarios/:id/desbloquear
+ * Solo accesible por rol ADMINISTRADOR
+ */
+const desbloquearUsuario = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const adminId = req.user.id_persona || req.user.id;
+
+    // Verificar que el usuario exista
+    const userCheck = await db.query(
+      'SELECT id_persona, estado, id_rol, codigo_corporativo FROM usuarios WHERE id_persona = $1',
+      [id]
+    );
+
+    if (userCheck.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Usuario no encontrado.',
+      });
+    }
+
+    const targetUser = userCheck.rows[0];
+
+    // Desbloquear al usuario: intentos_fallidos = 0 y bloqueado_hasta = NULL
+    await db.query(
+      `UPDATE usuarios 
+       SET intentos_fallidos = 0, bloqueado_hasta = NULL 
+       WHERE id_persona = $1`,
+      [id]
+    );
+
+    // Registrar en historial_estados_usuario para auditoría
+    await db.query(
+      `INSERT INTO historial_estados_usuario 
+       (id_usuario_modificado, estado_anterior, estado_nuevo, id_rol_anterior, id_rol_nuevo, id_modificado_por, motivo)
+       VALUES ($1, 'BLOQUEADO_TEMPORAL', $2, $3, $3, $4, 'Desbloqueo administrativo inmediato de cuenta por Administrador')`,
+      [targetUser.id_persona, targetUser.estado, targetUser.id_rol, adminId]
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: `Usuario ${targetUser.codigo_corporativo} desbloqueado exitosamente.`,
+    });
+  } catch (error) {
+    console.error('Error en userController.desbloquearUsuario:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Error al desbloquear el usuario.',
+    });
+  }
+};
+
+/**
+ * Obtiene los últimos eventos de seguridad y cambios de estado registrados en auditoría.
+ *
+ * @async
+ * @function getRecentSecurityEvents
+ * @param {import('express').Request} req - Solicitud HTTP de Express con query opcional `limit`.
+ * @param {import('express').Response} res - Respuesta HTTP con el arreglo de eventos.
+ * @returns {Promise<import('express').Response>} Retorna 200 con el listado de eventos o 500 si falla.
+ */
+const getRecentSecurityEvents = async (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit, 10) || 5;
+    const queryText = `
+      SELECT 
+        h.id_historial_estado,
+        h.estado_anterior,
+        h.estado_nuevo,
+        h.motivo,
+        h.fecha_cambio,
+        u_mod.id_persona AS id_usuario_modificado,
+        u_mod.codigo_corporativo AS usuario_codigo,
+        u_mod.email AS usuario_email,
+        TRIM(CONCAT(p_mod.primer_nombre, ' ', p_mod.primer_apellido)) AS usuario_nombre,
+        u_actor.codigo_corporativo AS actor_codigo,
+        COALESCE(TRIM(CONCAT(p_actor.primer_nombre, ' ', p_actor.primer_apellido)), 'Sistema / Automático') AS actor_nombre
+      FROM historial_estados_usuario h
+      JOIN usuarios u_mod ON h.id_usuario_modificado = u_mod.id_persona
+      JOIN personas p_mod ON u_mod.id_persona = p_mod.id_persona
+      LEFT JOIN usuarios u_actor ON h.id_modificado_por = u_actor.id_persona
+      LEFT JOIN personas p_actor ON u_actor.id_persona = p_actor.id_persona
+      ORDER BY h.id_historial_estado DESC
+      LIMIT $1
+    `;
+
+    const result = await db.query(queryText, [limit]);
+
+    return res.status(200).json({
+      success: true,
+      total: result.rows.length,
+      data: result.rows,
+    });
+  } catch (error) {
+    console.error('Error en userController.getRecentSecurityEvents:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Error al obtener los eventos recientes de auditoría.',
+    });
+  }
+};
+
+/**
+ * Concatena y sanitiza de manera uniforme los componentes del nombre de una persona.
+ *
+ * @function TRIM_NAME
+ * @param {string|null} pNom - Primer nombre.
+ * @param {string|null} sNom - Segundo nombre.
+ * @param {string|null} pApe - Primer apellido.
+ * @param {string|null} sApe - Segundo apellido.
+ * @returns {string} Nombre completo consolidado sin espacios sobrantes.
+ */
 const TRIM_NAME = (pNom, sNom, pApe, sApe) => {
   return [pNom, sNom, pApe, sApe].filter(Boolean).join(' ').trim();
 };
@@ -721,4 +871,6 @@ module.exports = {
   createUser,
   updateUser,
   deleteUser,
+  desbloquearUsuario,
+  getRecentSecurityEvents,
 };

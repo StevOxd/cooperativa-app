@@ -1,5 +1,37 @@
+# Dependencias y compilación
 node_modules/
 dist/
 build/
-.env
 .DS_Store
+
+# Variables de entorno y secretos locales
+.env
+.env.local
+.env.*.local
+backend/.env
+frontend/.env
+
+# Reportes de auditoría
+auditoria/
+reportes/
+reports/
+
+# Archivos de Docker e infraestructura de contenedores
+docker-compose.yml
+docker-compose*.yml
+docker.env*
+Dockerfile
+Dockerfile.*
+backend/Dockerfile
+frontend/Dockerfile
+.dockerignore
+backend/.dockerignore
+frontend/.dockerignore
+*.template
+backend/*.template
+frontend/*.template
+nginx.conf
+frontend/nginx.conf
+
+# Herramientas locales de agente / IDE
+.agent/skills/
