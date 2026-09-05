@@ -1,0 +1,107 @@
+# ==============================================================================
+# Docker Compose - Orquestación Integral del Ecosistema Cooperativa
+# Servicios: Base de Datos PostgreSQL 16, Backend Node.js y Frontend React/Nginx
+# Red: cooperativa-net | Volumen: cooperativa_db_data
+# ==============================================================================
+
+services:
+  # ----------------------------------------------------------------------------
+  # 1. Base de Datos Relacional PostgreSQL 16
+  # ----------------------------------------------------------------------------
+  db:
+    image: postgres:16-alpine
+    container_name: cooperativa-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME:-cooperativa_db}
+      POSTGRES_USER: ${DB_USER:-cooperativa_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-cooperativa_secure_password_2026}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - cooperativa_db_data:/var/lib/postgresql/data
+      - ./backend/database.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-cooperativa_user} -d ${DB_NAME:-cooperativa_db}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - cooperativa-net
+
+  # ----------------------------------------------------------------------------
+  # 2. Servidor Backend API Express & WebSockets
+  # ----------------------------------------------------------------------------
+  backend:
+    container_name: cooperativa-backend
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 5000
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_USER: ${DB_USER:-cooperativa_user}
+      DB_PASSWORD: ${DB_PASSWORD:-cooperativa_secure_password_2026}
+      DB_NAME: ${DB_NAME:-cooperativa_db}
+      JWT_SECRET: ${JWT_SECRET:-super_secret_jwt_key_cooperativa_2026}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-8h}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
+    ports:
+      - "${BACKEND_PORT:-5000}:5000"
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:5000/api/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    networks:
+      - cooperativa-net
+
+  # ----------------------------------------------------------------------------
+  # 3. Aplicación Frontend React Vite servida por Nginx Alpine
+  # ----------------------------------------------------------------------------
+  frontend:
+    container_name: cooperativa-frontend
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: /api
+        VITE_SOCKET_URL: /
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "${FRONTEND_PORT:-3000}:80"
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:80/ || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    networks:
+      - cooperativa-net
+
+# ------------------------------------------------------------------------------
+# Redes Internas de Comunicación Docker
+# ------------------------------------------------------------------------------
+networks:
+  cooperativa-net:
+    name: cooperativa-net
+    driver: bridge
+
+# ------------------------------------------------------------------------------
+# Volúmenes Persistentes de Datos
+# ------------------------------------------------------------------------------
+volumes:
+  cooperativa_db_data:
+    name: cooperativa_db_data

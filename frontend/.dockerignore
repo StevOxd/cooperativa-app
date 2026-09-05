@@ -1,0 +1,25 @@
+# Dependencias locales y compilados previos
+node_modules/
+dist/
+
+# Variables de entorno y secretos locales
+.env
+.env.*
+!.env.example
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# Control de versiones y herramientas de desarrollo
+.git/
+.gitignore
+.agent/
+.vscode/
+.idea/
+.DS_Store
+
+# Documentación y auditoría
+*.md
+auditoria/

@@ -567,6 +567,65 @@ En seguimiento a los hallazgos técnicos del [`auditoria/REPORTE_AUDITORIA_BASE_
 
 ---
 
+## 12. Despliegue con Docker y Orquestación con Docker Compose
+
+El sistema cuenta con una arquitectura de contenedores completa para despliegue en entornos de desarrollo y producción utilizando Docker y Docker Compose:
+
+### 12.1 Arquitectura de Contenedores
+
+```
++-------------------------------------------------------------------------------+
+|                       DOCKER COMPOSE (cooperativa-net)                        |
+|                                                                               |
+|  [frontend]                     [backend]                     [db]            |
+|  Nginx 1.27 Alpine              Node.js 20 Alpine             PostgreSQL 16   |
+|  Puerto Host: 3000              Puerto Host: 5000             Puerto Host:    |
+|  (SPA React Vite)               (API REST + WebSockets)       5432            |
+|        │                              │                        (Volumen:      |
+|        └──────── Proxy HTTP /ws ──────┴────── Pool TCP ────────┘cooperativa_  |
+|                                                                 db_data)      |
++-------------------------------------------------------------------------------+
+```
+
+### 12.2 Manifiestos y Configuración
+
+| Archivo | Propósito | Características Clave |
+| :--- | :--- | :--- |
+| `docker-compose.yml` | Orquestación multi-servicio | Define `db`, `backend` y `frontend` en la red bridge `cooperativa-net` con healthchecks y volumen persistente. |
+| `backend/Dockerfile` | Imagen de producción API | Base `node:20-alpine`, instalación de dependencias de producción, usuario no root `node`, `dumb-init` como PID 1 y healthcheck en `/api/health`. |
+| `frontend/Dockerfile` | Imagen multi-stage SPA | **Etapa 1:** Compilación con Vite en `node:20-alpine`.<br>**Etapa 2:** Servidor de producción en `nginx:1.27-alpine` con configuración optimizada. |
+| `frontend/nginx.conf` | Servidor web Nginx | Proxy inverso para `/api/` y WebSockets `/socket.io/`, compresión Gzip, cabeceras de seguridad bancaria y fallback para SPA. |
+| `docker.env.example` | Plantilla de variables | Parámetros de entorno configurables para base de datos, puertos y tokens JWT. |
+
+### 12.3 Comandos de Despliegue
+
+1. **Configuración de Variables:**
+   ```bash
+   cp docker.env.example .env
+   ```
+
+2. **Compilar y Levantar Contenedores:**
+   ```bash
+   docker compose up --build -d
+   ```
+
+3. **Verificar Estado de Salud:**
+   ```bash
+   docker compose ps
+   ```
+
+4. **Monitorear Logs en Tiempo Real:**
+   ```bash
+   docker compose logs -f
+   ```
+
+5. **Detener Contenedores:**
+   ```bash
+   docker compose down
+   ```
+
+---
+
 > **Proyecto:** Cooperativa - Sistema de Gestión Integral  
 > **Ciclo:** Ciclo 10 - Proyecto de Graduación 2 (UMG)  
 > **Año:** 2026

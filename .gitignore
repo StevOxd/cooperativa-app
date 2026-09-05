@@ -10,28 +10,14 @@ build/
 .env.*.local
 backend/.env
 frontend/.env
+docker.env
+!docker.env.example
+!.env.example
 
 # Reportes de auditoría
 auditoria/
 reportes/
 reports/
-
-# Archivos de Docker e infraestructura de contenedores
-docker-compose.yml
-docker-compose*.yml
-docker.env*
-Dockerfile
-Dockerfile.*
-backend/Dockerfile
-frontend/Dockerfile
-.dockerignore
-backend/.dockerignore
-frontend/.dockerignore
-*.template
-backend/*.template
-frontend/*.template
-nginx.conf
-frontend/nginx.conf
 
 # Herramientas locales de agente / IDE
 .agent/skills/
