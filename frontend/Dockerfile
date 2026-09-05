@@ -59,9 +59,9 @@ RUN chown -R nginx:nginx /usr/share/nginx/html && \
 # Exponer el puerto estándar HTTP
 EXPOSE 80
 
-# Verificación de salud interna del contenedor Nginx
+# Verificación de salud interna del contenedor Nginx con BusyBox wget estándar
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD wget --no-verbose --tries=1 --spider http://localhost:80/ || exit 1
+  CMD wget -q -O /dev/null http://127.0.0.1:80/ || exit 1
 
 # Detención limpia mediante la señal SIGQUIT
 STOPSIGNAL SIGQUIT

@@ -34,9 +34,9 @@ USER node
 # Exponer el puerto del servidor API
 EXPOSE 5000
 
-# Healthcheck interno del contenedor verificando el endpoint de salud
+# Healthcheck interno del contenedor verificando el endpoint de salud con Node.js nativo
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-  CMD wget --no-verbose --tries=1 --spider http://localhost:5000/api/health || exit 1
+  CMD node -e "require('http').get('http://127.0.0.1:5000/api/health', (r) => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"
 
 # dumb-init asume PID 1 y gestiona el reenvío de señales para un apagado ordenado
 ENTRYPOINT ["dumb-init", "--"]
