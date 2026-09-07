@@ -52,6 +52,9 @@ COPY nginx.conf /etc/nginx/conf.d/default.conf
 # Copiar los artefactos generados en la etapa de compilación
 COPY --from=builder /app/dist /usr/share/nginx/html
 
+# Página de error para fallos de upstream (5xx) referenciada en nginx.conf
+COPY 50x.html /usr/share/nginx/html/50x.html
+
 # Ajustar permisos de lectura para el usuario de ejecución nginx
 RUN chown -R nginx:nginx /usr/share/nginx/html && \
     chmod -R 755 /usr/share/nginx/html

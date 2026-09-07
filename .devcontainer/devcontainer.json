@@ -1,0 +1,23 @@
+{
+  "name": "Cooperativa App",
+
+  // Se fija la MISMA imagen que Codespaces ya usaba por defecto en este
+  // repositorio, de modo que el entorno de desarrollo no cambia en absoluto.
+  "image": "mcr.microsoft.com/vscode/devcontainers/universal:latest",
+
+  "remoteUser": "codespace",
+
+  // Corrige el conflicto entre las tablas iptables-nft e iptables-legacy del
+  // host, que descarta el trafico entre contenedores de las redes bridge
+  // definidas por el usuario. Se ejecuta en cada arranque del Codespace porque
+  // las reglas viven en el kernel del host y no persisten entre reinicios.
+  "postStartCommand": "bash scripts/fix-docker-network.sh",
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-azuretools.vscode-docker"
+      ]
+    }
+  }
+}
