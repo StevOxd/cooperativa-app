@@ -12,5 +12,5 @@ Este directorio contiene las especificaciones y alcances de los cinco subagentes
 
 ---
 
-## 🚀 Uso e Invocación
+## Uso e Invocación
 Los subagentes están registrados en el entorno de desarrollo y pueden ser invocados mediante la herramienta `invoke_subagent` indicando su nombre (`code-reviewer`, `database-admin`, `cybersecurity-auditor`, `software-architect` o `ux-ui-designer`).
