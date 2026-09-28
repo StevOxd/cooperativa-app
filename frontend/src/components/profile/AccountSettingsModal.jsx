@@ -459,7 +459,7 @@ export const AccountSettingsModal = ({ isOpen, onClose, initialTab = '2fa' }) =>
                     <h3 className="text-sm font-bold text-slate-900">
                       Factor de Doble Autenticación (2FA)
                     </h3>
-                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold ${
                       mfaEnabled
                         ? 'bg-brand-100 text-brand-800 border border-brand-200'
                         : 'bg-warning-100 text-warning-800 border border-warning-200'
@@ -614,7 +614,7 @@ export const AccountSettingsModal = ({ isOpen, onClose, initialTab = '2fa' }) =>
                         <Loader2 className="w-8 h-8 animate-spin text-brand-600" />
                       </div>
                     )}
-                    <span className="text-[10px] text-slate-500 font-semibold mt-2 text-center">
+                    <span className="text-xs text-slate-500 font-semibold mt-2 text-center">
                       Escanee con Google o Microsoft Authenticator
                     </span>
                   </div>
@@ -622,7 +622,7 @@ export const AccountSettingsModal = ({ isOpen, onClose, initialTab = '2fa' }) =>
                   {/* Instrucciones y Clave Manual */}
                   <div className="md:col-span-7 space-y-4">
                     <div>
-                      <span className="text-[11px] font-bold text-brand-800 uppercase tracking-wider block">
+                      <span className="text-xs font-bold text-brand-800 uppercase tracking-wider block">
                         Paso 1: Escanear Código
                       </span>
                       <p className="text-xs text-slate-600 mt-0.5">
@@ -631,7 +631,7 @@ export const AccountSettingsModal = ({ isOpen, onClose, initialTab = '2fa' }) =>
                     </div>
 
                     <div className="p-3 bg-white rounded-xl border border-slate-200 space-y-1.5">
-                      <span className="text-[10px] font-bold text-slate-400 uppercase block">
+                      <span className="text-xs font-bold text-slate-400 uppercase block">
                         Paso 2: O copie la clave secreta manualmente
                       </span>
                       <div className="flex items-center justify-between gap-2">
@@ -641,7 +641,7 @@ export const AccountSettingsModal = ({ isOpen, onClose, initialTab = '2fa' }) =>
                         <button
                           type="button"
                           onClick={handleCopySecret}
-                          className="inline-flex items-center space-x-1 px-2.5 py-1 text-[11px] font-semibold bg-brand-50 hover:bg-brand-100 text-brand-800 rounded-lg border border-brand-200 transition-colors flex-shrink-0 cursor-pointer"
+                          className="inline-flex items-center space-x-1 px-2.5 py-1 text-xs font-semibold bg-brand-50 hover:bg-brand-100 text-brand-800 rounded-lg border border-brand-200 transition-colors flex-shrink-0 cursor-pointer"
                         >
                           {copiedSecret ? (
                             <>
@@ -661,7 +661,7 @@ export const AccountSettingsModal = ({ isOpen, onClose, initialTab = '2fa' }) =>
                     {/* Formulario de Código de 6 dígitos */}
                     <form onSubmit={handleEnable2faSubmit} className="space-y-3 pt-1">
                       <div>
-                        <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                        <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
                           Paso 3: Ingrese el código de 6 dígitos generado
                         </label>
                         <div className="relative">
@@ -782,7 +782,7 @@ export const AccountSettingsModal = ({ isOpen, onClose, initialTab = '2fa' }) =>
 
             {/* Checklist de requisitos de seguridad */}
             <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/80 space-y-1">
-              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block">
                 Requisitos de seguridad:
               </span>
               <ul className="text-xs text-slate-600 space-y-1 list-disc list-inside">
@@ -827,7 +827,7 @@ export const AccountSettingsModal = ({ isOpen, onClose, initialTab = '2fa' }) =>
           <form onSubmit={handleUpdateProfileSubmit} className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1">
+                <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">
                   Nombre Completo
                 </label>
                 <div className="px-3.5 py-2.5 bg-slate-100 rounded-xl text-sm font-semibold text-slate-700 border border-slate-200">
@@ -836,7 +836,7 @@ export const AccountSettingsModal = ({ isOpen, onClose, initialTab = '2fa' }) =>
               </div>
 
               <div>
-                <label className="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1">
+                <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">
                   CUI / DPI
                 </label>
                 <div className="px-3.5 py-2.5 bg-slate-100 rounded-xl text-sm font-mono font-semibold text-slate-700 border border-slate-200">
@@ -845,7 +845,7 @@ export const AccountSettingsModal = ({ isOpen, onClose, initialTab = '2fa' }) =>
               </div>
 
               <div>
-                <label className="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1">
+                <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">
                   Código Corporativo
                 </label>
                 <div className="px-3.5 py-2.5 bg-slate-100 rounded-xl text-sm font-mono font-bold text-brand-800 border border-slate-200">
@@ -854,7 +854,7 @@ export const AccountSettingsModal = ({ isOpen, onClose, initialTab = '2fa' }) =>
               </div>
 
               <div>
-                <label className="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1">
+                <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">
                   Rol Institucional
                 </label>
                 <div className="px-3.5 py-2.5 bg-slate-100 rounded-xl text-sm font-bold text-slate-800 border border-slate-200">
@@ -863,7 +863,7 @@ export const AccountSettingsModal = ({ isOpen, onClose, initialTab = '2fa' }) =>
               </div>
 
               <div className="sm:col-span-2">
-                <label className="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1">
+                <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">
                   Correo Electrónico
                 </label>
                 <div className="px-3.5 py-2.5 bg-slate-100 rounded-xl text-sm font-semibold text-slate-700 border border-slate-200">

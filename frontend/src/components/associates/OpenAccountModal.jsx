@@ -393,12 +393,12 @@ export const OpenAccountModal = ({ isOpen, onClose, asociado, onSuccess }) => {
                     >
                       <div className="flex justify-between items-start">
                         <p className="font-bold text-xs text-slate-800">{p.nombre}</p>
-                        <span className="text-[10px] font-bold text-brand-700 bg-brand-100 px-1.5 py-0.5 rounded">
+                        <span className="text-xs font-bold text-brand-700 bg-brand-100 px-1.5 py-0.5 rounded">
                           {p.tasa}
                         </span>
                       </div>
-                      <p className="text-[11px] text-slate-500 mt-1 line-clamp-2">{p.descripcion}</p>
-                      <p className="text-[11px] font-semibold text-blue-700 mt-2">
+                      <p className="text-xs text-slate-500 mt-1 line-clamp-2">{p.descripcion}</p>
+                      <p className="text-xs font-semibold text-blue-700 mt-2">
                         Mínimo apertura: Q{p.monto_minimo.toFixed(2)}
                       </p>
                     </div>
@@ -450,7 +450,7 @@ export const OpenAccountModal = ({ isOpen, onClose, asociado, onSuccess }) => {
                 >
                   <Banknote className="w-5 h-5 mx-auto mb-1 text-brand-600" />
                   <span className="text-xs font-semibold block">Efectivo en Ventanilla</span>
-                  <span className="text-[10px] text-slate-400 block mt-0.5">Depósito in situ en agencia</span>
+                  <span className="text-xs text-slate-400 block mt-0.5">Depósito in situ en agencia</span>
                 </button>
 
                 <button
@@ -464,7 +464,7 @@ export const OpenAccountModal = ({ isOpen, onClose, asociado, onSuccess }) => {
                 >
                   <Wallet className="w-5 h-5 mx-auto mb-1 text-brand-600" />
                   <span className="text-xs font-semibold block">Cuenta Interna</span>
-                  <span className="text-[10px] text-slate-400 block mt-0.5">Débito a otra cuenta del socio</span>
+                  <span className="text-xs text-slate-400 block mt-0.5">Débito a otra cuenta del socio</span>
                 </button>
               </div>
 

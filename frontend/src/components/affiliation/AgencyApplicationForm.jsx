@@ -61,7 +61,7 @@ export const AgencyApplicationForm = ({
             DPI no registrado en la Entidad Bancaria. La Cooperativa forma parte de la Corporación Bancaria, emitiremos tu solicitud para apertura de cuenta de ahorro y membresía.
           </p>
         </div>
-        <div className="flex items-center justify-between pt-1 border-t border-warning-200 text-[11px] text-warning-800">
+        <div className="flex items-center justify-between pt-1 border-t border-warning-200 text-xs text-warning-800">
           <span>CUI / DPI Verificado: <strong className="font-mono">{cuiInput}</strong></span>
           <button
             type="button"
@@ -162,7 +162,7 @@ export const AgencyApplicationForm = ({
             <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider">
               Teléfono Móvil *
             </label>
-            <span className="text-[11px] font-mono text-slate-400 font-semibold">
+            <span className="text-xs font-mono text-slate-400 font-semibold">
               {nuevoForm.telefono.length}/8 dígitos
             </span>
           </div>

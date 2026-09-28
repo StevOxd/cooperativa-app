@@ -449,7 +449,7 @@ export const CreditSimulatorPage = () => {
                     Tiene una solicitud oficial previamente registrada en el sistema. Los montos, plazos y cuenta destino han sido <strong>asegurados con este Folio</strong> para garantizar total coincidencia con el documento firmado.
                   </p>
                 </div>
-                <p className="text-[11px] text-warning-800 pl-6">
+                <p className="text-xs text-warning-800 pl-6">
                   Descargue el formulario prellenado, fírmelo (manuscrito o digital) y adjunte el archivo para someterlo a dictamen del comité operativo.
                 </p>
               </div>
@@ -460,38 +460,38 @@ export const CreditSimulatorPage = () => {
                   <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider">
                     Condiciones Aseguradas de la Solicitud
                   </h3>
-                  <span className="text-[10px] text-slate-400 font-mono">
+                  <span className="text-xs text-slate-400 font-mono">
                     Registrada el {new Date(solicitudPendienteFirma.fecha_solicitud).toLocaleDateString('es-GT')}
                   </span>
                 </div>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs">
                   <div className="bg-white p-2.5 rounded-lg border border-slate-200">
-                    <span className="text-[10px] text-slate-400 block uppercase">Monto Solicitado</span>
+                    <span className="text-xs text-slate-400 block uppercase">Monto Solicitado</span>
                     <span className="font-extrabold text-slate-900 text-sm">
                       Q{parseFloat(solicitudPendienteFirma.monto_solicitado).toLocaleString('es-GT', { minimumFractionDigits: 2 })}
                     </span>
                   </div>
                   <div className="bg-white p-2.5 rounded-lg border border-slate-200">
-                    <span className="text-[10px] text-slate-400 block uppercase">Plazo</span>
+                    <span className="text-xs text-slate-400 block uppercase">Plazo</span>
                     <span className="font-extrabold text-slate-900 text-sm">
                       {solicitudPendienteFirma.plazo_meses} meses
                     </span>
                   </div>
                   <div className="bg-white p-2.5 rounded-lg border border-slate-200">
-                    <span className="text-[10px] text-slate-400 block uppercase">Cuota Mensual</span>
+                    <span className="text-xs text-slate-400 block uppercase">Cuota Mensual</span>
                     <span className="font-extrabold text-brand-700 text-sm">
                       Q{parseFloat(solicitudPendienteFirma.cuota_mensual_estimada).toLocaleString('es-GT', { minimumFractionDigits: 2 })}
                     </span>
                   </div>
                   <div className="bg-white p-2.5 rounded-lg border border-slate-200 col-span-2 sm:col-span-3">
-                    <span className="text-[10px] text-slate-400 block uppercase">Cuenta para Acreditación</span>
+                    <span className="text-xs text-slate-400 block uppercase">Cuenta para Acreditación</span>
                     <span className="font-mono font-bold text-slate-800 text-xs">
                       {solicitudPendienteFirma.cuenta_destino_info || (solicitudPendienteFirma.cuenta_bancaria_destino_numero ? `Cuenta Bancaria (${solicitudPendienteFirma.cuenta_bancaria_destino_numero})` : 'Cuenta Principal')}
                     </span>
                   </div>
                 </div>
                 {solicitudPendienteFirma.observaciones && (
-                  <div className="text-[11px] text-slate-600 pt-1">
+                  <div className="text-xs text-slate-600 pt-1">
                     <strong>Destino / Observaciones:</strong> {solicitudPendienteFirma.observaciones}
                   </div>
                 )}
@@ -503,7 +503,7 @@ export const CreditSimulatorPage = () => {
                   <span className="font-bold text-brand-950 block">
                     Paso 1: Descargar Formulario Oficial (PDF)
                   </span>
-                  <span className="text-brand-700 text-[11px] block mt-0.5">
+                  <span className="text-brand-700 text-xs block mt-0.5">
                     Descargue el formulario prellenado con el Folio #{solicitudPendienteFirma.id_solicitud_credito} para firmarlo.
                   </span>
                 </div>
@@ -523,7 +523,7 @@ export const CreditSimulatorPage = () => {
                   <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">
                     Paso 2: Adjuntar Formulario Firmado <span className="text-warning-600">*</span>
                   </label>
-                  <span className="text-[11px] text-slate-400">PDF, PNG o JPG (Máx. 12MB)</span>
+                  <span className="text-xs text-slate-400">PDF, PNG o JPG (Máx. 12MB)</span>
                 </div>
 
                 {!archivoFirmadoBase64 ? (
@@ -538,7 +538,7 @@ export const CreditSimulatorPage = () => {
                     <span className="text-xs font-bold text-slate-800">
                       Haga clic aquí para seleccionar el archivo firmado
                     </span>
-                    <span className="text-[11px] text-slate-500 mt-0.5">
+                    <span className="text-xs text-slate-500 mt-0.5">
                       Asegúrese de subir el formulario correspondiente al Folio #{solicitudPendienteFirma.id_solicitud_credito}
                     </span>
                   </label>
@@ -552,7 +552,7 @@ export const CreditSimulatorPage = () => {
                         <span className="font-bold text-xs text-slate-800 block truncate" title={archivoFirmadoNombre}>
                           {archivoFirmadoNombre}
                         </span>
-                        <span className="text-[10px] text-brand-700 font-semibold block">
+                        <span className="text-xs text-brand-700 font-semibold block">
                           Documento listo para enviar • {(archivoFirmadoSize / 1024).toFixed(1)} KB
                         </span>
                       </div>
@@ -717,7 +717,7 @@ export const CreditSimulatorPage = () => {
                         </span>
                       </div>
                       <div className="text-right">
-                        <span className="text-[10px] text-slate-400 block uppercase">Saldo actual</span>
+                        <span className="text-xs text-slate-400 block uppercase">Saldo actual</span>
                         <span className="text-xs font-bold text-brand-800">
                           Q{cuentasAcreditacion[0].saldo_disponible?.toLocaleString('es-GT', { minimumFractionDigits: 2 })}
                         </span>
@@ -730,7 +730,7 @@ export const CreditSimulatorPage = () => {
                       <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
                         Cuenta para Acreditación de Fondos <span className="text-brand-700">*</span>
                       </label>
-                      <span className="text-[11px] text-slate-400">Seleccione una opción</span>
+                      <span className="text-xs text-slate-400">Seleccione una opción</span>
                     </div>
                     <p className="text-xs text-slate-500 mb-2">
                       Seleccione a cuál de sus cuentas bancarias se le acreditará el dinero en caso de ser aprobada la solicitud:
@@ -749,7 +749,7 @@ export const CreditSimulatorPage = () => {
                             }`}
                           >
                             <div className="flex items-center justify-between mb-1">
-                              <span className="text-[11px] font-bold text-brand-800 uppercase tracking-wider">
+                              <span className="text-xs font-bold text-brand-800 uppercase tracking-wider">
                                 {cta.etiqueta_tipo || `Cuenta de ${cta.tipo_cuenta}`}
                               </span>
                               <div
@@ -763,7 +763,7 @@ export const CreditSimulatorPage = () => {
                             <div className="font-mono text-xs font-bold text-slate-800">
                               {cta.numero_cuenta}
                             </div>
-                            <div className="text-[10px] text-slate-500 mt-1">
+                            <div className="text-xs text-slate-500 mt-1">
                               Saldo disponible:{' '}
                               <span className="font-semibold text-slate-700">
                                 Q{cta.saldo_disponible?.toLocaleString('es-GT', { minimumFractionDigits: 2 })}
@@ -824,7 +824,7 @@ export const CreditSimulatorPage = () => {
                       </>
                     )}
                   </button>
-                  <p className="text-[11px] text-slate-500 text-center leading-relaxed">
+                  <p className="text-xs text-slate-500 text-center leading-relaxed">
                     Al confirmar, se registrará formalmente su solicitud en el sistema con un Folio Oficial, se asegurarán sus condiciones financieras y se descargará automáticamente su formulario para su firma.
                   </p>
                 </div>
@@ -843,7 +843,7 @@ export const CreditSimulatorPage = () => {
                 <span>Capacidad Crediticia Asignada</span>
               </h3>
               {capacidadInfo?.capacidad?.nivel && (
-                <span className="text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full bg-brand-100 text-brand-800 border border-brand-300">
+                <span className="text-xs font-extrabold uppercase px-2.5 py-0.5 rounded-full bg-brand-100 text-brand-800 border border-brand-300">
                   {capacidadInfo.capacidad.nivel}
                 </span>
               )}
@@ -877,17 +877,17 @@ export const CreditSimulatorPage = () => {
 
                 <div className="p-3.5 bg-gradient-to-br from-brand-50 to-teal-50 border border-brand-200 rounded-xl flex justify-between items-center">
                   <div>
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-brand-900 block">
+                    <span className="text-xs font-bold uppercase tracking-wider text-brand-900 block">
                       Cupo Disponible
                     </span>
-                    <span className="text-[11px] text-brand-700">Para nuevas solicitudes</span>
+                    <span className="text-xs text-brand-700">Para nuevas solicitudes</span>
                   </div>
                   <span className="text-lg font-black text-brand-800 font-mono">
                     Q{cupoDisponible.toLocaleString('es-GT', { minimumFractionDigits: 2 })}
                   </span>
                 </div>
 
-                <div className="flex justify-between items-center pt-1 text-[11px] text-slate-500">
+                <div className="flex justify-between items-center pt-1 text-xs text-slate-500">
                   <span title="Máximo 2 solicitudes de crédito simultáneas en revisión u homologación">
                     Solicitudes activas en evaluación:
                   </span>
@@ -954,7 +954,7 @@ export const CreditSimulatorPage = () => {
                 <span className="text-3xl font-extrabold tracking-tight">
                   Q{parseFloat(solicitudPendienteFirma ? solicitudPendienteFirma.cuota_mensual_estimada : cuota).toLocaleString('es-GT', { minimumFractionDigits: 2 })}
                 </span>
-                <span className="text-[10px] text-brand-300 block mt-1">
+                <span className="text-xs text-brand-300 block mt-1">
                   * Amortización nivelada francesa. No incluye seguros.
                 </span>
               </div>
@@ -1017,7 +1017,7 @@ export const CreditSimulatorPage = () => {
                   <tr key={c.id_solicitud_credito} className="hover:bg-slate-50/50">
                     <td className="px-4 py-3.5 text-slate-500 text-xs">
                       <span className="font-mono font-bold text-slate-900 block">#{c.id_solicitud_credito}</span>
-                      <span className="text-[11px] text-slate-400">{new Date(c.fecha_solicitud).toLocaleDateString()}</span>
+                      <span className="text-xs text-slate-400">{new Date(c.fecha_solicitud).toLocaleDateString()}</span>
                     </td>
                     <td className="px-4 py-3.5 text-right font-bold text-slate-900">
                       Q{parseFloat(c.monto_solicitado).toLocaleString('es-GT', { minimumFractionDigits: 2 })}
@@ -1054,7 +1054,7 @@ export const CreditSimulatorPage = () => {
                           <span>Descargar PDF</span>
                         </button>
                       ) : (
-                        <span className="text-[11px] text-slate-400 italic">Sin adjunto</span>
+                        <span className="text-xs text-slate-400 italic">Sin adjunto</span>
                       )}
                     </td>
                     <td className="px-4 py-3.5 text-center">
@@ -1066,7 +1066,7 @@ export const CreditSimulatorPage = () => {
                           <button
                             type="button"
                             onClick={() => openCancelarModal(c)}
-                            className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-semibold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 transition-colors cursor-pointer"
+                            className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-semibold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 transition-colors cursor-pointer"
                             title="Desistir de esta solicitud y liberar espacio de evaluación"
                           >
                             <X className="w-3 h-3 mr-1 text-rose-500" />
@@ -1077,12 +1077,12 @@ export const CreditSimulatorPage = () => {
                     </td>
                     <td className="px-4 py-3.5 text-xs max-w-xs space-y-1">
                       {c.observaciones_ejecutivo && (
-                        <div className="p-1.5 rounded-lg bg-warning-50 border border-warning-200 text-warning-900 text-[11px]">
+                        <div className="p-1.5 rounded-lg bg-warning-50 border border-warning-200 text-warning-900 text-xs">
                           <strong>Comité Ejecutivo:</strong> "{c.observaciones_ejecutivo}"
                         </div>
                       )}
                       {c.dictamen_operador && (
-                        <div className="text-[11px] text-slate-600">
+                        <div className="text-xs text-slate-600">
                           <strong>Operador:</strong> "{c.dictamen_operador}"
                         </div>
                       )}

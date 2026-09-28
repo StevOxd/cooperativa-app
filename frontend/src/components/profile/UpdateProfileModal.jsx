@@ -137,13 +137,13 @@ export const UpdateProfileModal = ({ isOpen, onClose }) => {
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Bloque de Información Institucional (Solo Lectura) */}
           <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200/80 space-y-3">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 block">
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-500 block">
               Identificación Corporativa (Solo Lectura)
             </span>
 
             <div className="grid grid-cols-2 gap-3 text-xs">
               <div>
-                <span className="text-slate-400 block text-[11px]">Usuario</span>
+                <span className="text-slate-400 block text-xs">Usuario</span>
                 <span className="font-mono font-bold text-brand-800 flex items-center space-x-1 mt-0.5">
                   <KeyRound className="w-3.5 h-3.5 text-brand-600" />
                   <span>{user?.codigo_corporativo || '-'}</span>
@@ -151,7 +151,7 @@ export const UpdateProfileModal = ({ isOpen, onClose }) => {
               </div>
 
               <div>
-                <span className="text-slate-400 block text-[11px]">DPI / CUI</span>
+                <span className="text-slate-400 block text-xs">DPI / CUI</span>
                 <span className="font-mono font-medium text-slate-700 flex items-center space-x-1 mt-0.5">
                   <CreditCard className="w-3.5 h-3.5 text-slate-400" />
                   <span>{user?.cui_dpi || '-'}</span>
@@ -159,14 +159,14 @@ export const UpdateProfileModal = ({ isOpen, onClose }) => {
               </div>
 
               <div className="col-span-2">
-                <span className="text-slate-400 block text-[11px]">Nombre Completo</span>
+                <span className="text-slate-400 block text-xs">Nombre Completo</span>
                 <span className="font-semibold text-slate-800 block mt-0.5">
                   {user?.nombre_completo || user?.nombre || 'Usuario'}
                 </span>
               </div>
 
               <div className="col-span-2">
-                <span className="text-slate-400 block text-[11px]">Correo Institucional</span>
+                <span className="text-slate-400 block text-xs">Correo Institucional</span>
                 <span className="font-mono text-slate-600 flex items-center space-x-1 mt-0.5">
                   <Mail className="w-3.5 h-3.5 text-slate-400" />
                   <span>{user?.email || '-'}</span>
@@ -192,7 +192,7 @@ export const UpdateProfileModal = ({ isOpen, onClose }) => {
                 className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-600 focus:border-brand-600 focus:bg-white transition-all font-medium"
               />
             </div>
-            <p className="text-[11px] text-slate-400 pt-0.5">
+            <p className="text-xs text-slate-400 pt-0.5">
               Este número se utilizará para notificaciones de seguridad y contacto institucional.
             </p>
           </div>

@@ -159,7 +159,7 @@ export const ConfirmModal = ({
           {/* Advertencia / Nota explicativa */}
           <div className="p-3 bg-warning-50/80 border border-warning-200/80 rounded-xl flex items-start space-x-2 text-warning-900 text-xs">
             <AlertCircle className="w-4 h-4 text-warning-600 shrink-0 mt-0.5" />
-            <p className="text-[11px] leading-relaxed text-warning-800">
+            <p className="text-xs leading-relaxed text-warning-800">
               Esta acción no se puede deshacer. Podrá iniciar una nueva simulación con las condiciones de su preferencia cuando lo requiera.
             </p>
           </div>

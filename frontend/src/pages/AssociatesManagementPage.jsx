@@ -217,7 +217,7 @@ export const AssociatesManagementPage = () => {
           <span className="text-2xl font-black text-slate-800 font-mono mt-1 block">
             {pagination.total}
           </span>
-          <span className="text-[11px] text-brand-600 font-medium">Asociados registrados</span>
+          <span className="text-xs text-brand-600 font-medium">Asociados registrados</span>
         </div>
 
         <div className="p-4 bg-white rounded-2xl border border-slate-200 shadow-2xs">
@@ -225,7 +225,7 @@ export const AssociatesManagementPage = () => {
           <span className="text-2xl font-black text-brand-600 font-mono mt-1 block">
             {totalActivos}
           </span>
-          <span className="text-[11px] text-slate-400 font-medium">En esta vista</span>
+          <span className="text-xs text-slate-400 font-medium">En esta vista</span>
         </div>
       </div>
 
@@ -282,7 +282,7 @@ export const AssociatesManagementPage = () => {
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="bg-slate-50 border-b border-slate-200 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+              <tr className="bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-500 uppercase tracking-wider">
                 <th className="py-3.5 px-4">Asociado / Titular</th>
                 <th className="py-3.5 px-4">CUI / DPI</th>
                 <th className="py-3.5 px-4">Usuario</th>
@@ -308,7 +308,7 @@ export const AssociatesManagementPage = () => {
                     <tr key={a.id_asociado} className="hover:bg-slate-50/70 transition-colors">
                       <td className="py-3.5 px-4">
                         <div className="font-bold text-slate-900">{a.nombre_completo}</div>
-                        <div className="text-[11px] text-slate-400">
+                        <div className="text-xs text-slate-400">
                           {a.email || 'Sin correo'} • Tel: {a.telefono || 'N/A'}
                         </div>
                       </td>
@@ -321,7 +321,7 @@ export const AssociatesManagementPage = () => {
                         )}
                       </td>
                       <td className="py-3.5 px-4 text-center">
-                        <span className="inline-block px-2 py-0.5 rounded-full text-[11px] font-bold bg-slate-100 text-slate-700">
+                        <span className="inline-block px-2 py-0.5 rounded-full text-xs font-bold bg-slate-100 text-slate-700">
                           {a.total_cuentas}
                         </span>
                       </td>
@@ -333,7 +333,7 @@ export const AssociatesManagementPage = () => {
                       </td>
                       <td className="py-3.5 px-4 text-center">
                         <span
-                          className={`inline-block px-2.5 py-1 rounded-full text-[10px] font-bold ${
+                          className={`inline-block px-2.5 py-1 rounded-full text-xs font-bold ${
                             a.estado_asociado === 'ACTIVO'
                               ? 'bg-brand-100 text-brand-800'
                               : a.estado_asociado === 'SUSPENDIDO'

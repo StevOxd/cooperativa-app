@@ -715,7 +715,7 @@ export const AssociateDashboard = () => {
         >
           <span>Plan de Pagos y Créditos</span>
           {creditosAprobados.length > 0 && (
-            <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-brand-100 text-brand-800">
+            <span className="px-1.5 py-0.2 rounded-full text-xs font-bold bg-brand-100 text-brand-800">
               {creditosAprobados.length}
             </span>
           )}
@@ -827,20 +827,20 @@ export const AssociateDashboard = () => {
                     <div>
                       <div className="flex justify-between items-start mb-4">
                         <div>
-                          <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
+                          <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">
                             {c.tipo_cuenta}
                           </span>
                           <span className="text-sm font-mono font-bold text-slate-700 block mt-0.5">
                             {c.numero_cuenta}
                           </span>
                         </div>
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-brand-50 text-brand-700 border border-brand-100">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-brand-50 text-brand-700 border border-brand-100">
                           {c.estado}
                         </span>
                       </div>
 
                       <div className="space-y-1">
-                        <span className="text-[11px] font-semibold text-slate-400 block">Saldo Disponible</span>
+                        <span className="text-xs font-semibold text-slate-400 block">Saldo Disponible</span>
                         <span className="text-xl font-extrabold text-slate-900">
                           Q{parseFloat(c.saldo_disponible).toLocaleString('es-GT', { minimumFractionDigits: 2 })}
                         </span>
@@ -901,7 +901,7 @@ export const AssociateDashboard = () => {
                         : 'Cuenta Bancaria Vinculada'}
                     </span>
                     {cuentaPlanilla && (
-                      <span className="text-[10px] font-bold bg-white/15 text-brand-200 border border-brand-400/30 px-2 py-0.5 rounded-full">
+                      <span className="text-xs font-bold bg-white/15 text-brand-200 border border-brand-400/30 px-2 py-0.5 rounded-full">
                         {cuentaPlanilla.origen_cuenta === 'COOPERATIVA' ? 'Cooperativa' : 'Entidad Bancaria'}
                       </span>
                     )}
@@ -929,7 +929,7 @@ export const AssociateDashboard = () => {
                       ? parseFloat(cuentaPlanilla.saldo_disponible).toLocaleString('es-GT', { minimumFractionDigits: 2 })
                       : (cuentas.length > 0 ? parseFloat(cuentas[0].saldo_disponible).toLocaleString('es-GT', { minimumFractionDigits: 2 }) : '0.00')}
                   </span>
-                  <p className="text-[10px] text-brand-300/80 leading-normal mt-2">
+                  <p className="text-xs text-brand-300/80 leading-normal mt-2">
                     {cuentaPlanilla?.origen_cuenta === 'COOPERATIVA'
                       ? 'Fondos disponibles en su cuenta de ahorro para traslados, pagos o aperturas en la Cooperativa.'
                       : 'Fondos disponibles en su cuenta de ahorro bancaria para aperturar y trasladar hacia sus cuentas en la Cooperativa.'}
@@ -1008,7 +1008,7 @@ export const AssociateDashboard = () => {
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-sm">
-                    <thead className="bg-slate-50 text-slate-500 text-[10px] uppercase tracking-wider border-b border-slate-200">
+                    <thead className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wider border-b border-slate-200">
                       <tr>
                         <th className="px-4 py-2.5 font-semibold">Caso</th>
                         <th className="px-4 py-2.5 font-semibold text-right">Monto</th>
@@ -1030,16 +1030,16 @@ export const AssociateDashboard = () => {
                             <span className="font-semibold block text-slate-700">
                               {s.tipo_operacion === 'TRASLADO_DIRECTO' ? 'Traslado Directo' : 'Apertura y Traslado'}
                             </span>
-                            <span className="text-[10px] text-slate-400 font-mono">
+                            <span className="text-xs text-slate-400 font-mono">
                               Destino: {s.cuenta_destino_numero || s.tipo_cuenta_destino}
                             </span>
                           </td>
                           <td className="px-4 py-3 text-center">
-                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border ${getStatusBadge(s.estado)}`}>
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold border ${getStatusBadge(s.estado)}`}>
                               {s.estado}
                             </span>
                           </td>
-                          <td className="px-4 py-3 text-slate-500 text-[10px] max-w-xs truncate">
+                          <td className="px-4 py-3 text-slate-500 text-xs max-w-xs truncate">
                             {s.estado === 'PENDIENTE' ? (
                               <span className="text-slate-400 flex items-center space-x-1">
                                 <Clock className="w-3 h-3 text-warning-500" />
@@ -1048,7 +1048,7 @@ export const AssociateDashboard = () => {
                             ) : (
                               <div>
                                 <span className="block font-medium">{s.estado === 'APROBADO' ? 'Aprobado' : 'Rechazado'}</span>
-                                <span className="block text-[9px] text-slate-400">{s.observaciones_operador || '-'}</span>
+                                <span className="block text-xs text-slate-400">{s.observaciones_operador || '-'}</span>
                               </div>
                             )}
                           </td>
@@ -1151,13 +1151,13 @@ export const AssociateDashboard = () => {
 
                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                         <div className="space-y-1">
-                          <span className="text-[11px] text-brand-200 block uppercase font-medium">Monto Aprobado</span>
+                          <span className="text-xs text-brand-200 block uppercase font-medium">Monto Aprobado</span>
                           <span className="text-2xl font-black text-white">
                             Q{parseFloat(currentCreditoPlan.monto_solicitado).toLocaleString('es-GT', { minimumFractionDigits: 2 })}
                           </span>
                         </div>
                         <div className="space-y-1">
-                          <span className="text-[11px] text-brand-200 block uppercase font-medium">Fecha de Aprobación</span>
+                          <span className="text-xs text-brand-200 block uppercase font-medium">Fecha de Aprobación</span>
                           <span className="text-sm sm:text-base font-bold text-white block">
                             {new Date(currentCreditoPlan.fecha_resolucion || currentCreditoPlan.fecha_solicitud).toLocaleDateString('es-GT', {
                               day: '2-digit',
@@ -1167,13 +1167,13 @@ export const AssociateDashboard = () => {
                           </span>
                         </div>
                         <div className="space-y-1">
-                          <span className="text-[11px] text-brand-200 block uppercase font-medium">Plazo de Pago</span>
+                          <span className="text-xs text-brand-200 block uppercase font-medium">Plazo de Pago</span>
                           <span className="text-2xl font-black text-white">
                             {currentCreditoPlan.plazo_meses} meses
                           </span>
                         </div>
                         <div className="space-y-1">
-                          <span className="text-[11px] text-brand-200 block uppercase font-medium">Tasa de Interés</span>
+                          <span className="text-xs text-brand-200 block uppercase font-medium">Tasa de Interés</span>
                           <span className="text-2xl font-black text-brand-300">
                             {parseFloat(currentCreditoPlan.tasa_interes).toFixed(2)}% <span className="text-xs font-normal text-brand-200">Anual Fija</span>
                           </span>
@@ -1191,7 +1191,7 @@ export const AssociateDashboard = () => {
                                 : 'Cuenta Principal del Asociado')}
                           </span>
                         </div>
-                        <div className="text-brand-300 text-[11px] font-medium">
+                        <div className="text-brand-300 text-xs font-medium">
                           Amortización Nivelada Francesa (Cuotas fijas)
                         </div>
                       </div>
@@ -1260,7 +1260,7 @@ export const AssociateDashboard = () => {
                             Q{parseFloat(currentCreditoPlan.cuota_mensual_estimada).toLocaleString('es-GT', { minimumFractionDigits: 2 })}
                           </span>
                         </div>
-                        <span className="text-[11px] text-brand-700 font-semibold block">
+                        <span className="text-xs text-brand-700 font-semibold block">
                           Cuota fija del mes (Capital + Interés)
                         </span>
                       </div>
@@ -1383,7 +1383,7 @@ export const AssociateDashboard = () => {
                                 Q{c.saldoPendiente.toLocaleString('es-GT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                               </td>
                               <td className="px-4 py-3 text-center">
-                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-slate-100 text-slate-700 border border-slate-200">
                                   Programada
                                 </span>
                               </td>
@@ -1501,7 +1501,7 @@ export const AssociateDashboard = () => {
                   </div>
 
                   <div className="border-t border-slate-100 pt-3">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Beneficios principales</span>
+                    <span className="text-xs font-bold text-slate-400 uppercase block mb-1">Beneficios principales</span>
                     <p className="text-xs text-slate-600 leading-normal">{p.beneficios}</p>
                   </div>
                 </div>
@@ -1566,7 +1566,7 @@ export const AssociateDashboard = () => {
                     <div className="p-5 sm:p-6 bg-gradient-to-r from-slate-50 to-white border-b border-slate-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                       <div>
                         <div className="flex items-center space-x-2">
-                          <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-brand-100 text-brand-800">
+                          <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-brand-100 text-brand-800">
                             {cuenta.tipo_cuenta}
                           </span>
                           <span className="font-mono text-sm font-bold text-slate-800">
@@ -1606,14 +1606,14 @@ export const AssociateDashboard = () => {
                         <div className="text-center py-8 bg-slate-50/50 rounded-xl border border-dashed border-slate-200">
                           <AlertCircle className="w-8 h-8 text-warning-500 mx-auto mb-2" />
                           <p className="text-xs font-bold text-slate-700">Sin beneficiarios registrados</p>
-                          <p className="text-[11px] text-slate-500 mt-0.5">
+                          <p className="text-xs text-slate-500 mt-0.5">
                             Haga clic en "Gestionar Beneficiarios" para declarar los beneficiarios legales de esta cuenta.
                           </p>
                         </div>
                       ) : (
                         <div className="overflow-x-auto">
                           <table className="w-full text-left text-xs">
-                            <thead className="bg-slate-50 text-slate-500 uppercase tracking-wider text-[10px] border-b border-slate-200">
+                            <thead className="bg-slate-50 text-slate-500 uppercase tracking-wider text-xs border-b border-slate-200">
                               <tr>
                                 <th className="px-4 py-2.5 font-semibold">Nombre Completo</th>
                                 <th className="px-4 py-2.5 font-semibold">Parentesco</th>
@@ -1629,7 +1629,7 @@ export const AssociateDashboard = () => {
                                     {b.nombre_completo}
                                   </td>
                                   <td className="px-4 py-3">
-                                    <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-700 font-medium text-[11px]">
+                                    <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-700 font-medium text-xs">
                                       {b.parentesco}
                                     </span>
                                   </td>
@@ -1935,7 +1935,7 @@ export const AssociateDashboard = () => {
               </div>
 
               {/* Advertencia Legal */}
-              <div className="p-3 bg-warning-50 border border-warning-200 rounded-xl flex items-start space-x-2 text-warning-900 text-[10px] leading-relaxed">
+              <div className="p-3 bg-warning-50 border border-warning-200 rounded-xl flex items-start space-x-2 text-warning-900 text-xs leading-relaxed">
                 <HelpCircle className="w-4 h-4 text-warning-600 flex-shrink-0 mt-0.5" />
                 <span>
                   <strong>Aviso Importante:</strong> Se generará un número de caso único que pasará al flujo de revisión del equipo de operaciones para su aprobación correspondiente.
@@ -2176,7 +2176,7 @@ export const AssociateDashboard = () => {
                     style={{ width: `${Math.min(100, totalPorcentajeAsociado)}%` }}
                   />
                 </div>
-                <div className="text-[11px] mt-1.5">
+                <div className="text-xs mt-1.5">
                   {Math.abs(totalPorcentajeAsociado - 100.00) < 0.01 ? (
                     <span className="text-brand-700 font-semibold flex items-center space-x-1">
                       <CheckCircle2 className="w-3.5 h-3.5" />
@@ -2199,7 +2199,7 @@ export const AssociateDashboard = () => {
             <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 border-t border-slate-100 flex-shrink-0">
               <div className="text-xs">
                 {!hasAssociateBenChanges && Math.abs(totalPorcentajeAsociado - 100.00) < 0.01 && (
-                  <span className="text-slate-400 italic text-[11px]">
+                  <span className="text-slate-400 italic text-xs">
                     Sin modificaciones pendientes por guardar
                   </span>
                 )}

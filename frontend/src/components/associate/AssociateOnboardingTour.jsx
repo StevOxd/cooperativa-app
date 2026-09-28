@@ -266,7 +266,7 @@ export const AssociateOnboardingTour = ({
                   <StepIcon className="w-5 h-5" />
                 </div>
                 <div>
-                  <span className="text-[11px] font-bold text-brand-700 uppercase tracking-wider block">
+                  <span className="text-xs font-bold text-brand-700 uppercase tracking-wider block">
                     Paso {currentStepData.stepNumber} de {TOUR_STEPS.length} • {currentStepData.badge}
                   </span>
                   <h3 className="text-lg font-bold text-slate-900 leading-tight">

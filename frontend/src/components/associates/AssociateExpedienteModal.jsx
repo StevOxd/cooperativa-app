@@ -135,7 +135,7 @@ export const AssociateExpedienteModal = ({
                     <p className="text-xs text-brand-800 font-semibold tracking-wider uppercase">
                       FICHA DE POSICIÓN GLOBAL DEL ASOCIADO (REPORTE 1.1)
                     </p>
-                    <p className="text-[11px] text-slate-400">
+                    <p className="text-xs text-slate-400">
                       Fecha de emisión: {new Date().toLocaleDateString('es-GT', { dateStyle: 'full' })}
                     </p>
                   </div>
@@ -281,7 +281,7 @@ export const AssociateExpedienteModal = ({
                           <span className="text-xs font-extrabold text-brand-700 font-mono block">
                             Q{c.saldo_disponible.toFixed(2)}
                           </span>
-                          <span className="text-[10px] text-slate-400">
+                          <span className="text-xs text-slate-400">
                             Apertura: {new Date(c.fecha_apertura).toLocaleDateString()}
                           </span>
                         </div>
@@ -289,7 +289,7 @@ export const AssociateExpedienteModal = ({
 
                       {/* Beneficiarios de esta cuenta */}
                       <div className="pt-2 border-t border-slate-100">
-                        <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
+                        <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-1">
                           Beneficiarios Designados ({c.beneficiarios.length})
                         </span>
                         {c.beneficiarios.length > 0 ? (
@@ -303,7 +303,7 @@ export const AssociateExpedienteModal = ({
                                   <span className="font-bold text-slate-800 block">
                                     {b.nombre_completo}
                                   </span>
-                                  <span className="text-[10px] text-slate-500">
+                                  <span className="text-xs text-slate-500">
                                     {b.parentesco} {b.cui_dpi ? `• DPI: ${b.cui_dpi}` : ''}
                                   </span>
                                 </div>
@@ -314,7 +314,7 @@ export const AssociateExpedienteModal = ({
                             ))}
                           </div>
                         ) : (
-                          <p className="text-[11px] text-warning-600 italic">
+                          <p className="text-xs text-warning-600 italic">
                             No se han declarado beneficiarios para esta cuenta aún.
                           </p>
                         )}
@@ -329,12 +329,12 @@ export const AssociateExpedienteModal = ({
                 <div className="border-t border-slate-400 pt-2">
                   <p className="font-bold text-slate-800">{expediente.asociado.nombre_completo}</p>
                   <p className="text-slate-500">Firma del Asociado Titular</p>
-                  <p className="text-[10px] text-slate-400 font-mono">DPI: {expediente.asociado.cui_dpi}</p>
+                  <p className="text-xs text-slate-400 font-mono">DPI: {expediente.asociado.cui_dpi}</p>
                 </div>
                 <div className="border-t border-slate-400 pt-2">
                   <p className="font-bold text-slate-800">Oficial de Cumplimiento / Ventanilla</p>
                   <p className="text-slate-500">Sello y Firma Institucional</p>
-                  <p className="text-[10px] text-slate-400 font-mono">Cooperativa Financiera RL</p>
+                  <p className="text-xs text-slate-400 font-mono">Cooperativa Financiera RL</p>
                 </div>
               </div>
             </div>

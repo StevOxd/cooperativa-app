@@ -744,27 +744,27 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess }) => {
                   1. Datos de Identificación Personal
                 </h4>
                 <div className="flex items-center space-x-2">
-                  <span className="text-[11px] font-semibold text-slate-600">Tipo de Afiliado:</span>
+                  <span className="text-xs font-semibold text-slate-600">Tipo de Afiliado:</span>
                   {dpiStatus.checking ? (
-                    <span className="inline-flex items-center px-2 py-0.5 bg-blue-50 border border-blue-200 text-blue-700 rounded-md text-[11px] font-medium">
+                    <span className="inline-flex items-center px-2 py-0.5 bg-blue-50 border border-blue-200 text-blue-700 rounded-md text-xs font-medium">
                       <Loader2 className="w-3 h-3 mr-1 animate-spin" />
                       Consultando DPI...
                     </span>
                   ) : dpiStatus.verified ? (
                     formData.tipo_asociado === 'EB' ? (
-                      <span className="inline-flex items-center px-2 py-0.5 bg-warning-50 border border-warning-300 text-warning-900 rounded-md text-[11px] font-bold">
+                      <span className="inline-flex items-center px-2 py-0.5 bg-warning-50 border border-warning-300 text-warning-900 rounded-md text-xs font-bold">
                         <ShieldCheck className="w-3 h-3 mr-1 text-warning-600" />
                         Empleado Bancario (EB-X)
                       </span>
                     ) : (
-                      <span className="inline-flex items-center px-2 py-0.5 bg-brand-50 border border-brand-300 text-brand-900 rounded-md text-[11px] font-bold">
+                      <span className="inline-flex items-center px-2 py-0.5 bg-brand-50 border border-brand-300 text-brand-900 rounded-md text-xs font-bold">
                         <Check className="w-3 h-3 mr-1 text-brand-600" />
                         Ajeno / Externo (EX-X)
                       </span>
                     )
                   ) : (
                     <span
-                      className="inline-flex items-center px-2 py-0.5 bg-slate-100 border border-slate-200 text-slate-500 rounded-md text-[11px] font-medium"
+                      className="inline-flex items-center px-2 py-0.5 bg-slate-100 border border-slate-200 text-slate-500 rounded-md text-xs font-medium"
                       title="Ingrese los 13 dígitos del DPI para clasificar automáticamente"
                     >
                       Detección automática por DPI
@@ -779,7 +779,7 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess }) => {
                   <div className="flex items-center justify-between mb-1">
                     <label className="block text-xs font-semibold text-slate-700">CUI / DPI *</label>
                     <span
-                      className={`text-[11px] font-mono font-semibold ${
+                      className={`text-xs font-mono font-semibold ${
                         formData.cui_dpi?.length === 13 ? 'text-brand-600 font-bold' : 'text-slate-400'
                       }`}
                     >
@@ -820,21 +820,21 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess }) => {
                     />
                   </div>
                   {fieldErrors.cui_dpi ? (
-                    <p className="text-[10px] text-danger-600 font-medium mt-1">{fieldErrors.cui_dpi}</p>
+                    <p className="text-xs text-danger-600 font-medium mt-1">{fieldErrors.cui_dpi}</p>
                   ) : dpiStatus.checking ? (
-                    <p className="text-[10px] text-blue-600 font-medium mt-1 flex items-center gap-1">
+                    <p className="text-xs text-blue-600 font-medium mt-1 flex items-center gap-1">
                       <Loader2 className="w-3 h-3 animate-spin" /> Verificando en Core Banking...
                     </p>
                   ) : dpiStatus.verified && dpiStatus.message ? (
                     <p
-                      className={`text-[10px] font-medium mt-1 ${
+                      className={`text-xs font-medium mt-1 ${
                         formData.tipo_asociado === 'EB' ? 'text-warning-700 font-semibold' : 'text-brand-700'
                       }`}
                     >
                       ✓ {dpiStatus.message}
                     </p>
                   ) : (
-                    <p className="text-[10px] text-slate-400 mt-1">Sin guiones ni espacios.</p>
+                    <p className="text-xs text-slate-400 mt-1">Sin guiones ni espacios.</p>
                   )}
                 </div>
 
@@ -865,7 +865,7 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess }) => {
                     required
                   />
                   {fieldErrors.primer_nombre && (
-                    <p className="text-[10px] text-danger-600 font-medium mt-1">{fieldErrors.primer_nombre}</p>
+                    <p className="text-xs text-danger-600 font-medium mt-1">{fieldErrors.primer_nombre}</p>
                   )}
                 </div>
 
@@ -917,7 +917,7 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess }) => {
                     required
                   />
                   {fieldErrors.primer_apellido && (
-                    <p className="text-[10px] text-danger-600 font-medium mt-1">{fieldErrors.primer_apellido}</p>
+                    <p className="text-xs text-danger-600 font-medium mt-1">{fieldErrors.primer_apellido}</p>
                   )}
                 </div>
 
@@ -946,7 +946,7 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess }) => {
                   <div className="flex items-center justify-between mb-1">
                     <label className="block text-xs font-semibold text-slate-700">Teléfono Móvil *</label>
                     <span
-                      className={`text-[11px] font-mono font-semibold ${
+                      className={`text-xs font-mono font-semibold ${
                         formData.telefono?.length === 8 ? 'text-brand-600 font-bold' : 'text-slate-400'
                       }`}
                     >
@@ -985,9 +985,9 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess }) => {
                     />
                   </div>
                   {fieldErrors.telefono ? (
-                    <p className="text-[10px] text-danger-600 font-medium mt-1">{fieldErrors.telefono}</p>
+                    <p className="text-xs text-danger-600 font-medium mt-1">{fieldErrors.telefono}</p>
                   ) : (
-                    <p className="text-[10px] text-slate-400 mt-1">8 dígitos sin guiones.</p>
+                    <p className="text-xs text-slate-400 mt-1">8 dígitos sin guiones.</p>
                   )}
                 </div>
 
@@ -995,17 +995,17 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess }) => {
                   <div className="flex items-center justify-between mb-1">
                     <label className="block text-xs font-semibold text-slate-700">Correo Electrónico *</label>
                     {emailStatus.checking && (
-                      <span className="text-[10px] text-slate-400 flex items-center gap-1">
+                      <span className="text-xs text-slate-400 flex items-center gap-1">
                         <Loader2 className="w-3 h-3 animate-spin" /> Verificando...
                       </span>
                     )}
                     {!emailStatus.checking && emailStatus.available === true && (
-                      <span className="text-[10px] font-bold text-brand-600 bg-brand-50 px-1.5 py-0.5 rounded-full border border-brand-200">
+                      <span className="text-xs font-bold text-brand-600 bg-brand-50 px-1.5 py-0.5 rounded-full border border-brand-200">
                         ✓ Disponible
                       </span>
                     )}
                     {!emailStatus.checking && emailStatus.available === false && (
-                      <span className="text-[10px] font-bold text-danger-600 bg-danger-50 px-1.5 py-0.5 rounded-full border border-danger-200">
+                      <span className="text-xs font-bold text-danger-600 bg-danger-50 px-1.5 py-0.5 rounded-full border border-danger-200">
                         ✕ Ya registrado
                       </span>
                     )}
@@ -1042,13 +1042,13 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess }) => {
                     />
                   </div>
                   {emailStatus.available === false ? (
-                    <p className="text-[10px] text-danger-600 font-medium mt-1">{emailStatus.message}</p>
+                    <p className="text-xs text-danger-600 font-medium mt-1">{emailStatus.message}</p>
                   ) : fieldErrors.email ? (
-                    <p className="text-[10px] text-danger-600 font-medium mt-1">{fieldErrors.email}</p>
+                    <p className="text-xs text-danger-600 font-medium mt-1">{fieldErrors.email}</p>
                   ) : emailStatus.available === true ? (
-                    <p className="text-[10px] text-brand-700 font-medium mt-1">{emailStatus.message}</p>
+                    <p className="text-xs text-brand-700 font-medium mt-1">{emailStatus.message}</p>
                   ) : (
-                    <p className="text-[10px] text-slate-400 mt-1">Se enviará contraseña temporal.</p>
+                    <p className="text-xs text-slate-400 mt-1">Se enviará contraseña temporal.</p>
                   )}
                 </div>
               </div>
@@ -1061,7 +1061,7 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess }) => {
                   </label>
                   {ageInfo && (
                     <span
-                      className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                      className={`text-xs font-bold px-2 py-0.5 rounded-full ${
                         ageInfo.valid
                           ? 'bg-brand-50 text-brand-700 border border-brand-200'
                           : 'bg-danger-50 text-danger-700 border border-danger-200'
@@ -1131,16 +1131,16 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess }) => {
                 <div className="mt-1">
                   {ageInfo ? (
                     <p
-                      className={`text-[10px] font-medium ${
+                      className={`text-xs font-medium ${
                         ageInfo.valid ? 'text-brand-700' : 'text-danger-600'
                       }`}
                     >
                       {ageInfo.message}
                     </p>
                   ) : fieldErrors.fecha_nacimiento ? (
-                    <p className="text-[10px] text-danger-600 font-medium">{fieldErrors.fecha_nacimiento}</p>
+                    <p className="text-xs text-danger-600 font-medium">{fieldErrors.fecha_nacimiento}</p>
                   ) : (
-                    <p className="text-[10px] text-slate-400">Requerido: 18+ años cumplidos para membresía.</p>
+                    <p className="text-xs text-slate-400">Requerido: 18+ años cumplidos para membresía.</p>
                   )}
                 </div>
               </div>
@@ -1169,7 +1169,7 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess }) => {
                   2. Fondeo Inicial y Vinculación Bancaria
                 </h4>
                 <span
-                  className={`text-[11px] font-semibold px-2 py-0.5 rounded-md border ${
+                  className={`text-xs font-semibold px-2 py-0.5 rounded-md border ${
                     formData.tipo_asociado === 'EB'
                       ? 'text-warning-800 bg-warning-50 border-warning-200'
                       : 'text-brand-800 bg-brand-50 border-brand-200'
@@ -1200,7 +1200,7 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess }) => {
                     />
                   </div>
                   {fieldErrors.monto_aportacion && (
-                    <p className="text-[10px] text-danger-600 font-medium mt-1">{fieldErrors.monto_aportacion}</p>
+                    <p className="text-xs text-danger-600 font-medium mt-1">{fieldErrors.monto_aportacion}</p>
                   )}
                 </div>
 
@@ -1211,7 +1211,7 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess }) => {
                       <Banknote className="w-4 h-4 text-brand-600" />
                       <span>Efectivo en Ventanilla (Recepción In Situ)</span>
                     </div>
-                    <span className="text-[10px] bg-brand-100 text-brand-800 px-1.5 py-0.5 rounded font-bold">Oficial</span>
+                    <span className="text-xs bg-brand-100 text-brand-800 px-1.5 py-0.5 rounded font-bold">Oficial</span>
                   </div>
                 </div>
               </div>
@@ -1238,7 +1238,7 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess }) => {
                       </span>
                     </div>
                     {loadingCuentasBanco && (
-                      <span className="text-[11px] text-slate-500 flex items-center gap-1">
+                      <span className="text-xs text-slate-500 flex items-center gap-1">
                         <Loader2 className="w-3 h-3 animate-spin text-brand-600" /> Consultando banco...
                       </span>
                     )}
@@ -1250,7 +1250,7 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess }) => {
                     </p>
                   ) : cuentasEmpleado.length > 0 ? (
                     <div className="space-y-2.5">
-                      <p className="text-[11px] text-slate-600">
+                      <p className="text-xs text-slate-600">
                         Seleccione la cuenta bancaria corporativa a vincular al expediente del asociado:
                       </p>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -1274,11 +1274,11 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess }) => {
                             >
                               <div className="flex justify-between items-center mb-1">
                                 <span className="font-mono font-bold text-slate-800">{cta.numero_cuenta_bancaria}</span>
-                                <span className="text-[10px] px-1.5 py-0.5 rounded font-bold uppercase bg-slate-100 text-slate-700">
+                                <span className="text-xs px-1.5 py-0.5 rounded font-bold uppercase bg-slate-100 text-slate-700">
                                   {cta.tipo_cuenta}
                                 </span>
                               </div>
-                              <div className="flex justify-between items-center text-[11px]">
+                              <div className="flex justify-between items-center text-xs">
                                 <span className="text-slate-500">Saldo Disponible:</span>
                                 <span className={`font-bold ${cta.saldo_disponible > 0 ? 'text-brand-700' : 'text-warning-600'}`}>
                                   Q{parseFloat(cta.saldo_disponible).toFixed(2)}
@@ -1291,7 +1291,7 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess }) => {
 
                       {/* Botón para Acreditar Dinero si la cuenta no tiene fondos suficientes */}
                       <div className="pt-2 border-t border-slate-200/80 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                        <span className="text-[11px] text-slate-600">
+                        <span className="text-xs text-slate-600">
                           ¿Requiere recargar o depositar saldo a su cuenta bancaria?
                         </span>
                         <button
@@ -1314,20 +1314,20 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess }) => {
                             <span className="text-xs font-bold text-slate-800">
                               Acreditar Fondos a Cuenta Bancaria del Colaborador
                             </span>
-                            <span className="text-[10px] font-mono text-brand-800 bg-brand-50 px-2 py-0.5 rounded font-semibold border border-brand-200">
+                            <span className="text-xs font-mono text-brand-800 bg-brand-50 px-2 py-0.5 rounded font-semibold border border-brand-200">
                               {cuentaBancoSeleccionada}
                             </span>
                           </div>
 
                           {acreditarSuccessMsg && (
-                            <div className="p-2 rounded-lg bg-brand-50 border border-brand-300 text-brand-800 text-[11px] font-medium flex items-center space-x-1.5">
+                            <div className="p-2 rounded-lg bg-brand-50 border border-brand-300 text-brand-800 text-xs font-medium flex items-center space-x-1.5">
                               <CheckCircle2 className="w-3.5 h-3.5 text-brand-600 shrink-0" />
                               <span>{acreditarSuccessMsg}</span>
                             </div>
                           )}
 
                           {acreditarErrorMsg && (
-                            <div className="p-2 rounded-lg bg-danger-50 border border-danger-300 text-danger-700 text-[11px] font-medium flex items-center space-x-1.5">
+                            <div className="p-2 rounded-lg bg-danger-50 border border-danger-300 text-danger-700 text-xs font-medium flex items-center space-x-1.5">
                               <AlertCircle className="w-3.5 h-3.5 text-danger-600 shrink-0" />
                               <span>{acreditarErrorMsg}</span>
                             </div>
@@ -1387,7 +1387,7 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess }) => {
             <div className="pt-2 border-t border-slate-100">
               <div className="p-3 bg-brand-50/70 border border-brand-200 rounded-xl flex items-start space-x-2.5">
                 <KeyRound className="w-4 h-4 text-brand-600 shrink-0 mt-0.5" />
-                <div className="text-[11px] text-slate-600 leading-relaxed">
+                <div className="text-xs text-slate-600 leading-relaxed">
                   <span className="font-bold text-slate-800 block">Acceso al Portal Web de Asociados:</span>
                   Al registrar al nuevo asociado, el sistema generará y enviará automáticamente a su correo electrónico una <strong>contraseña temporal segura</strong> junto con su código de cliente para su primer ingreso al portal web.
                 </div>

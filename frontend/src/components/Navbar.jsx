@@ -110,7 +110,7 @@ export const Navbar = () => {
                 </div>
                 <div>
                   <span className="font-bold text-slate-800 text-lg tracking-tight block">COOPERATIVA</span>
-                  <span className="text-[10px] text-brand-700 font-semibold uppercase tracking-wider block">
+                  <span className="text-xs text-brand-700 font-semibold uppercase tracking-wider block">
                     Sistema Integral
                   </span>
                 </div>
@@ -162,7 +162,7 @@ export const Navbar = () => {
                       {user?.nombre_completo || user?.nombre || 'Usuario'}
                     </span>
                     <span
-                      className={`inline-block text-[10px] px-2 py-0.5 rounded-full border font-bold uppercase mt-0.5 ${getRoleBadgeStyle(
+                      className={`inline-block text-xs px-2 py-0.5 rounded-full border font-bold uppercase mt-0.5 ${getRoleBadgeStyle(
                         user?.rol
                       )}`}
                     >
@@ -184,19 +184,19 @@ export const Navbar = () => {
                       <p className="text-xs font-bold text-slate-900 truncate">
                         {user?.nombre_completo || user?.nombre || 'Usuario'}
                       </p>
-                      <p className="text-[11px] text-slate-500 font-mono truncate mt-0.5">
+                      <p className="text-xs text-slate-500 font-mono truncate mt-0.5">
                         {user?.codigo_corporativo ? `Usuario: ${user.codigo_corporativo}` : user?.email}
                       </p>
                       <div className="mt-2 flex items-center justify-between">
                         <span
-                          className={`inline-block text-[10px] px-2 py-0.5 rounded-full border font-bold uppercase ${getRoleBadgeStyle(
+                          className={`inline-block text-xs px-2 py-0.5 rounded-full border font-bold uppercase ${getRoleBadgeStyle(
                             user?.rol
                           )}`}
                         >
                           {user?.rol || 'USUARIO'}
                         </span>
                         {user?.mfa_enabled && (
-                          <span className="inline-flex items-center space-x-1 text-[10px] font-bold text-brand-700 bg-brand-50 border border-brand-200 px-2 py-0.5 rounded-full">
+                          <span className="inline-flex items-center space-x-1 text-xs font-bold text-brand-700 bg-brand-50 border border-brand-200 px-2 py-0.5 rounded-full">
                             <ShieldCheck className="w-3 h-3" />
                             <span>2FA Activo</span>
                           </span>
@@ -219,9 +219,9 @@ export const Navbar = () => {
                         <div className="flex items-center justify-between w-full">
                           <span>Seguridad & Doble Factor (2FA)</span>
                           {user?.mfa_enabled ? (
-                            <span className="text-[10px] bg-brand-100 text-brand-800 font-bold px-1.5 py-0.5 rounded">Activo</span>
+                            <span className="text-xs bg-brand-100 text-brand-800 font-bold px-1.5 py-0.5 rounded">Activo</span>
                           ) : (
-                            <span className="text-[10px] bg-slate-100 text-slate-600 font-bold px-1.5 py-0.5 rounded">Opcional</span>
+                            <span className="text-xs bg-slate-100 text-slate-600 font-bold px-1.5 py-0.5 rounded">Opcional</span>
                           )}
                         </div>
                       </button>
@@ -271,7 +271,7 @@ export const Navbar = () => {
           {/* Menú Móvil Desplegable (visible en < md) */}
           {isMobileMenuOpen && (
             <div className="md:hidden border-t border-slate-200 py-3 space-y-1 bg-white animate-fadeIn">
-              <div className="px-3 text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">
+              <div className="px-3 text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">
                 Navegación del Sistema
               </div>
               {navLinks.map((link) => {

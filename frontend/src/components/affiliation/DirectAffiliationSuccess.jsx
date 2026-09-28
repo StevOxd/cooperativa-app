@@ -119,7 +119,7 @@ export const DirectAffiliationSuccess = ({ afiliacionExitosa }) => {
             </div>
 
             <div className="bg-slate-800/90 rounded-xl p-3 border border-slate-700/80 text-center space-y-1">
-              <span className="text-[10px] uppercase font-mono tracking-wider text-slate-400 block">
+              <span className="text-xs uppercase font-mono tracking-wider text-slate-400 block">
                 Clave Secreta de Configuración Manual:
               </span>
               <span className="font-mono text-xs font-bold text-brand-300 tracking-widest select-all">
@@ -135,7 +135,7 @@ export const DirectAffiliationSuccess = ({ afiliacionExitosa }) => {
             <Info className="w-4 h-4 text-blue-700 shrink-0" />
             <span>Primer Ingreso al Portal:</span>
           </p>
-          <p className="text-[11px] leading-relaxed text-blue-800">
+          <p className="text-xs leading-relaxed text-blue-800">
             Ingresa utilizando tu <strong>Usuario ({afiliacionExitosa.usuario.codigo_corporativo})</strong> o correo electrónico junto con la contraseña que acabas de definir. Al entrar se te presentará el <strong>recorrido guiado</strong> para que conozcas todas las funciones.
           </p>
         </div>

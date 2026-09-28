@@ -262,7 +262,7 @@ export const ChangePasswordModal = ({ isOpen, onClose }) => {
             </div>
           </div>
 
-          <div className="p-3 bg-slate-50 border border-slate-200/80 rounded-xl text-[11px] text-slate-500 space-y-1">
+          <div className="p-3 bg-slate-50 border border-slate-200/80 rounded-xl text-xs text-slate-500 space-y-1">
             <p className="font-semibold text-slate-700">Requisitos de Seguridad:</p>
             <ul className="list-disc list-inside space-y-0.5 text-slate-600">
               <li>Mínimo 6 caracteres de longitud.</li>

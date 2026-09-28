@@ -57,17 +57,17 @@ const OperatorAffiliationSuccessModal = ({ formalizadoResult, onClose }) => {
           </div>
           <div className="flex justify-between items-center pt-2 border-t border-slate-200">
             <span className="text-slate-500 font-medium">Contraseña Temporal:</span>
-            <span className="text-[11px] font-semibold text-brand-800 bg-brand-100/70 px-2 py-0.5 rounded-md border border-brand-200">
+            <span className="text-xs font-semibold text-brand-800 bg-brand-100/70 px-2 py-0.5 rounded-md border border-brand-200">
               Despachada al Correo
             </span>
           </div>
           {formalizadoResult.email && (
-            <div className="text-[11px] text-slate-500 text-center pt-1 font-sans">
+            <div className="text-xs text-slate-500 text-center pt-1 font-sans">
               Despachada a: <span className="font-semibold text-slate-700">{formalizadoResult.email}</span>
             </div>
           )}
           {formalizadoResult.email_status?.simulado && (
-            <div className="text-[10px] text-warning-800 bg-warning-50 border border-warning-200 rounded-xl p-2.5 text-left mt-1">
+            <div className="text-xs text-warning-800 bg-warning-50 border border-warning-200 rounded-xl p-2.5 text-left mt-1">
               <strong>Nota del servicio de correo:</strong> Se encuentra en modo demostrativo local. Para despachar correos reales a bandejas externas (Gmail), active Google Mail con su Contraseña de Aplicación desde el menú de Administración.
             </div>
           )}

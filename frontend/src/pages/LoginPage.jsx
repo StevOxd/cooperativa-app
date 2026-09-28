@@ -248,7 +248,7 @@ export const LoginPage = () => {
                       autoComplete="one-time-code"
                       className="w-full text-center tracking-[0.4em] font-mono text-2xl py-3.5 bg-slate-50 border-2 border-brand-500/60 rounded-xl text-slate-900 placeholder-slate-300 focus:outline-none focus:ring-4 focus:ring-brand-500/20 focus:border-brand-600 focus:bg-white transition-all disabled:opacity-50"
                     />
-                    <p className="text-[11px] text-slate-400 text-center mt-2">
+                    <p className="text-xs text-slate-400 text-center mt-2">
                       El código se actualiza dinámicamente cada 30 segundos.
                     </p>
                   </div>
@@ -399,7 +399,7 @@ export const LoginPage = () => {
             )}
 
             <div className="mt-8 pt-6 border-t border-slate-100 text-center">
-              <p className="text-[11px] text-slate-400 font-medium leading-relaxed">
+              <p className="text-xs text-slate-400 font-medium leading-relaxed">
                 © 2026 Cooperativa. Todos los derechos reservados. Acceso restringido únicamente a personal autorizado.
               </p>
             </div>

@@ -350,7 +350,7 @@ export const BeneficiariesModal = ({
             <History className="w-4 h-4 text-slate-600" />
             <span>Historial de Modificaciones</span>
             {historialList.length > 0 && (
-              <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-slate-200 text-slate-700">
+              <span className="px-1.5 py-0.2 rounded-full text-xs font-bold bg-slate-200 text-slate-700">
                 {historialList.length}
               </span>
             )}
@@ -432,7 +432,7 @@ export const BeneficiariesModal = ({
               />
             </div>
 
-            <div className="flex justify-between items-center text-[11px] pt-1">
+            <div className="flex justify-between items-center text-xs pt-1">
               {esValido100 ? (
                 <span className="text-brand-700 font-semibold flex items-center space-x-1">
                   <CheckCircle2 className="w-3.5 h-3.5" />
@@ -481,7 +481,7 @@ export const BeneficiariesModal = ({
                 className="p-3.5 bg-slate-50/70 border border-slate-200 rounded-xl space-y-2 relative group"
               >
                 <div className="flex justify-between items-center">
-                  <span className="text-[11px] font-bold text-slate-500 uppercase">
+                  <span className="text-xs font-bold text-slate-500 uppercase">
                     Beneficiario #{index + 1}
                   </span>
                   {beneficiarios.length > 1 && (
@@ -498,7 +498,7 @@ export const BeneficiariesModal = ({
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                   <div className="sm:col-span-2">
-                    <label className="block text-[11px] font-semibold text-slate-600 mb-0.5">
+                    <label className="block text-xs font-semibold text-slate-600 mb-0.5">
                       Nombre Completo *
                     </label>
                     <input
@@ -512,7 +512,7 @@ export const BeneficiariesModal = ({
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-semibold text-slate-600 mb-0.5">
+                    <label className="block text-xs font-semibold text-slate-600 mb-0.5">
                       Parentesco *
                     </label>
                     <select
@@ -531,7 +531,7 @@ export const BeneficiariesModal = ({
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                   <div>
-                    <label className="block text-[11px] font-semibold text-slate-600 mb-0.5">
+                    <label className="block text-xs font-semibold text-slate-600 mb-0.5">
                       CUI / DPI
                     </label>
                     <input
@@ -545,7 +545,7 @@ export const BeneficiariesModal = ({
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-semibold text-slate-600 mb-0.5">
+                    <label className="block text-xs font-semibold text-slate-600 mb-0.5">
                       Teléfono (8 dígitos)
                     </label>
                     <input
@@ -559,7 +559,7 @@ export const BeneficiariesModal = ({
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-semibold text-slate-600 mb-0.5">
+                    <label className="block text-xs font-semibold text-slate-600 mb-0.5">
                       Porcentaje Asignado (%) *
                     </label>
                     <div className="relative">
@@ -601,7 +601,7 @@ export const BeneficiariesModal = ({
           <div className="pt-4 flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-slate-100">
             <div className="text-xs">
               {!hasChanges && esValido100 && (
-                <span className="text-slate-400 italic text-[11px]">
+                <span className="text-slate-400 italic text-xs">
                   Sin modificaciones pendientes por guardar
                 </span>
               )}
@@ -710,11 +710,11 @@ export const BeneficiariesModal = ({
                               minute: '2-digit',
                             })}
                           </span>
-                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-purple-800">
+                          <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-purple-100 text-purple-800">
                             {item.rol_usuario || 'OPERADOR'}
                           </span>
                         </div>
-                        <div className="text-[11px] text-slate-500">
+                        <div className="text-xs text-slate-500">
                           Modificado por: <strong className="text-slate-700">{item.nombre_usuario || 'Operador'}</strong>
                         </div>
                       </div>
@@ -729,15 +729,15 @@ export const BeneficiariesModal = ({
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
                         {/* Anteriores */}
                         <div className="p-3 bg-white rounded-lg border border-slate-200 space-y-1.5">
-                          <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
+                          <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block">
                             Distribución Anterior
                           </span>
                           {prevBens.length === 0 ? (
-                            <span className="text-slate-400 italic text-[11px]">Sin beneficiarios registrados previamente</span>
+                            <span className="text-slate-400 italic text-xs">Sin beneficiarios registrados previamente</span>
                           ) : (
                             <ul className="space-y-1">
                               {prevBens.map((b, i) => (
-                                <li key={i} className="flex justify-between items-center text-[11px]">
+                                <li key={i} className="flex justify-between items-center text-xs">
                                   <span className="text-slate-700 font-medium truncate max-w-[140px]">{b.nombre_completo}</span>
                                   <span className="font-bold text-slate-500 font-mono">{parseFloat(b.porcentaje).toFixed(2)}%</span>
                                 </li>
@@ -748,12 +748,12 @@ export const BeneficiariesModal = ({
 
                         {/* Nuevos */}
                         <div className="p-3 bg-brand-50/50 rounded-lg border border-brand-200 space-y-1.5">
-                          <span className="text-[11px] font-bold text-brand-800 uppercase tracking-wider block">
+                          <span className="text-xs font-bold text-brand-800 uppercase tracking-wider block">
                             Nueva Distribución Asignada (100%)
                           </span>
                           <ul className="space-y-1">
                             {newBens.map((b, i) => (
-                              <li key={i} className="flex justify-between items-center text-[11px]">
+                              <li key={i} className="flex justify-between items-center text-xs">
                                 <span className="text-brand-950 font-bold truncate max-w-[140px]">{b.nombre_completo}</span>
                                 <span className="font-extrabold text-brand-700 font-mono bg-brand-100 px-1.5 py-0.2 rounded">
                                   {parseFloat(b.porcentaje).toFixed(2)}%

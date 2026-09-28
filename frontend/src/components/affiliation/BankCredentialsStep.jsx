@@ -65,7 +65,7 @@ export const BankCredentialsStep = ({
           <ShieldCheck className="w-4 h-4 text-blue-700 shrink-0" />
           <span>Autenticación de Banca en Línea Requerida</span>
         </div>
-        <p className="text-[11.5px] leading-relaxed text-blue-800">
+        <p className="text-xs leading-relaxed text-blue-800">
           Has sido identificado en la Entidad Bancaria. Para vincular tus cuentas de forma segura a tu membresía cooperativa, ingresa tus 3 credenciales de acceso a la <strong>Banca en Línea</strong> del banco.
         </p>
       </div>

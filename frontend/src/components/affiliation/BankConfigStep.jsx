@@ -103,7 +103,7 @@ export const BankConfigStep = ({
                   <p className="text-xs font-bold text-slate-900 font-mono">
                     {cb.numero_cuenta_bancaria}
                   </p>
-                  <p className="text-[11px] text-slate-500 font-medium">
+                  <p className="text-xs text-slate-500 font-medium">
                     Cuenta {cb.tipo_cuenta} • Banco de la Corporación
                   </p>
                 </div>
@@ -112,7 +112,7 @@ export const BankConfigStep = ({
                 <p className="text-xs font-extrabold text-blue-900">
                   Q{parseFloat(cb.saldo_disponible).toFixed(2)}
                 </p>
-                <p className="text-[10px] text-slate-400 font-semibold uppercase">
+                <p className="text-xs text-slate-400 font-semibold uppercase">
                   Disponible
                 </p>
               </div>
@@ -138,7 +138,7 @@ export const BankConfigStep = ({
             required
           />
         </div>
-        <p className="text-[11px] text-slate-500 mt-1">
+        <p className="text-xs text-slate-500 mt-1">
           Este monto será transferido desde tu cuenta bancaria hacia tu nueva cuenta de Ahorro en la Cooperativa.
         </p>
       </div>

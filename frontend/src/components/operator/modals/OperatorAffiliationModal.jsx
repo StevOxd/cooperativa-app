@@ -145,7 +145,7 @@ const OperatorAffiliationModal = ({
               {/* Ficha editable de datos del solicitante */}
               <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200/80 space-y-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-700 flex items-center space-x-1.5">
+                  <span className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center space-x-1.5">
                     <User className="w-3.5 h-3.5 text-blue-600" />
                     <span>Datos de Identidad y Contacto del Solicitante</span>
                   </span>
@@ -153,7 +153,7 @@ const OperatorAffiliationModal = ({
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
                   <div>
-                    <label className="block text-[11px] font-medium text-slate-500 mb-0.5">Primer Nombre *</label>
+                    <label className="block text-xs font-medium text-slate-500 mb-0.5">Primer Nombre *</label>
                     <input
                       type="text"
                       required
@@ -164,7 +164,7 @@ const OperatorAffiliationModal = ({
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-medium text-slate-500 mb-0.5">Segundo Nombre</label>
+                    <label className="block text-xs font-medium text-slate-500 mb-0.5">Segundo Nombre</label>
                     <input
                       type="text"
                       value={editSegundoNombre}
@@ -174,7 +174,7 @@ const OperatorAffiliationModal = ({
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-medium text-slate-500 mb-0.5">Primer Apellido *</label>
+                    <label className="block text-xs font-medium text-slate-500 mb-0.5">Primer Apellido *</label>
                     <input
                       type="text"
                       required
@@ -185,7 +185,7 @@ const OperatorAffiliationModal = ({
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-medium text-slate-500 mb-0.5">Segundo Apellido</label>
+                    <label className="block text-xs font-medium text-slate-500 mb-0.5">Segundo Apellido</label>
                     <input
                       type="text"
                       value={editSegundoApellido}
@@ -195,7 +195,7 @@ const OperatorAffiliationModal = ({
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-medium text-slate-500 mb-0.5">CUI / DPI (13 Dígitos) *</label>
+                    <label className="block text-xs font-medium text-slate-500 mb-0.5">CUI / DPI (13 Dígitos) *</label>
                     <input
                       type="text"
                       maxLength={13}
@@ -207,7 +207,7 @@ const OperatorAffiliationModal = ({
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-medium text-slate-500 mb-0.5">Fecha de Nacimiento *</label>
+                    <label className="block text-xs font-medium text-slate-500 mb-0.5">Fecha de Nacimiento *</label>
                     <input
                       type="date"
                       required
@@ -219,8 +219,8 @@ const OperatorAffiliationModal = ({
 
                   <div>
                     <div className="flex items-center justify-between mb-0.5">
-                      <label className="block text-[11px] font-medium text-slate-500">Teléfono (8 Dígitos)</label>
-                      <span className={`text-[10px] font-mono font-semibold ${
+                      <label className="block text-xs font-medium text-slate-500">Teléfono (8 Dígitos)</label>
+                      <span className={`text-xs font-mono font-semibold ${
                         editTelefono.length === 8 ? 'text-brand-700 font-bold' : 'text-slate-400'
                       }`}>
                         {editTelefono.length}/8 dígitos
@@ -238,9 +238,9 @@ const OperatorAffiliationModal = ({
 
                   <div>
                     <div className="flex items-center justify-between mb-0.5">
-                      <label className="block text-[11px] font-medium text-slate-500">Correo Electrónico</label>
+                      <label className="block text-xs font-medium text-slate-500">Correo Electrónico</label>
                       {operatorEmailStatus.checking && (
-                        <span className="text-[10px] text-brand-600 flex items-center space-x-1">
+                        <span className="text-xs text-brand-600 flex items-center space-x-1">
                           <Loader2 className="w-2.5 h-2.5 animate-spin" />
                           <span>Verificando...</span>
                         </span>
@@ -267,7 +267,7 @@ const OperatorAffiliationModal = ({
                       )}
                     </div>
                     {operatorEmailStatus.message && (
-                      <p className={`text-[10px] mt-1 font-medium ${
+                      <p className={`text-xs mt-1 font-medium ${
                         operatorEmailStatus.disponible === false ? 'text-danger-600' : 'text-brand-700'
                       }`}>
                         {operatorEmailStatus.message}
@@ -276,7 +276,7 @@ const OperatorAffiliationModal = ({
                   </div>
 
                   <div className="col-span-1 sm:col-span-2">
-                    <label className="block text-[11px] font-medium text-slate-500 mb-0.5">Dirección de Residencia</label>
+                    <label className="block text-xs font-medium text-slate-500 mb-0.5">Dirección de Residencia</label>
                     <input
                       type="text"
                       value={editDireccion}
@@ -310,7 +310,7 @@ const OperatorAffiliationModal = ({
                         className="w-full pl-8 pr-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-900 focus:ring-2 focus:ring-brand-600"
                       />
                     </div>
-                    <span className="text-[10px] text-slate-400 block mt-0.5">Mínimo estatutario Q100.00</span>
+                    <span className="text-xs text-slate-400 block mt-0.5">Mínimo estatutario Q100.00</span>
                   </div>
 
                   <div>
@@ -322,11 +322,11 @@ const OperatorAffiliationModal = ({
                         <DollarSign className="w-4 h-4 text-brand-700" />
                         <span>Efectivo en Ventanilla</span>
                       </div>
-                      <span className="text-[10px] bg-brand-200/80 text-brand-900 px-2 py-0.5 rounded-md font-semibold">
+                      <span className="text-xs bg-brand-200/80 text-brand-900 px-2 py-0.5 rounded-md font-semibold">
                         Recepción Presencial
                       </span>
                     </div>
-                    <span className="text-[10px] text-slate-400 block mt-0.5">
+                    <span className="text-xs text-slate-400 block mt-0.5">
                       Depósito físico en ventanilla de caja al formalizar cuenta
                     </span>
                   </div>
@@ -336,7 +336,7 @@ const OperatorAffiliationModal = ({
                       <Lock className="w-4 h-4 text-brand-600 shrink-0" />
                       <span>Generación Automática de Contraseña Segura</span>
                     </div>
-                    <p className="text-[11px] text-slate-500 leading-relaxed">
+                    <p className="text-xs text-slate-500 leading-relaxed">
                       Por normativa de seguridad bancaria, la contraseña temporal se genera criptográficamente (12 caracteres) y se envía automáticamente junto con el usuario institucional al correo del asociado. Al iniciar sesión por primera vez, el sistema le solicitará el cambio obligatorio de contraseña.
                     </p>
                   </div>

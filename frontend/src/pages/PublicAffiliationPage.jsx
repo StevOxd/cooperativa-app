@@ -533,7 +533,7 @@ export const PublicAffiliationPage = () => {
             </div>
             <div className="text-left">
               <span className="font-extrabold text-slate-900 text-base tracking-tight block leading-tight">COOPERATIVA</span>
-              <span className="text-[10px] text-brand-800 font-bold uppercase tracking-wider block">
+              <span className="text-xs text-brand-800 font-bold uppercase tracking-wider block">
                 Corporación Bancaria
               </span>
             </div>

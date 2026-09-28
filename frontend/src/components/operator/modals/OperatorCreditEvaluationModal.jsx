@@ -150,7 +150,7 @@ const OperatorCreditEvaluationModal = ({
                       <h4 className="text-sm font-extrabold text-brand-950 uppercase tracking-wide">
                         Dictamen del Sistema: Asociado APTO (Riesgo Bajo)
                       </h4>
-                      <span className="text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full bg-brand-200 text-brand-900 border border-brand-300">
+                      <span className="text-xs font-black uppercase px-2.5 py-0.5 rounded-full bg-brand-200 text-brand-900 border border-brand-300">
                         Aprobación Recomendada
                       </span>
                     </div>
@@ -169,7 +169,7 @@ const OperatorCreditEvaluationModal = ({
                       <h4 className="text-sm font-extrabold text-warning-950 uppercase tracking-wide">
                         Dictamen del Sistema: Crédito CONDICIONADO (Riesgo Moderado)
                       </h4>
-                      <span className="text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full bg-warning-200 text-warning-900 border border-warning-300">
+                      <span className="text-xs font-black uppercase px-2.5 py-0.5 rounded-full bg-warning-200 text-warning-900 border border-warning-300">
                         Revisión Cautelosa
                       </span>
                     </div>
@@ -188,7 +188,7 @@ const OperatorCreditEvaluationModal = ({
                       <h4 className="text-sm font-extrabold text-danger-950 uppercase tracking-wide">
                         Dictamen del Sistema: NO APTO (Alto Riesgo / Endeudamiento Excesivo)
                       </h4>
-                      <span className="text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full bg-danger-200 text-danger-900 border border-danger-300">
+                      <span className="text-xs font-black uppercase px-2.5 py-0.5 rounded-full bg-danger-200 text-danger-900 border border-danger-300">
                         Rechazo Sugerido
                       </span>
                     </div>
@@ -202,50 +202,50 @@ const OperatorCreditEvaluationModal = ({
               {/* Grid de 4 Indicadores Financieros */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
                 <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
-                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500 block mb-1">
+                  <span className="text-xs font-extrabold uppercase tracking-wider text-slate-500 block mb-1">
                     Saldo Total en Cuentas
                   </span>
                   <span className="text-lg font-black text-slate-900 font-mono block">
                     Q{evaluacionData.solicitante.saldoTotal.toLocaleString('es-GT', { minimumFractionDigits: 2 })}
                   </span>
-                  <span className="text-[11px] text-slate-500 mt-1 block">
+                  <span className="text-xs text-slate-500 mt-1 block">
                     Banco: Q{evaluacionData.solicitante.totalBanco.toLocaleString('es-GT')} • Coop: Q{evaluacionData.solicitante.totalCoop.toLocaleString('es-GT')}
                   </span>
                 </div>
 
                 <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
-                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500 block mb-1">
+                  <span className="text-xs font-extrabold uppercase tracking-wider text-slate-500 block mb-1">
                     Límite Máximo Asignado
                   </span>
                   <span className="text-lg font-black text-slate-900 font-mono block">
                     Q{evaluacionData.capacidad.limiteMaximo.toLocaleString('es-GT', { minimumFractionDigits: 2 })}
                   </span>
-                  <span className="text-[11px] text-slate-500 mt-1 block">
+                  <span className="text-xs text-slate-500 mt-1 block">
                     {evaluacionData.capacidad.nivel} ({evaluacionData.capacidad.rangoTexto})
                   </span>
                 </div>
 
                 <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
-                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500 block mb-1">
+                  <span className="text-xs font-extrabold uppercase tracking-wider text-slate-500 block mb-1">
                     Deuda Proyectada Total
                   </span>
                   <span className="text-lg font-black text-slate-900 font-mono block">
                     Q{evaluacionData.analisisSolicitud.deudaProyectada.toLocaleString('es-GT', { minimumFractionDigits: 2 })}
                   </span>
-                  <span className="text-[11px] text-slate-500 mt-1 block">
+                  <span className="text-xs text-slate-500 mt-1 block">
                     Activa: Q{evaluacionData.solicitante.deudaActiva.toLocaleString('es-GT')} + Solicitud: Q{evaluacionData.analisisSolicitud.montoSolicitado.toLocaleString('es-GT')}
                   </span>
                 </div>
 
                 <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
-                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500 block mb-1">
+                  <span className="text-xs font-extrabold uppercase tracking-wider text-slate-500 block mb-1">
                     Endeudamiento Proyectado
                   </span>
                   <div className="flex items-baseline justify-between mb-1">
                     <span className="text-lg font-black font-mono text-slate-900">
                       {evaluacionData.analisisSolicitud.porcentajeEndeudamiento}%
                     </span>
-                    <span className="text-[10px] text-slate-500 font-medium">
+                    <span className="text-xs text-slate-500 font-medium">
                       Cupo disp: Q{evaluacionData.analisisSolicitud.cupoDisponible.toLocaleString('es-GT')}
                     </span>
                   </div>
@@ -334,7 +334,7 @@ const OperatorCreditEvaluationModal = ({
                           ? 'Expediente del Asociado (Descargue y adjunte firmado por Operador)'
                           : 'Adjuntar Solicitud Firmada en PDF'}
                       </span>
-                      <span className="text-[11px] text-slate-500">
+                      <span className="text-xs text-slate-500">
                         {archivoFirmado
                           ? 'Archivo listo para remitir y elevar al Ejecutivo.'
                           : 'Es obligatorio adjuntar el archivo PDF firmado por el operador para poder aceptar la solicitud y elevarla al Ejecutivo.'}
@@ -531,7 +531,7 @@ const OperatorCreditEvaluationModal = ({
                     <div className="p-4 rounded-xl border border-slate-200 bg-white space-y-2.5">
                       <h5 className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center justify-between">
                         <span>Cuentas Bancarias Vinculadas</span>
-                        <span className="text-[11px] font-extrabold text-brand-700">
+                        <span className="text-xs font-extrabold text-brand-700">
                           Total: Q{evaluacionData.solicitante.totalBanco.toLocaleString('es-GT', { minimumFractionDigits: 2 })}
                         </span>
                       </h5>
@@ -543,7 +543,7 @@ const OperatorCreditEvaluationModal = ({
                             <div key={cb.id_cuenta_bancaria} className="p-2.5 rounded-lg bg-slate-50 border border-slate-100 flex justify-between items-center text-xs">
                               <div>
                                 <span className="font-bold text-slate-800 block">{cb.tipo_cuenta}</span>
-                                <span className="font-mono text-[11px] text-slate-500">{cb.numero_cuenta_bancaria}</span>
+                                <span className="font-mono text-xs text-slate-500">{cb.numero_cuenta_bancaria}</span>
                               </div>
                               <span className="font-mono font-bold text-brand-800">
                                 Q{parseFloat(cb.saldo_disponible).toLocaleString('es-GT', { minimumFractionDigits: 2 })}
@@ -558,7 +558,7 @@ const OperatorCreditEvaluationModal = ({
                     <div className="p-4 rounded-xl border border-slate-200 bg-white space-y-2.5">
                       <h5 className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center justify-between">
                         <span>Cuentas Internas de Cooperativa</span>
-                        <span className="text-[11px] font-extrabold text-brand-700">
+                        <span className="text-xs font-extrabold text-brand-700">
                           Total: Q{evaluacionData.solicitante.totalCoop.toLocaleString('es-GT', { minimumFractionDigits: 2 })}
                         </span>
                       </h5>
@@ -570,7 +570,7 @@ const OperatorCreditEvaluationModal = ({
                             <div key={c.id_cuenta} className="p-2.5 rounded-lg bg-slate-50 border border-slate-100 flex justify-between items-center text-xs">
                               <div>
                                 <span className="font-bold text-slate-800 block">{c.tipo || c.tipo_cuenta || 'Cuenta Cooperativa'}</span>
-                                <span className="font-mono text-[11px] text-slate-500">{c.numero_cuenta}</span>
+                                <span className="font-mono text-xs text-slate-500">{c.numero_cuenta}</span>
                               </div>
                               <span className="font-mono font-bold text-brand-800">
                                 Q{(Number(c.saldo_disponible !== undefined ? c.saldo_disponible : (c.saldo || 0)) || 0).toLocaleString('es-GT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
@@ -627,7 +627,7 @@ const OperatorCreditEvaluationModal = ({
                                 })}
                               </td>
                               <td className="px-3 py-2 font-semibold">
-                                <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                                <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-bold ${
                                   tx.origen === 'BANCO'
                                     ? 'bg-blue-50 text-blue-700 border border-blue-200'
                                     : 'bg-brand-50 text-brand-700 border border-brand-200'
@@ -635,11 +635,11 @@ const OperatorCreditEvaluationModal = ({
                                   {tx.origen}
                                 </span>
                               </td>
-                              <td className="px-3 py-2 font-mono text-[11px] text-slate-700">
+                              <td className="px-3 py-2 font-mono text-xs text-slate-700">
                                 {tx.cuenta_numero}
                               </td>
                               <td className="px-3 py-2 text-center">
-                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold ${
                                   (tx.tipo_movimiento || tx.tipo) === 'CREDITO'
                                     ? 'bg-brand-100 text-brand-800'
                                     : 'bg-slate-100 text-slate-700'
@@ -757,7 +757,7 @@ const OperatorCreditEvaluationModal = ({
                   <span> el {new Date(selectedCredito.fecha_resolucion).toLocaleDateString('es-GT', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
                 )}
                 {selectedCredito.observaciones && (
-                  <p className="text-[11px] text-slate-500 mt-0.5">Motivo/Resolución: "{selectedCredito.observaciones}"</p>
+                  <p className="text-xs text-slate-500 mt-0.5">Motivo/Resolución: "{selectedCredito.observaciones}"</p>
                 )}
               </div>
               <button

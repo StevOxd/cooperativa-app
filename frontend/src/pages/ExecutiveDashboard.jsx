@@ -306,7 +306,7 @@ export const ExecutiveDashboard = () => {
             <ShieldCheck className="w-5 h-5" />
           </div>
           <div className="text-2xl sm:text-3xl font-extrabold text-slate-900">{pendientesCount}</div>
-          <p className="text-[11px] text-brand-700 mt-1 font-medium">Requieren resolución ejecutiva</p>
+          <p className="text-xs text-brand-700 mt-1 font-medium">Requieren resolución ejecutiva</p>
         </div>
 
         <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-xs">
@@ -315,7 +315,7 @@ export const ExecutiveDashboard = () => {
             <CheckCircle className="w-5 h-5" />
           </div>
           <div className="text-2xl sm:text-3xl font-extrabold text-slate-900">{aprobadasCount}</div>
-          <p className="text-[11px] text-brand-700 mt-1 font-medium">Acreditados exitosamente</p>
+          <p className="text-xs text-brand-700 mt-1 font-medium">Acreditados exitosamente</p>
         </div>
 
         <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-xs">
@@ -324,7 +324,7 @@ export const ExecutiveDashboard = () => {
             <RotateCcw className="w-5 h-5" />
           </div>
           <div className="text-2xl sm:text-3xl font-extrabold text-slate-900">{devueltasCount}</div>
-          <p className="text-[11px] text-warning-700 mt-1 font-medium">En subsanación operativa</p>
+          <p className="text-xs text-warning-700 mt-1 font-medium">En subsanación operativa</p>
         </div>
 
         <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-xs">
@@ -333,7 +333,7 @@ export const ExecutiveDashboard = () => {
             <XCircle className="w-5 h-5" />
           </div>
           <div className="text-2xl sm:text-3xl font-extrabold text-slate-900">{denegadasCount}</div>
-          <p className="text-[11px] text-danger-700 mt-1 font-medium">Rechazados formalmente</p>
+          <p className="text-xs text-danger-700 mt-1 font-medium">Rechazados formalmente</p>
         </div>
       </div>
 
@@ -351,7 +351,7 @@ export const ExecutiveDashboard = () => {
               }`}
             >
               <span>Pendientes</span>
-              <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${activeFilterTab === 'PENDIENTES' ? 'bg-brand-800 text-white' : 'bg-slate-200 text-slate-700'}`}>
+              <span className={`px-1.5 py-0.2 rounded-full text-xs ${activeFilterTab === 'PENDIENTES' ? 'bg-brand-800 text-white' : 'bg-slate-200 text-slate-700'}`}>
                 {pendientesCount}
               </span>
             </button>
@@ -365,7 +365,7 @@ export const ExecutiveDashboard = () => {
               }`}
             >
               <span>Aprobadas</span>
-              <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${activeFilterTab === 'APROBADAS' ? 'bg-brand-800 text-white' : 'bg-slate-200 text-slate-700'}`}>
+              <span className={`px-1.5 py-0.2 rounded-full text-xs ${activeFilterTab === 'APROBADAS' ? 'bg-brand-800 text-white' : 'bg-slate-200 text-slate-700'}`}>
                 {aprobadasCount}
               </span>
             </button>
@@ -379,7 +379,7 @@ export const ExecutiveDashboard = () => {
               }`}
             >
               <span>Devueltas</span>
-              <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${activeFilterTab === 'DEVUELTAS' ? 'bg-warning-800 text-white' : 'bg-slate-200 text-slate-700'}`}>
+              <span className={`px-1.5 py-0.2 rounded-full text-xs ${activeFilterTab === 'DEVUELTAS' ? 'bg-warning-800 text-white' : 'bg-slate-200 text-slate-700'}`}>
                 {devueltasCount}
               </span>
             </button>
@@ -393,7 +393,7 @@ export const ExecutiveDashboard = () => {
               }`}
             >
               <span>Denegadas</span>
-              <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${activeFilterTab === 'DENEGADAS' ? 'bg-danger-800 text-white' : 'bg-slate-200 text-slate-700'}`}>
+              <span className={`px-1.5 py-0.2 rounded-full text-xs ${activeFilterTab === 'DENEGADAS' ? 'bg-danger-800 text-white' : 'bg-slate-200 text-slate-700'}`}>
                 {denegadasCount}
               </span>
             </button>
@@ -466,14 +466,14 @@ export const ExecutiveDashboard = () => {
                         <span className="font-mono font-bold text-slate-900 block">
                           #{c.id_solicitud_credito}
                         </span>
-                        <span className="text-slate-400 text-[11px]">
+                        <span className="text-slate-400 text-xs">
                           {new Date(c.fecha_solicitud).toLocaleDateString('es-GT', { day: '2-digit', month: 'short' })}
                         </span>
                       </td>
 
                       <td className="px-4 py-3.5 text-xs">
                         <span className="font-bold text-slate-900 block">{nombre}</span>
-                        <div className="text-[11px] text-slate-500 font-mono flex items-center space-x-2">
+                        <div className="text-xs text-slate-500 font-mono flex items-center space-x-2">
                           <span>DPI: {c.cui_dpi || 'N/A'}</span>
                           <span>•</span>
                           <span>{c.codigo_corporativo}</span>
@@ -498,12 +498,12 @@ export const ExecutiveDashboard = () => {
                             <span className="text-slate-800 font-medium block truncate" title={c.dictamen_operador}>
                               "{c.dictamen_operador}"
                             </span>
-                            <span className="text-[10px] text-slate-400">
+                            <span className="text-xs text-slate-400">
                               Por {c.operador_revisa_nombre ? `${c.operador_revisa_nombre} ${c.operador_revisa_apellido || ''}` : 'Operador'}
                             </span>
                           </div>
                         ) : (
-                          <span className="text-slate-400 italic text-[11px]">Sin dictamen registrado</span>
+                          <span className="text-slate-400 italic text-xs">Sin dictamen registrado</span>
                         )}
                       </td>
 
@@ -513,14 +513,14 @@ export const ExecutiveDashboard = () => {
                             href={getSecureDocumentUrl(c.documento_firmado_url)}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="inline-flex items-center px-2 py-1 rounded-lg bg-brand-50 hover:bg-brand-100 text-brand-700 text-[11px] font-bold border border-brand-200 transition-colors"
+                            className="inline-flex items-center px-2 py-1 rounded-lg bg-brand-50 hover:bg-brand-100 text-brand-700 text-xs font-bold border border-brand-200 transition-colors"
                             title="Ver documento firmado en pestaña nueva"
                           >
                             <FileCheck className="w-3.5 h-3.5 mr-1 text-brand-600" />
                             <span>PDF Firmado</span>
                           </a>
                         ) : (
-                          <span className="text-[10px] text-slate-400 italic">Sin adjunto</span>
+                          <span className="text-xs text-slate-400 italic">Sin adjunto</span>
                         )}
                       </td>
 
@@ -687,7 +687,7 @@ export const ExecutiveDashboard = () => {
                       <span className="text-xs font-bold text-slate-800 block">
                         Subir Documento Firmado por Gerencia Ejecutiva (PDF) *
                       </span>
-                      <span className="text-[11px] text-slate-500">
+                      <span className="text-xs text-slate-500">
                         Descargue el documento remitido por el operador, aplique la firma ejecutiva y suba el archivo firmado aquí para poder Aceptar y Desembolsar.
                       </span>
                     </div>
@@ -757,7 +757,7 @@ export const ExecutiveDashboard = () => {
                               Expediente remitido por Operador: {selectedCredito.nombre_archivo_firmado || 'formulario_firmado.pdf'}
                             </span>
                             {selectedCredito.peso_archivo_bytes && (
-                              <span className="text-slate-400 text-[11px]">
+                              <span className="text-slate-400 text-xs">
                                 ({(selectedCredito.peso_archivo_bytes / 1024).toFixed(1)} KB)
                               </span>
                             )}
@@ -824,7 +824,7 @@ export const ExecutiveDashboard = () => {
                           : 'bg-warning-50/70 border-warning-200 text-warning-950'
                       }`}>
                         <div>
-                          <span className="text-[10px] font-bold uppercase tracking-wider block opacity-75">
+                          <span className="text-xs font-bold uppercase tracking-wider block opacity-75">
                             Dictamen Automático del Motor de Riesgo
                           </span>
                           <span className="text-base font-extrabold block">
@@ -842,7 +842,7 @@ export const ExecutiveDashboard = () => {
 
                       {/* Verificaciones */}
                       <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-2 text-xs">
-                        <span className="font-bold text-slate-700 uppercase tracking-wider block text-[11px]">
+                        <span className="font-bold text-slate-700 uppercase tracking-wider block text-xs">
                           Verificaciones Automáticas de Solvencia:
                         </span>
                         {evaluacionData.analisisSolicitud.diagnosticos?.map((d, i) => (
@@ -915,7 +915,7 @@ export const ExecutiveDashboard = () => {
                               <td className="px-3 py-2 text-slate-600">{new Date(tx.fecha).toLocaleDateString()}</td>
                               <td className="px-3 py-2 font-semibold text-slate-700">{tx.origen}</td>
                               <td className="px-3 py-2 text-center">
-                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border ${
+                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold border ${
                                   (tx.tipo_movimiento || tx.tipo) === 'CREDITO'
                                     ? 'bg-brand-50 text-brand-800 border-brand-200'
                                     : 'bg-rose-50 text-rose-800 border-rose-200'

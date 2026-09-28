@@ -720,7 +720,7 @@ export const OperatorDashboard = () => {
             <UserPlus className="w-4 h-4 text-brand-600" />
             <span>Solicitudes de Afiliación (Atención en Agencia)</span>
             <span
-              className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold ${
+              className={`px-2 py-0.5 rounded-full text-xs font-extrabold ${
                 activeTab === 'afiliaciones'
                   ? 'bg-brand-100 text-brand-800'
                   : afiliacionesPendientesCount > 0
@@ -743,7 +743,7 @@ export const OperatorDashboard = () => {
             <Building2 className="w-4 h-4 text-slate-600" />
             <span>Traslados de Fondos y Aperturas</span>
             <span
-              className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold ${
+              className={`px-2 py-0.5 rounded-full text-xs font-extrabold ${
                 activeTab === 'traslados' ? 'bg-brand-100 text-brand-800' : 'bg-slate-200 text-slate-700'
               }`}
             >
@@ -762,7 +762,7 @@ export const OperatorDashboard = () => {
             <Calculator className="w-4 h-4 text-brand-600" />
             <span>Solicitudes de Crédito</span>
             <span
-              className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold ${
+              className={`px-2 py-0.5 rounded-full text-xs font-extrabold ${
                 activeTab === 'creditos'
                   ? 'bg-brand-100 text-brand-800'
                   : creditosPendientesCount > 0
@@ -799,7 +799,7 @@ export const OperatorDashboard = () => {
                 >
                   <span>{pill.label}</span>
                   <span
-                    className={`px-1.5 py-0.5 rounded-full text-[10px] font-mono ${
+                    className={`px-1.5 py-0.5 rounded-full text-xs font-mono ${
                       filterAfiliacionEstado === pill.id
                         ? 'bg-slate-700 text-slate-100'
                         : 'bg-slate-200 text-slate-700'
@@ -860,7 +860,7 @@ export const OperatorDashboard = () => {
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse">
                   <thead>
-                    <tr className="bg-slate-50 border-b border-slate-200 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                    <tr className="bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-500 uppercase tracking-wider">
                       <th className="py-3 px-4">Número de Caso</th>
                       <th className="py-3 px-4">Solicitante</th>
                       <th className="py-3 px-4">CUI / DPI</th>
@@ -894,7 +894,7 @@ export const OperatorDashboard = () => {
                               {a.nombre_completo || `${a.primer_nombre} ${a.primer_apellido}`}
                             </span>
                             {a.fecha_nacimiento && (
-                              <span className="text-[11px] text-slate-500 flex items-center space-x-1 mt-0.5">
+                              <span className="text-xs text-slate-500 flex items-center space-x-1 mt-0.5">
                                 <Calendar className="w-3 h-3 text-slate-400" />
                                 <span>Nac: {formatDateOnly(a.fecha_nacimiento)}</span>
                               </span>
@@ -905,7 +905,7 @@ export const OperatorDashboard = () => {
                             {a.cui_dpi}
                           </td>
 
-                          <td className="py-3.5 px-4 text-[11px] text-slate-600 space-y-0.5">
+                          <td className="py-3.5 px-4 text-xs text-slate-600 space-y-0.5">
                             {a.email && (
                               <div className="flex items-center space-x-1 truncate max-w-[180px]">
                                 <Mail className="w-3 h-3 text-slate-400 flex-shrink-0" />
@@ -930,7 +930,7 @@ export const OperatorDashboard = () => {
                             Q{parseFloat(a.monto_estimado || 100.0).toLocaleString('es-GT', { minimumFractionDigits: 2 })}
                           </td>
 
-                          <td className="py-3.5 px-4 text-slate-500 text-[11px] whitespace-nowrap">
+                          <td className="py-3.5 px-4 text-slate-500 text-xs whitespace-nowrap">
                             <div className="flex items-center space-x-1">
                               <Clock className="w-3 h-3 text-slate-400" />
                               <span>{new Date(a.fecha_solicitud).toLocaleDateString('es-GT', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
@@ -940,43 +940,43 @@ export const OperatorDashboard = () => {
                           <td className="py-3.5 px-4 text-center whitespace-nowrap">
                             {a.estado === 'ATENDIDA' ? (
                               <div className="flex flex-col items-center">
-                                <span className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-brand-50 text-brand-800 border border-brand-200">
+                                <span className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-full text-xs font-bold bg-brand-50 text-brand-800 border border-brand-200">
                                   <CheckCircle2 className="w-3 h-3 text-brand-600" />
                                   <span>Formalizada</span>
                                 </span>
                                 {a.fecha_resolucion && (
-                                  <span className="text-[10px] text-slate-400 mt-0.5 font-sans">
+                                  <span className="text-xs text-slate-400 mt-0.5 font-sans">
                                     {new Date(a.fecha_resolucion).toLocaleDateString('es-GT', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
                                   </span>
                                 )}
                               </div>
                             ) : a.estado === 'CANCELADA' ? (
                               <div className="flex flex-col items-center">
-                                <span className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-rose-50 text-rose-800 border border-rose-200">
+                                <span className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-full text-xs font-bold bg-rose-50 text-rose-800 border border-rose-200">
                                   <XCircle className="w-3 h-3 text-rose-600" />
                                   <span>Cancelada / Denegada</span>
                                 </span>
                                 {a.fecha_resolucion && (
-                                  <span className="text-[10px] text-slate-400 mt-0.5 font-sans">
+                                  <span className="text-xs text-slate-400 mt-0.5 font-sans">
                                     {new Date(a.fecha_resolucion).toLocaleDateString('es-GT', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
                                   </span>
                                 )}
                               </div>
                             ) : bloqueadoPorOtro ? (
                               <span
-                                className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-warning-100 text-warning-900 border border-warning-300"
+                                className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-full text-xs font-bold bg-warning-100 text-warning-900 border border-warning-300"
                                 title={`Caso tomado por ${a.operador_bloqueo_nombre} (${a.operador_bloqueo_codigo})`}
                               >
                                 <Lock className="w-3 h-3 text-warning-700" />
                                 <span>En atención por {a.operador_bloqueo_codigo || 'Operador'}</span>
                               </span>
                             ) : bloqueadoPorMi ? (
-                              <span className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-blue-100 text-blue-900 border border-blue-300 animate-pulse">
+                              <span className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-900 border border-blue-300 animate-pulse">
                                 <Unlock className="w-3 h-3 text-blue-700" />
                                 <span>En atención por ti</span>
                               </span>
                             ) : (
-                              <span className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-brand-50 text-brand-800 border border-brand-200">
+                              <span className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-full text-xs font-bold bg-brand-50 text-brand-800 border border-brand-200">
                                 <span className="w-1.5 h-1.5 rounded-full bg-brand-500"></span>
                                 <span>Disponible</span>
                               </span>
@@ -1069,7 +1069,7 @@ export const OperatorDashboard = () => {
               >
                 <Inbox className="w-4 h-4 text-brand-600" />
                 <span>Casos Pendientes de Aprobación</span>
-                <span className="ml-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-brand-100 text-brand-800">
+                <span className="ml-1 px-2 py-0.5 rounded-full text-xs font-extrabold bg-brand-100 text-brand-800">
                   {solicitudes.length}
                 </span>
               </button>
@@ -1090,7 +1090,7 @@ export const OperatorDashboard = () => {
               >
                 <Search className="w-4 h-4 text-slate-600" />
                 <span>Buscador e Historial por Asociado</span>
-                <span className="ml-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-600">
+                <span className="ml-1 px-2 py-0.5 rounded-full text-xs font-bold bg-slate-100 text-slate-600">
                   {historialTraslados.length}
                 </span>
               </button>
@@ -1150,11 +1150,11 @@ export const OperatorDashboard = () => {
                               <span className="font-semibold block text-slate-700">
                                 {s.tipo_operacion === 'TRASLADO_DIRECTO' ? 'Traslado Directo' : 'Apertura y Traslado'}
                               </span>
-                              <span className="text-[10px] text-slate-500 font-mono block mt-0.5">
+                              <span className="text-xs text-slate-500 font-mono block mt-0.5">
                                 Tipo Destino: {s.tipo_cuenta_destino_nombre}
                               </span>
                               {s.cuenta_destino_numero && (
-                                <span className="text-[10px] text-brand-700 font-mono">
+                                <span className="text-xs text-brand-700 font-mono">
                                   Cta Destino: {s.cuenta_destino_numero}
                                 </span>
                               )}
@@ -1267,7 +1267,7 @@ export const OperatorDashboard = () => {
                 ) : (
                   <div className="overflow-x-auto">
                     <table className="w-full text-left text-xs border-collapse">
-                      <thead className="bg-slate-50 text-slate-500 uppercase tracking-wider text-[11px] font-bold border-b border-slate-200">
+                      <thead className="bg-slate-50 text-slate-500 uppercase tracking-wider text-xs font-bold border-b border-slate-200">
                         <tr>
                           <th className="px-4 py-3">Número de Caso</th>
                           <th className="px-4 py-3">Asociado</th>
@@ -1292,7 +1292,7 @@ export const OperatorDashboard = () => {
                               <td className="px-4 py-3">
                                 <span className="font-bold text-slate-900 block">{nombreCompleto}</span>
                                 {h.codigo_corporativo && (
-                                  <span className="text-[10px] font-mono text-brand-700 block">
+                                  <span className="text-xs font-mono text-brand-700 block">
                                     {h.codigo_corporativo}
                                   </span>
                                 )}
@@ -1307,20 +1307,20 @@ export const OperatorDashboard = () => {
                                 <span className="font-semibold block text-slate-800">
                                   {h.tipo_operacion === 'TRASLADO_DIRECTO' ? 'Traslado Directo' : 'Apertura y Traslado'}
                                 </span>
-                                <span className="text-[10px] text-slate-500 font-mono block">
+                                <span className="text-xs text-slate-500 font-mono block">
                                   {h.cuenta_destino_numero || h.tipo_cuenta_destino_nombre}
                                 </span>
                               </td>
-                              <td className="px-4 py-3 text-[11px] text-slate-500 whitespace-nowrap">
+                              <td className="px-4 py-3 text-xs text-slate-500 whitespace-nowrap">
                                 <div>Sol: {new Date(h.fecha_solicitud).toLocaleDateString('es-GT', { day: '2-digit', month: 'short', year: 'numeric' })}</div>
                                 {h.fecha_resolucion && (
-                                  <div className="text-[10px] text-slate-400">
+                                  <div className="text-xs text-slate-400">
                                     Res: {new Date(h.fecha_resolucion).toLocaleDateString('es-GT', { day: '2-digit', month: 'short' })}
                                   </div>
                                 )}
                               </td>
                               <td className="px-4 py-3 text-center whitespace-nowrap">
-                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border ${
+                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold border ${
                                   h.estado === 'APROBADO'
                                     ? 'bg-brand-50 text-brand-700 border-brand-200'
                                     : h.estado === 'RECHAZADO'
@@ -1330,7 +1330,7 @@ export const OperatorDashboard = () => {
                                   {h.estado}
                                 </span>
                               </td>
-                              <td className="px-4 py-3 text-[11px] max-w-xs">
+                              <td className="px-4 py-3 text-xs max-w-xs">
                                 {h.operador_nombre ? (
                                   <span className="block font-medium text-slate-700">
                                     Por: {h.operador_nombre} {h.operador_apellido || ''}
@@ -1339,7 +1339,7 @@ export const OperatorDashboard = () => {
                                   <span className="text-slate-400 italic block">-</span>
                                 )}
                                 {h.observaciones_operador && (
-                                  <span className="block text-[10px] text-slate-500 truncate" title={h.observaciones_operador}>
+                                  <span className="block text-xs text-slate-500 truncate" title={h.observaciones_operador}>
                                     "{h.observaciones_operador}"
                                   </span>
                                 )}
@@ -1434,7 +1434,7 @@ export const OperatorDashboard = () => {
                           <span className="font-semibold block text-slate-900 text-xs">
                             {c.primer_nombre} {c.segundo_nombre || ''} {c.primer_apellido} {c.segundo_apellido || ''}
                           </span>
-                          <span className="text-[11px] text-slate-500 block font-mono">
+                          <span className="text-xs text-slate-500 block font-mono">
                             CUI: {c.cui_dpi} {c.codigo_corporativo ? `• ${c.codigo_corporativo}` : ''}
                           </span>
                         </td>
@@ -1446,7 +1446,7 @@ export const OperatorDashboard = () => {
                             {c.cuenta_destino_info || (c.cuenta_bancaria_destino_numero ? `Cuenta Bancaria (${c.cuenta_bancaria_destino_numero})` : 'Cuenta Principal')}
                           </span>
                           {c.cuenta_bancaria_destino_tipo && (
-                            <span className="text-[10px] text-slate-400 font-mono block">
+                            <span className="text-xs text-slate-400 font-mono block">
                               Tipo: {c.cuenta_bancaria_destino_tipo}
                             </span>
                           )}
@@ -1465,7 +1465,7 @@ export const OperatorDashboard = () => {
                         </td>
                         <td className="px-4 py-3.5 text-center">
                           <span
-                            className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold border ${
+                            className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold border ${
                               c.estado === 'APROBADA' || c.estado === 'APROBADO' || c.estado === 'DESEMBOLSADA'
                                 ? 'bg-brand-50 text-brand-700 border-brand-200'
                                 : c.estado === 'RECHAZADA' || c.estado === 'RECHAZADO' || c.estado === 'DENEGADA'
@@ -1493,7 +1493,7 @@ export const OperatorDashboard = () => {
                                 href={getSecureDocumentUrl(c.documento_firmado_url)}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="inline-flex items-center text-[10px] font-bold text-brand-700 hover:text-brand-900 hover:underline"
+                                className="inline-flex items-center text-xs font-bold text-brand-700 hover:text-brand-900 hover:underline"
                               >
                                 <FileCheck className="w-3 h-3 mr-0.5" />
                                 <span>PDF Firmado</span>
@@ -1530,12 +1530,12 @@ export const OperatorDashboard = () => {
                             <div className="flex flex-col items-center space-y-1">
                               <button
                                 onClick={() => openResolverCreditoModal(c, '')}
-                                className="inline-flex items-center px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-medium border border-slate-200 transition-colors cursor-pointer"
+                                className="inline-flex items-center px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-medium border border-slate-200 transition-colors cursor-pointer"
                               >
                                 <Eye className="w-3 h-3 mr-1 text-slate-500" />
                                 <span>Expediente</span>
                               </button>
-                              <span className="text-[10px] text-slate-400 font-medium">
+                              <span className="text-xs text-slate-400 font-medium">
                                 {c.analista_nombre ? `Por ${c.analista_nombre}` : 'Procesado'}
                                 {c.fecha_resolucion && ` • ${formatDateOnly(c.fecha_resolucion)}`}
                               </span>

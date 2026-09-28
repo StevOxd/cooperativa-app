@@ -177,7 +177,7 @@ const ForcedPasswordChangeModal = ({ isOpen, user, onSuccess, onLogout }) => {
             </div>
 
             {/* Checklist de Requisitos de Contraseña Fuerte */}
-            <div className="mt-2 grid grid-cols-2 sm:grid-cols-4 gap-1.5 text-[10px]">
+            <div className="mt-2 grid grid-cols-2 sm:grid-cols-4 gap-1.5 text-xs">
               <span className={`flex items-center space-x-1 ${hasMinLength ? 'text-brand-700 font-semibold' : 'text-slate-400'}`}>
                 <CheckCircle2 className="w-3 h-3 shrink-0" />
                 <span>Mín. 8 chars</span>
@@ -221,7 +221,7 @@ const ForcedPasswordChangeModal = ({ isOpen, user, onSuccess, onLogout }) => {
               </button>
             </div>
             {confirmarPassword && (
-              <span className={`text-[10px] mt-1 block font-medium ${passwordsMatch ? 'text-brand-700' : 'text-danger-600'}`}>
+              <span className={`text-xs mt-1 block font-medium ${passwordsMatch ? 'text-brand-700' : 'text-danger-600'}`}>
                 {passwordsMatch ? '✓ Las contraseñas coinciden' : '✗ Las contraseñas no coinciden'}
               </span>
             )}

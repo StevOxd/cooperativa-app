@@ -5,6 +5,8 @@
 @layer base {
   body {
     @apply bg-slate-50 text-slate-900;
+    /* Cifras de ancho fijo: montos, DPI y cuentas quedan alineados en tablas. */
+    font-variant-numeric: tabular-nums;
   }
 }
 

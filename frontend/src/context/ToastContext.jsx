@@ -181,11 +181,11 @@ export const ToastProvider = ({ children }) => {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between gap-2">
                     <span
-                      className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${config.badge}`}
+                      className={`inline-block px-2 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider ${config.badge}`}
                     >
                       {t.title || config.defaultTitle}
                     </span>
-                    <span className="text-[10px] text-slate-400 font-mono">4s</span>
+                    <span className="text-xs text-slate-400 font-mono">4s</span>
                   </div>
                   <p className="text-xs font-semibold text-slate-800 mt-1.5 leading-relaxed break-words">
                     {t.message}

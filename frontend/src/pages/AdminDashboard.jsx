@@ -260,7 +260,7 @@ export const AdminDashboard = () => {
   const getActionBadge = (estadoNuevo, motivo) => {
     if (estadoNuevo === 'BLOQUEADO_TEMPORAL' || (motivo && motivo.toLowerCase().includes('fuerza bruta'))) {
       return (
-        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold bg-warning-100 text-warning-800 border border-warning-300">
+        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-warning-100 text-warning-800 border border-warning-300">
           <AlertTriangle className="w-3 h-3 mr-1 text-warning-600" />
           Bloqueo Fuerza Bruta
         </span>
@@ -268,7 +268,7 @@ export const AdminDashboard = () => {
     }
     if (motivo && motivo.toLowerCase().includes('desbloqueo')) {
       return (
-        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold bg-brand-100 text-brand-800 border border-brand-300">
+        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-brand-100 text-brand-800 border border-brand-300">
           <Unlock className="w-3 h-3 mr-1 text-brand-600" />
           Desbloqueo Admin
         </span>
@@ -276,14 +276,14 @@ export const AdminDashboard = () => {
     }
     if (estadoNuevo === 'INACTIVO') {
       return (
-        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold bg-slate-100 text-slate-700 border border-slate-300">
+        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-slate-100 text-slate-700 border border-slate-300">
           <UserX className="w-3 h-3 mr-1 text-slate-500" />
           Borrado Lógico
         </span>
       );
     }
     return (
-      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold bg-blue-100 text-blue-800 border border-blue-200">
+      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-blue-100 text-blue-800 border border-blue-200">
         <Activity className="w-3 h-3 mr-1 text-blue-600" />
         {estadoNuevo || 'Actualización'}
       </span>
@@ -414,7 +414,7 @@ export const AdminDashboard = () => {
               <Doughnut data={doughnutData} options={doughnutOptions} />
               <div className="absolute flex flex-col items-center justify-center pointer-events-none">
                 <span className="text-2xl font-extrabold text-slate-800">{kpis.total}</span>
-                <span className="text-[11px] uppercase font-bold text-slate-400 tracking-wider">
+                <span className="text-xs uppercase font-bold text-slate-400 tracking-wider">
                   Cuentas
                 </span>
               </div>
@@ -431,7 +431,7 @@ export const AdminDashboard = () => {
               <span className="text-sm font-extrabold text-brand-900 block mt-1">
                 {kpis.asociadosCount}
               </span>
-              <span className="text-[10px] text-brand-700 font-semibold">
+              <span className="text-xs text-brand-700 font-semibold">
                 {kpis.total > 0 ? `${((kpis.asociadosCount / kpis.total) * 100).toFixed(0)}%` : '0%'}
               </span>
             </div>
@@ -444,7 +444,7 @@ export const AdminDashboard = () => {
               <span className="text-sm font-extrabold text-blue-900 block mt-1">
                 {kpis.operadoresCount}
               </span>
-              <span className="text-[10px] text-blue-700 font-semibold">
+              <span className="text-xs text-blue-700 font-semibold">
                 {kpis.total > 0 ? `${((kpis.operadoresCount / kpis.total) * 100).toFixed(0)}%` : '0%'}
               </span>
             </div>
@@ -457,7 +457,7 @@ export const AdminDashboard = () => {
               <span className="text-sm font-extrabold text-purple-900 block mt-1">
                 {kpis.adminCount}
               </span>
-              <span className="text-[10px] text-purple-700 font-semibold">
+              <span className="text-xs text-purple-700 font-semibold">
                 {kpis.total > 0 ? `${((kpis.adminCount / kpis.total) * 100).toFixed(0)}%` : '0%'}
               </span>
             </div>
@@ -524,7 +524,7 @@ export const AdminDashboard = () => {
                   <tr key={ev.id_historial_estado} className="hover:bg-slate-50/80 transition-colors">
                     <td className="py-3 px-3 font-semibold text-slate-900">
                       <div>{ev.usuario_nombre}</div>
-                      <span className="text-[10px] font-mono text-brand-700 bg-brand-50 px-1.5 py-0.5 rounded border border-brand-200">
+                      <span className="text-xs font-mono text-brand-700 bg-brand-50 px-1.5 py-0.5 rounded border border-brand-200">
                         {ev.usuario_codigo || 'S/C'}
                       </span>
                     </td>
@@ -536,7 +536,7 @@ export const AdminDashboard = () => {
                     <td className="py-3 px-3 text-slate-600 font-medium">
                       <div>{ev.actor_nombre}</div>
                       {ev.actor_codigo && (
-                        <span className="text-[10px] text-slate-400 font-mono">
+                        <span className="text-xs text-slate-400 font-mono">
                           Usuario: {ev.actor_codigo}
                         </span>
                       )}

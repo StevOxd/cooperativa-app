@@ -823,7 +823,7 @@ export const UsersPage = () => {
                         Usuario / Código
                       </label>
                       {!isEditing && (
-                        <span className="text-[10px] font-bold text-brand-700 bg-brand-50 border border-brand-200 px-2 py-0.5 rounded-full">
+                        <span className="text-xs font-bold text-brand-700 bg-brand-50 border border-brand-200 px-2 py-0.5 rounded-full">
                           Asignación Automática
                         </span>
                       )}
@@ -839,7 +839,7 @@ export const UsersPage = () => {
                       />
                     </div>
                     {!isEditing && (
-                      <p className="text-[11px] text-slate-500 mt-1">
+                      <p className="text-xs text-slate-500 mt-1">
                         Correlativo asignado según perfil ({formData.rol === 'EJECUTIVO' ? 'EJ' : 'OP'}).
                       </p>
                     )}
@@ -947,7 +947,7 @@ export const UsersPage = () => {
                   <div className="flex items-center justify-between mb-1">
                     <label className="block text-xs font-semibold text-slate-700">DPI / CUI *</label>
                     <span
-                      className={`text-[11px] font-mono font-semibold ${
+                      className={`text-xs font-mono font-semibold ${
                         formData.cui_dpi?.length === 13 ? 'text-brand-600' : 'text-slate-400'
                       }`}
                     >
@@ -974,7 +974,7 @@ export const UsersPage = () => {
                       }`}
                     />
                   </div>
-                  <p className="text-[11px] text-slate-500 mt-1">
+                  <p className="text-xs text-slate-500 mt-1">
                     Documento Personal de Identificación sin espacios ni guiones.
                   </p>
                 </div>
@@ -1049,7 +1049,7 @@ export const UsersPage = () => {
                     <div className="flex items-center justify-between mb-1">
                       <label className="block text-xs font-semibold text-slate-700">Teléfono *</label>
                       <span
-                        className={`text-[11px] font-mono font-semibold ${
+                        className={`text-xs font-mono font-semibold ${
                           formData.telefono?.length === 8 ? 'text-brand-600' : 'text-slate-400'
                         }`}
                       >
@@ -1076,7 +1076,7 @@ export const UsersPage = () => {
                         }`}
                       />
                     </div>
-                    <p className="text-[11px] text-slate-500 mt-1">
+                    <p className="text-xs text-slate-500 mt-1">
                       8 dígitos sin guiones ni espacios.
                     </p>
                   </div>
@@ -1088,7 +1088,7 @@ export const UsersPage = () => {
                       </label>
                       {ageInfo && (
                         <span
-                          className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                          className={`text-xs font-bold px-2 py-0.5 rounded-full ${
                             ageInfo.valid
                               ? 'bg-brand-50 text-brand-700 border border-brand-200'
                               : 'bg-danger-50 text-danger-700 border border-danger-200'
@@ -1118,14 +1118,14 @@ export const UsersPage = () => {
                     <div className="mt-1">
                       {ageInfo ? (
                         <p
-                          className={`text-[11px] ${
+                          className={`text-xs ${
                             ageInfo.valid ? 'text-brand-700 font-medium' : 'text-danger-600 font-medium'
                           }`}
                         >
                           {ageInfo.message}
                         </p>
                       ) : (
-                        <p className="text-[11px] text-slate-500">
+                        <p className="text-xs text-slate-500">
                           Mayoría de edad requerida (18+ años).
                         </p>
                       )}
@@ -1240,7 +1240,7 @@ export const UsersPage = () => {
               <div className="flex justify-between">
                 <span className="text-slate-500 font-medium">Estado actual:</span>
                 <span
-                  className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                  className={`px-2 py-0.5 rounded-full text-xs font-bold ${
                     statusTargetUser.estado === 'ACTIVO'
                       ? 'bg-brand-100 text-brand-800'
                       : 'bg-slate-200 text-slate-700'
@@ -1282,7 +1282,7 @@ export const UsersPage = () => {
                   required={statusNewValue === 'INACTIVO'}
                   className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-warning-500 resize-none"
                 />
-                <p className="text-[11px] text-slate-400 mt-1">
+                <p className="text-xs text-slate-400 mt-1">
                   Este motivo quedará inmutablemente registrado en la auditoría del sistema.
                 </p>
               </div>
@@ -1424,7 +1424,7 @@ export const UsersPage = () => {
                     <Mail className="w-3.5 h-3.5 text-brand-600 mr-1.5 flex-shrink-0" />
                     <span>{resetTargetUser.email}</span>
                   </div>
-                  <ul className="text-[11px] text-brand-800 space-y-0.5 mt-1 list-disc pl-4">
+                  <ul className="text-xs text-brand-800 space-y-0.5 mt-1 list-disc pl-4">
                     <li>La contraseña <strong>no se mostrará en pantalla</strong> para proteger la privacidad del usuario.</li>
                     <li>La cuenta requerirá obligatoriamente el <strong>cambio de contraseña</strong> al primer inicio de sesión.</li>
                     <li>Se restablecerán los intentos fallidos a 0 y se revocarán sesiones activas.</li>
