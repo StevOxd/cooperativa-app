@@ -166,15 +166,15 @@ export const LoginPage = () => {
     >
       <div className="w-full max-w-5xl grid grid-cols-1 lg:grid-cols-12 rounded-2xl overflow-hidden shadow-xl border border-slate-200 bg-white">
         {/* Panel lateral izquierdo - Branding Institucional */}
-        <div className="lg:col-span-5 bg-emerald-900 p-8 lg:p-12 text-white flex flex-col justify-between relative">
+        <div className="lg:col-span-5 bg-brand-900 p-8 lg:p-12 text-white flex flex-col justify-between relative">
           <div className="relative z-10">
             <div className="flex items-center space-x-3 mb-10">
               <div className="w-12 h-12 rounded-xl bg-white/10 flex items-center justify-center border border-white/20 shadow-sm">
-                <Building2 className="w-7 h-7 text-emerald-300" />
+                <Building2 className="w-7 h-7 text-brand-300" />
               </div>
               <div>
                 <span className="text-xl font-bold tracking-tight block">COOPERATIVA</span>
-                <span className="text-xs text-emerald-300 tracking-wider font-semibold uppercase">Portal Institucional</span>
+                <span className="text-xs text-brand-300 tracking-wider font-semibold uppercase">Portal Institucional</span>
               </div>
             </div>
 
@@ -182,14 +182,14 @@ export const LoginPage = () => {
               <h2 className="text-2xl lg:text-3xl font-bold leading-tight">
                 Sistema de Gestión Financiera y Autogestión
               </h2>
-              <p className="text-emerald-100/90 text-sm leading-relaxed">
+              <p className="text-brand-100/90 text-sm leading-relaxed">
                 Plataforma corporativa centralizada para la administración de asociados, operaciones financieras e informes institucionales.
               </p>
             </div>
           </div>
 
           {/* Sutil resplandor de fondo institucional */}
-          <div className="absolute -right-20 -bottom-20 w-64 h-64 bg-emerald-700/20 rounded-full blur-3xl pointer-events-none" />
+          <div className="absolute -right-20 -bottom-20 w-64 h-64 bg-brand-700/20 rounded-full blur-3xl pointer-events-none" />
         </div>
 
         {/* Panel derecho - Formulario de Login */}
@@ -199,7 +199,7 @@ export const LoginPage = () => {
               /* Vista de Doble Factor de Autenticación (MFA / 2FA TOTP) */
               <div>
                 <div className="mb-6 text-center">
-                  <div className="w-14 h-14 bg-sky-100 text-sky-700 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-xs">
+                  <div className="w-14 h-14 bg-brand-100 text-brand-700 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-xs">
                     <Smartphone className="w-7 h-7" />
                   </div>
                   <h2 className="text-2xl font-bold text-slate-800 tracking-tight">Verificación de Seguridad</h2>
@@ -208,19 +208,19 @@ export const LoginPage = () => {
                   </p>
                 </div>
 
-                <div className="mb-6 p-4 rounded-xl bg-sky-50 border border-sky-200 text-xs text-sky-900 leading-relaxed">
-                  <p className="font-bold text-sky-950 mb-0.5">
+                <div className="mb-6 p-4 rounded-xl bg-brand-50 border border-brand-200 text-xs text-brand-900 leading-relaxed">
+                  <p className="font-bold text-brand-950 mb-0.5">
                     Usuario: {mfaUser?.nombre_completo || mfaUser?.codigo_corporativo || mfaUser?.email || 'Usuario'}
                   </p>
-                  <p className="text-sky-800">
+                  <p className="text-brand-800">
                     Abre tu aplicación autenticadora (Google Authenticator, Microsoft Authenticator) e ingresa el código numérico de 6 dígitos.
                   </p>
                 </div>
 
                 {/* Mensaje de Error */}
                 {errorMessage && (
-                  <div className="mb-6 p-4 rounded-xl bg-red-50 border border-red-200 flex items-start space-x-3 text-red-700 text-sm">
-                    <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5 text-red-600" />
+                  <div className="mb-6 p-4 rounded-xl bg-danger-50 border border-danger-200 flex items-start space-x-3 text-danger-700 text-sm">
+                    <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5 text-danger-600" />
                     <span className="leading-snug">{errorMessage}</span>
                   </div>
                 )}
@@ -246,7 +246,7 @@ export const LoginPage = () => {
                       autoFocus
                       disabled={isSubmitting}
                       autoComplete="one-time-code"
-                      className="w-full text-center tracking-[0.4em] font-mono text-2xl py-3.5 bg-slate-50 border-2 border-sky-500/60 rounded-xl text-slate-900 placeholder-slate-300 focus:outline-none focus:ring-4 focus:ring-sky-500/20 focus:border-sky-600 focus:bg-white transition-all disabled:opacity-50"
+                      className="w-full text-center tracking-[0.4em] font-mono text-2xl py-3.5 bg-slate-50 border-2 border-brand-500/60 rounded-xl text-slate-900 placeholder-slate-300 focus:outline-none focus:ring-4 focus:ring-brand-500/20 focus:border-brand-600 focus:bg-white transition-all disabled:opacity-50"
                     />
                     <p className="text-[11px] text-slate-400 text-center mt-2">
                       El código se actualiza dinámicamente cada 30 segundos.
@@ -257,7 +257,7 @@ export const LoginPage = () => {
                     <button
                       type="submit"
                       disabled={isSubmitting || totpCode.trim().length !== 6}
-                      className="w-full py-3.5 px-6 rounded-xl bg-sky-700 hover:bg-sky-800 text-white font-bold text-sm shadow-md flex items-center justify-center space-x-2 transition-all transform active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                      className="w-full py-3.5 px-6 rounded-xl bg-brand-700 hover:bg-brand-800 text-white font-bold text-sm shadow-md flex items-center justify-center space-x-2 transition-all transform active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                     >
                       {isSubmitting ? (
                         <>
@@ -295,16 +295,16 @@ export const LoginPage = () => {
 
                 {/* Mensaje Informativo o de Seguridad Bancaria */}
                 {infoMessage && (
-                  <div className="mb-6 p-4 rounded-xl bg-amber-50 border border-amber-200 flex items-start space-x-3 text-amber-800 text-sm shadow-xs">
-                    <ShieldAlert className="w-5 h-5 flex-shrink-0 mt-0.5 text-amber-600" />
+                  <div className="mb-6 p-4 rounded-xl bg-warning-50 border border-warning-200 flex items-start space-x-3 text-warning-800 text-sm shadow-xs">
+                    <ShieldAlert className="w-5 h-5 flex-shrink-0 mt-0.5 text-warning-600" />
                     <span className="leading-snug font-medium">{infoMessage}</span>
                   </div>
                 )}
 
                 {/* Mensaje de Error */}
                 {errorMessage && (
-                  <div className="mb-6 p-4 rounded-xl bg-red-50 border border-red-200 flex items-start space-x-3 text-red-700 text-sm">
-                    <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5 text-red-600" />
+                  <div className="mb-6 p-4 rounded-xl bg-danger-50 border border-danger-200 flex items-start space-x-3 text-danger-700 text-sm">
+                    <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5 text-danger-600" />
                     <span className="leading-snug">{errorMessage}</span>
                   </div>
                 )}
@@ -328,7 +328,7 @@ export const LoginPage = () => {
                         required
                         disabled={isSubmitting}
                         autoComplete="off"
-                        className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-600 focus:border-sky-600 focus:bg-white transition-all text-sm disabled:opacity-50"
+                        className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-600 focus:border-brand-600 focus:bg-white transition-all text-sm disabled:opacity-50"
                       />
                     </div>
                   </div>
@@ -350,7 +350,7 @@ export const LoginPage = () => {
                         required
                         disabled={isSubmitting}
                         autoComplete="current-password"
-                        className="w-full pl-11 pr-11 py-3 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-600 focus:border-sky-600 focus:bg-white transition-all text-sm disabled:opacity-50"
+                        className="w-full pl-11 pr-11 py-3 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-600 focus:border-brand-600 focus:bg-white transition-all text-sm disabled:opacity-50"
                       />
                       <button
                         type="button"
@@ -367,7 +367,7 @@ export const LoginPage = () => {
                   <button
                     type="submit"
                     disabled={isSubmitting}
-                    className="w-full mt-2 py-3.5 px-6 rounded-xl bg-sky-700 hover:bg-sky-800 text-white font-bold text-sm shadow-md flex items-center justify-center space-x-2 transition-all transform active:scale-[0.99] disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
+                    className="w-full mt-2 py-3.5 px-6 rounded-xl bg-brand-700 hover:bg-brand-800 text-white font-bold text-sm shadow-md flex items-center justify-center space-x-2 transition-all transform active:scale-[0.99] disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
                   >
                     {isSubmitting ? (
                       <>
@@ -384,13 +384,13 @@ export const LoginPage = () => {
                 </form>
 
                 {/* Enlace a Afiliación en Línea */}
-                <div className="mt-6 p-4 rounded-xl bg-emerald-50/70 border border-emerald-200/80 flex items-center justify-between">
+                <div className="mt-6 p-4 rounded-xl bg-brand-50/70 border border-brand-200/80 flex items-center justify-between">
                   <div>
-                    <p className="text-xs font-bold text-emerald-950">¿Deseas ser asociado?</p>
+                    <p className="text-xs font-bold text-brand-950">¿Deseas ser asociado?</p>
                   </div>
                   <Link
                     to="/registro-asociado"
-                    className="px-3.5 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg shadow-xs transition-all cursor-pointer"
+                    className="px-3.5 py-2 text-xs font-bold text-white bg-brand-600 hover:bg-brand-700 rounded-lg shadow-xs transition-all cursor-pointer"
                   >
                     Afiliarme
                   </Link>

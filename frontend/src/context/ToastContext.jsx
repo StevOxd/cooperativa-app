@@ -120,11 +120,11 @@ export const ToastProvider = ({ children }) => {
           const config = {
             success: {
               icon: CheckCircle2,
-              color: 'text-emerald-600',
-              bg: 'bg-emerald-50',
-              border: 'border-emerald-200',
-              badge: 'bg-emerald-100 text-emerald-800',
-              progress: 'bg-emerald-500',
+              color: 'text-brand-600',
+              bg: 'bg-brand-50',
+              border: 'border-brand-200',
+              badge: 'bg-brand-100 text-brand-800',
+              progress: 'bg-brand-500',
               defaultTitle: 'Operación Exitosa',
             },
             error: {
@@ -138,11 +138,11 @@ export const ToastProvider = ({ children }) => {
             },
             warning: {
               icon: AlertTriangle,
-              color: 'text-amber-600',
-              bg: 'bg-amber-50',
-              border: 'border-amber-200',
-              badge: 'bg-amber-100 text-amber-800',
-              progress: 'bg-amber-500',
+              color: 'text-warning-600',
+              bg: 'bg-warning-50',
+              border: 'border-warning-200',
+              badge: 'bg-warning-100 text-warning-800',
+              progress: 'bg-warning-500',
               defaultTitle: 'Aviso Importante',
             },
             info: {

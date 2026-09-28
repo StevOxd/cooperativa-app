@@ -685,7 +685,7 @@ export const OperatorDashboard = () => {
       {/* Encabezado del Operador */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-white p-6 rounded-2xl border border-slate-200 shadow-xs">
         <div>
-          <span className="text-xs font-bold text-emerald-700 uppercase tracking-widest block mb-1">
+          <span className="text-xs font-bold text-brand-700 uppercase tracking-widest block mb-1">
             Bandeja de Operaciones
           </span>
           <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
@@ -693,7 +693,7 @@ export const OperatorDashboard = () => {
           </h1>
           <p className="text-sm text-slate-500 mt-0.5">
             Operador en turno: <span className="font-semibold text-slate-800">{user?.nombre_completo || user?.nombre}</span>{' '}
-            <span className="font-mono text-xs text-emerald-700 font-bold">({user?.codigo_corporativo})</span>
+            <span className="font-mono text-xs text-brand-700 font-bold">({user?.codigo_corporativo})</span>
           </p>
         </div>
         <button
@@ -713,18 +713,18 @@ export const OperatorDashboard = () => {
             onClick={() => setActiveTab('afiliaciones')}
             className={`pb-3 px-4 text-xs font-bold flex items-center space-x-2 border-b-2 cursor-pointer transition-all ${
               activeTab === 'afiliaciones'
-                ? 'border-emerald-600 text-emerald-800 bg-white rounded-t-xl -mb-px'
+                ? 'border-brand-600 text-brand-800 bg-white rounded-t-xl -mb-px'
                 : 'border-transparent text-slate-500 hover:text-slate-800'
             }`}
           >
-            <UserPlus className="w-4 h-4 text-emerald-600" />
+            <UserPlus className="w-4 h-4 text-brand-600" />
             <span>Solicitudes de Afiliación (Atención en Agencia)</span>
             <span
               className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold ${
                 activeTab === 'afiliaciones'
-                  ? 'bg-emerald-100 text-emerald-800'
+                  ? 'bg-brand-100 text-brand-800'
                   : afiliacionesPendientesCount > 0
-                  ? 'bg-amber-100 text-amber-800'
+                  ? 'bg-warning-100 text-warning-800'
                   : 'bg-slate-200 text-slate-700'
               }`}
             >
@@ -736,7 +736,7 @@ export const OperatorDashboard = () => {
             onClick={() => setActiveTab('traslados')}
             className={`pb-3 px-4 text-xs font-bold flex items-center space-x-2 border-b-2 cursor-pointer transition-all ${
               activeTab === 'traslados'
-                ? 'border-emerald-600 text-emerald-800 bg-white rounded-t-xl -mb-px'
+                ? 'border-brand-600 text-brand-800 bg-white rounded-t-xl -mb-px'
                 : 'border-transparent text-slate-500 hover:text-slate-800'
             }`}
           >
@@ -744,7 +744,7 @@ export const OperatorDashboard = () => {
             <span>Traslados de Fondos y Aperturas</span>
             <span
               className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold ${
-                activeTab === 'traslados' ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-700'
+                activeTab === 'traslados' ? 'bg-brand-100 text-brand-800' : 'bg-slate-200 text-slate-700'
               }`}
             >
               {solicitudes.length}
@@ -755,18 +755,18 @@ export const OperatorDashboard = () => {
             onClick={() => setActiveTab('creditos')}
             className={`pb-3 px-4 text-xs font-bold flex items-center space-x-2 border-b-2 cursor-pointer transition-all ${
               activeTab === 'creditos'
-                ? 'border-emerald-600 text-emerald-800 bg-white rounded-t-xl -mb-px'
+                ? 'border-brand-600 text-brand-800 bg-white rounded-t-xl -mb-px'
                 : 'border-transparent text-slate-500 hover:text-slate-800'
             }`}
           >
-            <Calculator className="w-4 h-4 text-emerald-600" />
+            <Calculator className="w-4 h-4 text-brand-600" />
             <span>Solicitudes de Crédito</span>
             <span
               className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold ${
                 activeTab === 'creditos'
-                  ? 'bg-emerald-100 text-emerald-800'
+                  ? 'bg-brand-100 text-brand-800'
                   : creditosPendientesCount > 0
-                  ? 'bg-amber-100 text-amber-800'
+                  ? 'bg-warning-100 text-warning-800'
                   : 'bg-slate-200 text-slate-700'
               }`}
             >
@@ -820,7 +820,7 @@ export const OperatorDashboard = () => {
                   value={searchAfiliacion}
                   onChange={(e) => setSearchAfiliacion(e.target.value)}
                   placeholder="Buscar por No. Caso, CUI/DPI, Nombre o Correo..."
-                  className="w-full pl-10 pr-9 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-600 font-medium"
+                  className="w-full pl-10 pr-9 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-600 font-medium"
                 />
                 {searchAfiliacion && (
                   <button
@@ -843,7 +843,7 @@ export const OperatorDashboard = () => {
             {/* Tabla de Afiliaciones */}
             {loadingAfiliaciones ? (
               <div className="py-24 flex flex-col items-center justify-center text-slate-400">
-                <Loader2 className="w-8 h-8 text-emerald-600 animate-spin mb-2" />
+                <Loader2 className="w-8 h-8 text-brand-600 animate-spin mb-2" />
                 <p className="text-xs font-semibold">Cargando solicitudes de afiliación...</p>
               </div>
             ) : filteredAfiliaciones.length === 0 ? (
@@ -880,7 +880,7 @@ export const OperatorDashboard = () => {
                         <tr
                           key={a.id_solicitud}
                           className={`hover:bg-slate-50/70 transition-colors ${
-                            bloqueadoPorMi ? 'bg-blue-50/40' : bloqueadoPorOtro ? 'bg-amber-50/30' : ''
+                            bloqueadoPorMi ? 'bg-blue-50/40' : bloqueadoPorOtro ? 'bg-warning-50/30' : ''
                           }`}
                         >
                           <td className="py-3.5 px-4 font-mono font-bold text-slate-900 whitespace-nowrap">
@@ -926,7 +926,7 @@ export const OperatorDashboard = () => {
                             )}
                           </td>
 
-                          <td className="py-3.5 px-4 text-right font-extrabold text-emerald-800 whitespace-nowrap">
+                          <td className="py-3.5 px-4 text-right font-extrabold text-brand-800 whitespace-nowrap">
                             Q{parseFloat(a.monto_estimado || 100.0).toLocaleString('es-GT', { minimumFractionDigits: 2 })}
                           </td>
 
@@ -940,8 +940,8 @@ export const OperatorDashboard = () => {
                           <td className="py-3.5 px-4 text-center whitespace-nowrap">
                             {a.estado === 'ATENDIDA' ? (
                               <div className="flex flex-col items-center">
-                                <span className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
-                                  <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                                <span className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-brand-50 text-brand-800 border border-brand-200">
+                                  <CheckCircle2 className="w-3 h-3 text-brand-600" />
                                   <span>Formalizada</span>
                                 </span>
                                 {a.fecha_resolucion && (
@@ -964,10 +964,10 @@ export const OperatorDashboard = () => {
                               </div>
                             ) : bloqueadoPorOtro ? (
                               <span
-                                className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300"
+                                className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-warning-100 text-warning-900 border border-warning-300"
                                 title={`Caso tomado por ${a.operador_bloqueo_nombre} (${a.operador_bloqueo_codigo})`}
                               >
-                                <Lock className="w-3 h-3 text-amber-700" />
+                                <Lock className="w-3 h-3 text-warning-700" />
                                 <span>En atención por {a.operador_bloqueo_codigo || 'Operador'}</span>
                               </span>
                             ) : bloqueadoPorMi ? (
@@ -976,8 +976,8 @@ export const OperatorDashboard = () => {
                                 <span>En atención por ti</span>
                               </span>
                             ) : (
-                              <span className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
-                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                              <span className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-brand-50 text-brand-800 border border-brand-200">
+                                <span className="w-1.5 h-1.5 rounded-full bg-brand-500"></span>
                                 <span>Disponible</span>
                               </span>
                             )}
@@ -986,17 +986,17 @@ export const OperatorDashboard = () => {
                           <td className="py-3.5 px-4 text-center whitespace-nowrap">
                             {a.estado === 'ATENDIDA' ? (
                               <div className="flex items-center justify-center space-x-1.5 mx-auto">
-                                <span className="inline-flex items-center space-x-1.5 px-2.5 py-1.5 rounded-xl bg-emerald-50 text-emerald-800 text-xs font-bold border border-emerald-200 shadow-2xs">
-                                  <Check className="w-3.5 h-3.5 text-emerald-600" />
+                                <span className="inline-flex items-center space-x-1.5 px-2.5 py-1.5 rounded-xl bg-brand-50 text-brand-800 text-xs font-bold border border-brand-200 shadow-2xs">
+                                  <Check className="w-3.5 h-3.5 text-brand-600" />
                                   <span>Caso Formalizado</span>
                                 </span>
                                 <button
                                   type="button"
                                   onClick={() => handleDownloadComprobanteExistente(a)}
                                   title="Descargar Comprobante Oficial de Apertura en PDF"
-                                  className="inline-flex items-center space-x-1 px-2.5 py-1.5 rounded-xl bg-sky-50 hover:bg-sky-100 text-sky-800 border border-sky-300 text-xs font-bold transition-all cursor-pointer shadow-2xs"
+                                  className="inline-flex items-center space-x-1 px-2.5 py-1.5 rounded-xl bg-brand-50 hover:bg-brand-100 text-brand-800 border border-brand-300 text-xs font-bold transition-all cursor-pointer shadow-2xs"
                                 >
-                                  <FileDown className="w-3.5 h-3.5 text-sky-700" />
+                                  <FileDown className="w-3.5 h-3.5 text-brand-700" />
                                   <span>PDF</span>
                                 </button>
                               </div>
@@ -1024,7 +1024,7 @@ export const OperatorDashboard = () => {
                                 className={`px-3 py-1.5 rounded-xl text-xs font-bold shadow-xs transition-colors cursor-pointer flex items-center space-x-1.5 mx-auto ${
                                   bloqueadoPorMi
                                     ? 'bg-blue-600 hover:bg-blue-700 text-white'
-                                    : 'bg-emerald-700 hover:bg-emerald-800 text-white'
+                                    : 'bg-brand-700 hover:bg-brand-800 text-white'
                                 }`}
                               >
                                 {bloqueadoPorMi ? (
@@ -1063,13 +1063,13 @@ export const OperatorDashboard = () => {
                 onClick={() => setSubTabTraslados('pendientes')}
                 className={`pb-2.5 px-2 text-xs font-bold border-b-2 flex items-center space-x-1.5 cursor-pointer transition-all ${
                   subTabTraslados === 'pendientes'
-                    ? 'border-emerald-600 text-emerald-800'
+                    ? 'border-brand-600 text-brand-800'
                     : 'border-transparent text-slate-500 hover:text-slate-800'
                 }`}
               >
-                <Inbox className="w-4 h-4 text-emerald-600" />
+                <Inbox className="w-4 h-4 text-brand-600" />
                 <span>Casos Pendientes de Aprobación</span>
-                <span className="ml-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-100 text-emerald-800">
+                <span className="ml-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-brand-100 text-brand-800">
                   {solicitudes.length}
                 </span>
               </button>
@@ -1084,7 +1084,7 @@ export const OperatorDashboard = () => {
                 }}
                 className={`pb-2.5 px-2 text-xs font-bold border-b-2 flex items-center space-x-1.5 cursor-pointer transition-all ${
                   subTabTraslados === 'historial'
-                    ? 'border-emerald-600 text-emerald-800'
+                    ? 'border-brand-600 text-brand-800'
                     : 'border-transparent text-slate-500 hover:text-slate-800'
                 }`}
               >
@@ -1101,14 +1101,14 @@ export const OperatorDashboard = () => {
               <div className="space-y-4">
                 <div className="flex justify-between items-center">
                   <h2 className="font-bold text-slate-800 text-sm uppercase tracking-wider flex items-center space-x-2">
-                    <Clock className="w-4 h-4 text-amber-500" />
+                    <Clock className="w-4 h-4 text-warning-500" />
                     <span>Casos en Espera de Dictamen Operativo ({solicitudes.length})</span>
                   </h2>
                 </div>
 
                 {loadingTraslados ? (
                   <div className="py-24 flex flex-col items-center justify-center text-slate-400">
-                    <Loader2 className="w-8 h-8 text-emerald-600 animate-spin mb-2" />
+                    <Loader2 className="w-8 h-8 text-brand-600 animate-spin mb-2" />
                     <p className="text-xs font-semibold">Cargando bandeja de traslados...</p>
                   </div>
                 ) : solicitudes.length === 0 ? (
@@ -1154,7 +1154,7 @@ export const OperatorDashboard = () => {
                                 Tipo Destino: {s.tipo_cuenta_destino_nombre}
                               </span>
                               {s.cuenta_destino_numero && (
-                                <span className="text-[10px] text-emerald-700 font-mono">
+                                <span className="text-[10px] text-brand-700 font-mono">
                                   Cta Destino: {s.cuenta_destino_numero}
                                 </span>
                               )}
@@ -1170,13 +1170,13 @@ export const OperatorDashboard = () => {
                               <div className="flex items-center justify-center space-x-2">
                                 <button
                                   onClick={() => openResolverTrasladoModal(s, 'APROBAR')}
-                                  className="px-3 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-bold border border-emerald-200 transition-colors cursor-pointer"
+                                  className="px-3 py-1.5 rounded-lg bg-brand-50 hover:bg-brand-100 text-brand-700 text-xs font-bold border border-brand-200 transition-colors cursor-pointer"
                                 >
                                   Aprobar
                                 </button>
                                 <button
                                   onClick={() => openResolverTrasladoModal(s, 'RECHAZAR')}
-                                  className="px-3 py-1.5 rounded-lg bg-red-50 hover:bg-red-100 text-red-700 text-xs font-bold border border-red-200 transition-colors cursor-pointer"
+                                  className="px-3 py-1.5 rounded-lg bg-danger-50 hover:bg-danger-100 text-danger-700 text-xs font-bold border border-danger-200 transition-colors cursor-pointer"
                                 >
                                   Rechazar
                                 </button>
@@ -1206,7 +1206,7 @@ export const OperatorDashboard = () => {
                         if (e.key === 'Enter') fetchHistorialTraslados(searchHistorialTraslados, filterHistorialEstado);
                       }}
                       placeholder="Buscar por Nombre, CUI/DPI, Caso o No. Cuenta..."
-                      className="w-full pl-10 pr-9 py-2 bg-white border border-slate-200 rounded-xl text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-600 font-medium"
+                      className="w-full pl-10 pr-9 py-2 bg-white border border-slate-200 rounded-xl text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-600 font-medium"
                     />
                     {searchHistorialTraslados && (
                       <button
@@ -1229,7 +1229,7 @@ export const OperatorDashboard = () => {
                         setFilterHistorialEstado(e.target.value);
                         fetchHistorialTraslados(searchHistorialTraslados, e.target.value);
                       }}
-                      className="px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs text-slate-700 font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-600"
+                      className="px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs text-slate-700 font-semibold focus:outline-none focus:ring-2 focus:ring-brand-600"
                     >
                       <option value="TODOS">Todos los Estados</option>
                       <option value="PENDIENTE">Pendientes</option>
@@ -1240,7 +1240,7 @@ export const OperatorDashboard = () => {
                     <button
                       onClick={() => fetchHistorialTraslados(searchHistorialTraslados, filterHistorialEstado)}
                       disabled={loadingHistorialTraslados}
-                      className="px-3.5 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold shadow-xs transition-colors flex items-center space-x-1.5 cursor-pointer disabled:opacity-50 shrink-0"
+                      className="px-3.5 py-2 bg-brand-700 hover:bg-brand-800 text-white rounded-xl text-xs font-bold shadow-xs transition-colors flex items-center space-x-1.5 cursor-pointer disabled:opacity-50 shrink-0"
                     >
                       <Search className="w-3.5 h-3.5" />
                       <span>Buscar</span>
@@ -1251,7 +1251,7 @@ export const OperatorDashboard = () => {
                 {/* Tabla de Historial de Traslados */}
                 {loadingHistorialTraslados ? (
                   <div className="py-24 flex flex-col items-center justify-center text-slate-400">
-                    <Loader2 className="w-8 h-8 text-emerald-600 animate-spin mb-2" />
+                    <Loader2 className="w-8 h-8 text-brand-600 animate-spin mb-2" />
                     <p className="text-xs font-semibold">Consultando historial de traslados...</p>
                   </div>
                 ) : historialTraslados.length === 0 ? (
@@ -1292,7 +1292,7 @@ export const OperatorDashboard = () => {
                               <td className="px-4 py-3">
                                 <span className="font-bold text-slate-900 block">{nombreCompleto}</span>
                                 {h.codigo_corporativo && (
-                                  <span className="text-[10px] font-mono text-emerald-700 block">
+                                  <span className="text-[10px] font-mono text-brand-700 block">
                                     {h.codigo_corporativo}
                                   </span>
                                 )}
@@ -1322,10 +1322,10 @@ export const OperatorDashboard = () => {
                               <td className="px-4 py-3 text-center whitespace-nowrap">
                                 <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border ${
                                   h.estado === 'APROBADO'
-                                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                    ? 'bg-brand-50 text-brand-700 border-brand-200'
                                     : h.estado === 'RECHAZADO'
-                                    ? 'bg-red-50 text-red-700 border-red-200'
-                                    : 'bg-amber-50 text-amber-700 border-amber-200'
+                                    ? 'bg-danger-50 text-danger-700 border-danger-200'
+                                    : 'bg-warning-50 text-warning-700 border-warning-200'
                                 }`}>
                                   {h.estado}
                                 </span>
@@ -1370,7 +1370,7 @@ export const OperatorDashboard = () => {
                   value={searchCredito}
                   onChange={(e) => setSearchCredito(e.target.value)}
                   placeholder="Buscar por ID, CUI/DPI, Nombre o Código Corporativo..."
-                  className="w-full pl-10 pr-9 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-600 font-medium"
+                  className="w-full pl-10 pr-9 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-600 font-medium"
                 />
                 {searchCredito && (
                   <button
@@ -1385,7 +1385,7 @@ export const OperatorDashboard = () => {
 
               <div className="text-xs text-slate-500">
                 Pendientes de análisis:{' '}
-                <span className="font-bold text-amber-700">{creditosPendientesCount}</span>
+                <span className="font-bold text-warning-700">{creditosPendientesCount}</span>
                 <span className="mx-1.5">•</span>
                 Total solicitudes: <span className="font-bold text-slate-800">{creditos.length}</span>
               </div>
@@ -1393,7 +1393,7 @@ export const OperatorDashboard = () => {
 
             {loadingCreditos ? (
               <div className="py-24 flex flex-col items-center justify-center text-slate-400">
-                <Loader2 className="w-8 h-8 text-emerald-600 animate-spin mb-2" />
+                <Loader2 className="w-8 h-8 text-brand-600 animate-spin mb-2" />
                 <p className="text-xs font-semibold">Cargando solicitudes de crédito...</p>
               </div>
             ) : filteredCreditos.length === 0 ? (
@@ -1442,7 +1442,7 @@ export const OperatorDashboard = () => {
                           Q{parseFloat(c.monto_solicitado).toLocaleString('es-GT', { minimumFractionDigits: 2 })}
                         </td>
                         <td className="px-4 py-3.5 text-xs text-slate-700">
-                          <span className="font-semibold text-emerald-900 block text-xs">
+                          <span className="font-semibold text-brand-900 block text-xs">
                             {c.cuenta_destino_info || (c.cuenta_bancaria_destino_numero ? `Cuenta Bancaria (${c.cuenta_bancaria_destino_numero})` : 'Cuenta Principal')}
                           </span>
                           {c.cuenta_bancaria_destino_tipo && (
@@ -1454,7 +1454,7 @@ export const OperatorDashboard = () => {
                         <td className="px-4 py-3.5 text-center text-xs text-slate-700 font-medium">
                           {c.plazo_meses} meses
                         </td>
-                        <td className="px-4 py-3.5 text-right text-xs text-emerald-800 font-bold">
+                        <td className="px-4 py-3.5 text-right text-xs text-brand-800 font-bold">
                           Q{parseFloat(c.cuota_mensual_estimada).toLocaleString('es-GT', { minimumFractionDigits: 2 })}
                         </td>
                         <td className="px-4 py-3.5 text-center text-xs text-slate-600 font-mono">
@@ -1467,13 +1467,13 @@ export const OperatorDashboard = () => {
                           <span
                             className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold border ${
                               c.estado === 'APROBADA' || c.estado === 'APROBADO' || c.estado === 'DESEMBOLSADA'
-                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                ? 'bg-brand-50 text-brand-700 border-brand-200'
                                 : c.estado === 'RECHAZADA' || c.estado === 'RECHAZADO' || c.estado === 'DENEGADA'
-                                ? 'bg-red-50 text-red-700 border-red-200'
+                                ? 'bg-danger-50 text-danger-700 border-danger-200'
                                 : c.estado === 'DEVUELTA_OPERADOR'
-                                ? 'bg-amber-50 text-amber-700 border-amber-200'
+                                ? 'bg-warning-50 text-warning-700 border-warning-200'
                                 : c.estado === 'EN_AUTORIZACION_EJECUTIVO'
-                                ? 'bg-sky-50 text-sky-700 border-sky-200'
+                                ? 'bg-brand-50 text-brand-700 border-brand-200'
                                 : 'bg-blue-50 text-blue-700 border-blue-200'
                             }`}
                           >
@@ -1493,7 +1493,7 @@ export const OperatorDashboard = () => {
                                 href={getSecureDocumentUrl(c.documento_firmado_url)}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="inline-flex items-center text-[10px] font-bold text-sky-700 hover:text-sky-900 hover:underline"
+                                className="inline-flex items-center text-[10px] font-bold text-brand-700 hover:text-brand-900 hover:underline"
                               >
                                 <FileCheck className="w-3 h-3 mr-0.5" />
                                 <span>PDF Firmado</span>
@@ -1503,7 +1503,7 @@ export const OperatorDashboard = () => {
                         </td>
                         <td className="px-4 py-3.5 text-xs text-slate-500 max-w-xs truncate" title={c.observaciones_ejecutivo || c.dictamen_operador || c.observaciones}>
                           {c.observaciones_ejecutivo ? (
-                            <span className="text-amber-800 font-semibold">Devuelta: "{c.observaciones_ejecutivo}"</span>
+                            <span className="text-warning-800 font-semibold">Devuelta: "{c.observaciones_ejecutivo}"</span>
                           ) : c.dictamen_operador ? (
                             <span>Dictamen: "{c.dictamen_operador}"</span>
                           ) : (
@@ -1517,8 +1517,8 @@ export const OperatorDashboard = () => {
                                 onClick={() => openResolverCreditoModal(c, '')}
                                 className={`px-3 py-1.5 rounded-lg text-white text-xs font-bold shadow-2xs transition-colors flex items-center space-x-1.5 cursor-pointer ${
                                   c.estado === 'DEVUELTA_OPERADOR'
-                                    ? 'bg-amber-600 hover:bg-amber-700'
-                                    : 'bg-emerald-600 hover:bg-emerald-700'
+                                    ? 'bg-warning-600 hover:bg-warning-700'
+                                    : 'bg-brand-600 hover:bg-brand-700'
                                 }`}
                                 title="Evaluar solvencia y emitir dictamen"
                               >

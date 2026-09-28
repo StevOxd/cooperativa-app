@@ -258,8 +258,8 @@ export const OpenAccountModal = ({ isOpen, onClose, asociado, onSuccess }) => {
 
         {/* Alerta de Error dentro del Modal */}
         {errorMsg && (
-          <div className="mx-6 mt-4 p-3.5 rounded-xl bg-red-50 border border-red-200 flex items-start space-x-3 text-red-700">
-            <AlertCircle className="w-5 h-5 shrink-0 mt-0.5 text-red-600" />
+          <div className="mx-6 mt-4 p-3.5 rounded-xl bg-danger-50 border border-danger-200 flex items-start space-x-3 text-danger-700">
+            <AlertCircle className="w-5 h-5 shrink-0 mt-0.5 text-danger-600" />
             <div className="text-xs font-semibold">{errorMsg}</div>
           </div>
         )}
@@ -267,7 +267,7 @@ export const OpenAccountModal = ({ isOpen, onClose, asociado, onSuccess }) => {
         {/* Vista de Éxito / Boleta Oficial */}
         {successData ? (
           <div className="p-6 text-center space-y-4">
-            <div className="w-14 h-14 bg-emerald-100 rounded-full flex items-center justify-center mx-auto text-emerald-600">
+            <div className="w-14 h-14 bg-brand-100 rounded-full flex items-center justify-center mx-auto text-brand-600">
               <CheckCircle2 className="w-8 h-8" />
             </div>
             <div>
@@ -288,11 +288,11 @@ export const OpenAccountModal = ({ isOpen, onClose, asociado, onSuccess }) => {
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-500">Número de Cuenta Generado:</span>
-                <span className="font-mono font-bold text-emerald-700 text-sm">{successData.numero_cuenta}</span>
+                <span className="font-mono font-bold text-brand-700 text-sm">{successData.numero_cuenta}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-500">Saldo Disponible Inicial:</span>
-                <span className="font-bold text-emerald-600 text-sm">
+                <span className="font-bold text-brand-600 text-sm">
                   Q{parseFloat(successData.saldo_disponible).toFixed(2)}
                 </span>
               </div>
@@ -314,14 +314,14 @@ export const OpenAccountModal = ({ isOpen, onClose, asociado, onSuccess }) => {
               <div
                 className={`p-3 rounded-xl text-xs flex items-center space-x-2 ${
                   emailSent
-                    ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
-                    : 'bg-red-50 text-red-800 border border-red-200'
+                    ? 'bg-brand-50 text-brand-800 border border-brand-200'
+                    : 'bg-danger-50 text-danger-800 border border-danger-200'
                 }`}
               >
                 {emailSent ? (
-                  <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <Check className="w-4 h-4 text-brand-600 shrink-0" />
                 ) : (
-                  <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
+                  <AlertCircle className="w-4 h-4 text-danger-600 shrink-0" />
                 )}
                 <span>{emailNotice}</span>
               </div>
@@ -332,7 +332,7 @@ export const OpenAccountModal = ({ isOpen, onClose, asociado, onSuccess }) => {
                 <button
                   type="button"
                   onClick={handleDownloadPdf}
-                  className="flex-1 sm:flex-initial px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-xs transition-all flex items-center justify-center space-x-1.5 cursor-pointer"
+                  className="flex-1 sm:flex-initial px-4 py-2.5 bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs rounded-xl shadow-xs transition-all flex items-center justify-center space-x-1.5 cursor-pointer"
                   title="Descargar comprobante en formato PDF"
                 >
                   <FileDown className="w-4 h-4" />
@@ -343,7 +343,7 @@ export const OpenAccountModal = ({ isOpen, onClose, asociado, onSuccess }) => {
                   type="button"
                   onClick={handleSendEmail}
                   disabled={sendingEmail || emailSent}
-                  className="flex-1 sm:flex-initial px-4 py-2.5 bg-sky-600 hover:bg-sky-700 text-white font-bold text-xs rounded-xl shadow-xs transition-all flex items-center justify-center space-x-1.5 cursor-pointer disabled:opacity-50"
+                  className="flex-1 sm:flex-initial px-4 py-2.5 bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs rounded-xl shadow-xs transition-all flex items-center justify-center space-x-1.5 cursor-pointer disabled:opacity-50"
                   title="Enviar comprobante por correo electrónico al asociado"
                 >
                   {sendingEmail ? (
@@ -393,7 +393,7 @@ export const OpenAccountModal = ({ isOpen, onClose, asociado, onSuccess }) => {
                     >
                       <div className="flex justify-between items-start">
                         <p className="font-bold text-xs text-slate-800">{p.nombre}</p>
-                        <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded">
+                        <span className="text-[10px] font-bold text-brand-700 bg-brand-100 px-1.5 py-0.5 rounded">
                           {p.tasa}
                         </span>
                       </div>
@@ -448,7 +448,7 @@ export const OpenAccountModal = ({ isOpen, onClose, asociado, onSuccess }) => {
                       : 'border-slate-200 text-slate-600 hover:bg-slate-50'
                   }`}
                 >
-                  <Banknote className="w-5 h-5 mx-auto mb-1 text-emerald-600" />
+                  <Banknote className="w-5 h-5 mx-auto mb-1 text-brand-600" />
                   <span className="text-xs font-semibold block">Efectivo en Ventanilla</span>
                   <span className="text-[10px] text-slate-400 block mt-0.5">Depósito in situ en agencia</span>
                 </button>
@@ -462,7 +462,7 @@ export const OpenAccountModal = ({ isOpen, onClose, asociado, onSuccess }) => {
                       : 'border-slate-200 text-slate-600 hover:bg-slate-50'
                   }`}
                 >
-                  <Wallet className="w-5 h-5 mx-auto mb-1 text-sky-600" />
+                  <Wallet className="w-5 h-5 mx-auto mb-1 text-brand-600" />
                   <span className="text-xs font-semibold block">Cuenta Interna</span>
                   <span className="text-[10px] text-slate-400 block mt-0.5">Débito a otra cuenta del socio</span>
                 </button>
@@ -489,7 +489,7 @@ export const OpenAccountModal = ({ isOpen, onClose, asociado, onSuccess }) => {
                       ))}
                     </select>
                   ) : (
-                    <p className="text-xs text-amber-700">El asociado no posee cuentas internas con saldo.</p>
+                    <p className="text-xs text-warning-700">El asociado no posee cuentas internas con saldo.</p>
                   )}
                 </div>
               )}

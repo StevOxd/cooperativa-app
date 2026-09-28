@@ -52,7 +52,7 @@ export const PortalPasswordStep = ({
         </label>
         <div className="relative">
           <Mail className={`w-4 h-4 absolute left-3 top-3 ${
-            credEmailStatus.disponible === false ? 'text-red-500' :
+            credEmailStatus.disponible === false ? 'text-danger-500' :
             credEmailStatus.disponible === true ? 'text-blue-600' : 'text-slate-400'
           }`} />
           <input
@@ -62,7 +62,7 @@ export const PortalPasswordStep = ({
             placeholder="Ingrese correo electrónico"
             className={`w-full pl-9 pr-10 py-2.5 bg-white border rounded-xl text-slate-900 text-sm focus:outline-none shadow-2xs transition-colors ${
               credEmailStatus.disponible === false
-                ? 'border-red-500 focus:ring-2 focus:ring-red-500 bg-red-50/20 text-red-900'
+                ? 'border-danger-500 focus:ring-2 focus:ring-danger-500 bg-danger-50/20 text-danger-900'
                 : credEmailStatus.disponible === true
                 ? 'border-blue-500 focus:ring-2 focus:ring-blue-600 bg-blue-50/20'
                 : 'border-slate-300 focus:ring-2 focus:ring-blue-600'
@@ -81,13 +81,13 @@ export const PortalPasswordStep = ({
           )}
           {!credEmailStatus.checking && credEmailStatus.disponible === false && (
             <div className="absolute right-3 top-3">
-              <AlertCircle className="w-4 h-4 text-red-500" />
+              <AlertCircle className="w-4 h-4 text-danger-500" />
             </div>
           )}
         </div>
         {credEmailStatus.message && (
           <p className={`text-xs mt-1.5 flex items-center space-x-1 font-medium ${
-            credEmailStatus.disponible === false ? 'text-red-600' :
+            credEmailStatus.disponible === false ? 'text-danger-600' :
             credEmailStatus.disponible === true ? 'text-blue-700' : 'text-slate-500'
           }`}>
             <span>{credEmailStatus.message}</span>

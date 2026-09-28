@@ -92,7 +92,7 @@ const OperatorCreditEvaluationModal = ({
         {/* Modal Header */}
         <div className="px-6 py-4 bg-slate-900 text-white flex justify-between items-center border-b border-slate-800 shrink-0">
           <div className="flex items-center space-x-3">
-            <div className="p-2 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+            <div className="p-2 rounded-xl bg-brand-500/20 text-brand-400 border border-brand-500/30">
               <ShieldCheck className="w-6 h-6" />
             </div>
             <div>
@@ -111,10 +111,10 @@ const OperatorCreditEvaluationModal = ({
             <span
               className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold border ${
                 selectedCredito.estado === 'APROBADA' || selectedCredito.estado === 'APROBADO' || selectedCredito.estado === 'DESEMBOLSADA'
-                  ? 'bg-emerald-950 text-emerald-400 border-emerald-700'
+                  ? 'bg-brand-950 text-brand-400 border-brand-700'
                   : selectedCredito.estado === 'RECHAZADA' || selectedCredito.estado === 'RECHAZADO'
-                  ? 'bg-red-950 text-red-400 border-red-700'
-                  : 'bg-amber-950 text-amber-300 border-amber-700'
+                  ? 'bg-danger-950 text-danger-400 border-danger-700'
+                  : 'bg-warning-950 text-warning-300 border-warning-700'
               }`}
             >
               {selectedCredito.estado}
@@ -133,7 +133,7 @@ const OperatorCreditEvaluationModal = ({
         <div className="p-6 overflow-y-auto space-y-6 flex-1 min-h-0 text-slate-700">
           {loadingEvaluacion ? (
             <div className="py-20 flex flex-col items-center justify-center text-slate-400">
-              <Loader2 className="w-9 h-9 text-emerald-600 animate-spin mb-3" />
+              <Loader2 className="w-9 h-9 text-brand-600 animate-spin mb-3" />
               <p className="text-sm font-semibold text-slate-700">Analizando solvencia y transacciones financieras...</p>
               <p className="text-xs text-slate-400 mt-1">Consultando saldos consolidados, deudas activas e historial de movimientos.</p>
             </div>
@@ -141,58 +141,58 @@ const OperatorCreditEvaluationModal = ({
             <>
               {/* Banner de Dictamen Financiero Automático */}
               {evaluacionData.analisisSolicitud.dictamen === 'APTO' ? (
-                <div className="p-4 rounded-2xl bg-gradient-to-r from-emerald-50 to-teal-50 border-2 border-emerald-500 flex items-start space-x-3 shadow-xs">
-                  <div className="p-2 rounded-xl bg-emerald-600 text-white flex-shrink-0 mt-0.5">
+                <div className="p-4 rounded-2xl bg-gradient-to-r from-brand-50 to-teal-50 border-2 border-brand-500 flex items-start space-x-3 shadow-xs">
+                  <div className="p-2 rounded-xl bg-brand-600 text-white flex-shrink-0 mt-0.5">
                     <CheckCircle2 className="w-5 h-5" />
                   </div>
                   <div className="flex-1">
                     <div className="flex items-center justify-between">
-                      <h4 className="text-sm font-extrabold text-emerald-950 uppercase tracking-wide">
+                      <h4 className="text-sm font-extrabold text-brand-950 uppercase tracking-wide">
                         Dictamen del Sistema: Asociado APTO (Riesgo Bajo)
                       </h4>
-                      <span className="text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full bg-emerald-200 text-emerald-900 border border-emerald-300">
+                      <span className="text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full bg-brand-200 text-brand-900 border border-brand-300">
                         Aprobación Recomendada
                       </span>
                     </div>
-                    <p className="text-xs text-emerald-800 mt-1 leading-relaxed">
+                    <p className="text-xs text-brand-800 mt-1 leading-relaxed">
                       El asociado cuenta con suficiente respaldo financiero (Saldo consolidado: <strong>Q{evaluacionData.solicitante.saldoTotal.toLocaleString('es-GT', { minimumFractionDigits: 2 })}</strong>) y su endeudamiento proyectado del <strong>{evaluacionData.analisisSolicitud.porcentajeEndeudamiento}%</strong> se mantiene en rangos seguros.
                     </p>
                   </div>
                 </div>
               ) : evaluacionData.analisisSolicitud.dictamen === 'CONDICIONADO' ? (
-                <div className="p-4 rounded-2xl bg-gradient-to-r from-amber-50 to-yellow-50 border-2 border-amber-400 flex items-start space-x-3 shadow-xs">
-                  <div className="p-2 rounded-xl bg-amber-600 text-white flex-shrink-0 mt-0.5">
+                <div className="p-4 rounded-2xl bg-gradient-to-r from-warning-50 to-yellow-50 border-2 border-warning-400 flex items-start space-x-3 shadow-xs">
+                  <div className="p-2 rounded-xl bg-warning-600 text-white flex-shrink-0 mt-0.5">
                     <AlertTriangle className="w-5 h-5" />
                   </div>
                   <div className="flex-1">
                     <div className="flex items-center justify-between">
-                      <h4 className="text-sm font-extrabold text-amber-950 uppercase tracking-wide">
+                      <h4 className="text-sm font-extrabold text-warning-950 uppercase tracking-wide">
                         Dictamen del Sistema: Crédito CONDICIONADO (Riesgo Moderado)
                       </h4>
-                      <span className="text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full bg-amber-200 text-amber-900 border border-amber-300">
+                      <span className="text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full bg-warning-200 text-warning-900 border border-warning-300">
                         Revisión Cautelosa
                       </span>
                     </div>
-                    <p className="text-xs text-amber-800 mt-1 leading-relaxed">
+                    <p className="text-xs text-warning-800 mt-1 leading-relaxed">
                       El asociado posee solvencia básica, pero la deuda total proyectada (Q{evaluacionData.analisisSolicitud.deudaProyectada.toLocaleString('es-GT', { minimumFractionDigits: 2 })}) absorbe el <strong>{evaluacionData.analisisSolicitud.porcentajeEndeudamiento}%</strong> de su límite máximo asignado.
                     </p>
                   </div>
                 </div>
               ) : (
-                <div className="p-4 rounded-2xl bg-gradient-to-r from-red-50 to-rose-50 border-2 border-red-500 flex items-start space-x-3 shadow-xs">
-                  <div className="p-2 rounded-xl bg-red-600 text-white flex-shrink-0 mt-0.5">
+                <div className="p-4 rounded-2xl bg-gradient-to-r from-danger-50 to-rose-50 border-2 border-danger-500 flex items-start space-x-3 shadow-xs">
+                  <div className="p-2 rounded-xl bg-danger-600 text-white flex-shrink-0 mt-0.5">
                     <XCircle className="w-5 h-5" />
                   </div>
                   <div className="flex-1">
                     <div className="flex items-center justify-between">
-                      <h4 className="text-sm font-extrabold text-red-950 uppercase tracking-wide">
+                      <h4 className="text-sm font-extrabold text-danger-950 uppercase tracking-wide">
                         Dictamen del Sistema: NO APTO (Alto Riesgo / Endeudamiento Excesivo)
                       </h4>
-                      <span className="text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full bg-red-200 text-red-900 border border-red-300">
+                      <span className="text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full bg-danger-200 text-danger-900 border border-danger-300">
                         Rechazo Sugerido
                       </span>
                     </div>
-                    <p className="text-xs text-red-800 mt-1 leading-relaxed">
+                    <p className="text-xs text-danger-800 mt-1 leading-relaxed">
                       El monto solicitado (Q{evaluacionData.analisisSolicitud.montoSolicitado.toLocaleString('es-GT', { minimumFractionDigits: 2 })}) supera el cupo disponible asignado (Q{evaluacionData.analisisSolicitud.cupoDisponible.toLocaleString('es-GT', { minimumFractionDigits: 2 })}) o sobrepasa el 100% de la capacidad crediticia calculada.
                     </p>
                   </div>
@@ -253,10 +253,10 @@ const OperatorCreditEvaluationModal = ({
                     <div
                       className={`h-full rounded-full ${
                         evaluacionData.analisisSolicitud.porcentajeEndeudamiento > 100
-                          ? 'bg-red-600'
+                          ? 'bg-danger-600'
                           : evaluacionData.analisisSolicitud.porcentajeEndeudamiento > 75
-                          ? 'bg-amber-500'
-                          : 'bg-emerald-600'
+                          ? 'bg-warning-500'
+                          : 'bg-brand-600'
                       }`}
                       style={{ width: `${Math.min(100, evaluacionData.analisisSolicitud.porcentajeEndeudamiento)}%` }}
                     />
@@ -266,13 +266,13 @@ const OperatorCreditEvaluationModal = ({
 
               {/* Alerta si el caso fue devuelto por Ejecutivo */}
               {selectedCredito.estado === 'DEVUELTA_OPERADOR' && (
-                <div className="p-3.5 bg-amber-50 border-2 border-amber-300 rounded-xl text-xs text-amber-950 flex items-start space-x-2.5 shadow-xs mb-3">
-                  <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                <div className="p-3.5 bg-warning-50 border-2 border-warning-300 rounded-xl text-xs text-warning-950 flex items-start space-x-2.5 shadow-xs mb-3">
+                  <AlertTriangle className="w-5 h-5 text-warning-600 flex-shrink-0 mt-0.5" />
                   <div>
-                    <span className="font-extrabold text-amber-900 block text-xs">
+                    <span className="font-extrabold text-warning-900 block text-xs">
                       Solicitud DEVUELTA por el Comité Ejecutivo para Subsanación
                     </span>
-                    <p className="mt-0.5 text-amber-800 leading-relaxed">
+                    <p className="mt-0.5 text-warning-800 leading-relaxed">
                       {selectedCredito.observaciones_ejecutivo
                         ? `Observaciones del Ejecutivo: "${selectedCredito.observaciones_ejecutivo}"`
                         : 'El Ejecutivo devolvió este expediente solicitando revisión de los datos o documentos adjuntos.'}
@@ -288,7 +288,7 @@ const OperatorCreditEvaluationModal = ({
                   onClick={() => setActiveEvalTab('documento')}
                   className={`pb-2 text-xs font-bold transition-all border-b-2 cursor-pointer flex items-center space-x-1.5 ${
                     activeEvalTab === 'documento'
-                      ? 'border-emerald-600 text-emerald-800'
+                      ? 'border-brand-600 text-brand-800'
                       : 'border-transparent text-slate-500 hover:text-slate-700'
                   }`}
                 >
@@ -300,7 +300,7 @@ const OperatorCreditEvaluationModal = ({
                   onClick={() => setActiveEvalTab('scoring')}
                   className={`pb-2 text-xs font-bold transition-all border-b-2 cursor-pointer flex items-center space-x-1.5 ${
                     activeEvalTab === 'scoring'
-                      ? 'border-emerald-600 text-emerald-800'
+                      ? 'border-brand-600 text-brand-800'
                       : 'border-transparent text-slate-500 hover:text-slate-700'
                   }`}
                 >
@@ -312,7 +312,7 @@ const OperatorCreditEvaluationModal = ({
                   onClick={() => setActiveEvalTab('transacciones')}
                   className={`pb-2 text-xs font-bold transition-all border-b-2 cursor-pointer flex items-center space-x-1.5 ${
                     activeEvalTab === 'transacciones'
-                      ? 'border-emerald-600 text-emerald-800'
+                      ? 'border-brand-600 text-brand-800'
                       : 'border-transparent text-slate-500 hover:text-slate-700'
                   }`}
                 >
@@ -355,7 +355,7 @@ const OperatorCreditEvaluationModal = ({
                           <span>Descargar PDF</span>
                         </a>
                       )}
-                      <label className="inline-flex items-center space-x-1.5 px-3 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg text-xs font-bold shadow-xs transition-colors cursor-pointer self-start sm:self-auto shrink-0">
+                      <label className="inline-flex items-center space-x-1.5 px-3 py-1.5 bg-brand-700 hover:bg-brand-800 text-white rounded-lg text-xs font-bold shadow-xs transition-colors cursor-pointer self-start sm:self-auto shrink-0">
                         <UploadCloud className="w-3.5 h-3.5" />
                         <span>{archivoFirmado ? 'Reemplazar PDF Firmado' : 'Subir PDF Firmado por Operador *'}</span>
                         <input
@@ -369,7 +369,7 @@ const OperatorCreditEvaluationModal = ({
                   </div>
 
                   {fileError && (
-                    <div className="p-3 bg-red-50 border border-red-200 text-red-700 rounded-xl text-xs font-semibold flex items-center space-x-2">
+                    <div className="p-3 bg-danger-50 border border-danger-200 text-danger-700 rounded-xl text-xs font-semibold flex items-center space-x-2">
                       <AlertCircle className="w-4 h-4 flex-shrink-0" />
                       <span>{fileError}</span>
                     </div>
@@ -377,18 +377,18 @@ const OperatorCreditEvaluationModal = ({
 
                   {/* Estado del Archivo Nuevo Seleccionado */}
                   {archivoFirmado && (
-                    <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-between text-xs text-emerald-900">
+                    <div className="p-3 bg-brand-50 border border-brand-200 rounded-xl flex items-center justify-between text-xs text-brand-900">
                       <div className="flex items-center space-x-2">
-                        <FileCheck className="w-4 h-4 text-emerald-600" />
+                        <FileCheck className="w-4 h-4 text-brand-600" />
                         <span className="font-bold">{archivoFirmado.name}</span>
-                        <span className="text-emerald-700">
+                        <span className="text-brand-700">
                           ({(archivoFirmado.size / 1024).toFixed(1)} KB) • Listo para adjuntar
                         </span>
                       </div>
                       <button
                         type="button"
                         onClick={() => setArchivoFirmado(null)}
-                        className="text-red-500 hover:text-red-700 font-bold flex items-center space-x-1 cursor-pointer"
+                        className="text-danger-500 hover:text-danger-700 font-bold flex items-center space-x-1 cursor-pointer"
                         title="Descartar este archivo"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
@@ -415,7 +415,7 @@ const OperatorCreditEvaluationModal = ({
                     <div>
                       <div className="flex items-center justify-between p-3 bg-slate-50 border border-slate-200 rounded-xl mb-3">
                         <div className="flex items-center space-x-2 text-xs text-slate-700">
-                          <FileCheck className="w-4 h-4 text-emerald-600" />
+                          <FileCheck className="w-4 h-4 text-brand-600" />
                           <span className="font-bold text-slate-800">
                             {selectedCredito.nombre_archivo_firmado || 'formulario_firmado.pdf'}
                           </span>
@@ -429,7 +429,7 @@ const OperatorCreditEvaluationModal = ({
                           href={getSecureDocumentUrl(selectedCredito.documento_firmado_url)}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="px-3 py-1.5 bg-sky-600 hover:bg-sky-700 text-white rounded-lg text-xs font-bold shadow-xs transition-colors flex items-center space-x-1.5 cursor-pointer"
+                          className="px-3 py-1.5 bg-brand-600 hover:bg-brand-700 text-white rounded-lg text-xs font-bold shadow-xs transition-colors flex items-center space-x-1.5 cursor-pointer"
                         >
                           <ExternalLink className="w-3.5 h-3.5" />
                           <span>Abrir en Pantalla Completa</span>
@@ -460,9 +460,9 @@ const OperatorCreditEvaluationModal = ({
               {activeEvalTab === 'scoring' && (
                 <div className="space-y-4">
                   {/* Datos del Crédito Solicitado */}
-                  <div className="p-4 rounded-xl bg-emerald-50/50 border border-emerald-200">
-                    <h5 className="text-xs font-bold uppercase tracking-wider text-emerald-950 mb-3 flex items-center space-x-1.5">
-                      <Calculator className="w-4 h-4 text-emerald-700" />
+                  <div className="p-4 rounded-xl bg-brand-50/50 border border-brand-200">
+                    <h5 className="text-xs font-bold uppercase tracking-wider text-brand-950 mb-3 flex items-center space-x-1.5">
+                      <Calculator className="w-4 h-4 text-brand-700" />
                       <span>Parámetros del Crédito en Revisión</span>
                     </h5>
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
@@ -480,7 +480,7 @@ const OperatorCreditEvaluationModal = ({
                       </div>
                       <div>
                         <span className="text-slate-500 block">Cuota Mensual Estimada:</span>
-                        <span className="font-bold text-emerald-800">
+                        <span className="font-bold text-brand-800">
                           Q{parseFloat(selectedCredito.cuota_mensual_estimada).toLocaleString('es-GT', { minimumFractionDigits: 2 })}
                         </span>
                       </div>
@@ -492,10 +492,10 @@ const OperatorCreditEvaluationModal = ({
                       </div>
                     </div>
 
-                    <div className="mt-3 pt-2.5 border-t border-emerald-100 flex flex-col sm:flex-row sm:items-center justify-between text-xs text-slate-600 gap-1">
+                    <div className="mt-3 pt-2.5 border-t border-brand-100 flex flex-col sm:flex-row sm:items-center justify-between text-xs text-slate-600 gap-1">
                       <span>
                         Cuenta designada para desembolso:{' '}
-                        <strong className="text-emerald-900 font-semibold">
+                        <strong className="text-brand-900 font-semibold">
                           {selectedCredito.cuenta_destino_info ||
                             (selectedCredito.cuenta_bancaria_destino_numero
                               ? `Cuenta Bancaria (${selectedCredito.cuenta_bancaria_destino_numero})`
@@ -518,7 +518,7 @@ const OperatorCreditEvaluationModal = ({
                     <div className="space-y-1.5">
                       {evaluacionData.analisisSolicitud.diagnosticos?.map((diag, index) => (
                         <div key={index} className="flex items-start space-x-2 text-xs text-slate-700">
-                          <span className="text-emerald-600 font-bold">•</span>
+                          <span className="text-brand-600 font-bold">•</span>
                           <span>{diag}</span>
                         </div>
                       ))}
@@ -531,7 +531,7 @@ const OperatorCreditEvaluationModal = ({
                     <div className="p-4 rounded-xl border border-slate-200 bg-white space-y-2.5">
                       <h5 className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center justify-between">
                         <span>Cuentas Bancarias Vinculadas</span>
-                        <span className="text-[11px] font-extrabold text-emerald-700">
+                        <span className="text-[11px] font-extrabold text-brand-700">
                           Total: Q{evaluacionData.solicitante.totalBanco.toLocaleString('es-GT', { minimumFractionDigits: 2 })}
                         </span>
                       </h5>
@@ -545,7 +545,7 @@ const OperatorCreditEvaluationModal = ({
                                 <span className="font-bold text-slate-800 block">{cb.tipo_cuenta}</span>
                                 <span className="font-mono text-[11px] text-slate-500">{cb.numero_cuenta_bancaria}</span>
                               </div>
-                              <span className="font-mono font-bold text-emerald-800">
+                              <span className="font-mono font-bold text-brand-800">
                                 Q{parseFloat(cb.saldo_disponible).toLocaleString('es-GT', { minimumFractionDigits: 2 })}
                               </span>
                             </div>
@@ -558,7 +558,7 @@ const OperatorCreditEvaluationModal = ({
                     <div className="p-4 rounded-xl border border-slate-200 bg-white space-y-2.5">
                       <h5 className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center justify-between">
                         <span>Cuentas Internas de Cooperativa</span>
-                        <span className="text-[11px] font-extrabold text-emerald-700">
+                        <span className="text-[11px] font-extrabold text-brand-700">
                           Total: Q{evaluacionData.solicitante.totalCoop.toLocaleString('es-GT', { minimumFractionDigits: 2 })}
                         </span>
                       </h5>
@@ -572,7 +572,7 @@ const OperatorCreditEvaluationModal = ({
                                 <span className="font-bold text-slate-800 block">{c.tipo || c.tipo_cuenta || 'Cuenta Cooperativa'}</span>
                                 <span className="font-mono text-[11px] text-slate-500">{c.numero_cuenta}</span>
                               </div>
-                              <span className="font-mono font-bold text-emerald-800">
+                              <span className="font-mono font-bold text-brand-800">
                                 Q{(Number(c.saldo_disponible !== undefined ? c.saldo_disponible : (c.saldo || 0)) || 0).toLocaleString('es-GT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                               </span>
                             </div>
@@ -630,7 +630,7 @@ const OperatorCreditEvaluationModal = ({
                                 <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold ${
                                   tx.origen === 'BANCO'
                                     ? 'bg-blue-50 text-blue-700 border border-blue-200'
-                                    : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                    : 'bg-brand-50 text-brand-700 border border-brand-200'
                                 }`}>
                                   {tx.origen}
                                 </span>
@@ -641,14 +641,14 @@ const OperatorCreditEvaluationModal = ({
                               <td className="px-3 py-2 text-center">
                                 <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold ${
                                   (tx.tipo_movimiento || tx.tipo) === 'CREDITO'
-                                    ? 'bg-emerald-100 text-emerald-800'
+                                    ? 'bg-brand-100 text-brand-800'
                                     : 'bg-slate-100 text-slate-700'
                                 }`}>
                                   {(tx.tipo_movimiento || tx.tipo) === 'CREDITO' ? 'Ingreso (+)' : 'Egreso (-)'}
                                 </span>
                               </td>
                               <td className="px-3 py-2 text-right font-bold font-mono">
-                                <span className={(tx.tipo_movimiento || tx.tipo) === 'CREDITO' ? 'text-emerald-700' : 'text-slate-800'}>
+                                <span className={(tx.tipo_movimiento || tx.tipo) === 'CREDITO' ? 'text-brand-700' : 'text-slate-800'}>
                                   {(tx.tipo_movimiento || tx.tipo) === 'CREDITO' ? '+' : '-'}Q{parseFloat(tx.monto).toLocaleString('es-GT', { minimumFractionDigits: 2 })}
                                 </span>
                               </td>
@@ -687,24 +687,24 @@ const OperatorCreditEvaluationModal = ({
                   onChange={(e) => setObservacionesCredito(e.target.value)}
                   placeholder="Ingrese los comentarios del dictamen operativo para elevarlo al Ejecutivo, o la justificación en caso de rechazo..."
                   rows={2}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-emerald-600 bg-white resize-none max-h-24"
+                  className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-brand-600 bg-white resize-none max-h-24"
                 />
               </div>
 
               {/* Alerta de PDF firmado obligatorio */}
               {!hasOperatorSignedPdf && (
-                <div className="flex items-start space-x-2.5 text-xs text-amber-900 bg-amber-50 px-3.5 py-2.5 rounded-xl border border-amber-300">
-                  <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                <div className="flex items-start space-x-2.5 text-xs text-warning-900 bg-warning-50 px-3.5 py-2.5 rounded-xl border border-warning-300">
+                  <AlertTriangle className="w-4 h-4 text-warning-600 shrink-0 mt-0.5" />
                   <div className="leading-relaxed">
-                    <strong className="block text-amber-950 font-bold">Documento Firmado por Operador Obligatorio:</strong>
+                    <strong className="block text-warning-950 font-bold">Documento Firmado por Operador Obligatorio:</strong>
                     Para poder aceptar la solicitud y elevarla a la Gerencia Ejecutiva, es obligatorio adjuntar el archivo PDF firmado por el Operador. Ingrese a la pestaña "Formulario Firmado (PDF)" arriba para seleccionarlo.
                   </div>
                 </div>
               )}
 
               {archivoFirmado && (
-                <div className="flex items-center space-x-2 text-xs text-emerald-800 bg-emerald-50 px-3 py-1.5 rounded-lg border border-emerald-200">
-                  <Paperclip className="w-3.5 h-3.5 text-emerald-600" />
+                <div className="flex items-center space-x-2 text-xs text-brand-800 bg-brand-50 px-3 py-1.5 rounded-lg border border-brand-200">
+                  <Paperclip className="w-3.5 h-3.5 text-brand-600" />
                   <span>
                     Se adjuntará: <strong>{archivoFirmado.name}</strong> ({(archivoFirmado.size / 1024).toFixed(1)} KB) • Listo para aceptar
                   </span>
@@ -725,7 +725,7 @@ const OperatorCreditEvaluationModal = ({
                     type="button"
                     disabled={resolvingCredito}
                     onClick={() => handleResolveCreditoSubmit('RECHAZAR', archivoFirmado)}
-                    className="flex-1 sm:flex-initial px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold shadow-xs transition-colors cursor-pointer disabled:opacity-50"
+                    className="flex-1 sm:flex-initial px-4 py-2 bg-danger-600 hover:bg-danger-700 text-white rounded-xl text-xs font-bold shadow-xs transition-colors cursor-pointer disabled:opacity-50"
                   >
                     {resolvingCredito ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Rechazar Solicitud'}
                   </button>
@@ -734,7 +734,7 @@ const OperatorCreditEvaluationModal = ({
                     type="button"
                     disabled={resolvingCredito || !hasOperatorSignedPdf}
                     onClick={() => handleElevarCredito(archivoFirmado)}
-                    className="flex-1 sm:flex-initial px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-xs transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-1.5"
+                    className="flex-1 sm:flex-initial px-5 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-xl text-xs font-bold shadow-xs transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-1.5"
                     title={!hasOperatorSignedPdf ? 'Debe adjuntar el PDF firmado por el operador antes de aceptar la solicitud' : 'Aceptar dictamen y elevar solicitud a la Gerencia Ejecutiva'}
                   >
                     {resolvingCredito ? (

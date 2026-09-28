@@ -359,16 +359,16 @@ export const BeneficiariesModal = ({
 
         {/* Alerta de Error dentro del Modal */}
         {errorMsg && (
-          <div className="mx-6 mt-4 p-3.5 rounded-xl bg-red-50 border border-red-200 flex items-start space-x-3 text-red-700">
-            <AlertCircle className="w-5 h-5 shrink-0 mt-0.5 text-red-600" />
+          <div className="mx-6 mt-4 p-3.5 rounded-xl bg-danger-50 border border-danger-200 flex items-start space-x-3 text-danger-700">
+            <AlertCircle className="w-5 h-5 shrink-0 mt-0.5 text-danger-600" />
             <div className="text-xs font-semibold">{errorMsg}</div>
           </div>
         )}
 
         {/* Alerta de Éxito dentro del Modal */}
         {successMsg && (
-          <div className="mx-6 mt-4 p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 flex items-start space-x-3 text-emerald-800">
-            <CheckCircle2 className="w-5 h-5 shrink-0 mt-0.5 text-emerald-600" />
+          <div className="mx-6 mt-4 p-3.5 rounded-xl bg-brand-50 border border-brand-200 flex items-start space-x-3 text-brand-800">
+            <CheckCircle2 className="w-5 h-5 shrink-0 mt-0.5 text-brand-600" />
             <div className="text-xs font-semibold">{successMsg}</div>
           </div>
         )}
@@ -394,7 +394,7 @@ export const BeneficiariesModal = ({
                 ))}
               </select>
             ) : (
-              <p className="text-xs text-amber-700">No hay cuentas disponibles para este asociado.</p>
+              <p className="text-xs text-warning-700">No hay cuentas disponibles para este asociado.</p>
             )}
           </div>
 
@@ -408,10 +408,10 @@ export const BeneficiariesModal = ({
               <span
                 className={`font-mono font-extrabold text-sm ${
                   esValido100
-                    ? 'text-emerald-600'
+                    ? 'text-brand-600'
                     : sumaPorcentajes > 100
-                    ? 'text-red-600'
-                    : 'text-amber-600'
+                    ? 'text-danger-600'
+                    : 'text-warning-600'
                 }`}
               >
                 {sumaPorcentajes.toFixed(2)}% / 100.00%
@@ -423,10 +423,10 @@ export const BeneficiariesModal = ({
               <div
                 className={`h-full transition-all duration-300 ${
                   esValido100
-                    ? 'bg-emerald-500'
+                    ? 'bg-brand-500'
                     : sumaPorcentajes > 100
-                    ? 'bg-red-500'
-                    : 'bg-amber-500'
+                    ? 'bg-danger-500'
+                    : 'bg-warning-500'
                 }`}
                 style={{ width: `${Math.min(sumaPorcentajes, 100)}%` }}
               />
@@ -434,16 +434,16 @@ export const BeneficiariesModal = ({
 
             <div className="flex justify-between items-center text-[11px] pt-1">
               {esValido100 ? (
-                <span className="text-emerald-700 font-semibold flex items-center space-x-1">
+                <span className="text-brand-700 font-semibold flex items-center space-x-1">
                   <CheckCircle2 className="w-3.5 h-3.5" />
                   <span>Distribución válida y completa al 100.00%.</span>
                 </span>
               ) : sumaPorcentajes > 100 ? (
-                <span className="text-red-600 font-semibold">
+                <span className="text-danger-600 font-semibold">
                   Excedido por {(sumaPorcentajes - 100).toFixed(2)}% (El máximo permitido es 100.00%).
                 </span>
               ) : (
-                <span className="text-amber-700 font-semibold">
+                <span className="text-warning-700 font-semibold">
                   Faltan {(100 - sumaPorcentajes).toFixed(2)}% por distribuir entre los beneficiarios.
                 </span>
               )}
@@ -488,7 +488,7 @@ export const BeneficiariesModal = ({
                     <button
                       type="button"
                       onClick={() => handleRemoveBeneficiario(index)}
-                      className="text-red-400 hover:text-red-600 p-1 rounded transition-colors cursor-pointer"
+                      className="text-danger-400 hover:text-danger-600 p-1 rounded transition-colors cursor-pointer"
                       title="Eliminar este beneficiario"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
@@ -747,15 +747,15 @@ export const BeneficiariesModal = ({
                         </div>
 
                         {/* Nuevos */}
-                        <div className="p-3 bg-emerald-50/50 rounded-lg border border-emerald-200 space-y-1.5">
-                          <span className="text-[11px] font-bold text-emerald-800 uppercase tracking-wider block">
+                        <div className="p-3 bg-brand-50/50 rounded-lg border border-brand-200 space-y-1.5">
+                          <span className="text-[11px] font-bold text-brand-800 uppercase tracking-wider block">
                             Nueva Distribución Asignada (100%)
                           </span>
                           <ul className="space-y-1">
                             {newBens.map((b, i) => (
                               <li key={i} className="flex justify-between items-center text-[11px]">
-                                <span className="text-emerald-950 font-bold truncate max-w-[140px]">{b.nombre_completo}</span>
-                                <span className="font-extrabold text-emerald-700 font-mono bg-emerald-100 px-1.5 py-0.2 rounded">
+                                <span className="text-brand-950 font-bold truncate max-w-[140px]">{b.nombre_completo}</span>
+                                <span className="font-extrabold text-brand-700 font-mono bg-brand-100 px-1.5 py-0.2 rounded">
                                   {parseFloat(b.porcentaje).toFixed(2)}%
                                 </span>
                               </li>

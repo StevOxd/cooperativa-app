@@ -22,7 +22,7 @@ export const DirectAffiliationSuccess = ({ afiliacionExitosa }) => {
 
   return (
     <div className="text-center py-4 space-y-5">
-      <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto text-emerald-700 shadow-inner">
+      <div className="w-16 h-16 bg-brand-100 rounded-full flex items-center justify-center mx-auto text-brand-700 shadow-inner">
         <CheckCircle2 className="w-10 h-10" />
       </div>
 
@@ -41,7 +41,7 @@ export const DirectAffiliationSuccess = ({ afiliacionExitosa }) => {
         <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-2">
           <div className="flex justify-between items-center border-b border-slate-200 pb-2">
             <span className="text-xs text-slate-600 font-semibold">Usuario:</span>
-            <span className="text-sm font-bold text-emerald-700 font-mono bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+            <span className="text-sm font-bold text-brand-700 font-mono bg-brand-50 px-2 py-0.5 rounded border border-brand-200">
               {afiliacionExitosa.usuario.codigo_corporativo}
             </span>
           </div>
@@ -54,20 +54,20 @@ export const DirectAffiliationSuccess = ({ afiliacionExitosa }) => {
         </div>
 
         {/* Tarjeta 1: NUEVA CUENTA EN LA COOPERATIVA */}
-        <div className="bg-emerald-50/90 border-2 border-emerald-400 rounded-2xl p-4 space-y-2">
-          <div className="flex items-center space-x-2 text-emerald-900 font-extrabold text-xs uppercase tracking-wider">
-            <Building2 className="w-4 h-4 text-emerald-700" />
+        <div className="bg-brand-50/90 border-2 border-brand-400 rounded-2xl p-4 space-y-2">
+          <div className="flex items-center space-x-2 text-brand-900 font-extrabold text-xs uppercase tracking-wider">
+            <Building2 className="w-4 h-4 text-brand-700" />
             <span>Tu Nueva Cuenta en la Cooperativa</span>
           </div>
           <div className="flex justify-between items-center">
             <span className="text-xs text-slate-700 font-medium">Número de Cuenta Aperturada:</span>
-            <span className="text-base font-mono font-extrabold text-emerald-900">
+            <span className="text-base font-mono font-extrabold text-brand-900">
               {afiliacionExitosa.cuenta_ahorro?.numero_cuenta || afiliacionExitosa.cuenta_aportaciones?.numero_cuenta}
             </span>
           </div>
-          <div className="flex justify-between items-center border-t border-emerald-200 pt-2">
+          <div className="flex justify-between items-center border-t border-brand-200 pt-2">
             <span className="text-xs text-slate-700 font-medium">Saldo Inicial Acreditado:</span>
-            <span className="text-base font-extrabold text-emerald-700">
+            <span className="text-base font-extrabold text-brand-700">
               Q{parseFloat(afiliacionExitosa.cuenta_ahorro?.saldo_disponible || afiliacionExitosa.cuenta_aportaciones?.saldo_disponible || 0).toFixed(2)}
             </span>
           </div>
@@ -93,7 +93,7 @@ export const DirectAffiliationSuccess = ({ afiliacionExitosa }) => {
           </div>
           <div className="flex justify-between items-center border-t border-slate-200 pt-2">
             <span className="text-xs text-slate-600 font-medium">Nuevo Saldo en Cuenta Bancaria:</span>
-            <span className="text-xs font-mono font-bold text-emerald-700">
+            <span className="text-xs font-mono font-bold text-brand-700">
               Q{parseFloat(afiliacionExitosa.cuenta_bancaria_origen.nuevo_saldo).toFixed(2)}
             </span>
           </div>
@@ -102,8 +102,8 @@ export const DirectAffiliationSuccess = ({ afiliacionExitosa }) => {
         {/* Tarjeta de Seguridad: Doble Factor de Autenticación (MFA / 2FA) */}
         {afiliacionExitosa.mfa?.qr_code_url && (
           <div className="bg-slate-900 text-white rounded-2xl p-5 space-y-3.5 border border-slate-800 shadow-md">
-            <div className="flex items-center space-x-2 text-emerald-400 font-bold text-xs uppercase tracking-wider">
-              <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
+            <div className="flex items-center space-x-2 text-brand-400 font-bold text-xs uppercase tracking-wider">
+              <ShieldCheck className="w-4 h-4 text-brand-400 shrink-0" />
               <span>Seguridad Bancaria: Doble Factor de Autenticación (2FA)</span>
             </div>
             <p className="text-xs text-slate-300 leading-relaxed">
@@ -122,7 +122,7 @@ export const DirectAffiliationSuccess = ({ afiliacionExitosa }) => {
               <span className="text-[10px] uppercase font-mono tracking-wider text-slate-400 block">
                 Clave Secreta de Configuración Manual:
               </span>
-              <span className="font-mono text-xs font-bold text-emerald-300 tracking-widest select-all">
+              <span className="font-mono text-xs font-bold text-brand-300 tracking-widest select-all">
                 {afiliacionExitosa.mfa.secret}
               </span>
             </div>
@@ -144,7 +144,7 @@ export const DirectAffiliationSuccess = ({ afiliacionExitosa }) => {
       <div className="pt-2">
         <Link
           to="/login"
-          className="w-full py-3.5 px-6 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-sm shadow-md flex items-center justify-center space-x-2 transition-all cursor-pointer"
+          className="w-full py-3.5 px-6 rounded-xl bg-brand-700 hover:bg-brand-800 text-white font-bold text-sm shadow-md flex items-center justify-center space-x-2 transition-all cursor-pointer"
         >
           <span>Iniciar Sesión Ahora</span>
           <ArrowRight className="w-4 h-4" />

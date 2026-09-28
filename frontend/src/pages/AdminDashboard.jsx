@@ -260,16 +260,16 @@ export const AdminDashboard = () => {
   const getActionBadge = (estadoNuevo, motivo) => {
     if (estadoNuevo === 'BLOQUEADO_TEMPORAL' || (motivo && motivo.toLowerCase().includes('fuerza bruta'))) {
       return (
-        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 text-amber-800 border border-amber-300">
-          <AlertTriangle className="w-3 h-3 mr-1 text-amber-600" />
+        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold bg-warning-100 text-warning-800 border border-warning-300">
+          <AlertTriangle className="w-3 h-3 mr-1 text-warning-600" />
           Bloqueo Fuerza Bruta
         </span>
       );
     }
     if (motivo && motivo.toLowerCase().includes('desbloqueo')) {
       return (
-        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
-          <Unlock className="w-3 h-3 mr-1 text-emerald-600" />
+        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold bg-brand-100 text-brand-800 border border-brand-300">
+          <Unlock className="w-3 h-3 mr-1 text-brand-600" />
           Desbloqueo Admin
         </span>
       );
@@ -295,8 +295,8 @@ export const AdminDashboard = () => {
       {/* Encabezado Principal del Centro de Monitoreo */}
       <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-xs flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
-          <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold mb-2">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+          <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-brand-50 border border-brand-200 text-brand-800 text-xs font-bold mb-2">
+            <span className="w-2 h-2 rounded-full bg-brand-500 animate-pulse" />
             <span>Centro de Monitoreo en Tiempo Real</span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
@@ -324,7 +324,7 @@ export const AdminDashboard = () => {
             {loading ? '...' : kpis.total}
           </div>
           <div className="flex items-center space-x-2 mt-2 text-xs text-slate-500">
-            <span className="font-semibold text-emerald-700">
+            <span className="font-semibold text-brand-700">
               {kpis.asociadosCount} Asociados
             </span>
             <span>•</span>
@@ -338,15 +338,15 @@ export const AdminDashboard = () => {
             <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
               Usuarios Activos
             </span>
-            <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+            <div className="w-10 h-10 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center">
               <UserCheck className="w-5 h-5" />
             </div>
           </div>
-          <div className="text-3xl font-extrabold text-emerald-700">
+          <div className="text-3xl font-extrabold text-brand-700">
             {loading ? '...' : kpis.activos}
           </div>
-          <div className="flex items-center space-x-1.5 mt-2 text-xs font-medium text-emerald-600">
-            <span className="w-2 h-2 rounded-full bg-emerald-500" />
+          <div className="flex items-center space-x-1.5 mt-2 text-xs font-medium text-brand-600">
+            <span className="w-2 h-2 rounded-full bg-brand-500" />
             <span>
               {kpis.total > 0 ? `${((kpis.activos / kpis.total) * 100).toFixed(0)}% del padrón habilitado` : '0%'}
             </span>
@@ -359,15 +359,15 @@ export const AdminDashboard = () => {
             <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
               Bloqueados / Inactivos
             </span>
-            <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
+            <div className="w-10 h-10 rounded-xl bg-warning-50 text-warning-600 flex items-center justify-center">
               <ShieldAlert className="w-5 h-5" />
             </div>
           </div>
-          <div className="text-3xl font-extrabold text-amber-700">
+          <div className="text-3xl font-extrabold text-warning-700">
             {loading ? '...' : kpis.bloqueadosOInactivos}
           </div>
           <div className="flex items-center space-x-2 mt-2 text-xs text-slate-500">
-            <span className="text-amber-800 font-semibold">
+            <span className="text-warning-800 font-semibold">
               {kpis.bloqueadosIntentos} por intentos
             </span>
             <span>•</span>
@@ -423,15 +423,15 @@ export const AdminDashboard = () => {
 
           {/* Leyenda personalizada */}
           <div className="grid grid-cols-3 gap-2 pt-4 border-t border-slate-100 text-center">
-            <div className="p-2 rounded-xl bg-emerald-50/60 border border-emerald-100">
-              <div className="flex items-center justify-center space-x-1 text-emerald-800 text-xs font-bold">
-                <span className="w-2 h-2 rounded-full bg-emerald-600" />
+            <div className="p-2 rounded-xl bg-brand-50/60 border border-brand-100">
+              <div className="flex items-center justify-center space-x-1 text-brand-800 text-xs font-bold">
+                <span className="w-2 h-2 rounded-full bg-brand-600" />
                 <span>Asociados</span>
               </div>
-              <span className="text-sm font-extrabold text-emerald-900 block mt-1">
+              <span className="text-sm font-extrabold text-brand-900 block mt-1">
                 {kpis.asociadosCount}
               </span>
-              <span className="text-[10px] text-emerald-700 font-semibold">
+              <span className="text-[10px] text-brand-700 font-semibold">
                 {kpis.total > 0 ? `${((kpis.asociadosCount / kpis.total) * 100).toFixed(0)}%` : '0%'}
               </span>
             </div>
@@ -472,7 +472,7 @@ export const AdminDashboard = () => {
                 <h3 className="text-base font-bold text-slate-900">Actividad de Registros y Altas</h3>
                 <p className="text-xs text-slate-500">Histórico de nuevos usuarios incorporados</p>
               </div>
-              <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200">
+              <span className="text-xs font-semibold text-brand-700 bg-brand-50 px-2.5 py-1 rounded-lg border border-brand-200">
                 Semestre Reciente
               </span>
             </div>
@@ -488,7 +488,7 @@ export const AdminDashboard = () => {
       <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-xs">
         <div className="flex items-center justify-between mb-4 border-b border-slate-100 pb-3">
           <div className="flex items-center space-x-2">
-            <div className="w-8 h-8 rounded-xl bg-amber-50 text-amber-700 flex items-center justify-center border border-amber-200">
+            <div className="w-8 h-8 rounded-xl bg-warning-50 text-warning-700 flex items-center justify-center border border-warning-200">
               <Shield className="w-4 h-4" />
             </div>
             <div>
@@ -524,7 +524,7 @@ export const AdminDashboard = () => {
                   <tr key={ev.id_historial_estado} className="hover:bg-slate-50/80 transition-colors">
                     <td className="py-3 px-3 font-semibold text-slate-900">
                       <div>{ev.usuario_nombre}</div>
-                      <span className="text-[10px] font-mono text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                      <span className="text-[10px] font-mono text-brand-700 bg-brand-50 px-1.5 py-0.5 rounded border border-brand-200">
                         {ev.usuario_codigo || 'S/C'}
                       </span>
                     </td>

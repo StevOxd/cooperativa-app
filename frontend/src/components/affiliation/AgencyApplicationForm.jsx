@@ -54,19 +54,19 @@ export const AgencyApplicationForm = ({
   return (
     <form onSubmit={handleSubmitNuevo} className="space-y-4">
       {/* Banner Informativo con el texto exacto institucional */}
-      <div className="p-4 rounded-2xl bg-amber-50/90 border border-amber-300 text-amber-950 space-y-2">
+      <div className="p-4 rounded-2xl bg-warning-50/90 border border-warning-300 text-warning-950 space-y-2">
         <div className="flex items-start space-x-2.5">
-          <Info className="w-5 h-5 text-amber-700 shrink-0 mt-0.5" />
+          <Info className="w-5 h-5 text-warning-700 shrink-0 mt-0.5" />
           <p className="text-xs leading-relaxed font-semibold">
             DPI no registrado en la Entidad Bancaria. La Cooperativa forma parte de la Corporación Bancaria, emitiremos tu solicitud para apertura de cuenta de ahorro y membresía.
           </p>
         </div>
-        <div className="flex items-center justify-between pt-1 border-t border-amber-200 text-[11px] text-amber-800">
+        <div className="flex items-center justify-between pt-1 border-t border-warning-200 text-[11px] text-warning-800">
           <span>CUI / DPI Verificado: <strong className="font-mono">{cuiInput}</strong></span>
           <button
             type="button"
             onClick={handleReset}
-            className="text-amber-900 font-bold hover:underline cursor-pointer flex items-center space-x-1"
+            className="text-warning-900 font-bold hover:underline cursor-pointer flex items-center space-x-1"
           >
             <RotateCcw className="w-3 h-3" />
             <span>Cambiar DPI</span>
@@ -95,7 +95,7 @@ export const AgencyApplicationForm = ({
               })
             }
             placeholder="Ej: Carlos"
-            className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-600 shadow-2xs"
+            className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600 shadow-2xs"
             required
           />
         </div>
@@ -113,7 +113,7 @@ export const AgencyApplicationForm = ({
               })
             }
             placeholder="Ej: Alberto"
-            className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-600 shadow-2xs"
+            className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600 shadow-2xs"
           />
         </div>
       </div>
@@ -133,7 +133,7 @@ export const AgencyApplicationForm = ({
               })
             }
             placeholder="Ej: Gómez"
-            className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-600 shadow-2xs"
+            className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600 shadow-2xs"
             required
           />
         </div>
@@ -151,7 +151,7 @@ export const AgencyApplicationForm = ({
               })
             }
             placeholder="Ej: Méndez"
-            className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-600 shadow-2xs"
+            className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600 shadow-2xs"
           />
         </div>
       </div>
@@ -179,7 +179,7 @@ export const AgencyApplicationForm = ({
                 })
               }
               placeholder="Ej: 55551234"
-              className="w-full pl-9 pr-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-slate-900 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-emerald-600 shadow-2xs"
+              className="w-full pl-9 pr-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-slate-900 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-brand-600 shadow-2xs"
               required
             />
           </div>
@@ -194,7 +194,7 @@ export const AgencyApplicationForm = ({
               <select
                 value={birthDay}
                 onChange={(e) => handleDatePartChange('day', e.target.value)}
-                className="w-full px-2 py-2.5 bg-white border border-slate-300 rounded-xl text-slate-900 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-emerald-600 shadow-2xs cursor-pointer"
+                className="w-full px-2 py-2.5 bg-white border border-slate-300 rounded-xl text-slate-900 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-brand-600 shadow-2xs cursor-pointer"
                 required
               >
                 <option value="">Día</option>
@@ -207,7 +207,7 @@ export const AgencyApplicationForm = ({
               <select
                 value={birthMonth}
                 onChange={(e) => handleDatePartChange('month', e.target.value)}
-                className="w-full px-1.5 py-2.5 bg-white border border-slate-300 rounded-xl text-slate-900 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-emerald-600 shadow-2xs cursor-pointer"
+                className="w-full px-1.5 py-2.5 bg-white border border-slate-300 rounded-xl text-slate-900 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-brand-600 shadow-2xs cursor-pointer"
                 required
               >
                 <option value="">Mes</option>
@@ -220,7 +220,7 @@ export const AgencyApplicationForm = ({
               <select
                 value={birthYear}
                 onChange={(e) => handleDatePartChange('year', e.target.value)}
-                className="w-full px-2 py-2.5 bg-white border border-slate-300 rounded-xl text-slate-900 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-emerald-600 shadow-2xs cursor-pointer"
+                className="w-full px-2 py-2.5 bg-white border border-slate-300 rounded-xl text-slate-900 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-brand-600 shadow-2xs cursor-pointer"
                 required
               >
                 <option value="">Año</option>
@@ -236,14 +236,14 @@ export const AgencyApplicationForm = ({
             <div
               className={`mt-2 p-2 rounded-xl text-xs font-medium flex items-start space-x-1.5 border transition-all ${
                 ageCalculation.valid
-                  ? 'bg-emerald-50 border-emerald-300 text-emerald-900'
-                  : 'bg-amber-50 border-amber-300 text-amber-900'
+                  ? 'bg-brand-50 border-brand-300 text-brand-900'
+                  : 'bg-warning-50 border-warning-300 text-warning-900'
               }`}
             >
               {ageCalculation.valid ? (
-                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                <CheckCircle2 className="w-4 h-4 text-brand-600 shrink-0 mt-0.5" />
               ) : (
-                <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                <AlertCircle className="w-4 h-4 text-warning-600 shrink-0 mt-0.5" />
               )}
               <span className="leading-tight">{ageCalculation.message}</span>
             </div>
@@ -262,7 +262,7 @@ export const AgencyApplicationForm = ({
             value={nuevoForm.direccion}
             onChange={(e) => setNuevoForm({ ...nuevoForm, direccion: e.target.value })}
             placeholder="Ej: 4ta Calle 8-20 Zona 1, Ciudad de Guatemala"
-            className="w-full pl-9 pr-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-600 shadow-2xs"
+            className="w-full pl-9 pr-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600 shadow-2xs"
           />
         </div>
       </div>
@@ -274,8 +274,8 @@ export const AgencyApplicationForm = ({
           </label>
           <div className="relative">
             <Mail className={`w-4 h-4 absolute left-3 top-3.5 ${
-              emailStatus.disponible === false ? 'text-red-500' :
-              emailStatus.disponible === true ? 'text-emerald-600' : 'text-slate-400'
+              emailStatus.disponible === false ? 'text-danger-500' :
+              emailStatus.disponible === true ? 'text-brand-600' : 'text-slate-400'
             }`} />
             <input
               type="email"
@@ -285,32 +285,32 @@ export const AgencyApplicationForm = ({
               placeholder="correo@ejemplo.com"
               className={`w-full pl-9 pr-10 py-2.5 bg-white border rounded-xl text-slate-900 text-sm focus:outline-none shadow-2xs transition-colors ${
                 emailStatus.disponible === false
-                  ? 'border-red-500 focus:ring-2 focus:ring-red-500 bg-red-50/20 text-red-900'
+                  ? 'border-danger-500 focus:ring-2 focus:ring-danger-500 bg-danger-50/20 text-danger-900'
                   : emailStatus.disponible === true
-                  ? 'border-emerald-500 focus:ring-2 focus:ring-emerald-600 bg-emerald-50/20'
-                  : 'border-slate-300 focus:ring-2 focus:ring-emerald-600'
+                  ? 'border-brand-500 focus:ring-2 focus:ring-brand-600 bg-brand-50/20'
+                  : 'border-slate-300 focus:ring-2 focus:ring-brand-600'
               }`}
             />
             {emailStatus.checking && (
               <div className="absolute right-3 top-3.5">
-                <Loader2 className="w-4 h-4 text-emerald-600 animate-spin" />
+                <Loader2 className="w-4 h-4 text-brand-600 animate-spin" />
               </div>
             )}
             {!emailStatus.checking && emailStatus.disponible === true && (
               <div className="absolute right-3 top-3.5">
-                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                <CheckCircle2 className="w-4 h-4 text-brand-600" />
               </div>
             )}
             {!emailStatus.checking && emailStatus.disponible === false && (
               <div className="absolute right-3 top-3.5">
-                <AlertCircle className="w-4 h-4 text-red-500" />
+                <AlertCircle className="w-4 h-4 text-danger-500" />
               </div>
             )}
           </div>
           {emailStatus.message && (
             <p className={`text-xs mt-1.5 flex items-center space-x-1 font-medium ${
-              emailStatus.disponible === false ? 'text-red-600' :
-              emailStatus.disponible === true ? 'text-emerald-700' : 'text-slate-500'
+              emailStatus.disponible === false ? 'text-danger-600' :
+              emailStatus.disponible === true ? 'text-brand-700' : 'text-slate-500'
             }`}>
               <span>{emailStatus.message}</span>
             </p>
@@ -322,14 +322,14 @@ export const AgencyApplicationForm = ({
             Depósito Inicial Estimado (Q)
           </label>
           <div className="relative">
-            <span className="absolute left-3.5 top-2.5 font-bold text-emerald-700 text-sm">Q</span>
+            <span className="absolute left-3.5 top-2.5 font-bold text-brand-700 text-sm">Q</span>
             <input
               type="number"
               step="0.01"
               min="100.00"
               value={nuevoForm.monto_estimado}
               onChange={(e) => setNuevoForm({ ...nuevoForm, monto_estimado: e.target.value })}
-              className="w-full pl-8 pr-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold text-sm focus:outline-none focus:ring-2 focus:ring-emerald-600 shadow-2xs"
+              className="w-full pl-8 pr-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold text-sm focus:outline-none focus:ring-2 focus:ring-brand-600 shadow-2xs"
             />
           </div>
         </div>
@@ -348,7 +348,7 @@ export const AgencyApplicationForm = ({
         <button
           type="submit"
           disabled={loading || emailStatus.disponible === false || emailStatus.checking}
-          className="px-6 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-sm rounded-xl shadow-md flex items-center space-x-2 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+          className="px-6 py-2.5 bg-brand-700 hover:bg-brand-800 text-white font-bold text-sm rounded-xl shadow-md flex items-center space-x-2 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {loading ? (
             <>

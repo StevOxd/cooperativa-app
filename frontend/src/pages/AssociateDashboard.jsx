@@ -624,19 +624,19 @@ export const AssociateDashboard = () => {
       case 'APROBADO':
       case 'APROBADA':
       case 'DESEMBOLSADA':
-        return 'bg-emerald-50 text-emerald-700 border-emerald-200';
+        return 'bg-brand-50 text-brand-700 border-brand-200';
       case 'RECHAZADO':
       case 'RECHAZADA':
-        return 'bg-red-50 text-red-700 border-red-200';
+        return 'bg-danger-50 text-danger-700 border-danger-200';
       default:
-        return 'bg-amber-50 text-amber-700 border-amber-200';
+        return 'bg-warning-50 text-warning-700 border-warning-200';
     }
   };
 
   if (loading) {
     return (
       <div className="py-24 flex flex-col items-center justify-center text-slate-500">
-        <Loader2 className="w-10 h-10 text-emerald-700 animate-spin mb-3" />
+        <Loader2 className="w-10 h-10 text-brand-700 animate-spin mb-3" />
         <p className="text-sm font-semibold">Cargando Portal de Autogestión...</p>
       </div>
     );
@@ -647,7 +647,7 @@ export const AssociateDashboard = () => {
       {/* Encabezado del Portal */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
         <div>
-          <span className="text-xs font-bold text-emerald-700 uppercase tracking-widest block mb-1">
+          <span className="text-xs font-bold text-brand-700 uppercase tracking-widest block mb-1">
             Portal de Autogestión del Asociado
           </span>
           <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
@@ -660,15 +660,15 @@ export const AssociateDashboard = () => {
         <div className="flex items-center space-x-2">
           <button
             onClick={() => setShowTour(true)}
-            className="inline-flex items-center space-x-1.5 px-3.5 py-2 rounded-xl border border-emerald-300 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-bold shadow-2xs transition-colors cursor-pointer"
+            className="inline-flex items-center space-x-1.5 px-3.5 py-2 rounded-xl border border-brand-300 bg-brand-50 hover:bg-brand-100 text-brand-800 text-xs font-bold shadow-2xs transition-colors cursor-pointer"
             title="Ver recorrido guiado por las funciones del portal"
           >
-            <Compass className="w-3.5 h-3.5 text-emerald-700" />
+            <Compass className="w-3.5 h-3.5 text-brand-700" />
             <span>Recorrido Guiado</span>
           </button>
           <button
             onClick={openTrasladoModal}
-            className="inline-flex items-center space-x-1.5 px-4 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold shadow-sm transition-colors cursor-pointer"
+            className="inline-flex items-center space-x-1.5 px-4 py-2 rounded-xl bg-brand-700 hover:bg-brand-800 text-white text-xs font-bold shadow-sm transition-colors cursor-pointer"
           >
             <Send className="w-3.5 h-3.5" />
             <span>Solicitar Traslado</span>
@@ -689,7 +689,7 @@ export const AssociateDashboard = () => {
           onClick={() => setActiveTab('resumen')}
           className={`px-5 py-3 text-sm font-semibold border-b-2 transition-all cursor-pointer whitespace-nowrap ${
             activeTab === 'resumen'
-              ? 'border-emerald-700 text-emerald-700'
+              ? 'border-brand-700 text-brand-700'
               : 'border-transparent text-slate-500 hover:text-slate-800'
           }`}
         >
@@ -699,7 +699,7 @@ export const AssociateDashboard = () => {
           onClick={() => setActiveTab('planilla')}
           className={`px-5 py-3 text-sm font-semibold border-b-2 transition-all cursor-pointer whitespace-nowrap ${
             activeTab === 'planilla'
-              ? 'border-emerald-700 text-emerald-700'
+              ? 'border-brand-700 text-brand-700'
               : 'border-transparent text-slate-500 hover:text-slate-800'
           }`}
         >
@@ -709,13 +709,13 @@ export const AssociateDashboard = () => {
           onClick={() => setActiveTab('creditos')}
           className={`px-5 py-3 text-sm font-semibold border-b-2 transition-all cursor-pointer whitespace-nowrap flex items-center space-x-1.5 ${
             activeTab === 'creditos'
-              ? 'border-emerald-700 text-emerald-700'
+              ? 'border-brand-700 text-brand-700'
               : 'border-transparent text-slate-500 hover:text-slate-800'
           }`}
         >
           <span>Plan de Pagos y Créditos</span>
           {creditosAprobados.length > 0 && (
-            <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
+            <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-brand-100 text-brand-800">
               {creditosAprobados.length}
             </span>
           )}
@@ -724,7 +724,7 @@ export const AssociateDashboard = () => {
           onClick={() => setActiveTab('productos')}
           className={`px-5 py-3 text-sm font-semibold border-b-2 transition-all cursor-pointer whitespace-nowrap ${
             activeTab === 'productos'
-              ? 'border-emerald-700 text-emerald-700'
+              ? 'border-brand-700 text-brand-700'
               : 'border-transparent text-slate-500 hover:text-slate-800'
           }`}
         >
@@ -734,7 +734,7 @@ export const AssociateDashboard = () => {
           onClick={() => setActiveTab('beneficiarios')}
           className={`px-5 py-3 text-sm font-semibold border-b-2 transition-all cursor-pointer whitespace-nowrap flex items-center space-x-1.5 ${
             activeTab === 'beneficiarios'
-              ? 'border-emerald-700 text-emerald-700'
+              ? 'border-brand-700 text-brand-700'
               : 'border-transparent text-slate-500 hover:text-slate-800'
           }`}
         >
@@ -758,7 +758,7 @@ export const AssociateDashboard = () => {
                   Q{totalAhorrado.toLocaleString('es-GT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </span>
               </div>
-              <div className="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center">
+              <div className="w-12 h-12 rounded-xl bg-brand-50 text-brand-700 flex items-center justify-center">
                 <Wallet className="w-6 h-6" />
               </div>
             </div>
@@ -806,12 +806,12 @@ export const AssociateDashboard = () => {
                 <Wallet className="w-12 h-12 text-slate-300 mx-auto mb-2" />
                 <p className="font-bold text-slate-800 text-base">No posee cuentas activas en la cooperativa aún.</p>
                 <p className="text-xs text-slate-500 mt-1 max-w-md mx-auto leading-relaxed">
-                  Su depósito inicial se encuentra acreditado en su <span className="font-semibold text-slate-700">Cuenta Bancaria Vinculada</span>. Puede solicitar un traslado desde la pestaña <span className="font-bold text-emerald-700">"Cuenta Origen y Traslados"</span> para aperturar sus productos en la Cooperativa (Ahorro a la Vista, Plazo Fijo o Metas).
+                  Su depósito inicial se encuentra acreditado en su <span className="font-semibold text-slate-700">Cuenta Bancaria Vinculada</span>. Puede solicitar un traslado desde la pestaña <span className="font-bold text-brand-700">"Cuenta Origen y Traslados"</span> para aperturar sus productos en la Cooperativa (Ahorro a la Vista, Plazo Fijo o Metas).
                 </p>
                 <button
                   type="button"
                   onClick={() => setActiveTab('planilla')}
-                  className="mt-4 px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold rounded-xl shadow-xs transition-colors cursor-pointer inline-flex items-center space-x-1.5"
+                  className="mt-4 px-4 py-2 bg-brand-700 hover:bg-brand-800 text-white text-xs font-bold rounded-xl shadow-xs transition-colors cursor-pointer inline-flex items-center space-x-1.5"
                 >
                   <span>Ir a Cuenta Origen y Traslados</span>
                   <span>&rarr;</span>
@@ -834,7 +834,7 @@ export const AssociateDashboard = () => {
                             {c.numero_cuenta}
                           </span>
                         </div>
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-100">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-brand-50 text-brand-700 border border-brand-100">
                           {c.estado}
                         </span>
                       </div>
@@ -859,20 +859,20 @@ export const AssociateDashboard = () => {
                         type="button"
                         onClick={() => handleDownloadPdf(c)}
                         disabled={generatingPdf && downloadingAccountId === c.id_cuenta}
-                        className="inline-flex items-center space-x-1.5 text-xs font-semibold text-sky-700 hover:text-sky-900 bg-sky-50 hover:bg-sky-100 px-2.5 py-1.5 rounded-lg border border-sky-200/60 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="inline-flex items-center space-x-1.5 text-xs font-semibold text-brand-700 hover:text-brand-900 bg-brand-50 hover:bg-brand-100 px-2.5 py-1.5 rounded-lg border border-brand-200/60 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                         title="Descargar Estado de Cuenta Oficial en PDF"
                       >
                         {generatingPdf && downloadingAccountId === c.id_cuenta ? (
-                          <Loader2 className="w-3.5 h-3.5 animate-spin text-sky-700" />
+                          <Loader2 className="w-3.5 h-3.5 animate-spin text-brand-700" />
                         ) : (
-                          <FileDown className="w-3.5 h-3.5 text-sky-700" />
+                          <FileDown className="w-3.5 h-3.5 text-brand-700" />
                         )}
                         <span>Estado de Cuenta (PDF)</span>
                       </button>
 
                       <button
                         onClick={() => openMovimientosModal(c)}
-                        className="text-xs font-bold text-sky-700 hover:text-sky-900 transition-colors cursor-pointer"
+                        className="text-xs font-bold text-brand-700 hover:text-brand-900 transition-colors cursor-pointer"
                       >
                         Ver Movimientos &rarr;
                       </button>
@@ -890,18 +890,18 @@ export const AssociateDashboard = () => {
         <div className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-start">
             {/* Cuenta Origen Info (Izquierda) */}
-            <div className="md:col-span-5 bg-gradient-to-br from-emerald-800 to-teal-950 p-6 sm:p-8 rounded-2xl text-white shadow-md relative overflow-hidden">
+            <div className="md:col-span-5 bg-gradient-to-br from-brand-800 to-teal-950 p-6 sm:p-8 rounded-2xl text-white shadow-md relative overflow-hidden">
               <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full blur-xl pointer-events-none" />
               <div className="relative z-10 space-y-6">
                 <div>
                   <div className="flex items-center justify-between mb-1">
-                    <span className="text-xs font-bold text-emerald-300 uppercase tracking-widest block">
+                    <span className="text-xs font-bold text-brand-300 uppercase tracking-widest block">
                       {cuentaPlanilla?.origen_cuenta === 'COOPERATIVA'
                         ? 'Cuenta Cooperativa Principal'
                         : 'Cuenta Bancaria Vinculada'}
                     </span>
                     {cuentaPlanilla && (
-                      <span className="text-[10px] font-bold bg-white/15 text-emerald-200 border border-emerald-400/30 px-2 py-0.5 rounded-full">
+                      <span className="text-[10px] font-bold bg-white/15 text-brand-200 border border-brand-400/30 px-2 py-0.5 rounded-full">
                         {cuentaPlanilla.origen_cuenta === 'COOPERATIVA' ? 'Cooperativa' : 'Entidad Bancaria'}
                       </span>
                     )}
@@ -910,26 +910,26 @@ export const AssociateDashboard = () => {
                     {cuentaPlanilla ? cuentaPlanilla.tipo_cuenta : (cuentas.length > 0 ? cuentas[0].tipo_cuenta : 'Cuenta de Ahorro')}
                   </h3>
                   {cuentaPlanilla ? (
-                    <span className="text-sm font-mono font-semibold text-emerald-200 block mt-0.5">
+                    <span className="text-sm font-mono font-semibold text-brand-200 block mt-0.5">
                       {cuentaPlanilla.numero_cuenta}
                     </span>
                   ) : cuentas.length > 0 ? (
-                    <span className="text-sm font-mono font-semibold text-emerald-200 block mt-0.5">
+                    <span className="text-sm font-mono font-semibold text-brand-200 block mt-0.5">
                       {cuentas[0].numero_cuenta} (Ahorro Activa)
                     </span>
                   ) : (
-                    <span className="text-sm text-red-300 block mt-0.5">No vinculada</span>
+                    <span className="text-sm text-danger-300 block mt-0.5">No vinculada</span>
                   )}
                 </div>
 
                 <div className="border-t border-white/10 pt-4">
-                  <span className="text-xs text-emerald-200 block mb-1">Saldo Disponible</span>
+                  <span className="text-xs text-brand-200 block mb-1">Saldo Disponible</span>
                   <span className="text-3xl font-extrabold tracking-tight">
                     Q{cuentaPlanilla 
                       ? parseFloat(cuentaPlanilla.saldo_disponible).toLocaleString('es-GT', { minimumFractionDigits: 2 })
                       : (cuentas.length > 0 ? parseFloat(cuentas[0].saldo_disponible).toLocaleString('es-GT', { minimumFractionDigits: 2 }) : '0.00')}
                   </span>
-                  <p className="text-[10px] text-emerald-300/80 leading-normal mt-2">
+                  <p className="text-[10px] text-brand-300/80 leading-normal mt-2">
                     {cuentaPlanilla?.origen_cuenta === 'COOPERATIVA'
                       ? 'Fondos disponibles en su cuenta de ahorro para traslados, pagos o aperturas en la Cooperativa.'
                       : 'Fondos disponibles en su cuenta de ahorro bancaria para aperturar y trasladar hacia sus cuentas en la Cooperativa.'}
@@ -939,7 +939,7 @@ export const AssociateDashboard = () => {
                 <button
                   onClick={openTrasladoModal}
                   disabled={!cuentaPlanilla}
-                  className="w-full py-3 bg-white hover:bg-slate-50 text-emerald-950 font-bold text-sm rounded-xl shadow-md transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full py-3 bg-white hover:bg-slate-50 text-brand-950 font-bold text-sm rounded-xl shadow-md transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Trasladar Fondos
                 </button>
@@ -968,14 +968,14 @@ export const AssociateDashboard = () => {
                     value={searchTrasladoQuery}
                     onChange={(e) => setSearchTrasladoQuery(e.target.value)}
                     placeholder="Buscar por caso o destino..."
-                    className="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:bg-white"
+                    className="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-brand-500 focus:bg-white"
                   />
                 </div>
                 <div>
                   <select
                     value={filterTrasladoEstado}
                     onChange={(e) => setFilterTrasladoEstado(e.target.value)}
-                    className="w-full px-2.5 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-emerald-500 font-medium text-slate-700"
+                    className="w-full px-2.5 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-brand-500 font-medium text-slate-700"
                   >
                     <option value="TODOS">Todos los Estados</option>
                     <option value="PENDIENTE">Pendientes</option>
@@ -987,7 +987,7 @@ export const AssociateDashboard = () => {
                   <select
                     value={filterTrasladoTipo}
                     onChange={(e) => setFilterTrasladoTipo(e.target.value)}
-                    className="w-full px-2.5 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-emerald-500 font-medium text-slate-700"
+                    className="w-full px-2.5 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-brand-500 font-medium text-slate-700"
                   >
                     <option value="TODOS">Todos los Tipos</option>
                     <option value="TRASLADO_DIRECTO">Traslado Directo</option>
@@ -1042,7 +1042,7 @@ export const AssociateDashboard = () => {
                           <td className="px-4 py-3 text-slate-500 text-[10px] max-w-xs truncate">
                             {s.estado === 'PENDIENTE' ? (
                               <span className="text-slate-400 flex items-center space-x-1">
-                                <Clock className="w-3 h-3 text-amber-500" />
+                                <Clock className="w-3 h-3 text-warning-500" />
                                 <span>Esperando operador</span>
                               </span>
                             ) : (
@@ -1068,7 +1068,7 @@ export const AssociateDashboard = () => {
         <div className="space-y-6">
           <div>
             <h2 className="text-lg font-bold text-slate-900 tracking-tight flex items-center space-x-2">
-              <Calculator className="w-5 h-5 text-emerald-600" />
+              <Calculator className="w-5 h-5 text-brand-600" />
               <span>Plan de Pagos y Créditos Financieros</span>
             </h2>
             <p className="text-sm text-slate-500 mt-0.5">
@@ -1078,7 +1078,7 @@ export const AssociateDashboard = () => {
 
           {creditosAprobados.length === 0 ? (
             <div className="bg-white p-12 rounded-2xl border border-slate-200 text-center space-y-4 max-w-xl mx-auto shadow-xs">
-              <div className="w-16 h-16 rounded-2xl bg-emerald-50 text-emerald-700 flex items-center justify-center mx-auto">
+              <div className="w-16 h-16 rounded-2xl bg-brand-50 text-brand-700 flex items-center justify-center mx-auto">
                 <Calculator className="w-8 h-8" />
               </div>
               <div className="space-y-1">
@@ -1092,7 +1092,7 @@ export const AssociateDashboard = () => {
               <div className="pt-2">
                 <Link
                   to="/simulador-credito"
-                  className="inline-flex items-center space-x-2 px-5 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold shadow-md transition-all cursor-pointer"
+                  className="inline-flex items-center space-x-2 px-5 py-2.5 rounded-xl bg-brand-700 hover:bg-brand-800 text-white text-xs font-bold shadow-md transition-all cursor-pointer"
                 >
                   <Calculator className="w-4 h-4" />
                   <span>Ir al Simulador de Créditos</span>
@@ -1116,7 +1116,7 @@ export const AssociateDashboard = () => {
                         onClick={() => setSelectedCreditoPlanId(cr.id_solicitud_credito)}
                         className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
                           isSelected
-                            ? 'bg-emerald-800 text-white shadow-xs'
+                            ? 'bg-brand-800 text-white shadow-xs'
                             : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
                         }`}
                       >
@@ -1130,34 +1130,34 @@ export const AssociateDashboard = () => {
               {/* Tarjeta Principal del Crédito Aprobado */}
               {currentCreditoPlan && (
                 <>
-                  <div className="bg-gradient-to-br from-emerald-800 to-teal-950 p-6 sm:p-8 rounded-2xl text-white shadow-md relative overflow-hidden">
+                  <div className="bg-gradient-to-br from-brand-800 to-teal-950 p-6 sm:p-8 rounded-2xl text-white shadow-md relative overflow-hidden">
                     <div className="absolute top-0 right-0 w-48 h-48 bg-white/5 rounded-full blur-2xl pointer-events-none" />
 
                     <div className="relative z-10 space-y-6">
                       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-white/10 pb-4">
                         <div>
-                          <span className="text-xs font-bold text-emerald-300 uppercase tracking-widest block mb-0.5">
+                          <span className="text-xs font-bold text-brand-300 uppercase tracking-widest block mb-0.5">
                             Plan de Pagos y Amortización Oficial
                           </span>
                           <h2 className="text-2xl font-black tracking-tight">
                             Crédito Financiero #{currentCreditoPlan.id_solicitud_credito}
                           </h2>
                         </div>
-                        <span className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-200 border border-emerald-400/30 w-fit">
-                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                        <span className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full text-xs font-bold bg-brand-500/20 text-brand-200 border border-brand-400/30 w-fit">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-brand-400" />
                           <span>Aprobado y Acreditado</span>
                         </span>
                       </div>
 
                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                         <div className="space-y-1">
-                          <span className="text-[11px] text-emerald-200 block uppercase font-medium">Monto Aprobado</span>
+                          <span className="text-[11px] text-brand-200 block uppercase font-medium">Monto Aprobado</span>
                           <span className="text-2xl font-black text-white">
                             Q{parseFloat(currentCreditoPlan.monto_solicitado).toLocaleString('es-GT', { minimumFractionDigits: 2 })}
                           </span>
                         </div>
                         <div className="space-y-1">
-                          <span className="text-[11px] text-emerald-200 block uppercase font-medium">Fecha de Aprobación</span>
+                          <span className="text-[11px] text-brand-200 block uppercase font-medium">Fecha de Aprobación</span>
                           <span className="text-sm sm:text-base font-bold text-white block">
                             {new Date(currentCreditoPlan.fecha_resolucion || currentCreditoPlan.fecha_solicitud).toLocaleDateString('es-GT', {
                               day: '2-digit',
@@ -1167,22 +1167,22 @@ export const AssociateDashboard = () => {
                           </span>
                         </div>
                         <div className="space-y-1">
-                          <span className="text-[11px] text-emerald-200 block uppercase font-medium">Plazo de Pago</span>
+                          <span className="text-[11px] text-brand-200 block uppercase font-medium">Plazo de Pago</span>
                           <span className="text-2xl font-black text-white">
                             {currentCreditoPlan.plazo_meses} meses
                           </span>
                         </div>
                         <div className="space-y-1">
-                          <span className="text-[11px] text-emerald-200 block uppercase font-medium">Tasa de Interés</span>
-                          <span className="text-2xl font-black text-emerald-300">
-                            {parseFloat(currentCreditoPlan.tasa_interes).toFixed(2)}% <span className="text-xs font-normal text-emerald-200">Anual Fija</span>
+                          <span className="text-[11px] text-brand-200 block uppercase font-medium">Tasa de Interés</span>
+                          <span className="text-2xl font-black text-brand-300">
+                            {parseFloat(currentCreditoPlan.tasa_interes).toFixed(2)}% <span className="text-xs font-normal text-brand-200">Anual Fija</span>
                           </span>
                         </div>
                       </div>
 
-                      <div className="pt-3 border-t border-white/10 flex flex-col sm:flex-row sm:items-center sm:justify-between text-xs text-emerald-100 gap-2">
+                      <div className="pt-3 border-t border-white/10 flex flex-col sm:flex-row sm:items-center sm:justify-between text-xs text-brand-100 gap-2">
                         <div className="flex items-center space-x-2">
-                          <Wallet className="w-4 h-4 text-emerald-300 flex-shrink-0" />
+                          <Wallet className="w-4 h-4 text-brand-300 flex-shrink-0" />
                           <span>
                             <strong>Cuenta de Acreditación:</strong>{' '}
                             {currentCreditoPlan.cuenta_destino_info ||
@@ -1191,7 +1191,7 @@ export const AssociateDashboard = () => {
                                 : 'Cuenta Principal del Asociado')}
                           </span>
                         </div>
-                        <div className="text-emerald-300 text-[11px] font-medium">
+                        <div className="text-brand-300 text-[11px] font-medium">
                           Amortización Nivelada Francesa (Cuotas fijas)
                         </div>
                       </div>
@@ -1202,12 +1202,12 @@ export const AssociateDashboard = () => {
                   <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-4">
                     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-slate-100 pb-3">
                       <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider flex items-center space-x-2">
-                        <Percent className="w-4 h-4 text-emerald-600" />
+                        <Percent className="w-4 h-4 text-brand-600" />
                         <span>Fórmula de Cobro: Cuota Capital + Interés = Cuota del Mes</span>
                       </h3>
                       <span className="text-xs text-slate-500 font-medium">
                         Cuota nivelada mensual:{' '}
-                        <strong className="text-emerald-800 font-bold">
+                        <strong className="text-brand-800 font-bold">
                           Q{parseFloat(currentCreditoPlan.cuota_mensual_estimada).toLocaleString('es-GT', { minimumFractionDigits: 2 })}
                         </strong>
                       </span>
@@ -1227,7 +1227,7 @@ export const AssociateDashboard = () => {
                         <div className="mt-3 font-mono text-xs font-bold text-slate-700">
                           Amortiza progresivamente
                         </div>
-                        <div className="hidden md:flex absolute -right-3.5 top-1/2 -translate-y-1/2 z-10 w-7 h-7 rounded-full bg-emerald-700 text-white font-black text-sm items-center justify-center shadow-xs">
+                        <div className="hidden md:flex absolute -right-3.5 top-1/2 -translate-y-1/2 z-10 w-7 h-7 rounded-full bg-brand-700 text-white font-black text-sm items-center justify-center shadow-xs">
                           +
                         </div>
                       </div>
@@ -1235,32 +1235,32 @@ export const AssociateDashboard = () => {
                       {/* Bloque 2: Interés del Mes */}
                       <div className="p-5 rounded-xl bg-slate-50 border border-slate-200 text-center relative flex flex-col justify-between">
                         <div>
-                          <span className="text-xs font-extrabold text-amber-800 uppercase tracking-wider block mb-1">
+                          <span className="text-xs font-extrabold text-warning-800 uppercase tracking-wider block mb-1">
                             Interés del Mes
                           </span>
                           <p className="text-xs text-slate-500 leading-relaxed">
                             Interés financiero del 10% anual calculado exclusivamente sobre el saldo insoluto pendiente.
                           </p>
                         </div>
-                        <div className="mt-3 font-mono text-xs font-bold text-amber-700">
+                        <div className="mt-3 font-mono text-xs font-bold text-warning-700">
                           Tasa mensual: {(parseFloat(currentCreditoPlan.tasa_interes) / 12).toFixed(4)}%
                         </div>
-                        <div className="hidden md:flex absolute -right-3.5 top-1/2 -translate-y-1/2 z-10 w-7 h-7 rounded-full bg-emerald-700 text-white font-black text-sm items-center justify-center shadow-xs">
+                        <div className="hidden md:flex absolute -right-3.5 top-1/2 -translate-y-1/2 z-10 w-7 h-7 rounded-full bg-brand-700 text-white font-black text-sm items-center justify-center shadow-xs">
                           =
                         </div>
                       </div>
 
                       {/* Bloque 3: Cuota del Mes */}
-                      <div className="p-5 rounded-xl bg-gradient-to-br from-emerald-50 to-teal-50 border-2 border-emerald-500 text-center flex flex-col justify-between">
+                      <div className="p-5 rounded-xl bg-gradient-to-br from-brand-50 to-teal-50 border-2 border-brand-500 text-center flex flex-col justify-between">
                         <div>
-                          <span className="text-xs font-extrabold text-emerald-900 uppercase tracking-wider block mb-1">
+                          <span className="text-xs font-extrabold text-brand-900 uppercase tracking-wider block mb-1">
                             Cuota del Mes
                           </span>
-                          <span className="text-2xl font-black text-emerald-800 block my-1">
+                          <span className="text-2xl font-black text-brand-800 block my-1">
                             Q{parseFloat(currentCreditoPlan.cuota_mensual_estimada).toLocaleString('es-GT', { minimumFractionDigits: 2 })}
                           </span>
                         </div>
-                        <span className="text-[11px] text-emerald-700 font-semibold block">
+                        <span className="text-[11px] text-brand-700 font-semibold block">
                           Cuota fija del mes (Capital + Interés)
                         </span>
                       </div>
@@ -1272,7 +1272,7 @@ export const AssociateDashboard = () => {
                     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-slate-100 pb-3">
                       <div>
                         <h3 className="text-base font-bold text-slate-900 flex items-center space-x-2">
-                          <Calendar className="w-5 h-5 text-emerald-600" />
+                          <Calendar className="w-5 h-5 text-brand-600" />
                           <span>Cronograma Oficial de Cuotas Mensuales</span>
                         </h3>
                         <p className="text-xs text-slate-500 mt-0.5">
@@ -1282,7 +1282,7 @@ export const AssociateDashboard = () => {
 
                       {totalCuotasPages > 1 && (
                         <div className="flex items-center space-x-2">
-                          <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                          <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-brand-50 text-brand-700 border border-brand-200">
                             Año {cuotaPage} de {totalCuotasPages}
                           </span>
                         </div>
@@ -1297,7 +1297,7 @@ export const AssociateDashboard = () => {
                             Mostrando cuotas <strong>{(cuotaPage - 1) * cuotasPerPage + 1}</strong> a <strong>{Math.min(cuotaPage * cuotasPerPage, planAmortizacion.length)}</strong> de <strong>{planAmortizacion.length}</strong>
                           </span>
                           <span className="text-slate-300">|</span>
-                          <span className="text-emerald-700 font-bold">Bloque Anual {cuotaPage}</span>
+                          <span className="text-brand-700 font-bold">Bloque Anual {cuotaPage}</span>
                         </div>
 
                         <div className="flex flex-wrap items-center gap-1.5">
@@ -1324,7 +1324,7 @@ export const AssociateDashboard = () => {
                                   onClick={() => setCuotaPage(pageNum)}
                                   className={`px-2.5 py-1 text-xs font-bold rounded-lg transition-all ${
                                     isActive
-                                      ? 'bg-emerald-600 text-white shadow-xs'
+                                      ? 'bg-brand-600 text-white shadow-xs'
                                       : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100'
                                   }`}
                                   title={`Cuotas ${startCuota} a ${endCuota}`}
@@ -1356,7 +1356,7 @@ export const AssociateDashboard = () => {
                             <th className="px-4 py-3 font-semibold">Fecha de Cobro</th>
                             <th className="px-4 py-3 font-semibold text-right">Abono a Capital</th>
                             <th className="px-4 py-3 font-semibold text-right">Interés del Mes</th>
-                            <th className="px-4 py-3 font-semibold text-right text-emerald-800 font-bold bg-emerald-50/50">Cuota del Mes (Cap + Int)</th>
+                            <th className="px-4 py-3 font-semibold text-right text-brand-800 font-bold bg-brand-50/50">Cuota del Mes (Cap + Int)</th>
                             <th className="px-4 py-3 font-semibold text-right">Saldo Pendiente</th>
                             <th className="px-4 py-3 font-semibold text-center">Estado</th>
                           </tr>
@@ -1373,10 +1373,10 @@ export const AssociateDashboard = () => {
                               <td className="px-4 py-3 text-right font-semibold text-slate-800 text-xs">
                                 Q{c.capital.toLocaleString('es-GT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                               </td>
-                              <td className="px-4 py-3 text-right font-semibold text-amber-700 text-xs">
+                              <td className="px-4 py-3 text-right font-semibold text-warning-700 text-xs">
                                 Q{c.interes.toLocaleString('es-GT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                               </td>
-                              <td className="px-4 py-3 text-right font-extrabold text-emerald-800 text-xs bg-emerald-50/30">
+                              <td className="px-4 py-3 text-right font-extrabold text-brand-800 text-xs bg-brand-50/30">
                                 Q{c.cuotaMes.toLocaleString('es-GT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                               </td>
                               <td className="px-4 py-3 text-right font-mono font-semibold text-slate-600 text-xs">
@@ -1399,10 +1399,10 @@ export const AssociateDashboard = () => {
                               <td className="px-4 py-2.5 text-right font-bold text-slate-900">
                                 Q{pageCapitalAmortizado.toLocaleString('es-GT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                               </td>
-                              <td className="px-4 py-2.5 text-right font-bold text-amber-700">
+                              <td className="px-4 py-2.5 text-right font-bold text-warning-700">
                                 Q{pageInteresAmortizado.toLocaleString('es-GT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                               </td>
-                              <td className="px-4 py-2.5 text-right font-extrabold text-emerald-800 bg-emerald-100/40">
+                              <td className="px-4 py-2.5 text-right font-extrabold text-brand-800 bg-brand-100/40">
                                 Q{pagePagadoAmortizado.toLocaleString('es-GT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                               </td>
                               <td colSpan={2} className="px-4 py-2.5 text-center text-slate-400">
@@ -1417,10 +1417,10 @@ export const AssociateDashboard = () => {
                             <td className="px-4 py-3 text-right text-slate-900">
                               Q{totalCapitalAmortizado.toLocaleString('es-GT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </td>
-                            <td className="px-4 py-3 text-right text-amber-700">
+                            <td className="px-4 py-3 text-right text-warning-700">
                               Q{totalInteresAmortizado.toLocaleString('es-GT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </td>
-                            <td className="px-4 py-3 text-right text-emerald-800 font-extrabold bg-emerald-100/70">
+                            <td className="px-4 py-3 text-right text-brand-800 font-extrabold bg-brand-100/70">
                               Q{totalPagadoAmortizado.toLocaleString('es-GT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </td>
                             <td className="px-4 py-3 text-right font-mono text-slate-500">
@@ -1470,7 +1470,7 @@ export const AssociateDashboard = () => {
         <div className="space-y-6">
           <div>
             <h2 className="text-lg font-bold text-slate-900 tracking-tight flex items-center space-x-2">
-              <TrendingUp className="w-5 h-5 text-emerald-600" />
+              <TrendingUp className="w-5 h-5 text-brand-600" />
               <span>Nuestras Cuentas y Tasas de Interés</span>
             </h2>
             <p className="text-sm text-slate-500 mt-0.5">
@@ -1486,7 +1486,7 @@ export const AssociateDashboard = () => {
               >
                 <div className="p-6 space-y-4">
                   <div className="flex justify-between items-start">
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-100">
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-brand-50 text-brand-700 border border-brand-100">
                       Rendimiento
                     </span>
                     <div className="text-right">
@@ -1522,7 +1522,7 @@ export const AssociateDashboard = () => {
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
             <div>
               <div className="flex items-center space-x-2">
-                <Users2 className="w-6 h-6 text-emerald-600" />
+                <Users2 className="w-6 h-6 text-brand-600" />
                 <h2 className="text-xl font-bold text-slate-900">
                   Declaración Legal de Beneficiarios
                 </h2>
@@ -1537,14 +1537,14 @@ export const AssociateDashboard = () => {
               disabled={loadingBeneficiarios}
               className="inline-flex items-center space-x-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl transition-colors cursor-pointer self-start sm:self-auto"
             >
-              <RefreshCw className={`w-3.5 h-3.5 ${loadingBeneficiarios ? 'animate-spin text-emerald-600' : ''}`} />
+              <RefreshCw className={`w-3.5 h-3.5 ${loadingBeneficiarios ? 'animate-spin text-brand-600' : ''}`} />
               <span>Actualizar Lista</span>
             </button>
           </div>
 
           {loadingBeneficiarios ? (
             <div className="py-20 flex flex-col items-center justify-center text-slate-500 bg-white rounded-2xl border border-slate-200">
-              <Loader2 className="w-8 h-8 text-emerald-600 animate-spin mb-2" />
+              <Loader2 className="w-8 h-8 text-brand-600 animate-spin mb-2" />
               <p className="text-xs font-semibold">Cargando beneficiarios registrados...</p>
             </div>
           ) : misBeneficiariosData.length === 0 ? (
@@ -1566,7 +1566,7 @@ export const AssociateDashboard = () => {
                     <div className="p-5 sm:p-6 bg-gradient-to-r from-slate-50 to-white border-b border-slate-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                       <div>
                         <div className="flex items-center space-x-2">
-                          <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800">
+                          <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-brand-100 text-brand-800">
                             {cuenta.tipo_cuenta}
                           </span>
                           <span className="font-mono text-sm font-bold text-slate-800">
@@ -1576,15 +1576,15 @@ export const AssociateDashboard = () => {
                         <div className="text-xs text-slate-500 mt-1 flex items-center space-x-4">
                           <span>Saldo disponible: <strong className="text-slate-800">Q{parseFloat(cuenta.saldo_disponible || 0).toLocaleString('es-GT', { minimumFractionDigits: 2 })}</strong></span>
                           <span>•</span>
-                          <span className={isComplete ? 'text-emerald-700 font-semibold flex items-center space-x-1' : 'text-amber-600 font-semibold flex items-center space-x-1'}>
+                          <span className={isComplete ? 'text-brand-700 font-semibold flex items-center space-x-1' : 'text-warning-600 font-semibold flex items-center space-x-1'}>
                             {isComplete ? (
                               <>
-                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                                <CheckCircle2 className="w-3.5 h-3.5 text-brand-600" />
                                 <span>Distribución 100.00% asignada</span>
                               </>
                             ) : (
                               <>
-                                <AlertCircle className="w-3.5 h-3.5 text-amber-500" />
+                                <AlertCircle className="w-3.5 h-3.5 text-warning-500" />
                                 <span>Distribución incompleta ({totalPct.toFixed(2)}%)</span>
                               </>
                             )}
@@ -1594,7 +1594,7 @@ export const AssociateDashboard = () => {
 
                       <button
                         onClick={() => openEditarBeneficiariosModal(cuenta)}
-                        className="inline-flex items-center space-x-1.5 px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-semibold shadow-sm transition-colors cursor-pointer"
+                        className="inline-flex items-center space-x-1.5 px-4 py-2 bg-brand-700 hover:bg-brand-800 text-white rounded-xl text-xs font-semibold shadow-sm transition-colors cursor-pointer"
                       >
                         <Users2 className="w-3.5 h-3.5" />
                         <span>Gestionar Beneficiarios</span>
@@ -1604,7 +1604,7 @@ export const AssociateDashboard = () => {
                     <div className="p-5 sm:p-6">
                       {!cuenta.beneficiarios || cuenta.beneficiarios.length === 0 ? (
                         <div className="text-center py-8 bg-slate-50/50 rounded-xl border border-dashed border-slate-200">
-                          <AlertCircle className="w-8 h-8 text-amber-500 mx-auto mb-2" />
+                          <AlertCircle className="w-8 h-8 text-warning-500 mx-auto mb-2" />
                           <p className="text-xs font-bold text-slate-700">Sin beneficiarios registrados</p>
                           <p className="text-[11px] text-slate-500 mt-0.5">
                             Haga clic en "Gestionar Beneficiarios" para declarar los beneficiarios legales de esta cuenta.
@@ -1640,7 +1640,7 @@ export const AssociateDashboard = () => {
                                     {b.telefono || '-'}
                                   </td>
                                   <td className="px-4 py-3 text-right">
-                                    <span className="inline-block px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                    <span className="inline-block px-2.5 py-1 rounded-full text-xs font-bold bg-brand-50 text-brand-700 border border-brand-200">
                                       {parseFloat(b.porcentaje).toFixed(2)}%
                                     </span>
                                   </td>
@@ -1652,7 +1652,7 @@ export const AssociateDashboard = () => {
                                 <td colSpan="4" className="px-4 py-2 text-right text-slate-600 text-xs">
                                   Total Distribuido:
                                 </td>
-                                <td className="px-4 py-2 text-right text-xs text-emerald-800">
+                                <td className="px-4 py-2 text-right text-xs text-brand-800">
                                   {totalPct.toFixed(2)}%
                                 </td>
                               </tr>
@@ -1680,7 +1680,7 @@ export const AssociateDashboard = () => {
           >
             <div className="flex justify-between items-center mb-6 border-b border-slate-100 pb-4">
               <div>
-                <span className="text-xs font-bold text-sky-700 uppercase tracking-widest block">
+                <span className="text-xs font-bold text-brand-700 uppercase tracking-widest block">
                   {selectedCuenta.tipo_cuenta}
                 </span>
                 <h2 id="movimientos-modal-title" className="text-xl font-bold text-slate-900 mt-0.5">
@@ -1692,13 +1692,13 @@ export const AssociateDashboard = () => {
                   type="button"
                   onClick={() => handleDownloadPdf(selectedCuenta, transactions)}
                   disabled={generatingPdf}
-                  className="inline-flex items-center space-x-1.5 px-3 py-1.5 bg-sky-50 hover:bg-sky-100 text-sky-800 border border-sky-200/80 rounded-lg text-xs font-semibold shadow-sm transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="inline-flex items-center space-x-1.5 px-3 py-1.5 bg-brand-50 hover:bg-brand-100 text-brand-800 border border-brand-200/80 rounded-lg text-xs font-semibold shadow-sm transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                   title="Descargar Estado de Cuenta Oficial en PDF"
                 >
                   {generatingPdf ? (
-                    <Loader2 className="w-3.5 h-3.5 animate-spin text-sky-700" />
+                    <Loader2 className="w-3.5 h-3.5 animate-spin text-brand-700" />
                   ) : (
-                    <FileDown className="w-3.5 h-3.5 text-sky-700" />
+                    <FileDown className="w-3.5 h-3.5 text-brand-700" />
                   )}
                   <span className="hidden sm:inline">Descargar PDF</span>
                 </button>
@@ -1735,7 +1735,7 @@ export const AssociateDashboard = () => {
 
             {loadingTx ? (
               <div className="py-12 flex flex-col items-center justify-center text-slate-400">
-                <Loader2 className="w-8 h-8 text-sky-600 animate-spin mb-2" />
+                <Loader2 className="w-8 h-8 text-brand-600 animate-spin mb-2" />
                 <p className="text-xs">Consultando transacciones...</p>
               </div>
             ) : transactions.length === 0 ? (
@@ -1765,7 +1765,7 @@ export const AssociateDashboard = () => {
                           </td>
                           <td className="px-4 py-3.5 font-bold text-xs">
                             <span className={`inline-flex items-center space-x-1 px-2 py-0.5 rounded-full ${
-                              isCredit ? 'bg-sky-50 text-sky-700' : 'bg-amber-50 text-amber-700'
+                              isCredit ? 'bg-brand-50 text-brand-700' : 'bg-warning-50 text-warning-700'
                             }`}>
                               {isCredit ? <ArrowDownLeft className="w-3 h-3" /> : <ArrowUpRight className="w-3 h-3" />}
                               <span>{t.tipo_transaccion}</span>
@@ -1775,7 +1775,7 @@ export const AssociateDashboard = () => {
                             {t.referencia || '-'}
                           </td>
                           <td className={`px-4 py-3.5 text-right font-bold ${
-                            isCredit ? 'text-sky-700' : 'text-slate-800'
+                            isCredit ? 'text-brand-700' : 'text-slate-800'
                           }`}>
                             {isCredit ? '+' : '-'}Q{parseFloat(t.monto).toLocaleString('es-GT', { minimumFractionDigits: 2 })}
                           </td>
@@ -1795,7 +1795,7 @@ export const AssociateDashboard = () => {
                 type="button"
                 onClick={() => handleDownloadPdf(selectedCuenta, transactions)}
                 disabled={generatingPdf}
-                className="w-full sm:w-auto inline-flex items-center justify-center space-x-2 px-4 py-2.5 bg-gradient-to-r from-sky-700 to-sky-900 hover:from-sky-800 hover:to-sky-950 text-white rounded-xl text-sm font-semibold shadow-sm transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full sm:w-auto inline-flex items-center justify-center space-x-2 px-4 py-2.5 bg-gradient-to-r from-brand-700 to-brand-900 hover:from-brand-800 hover:to-brand-950 text-white rounded-xl text-sm font-semibold shadow-sm transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {generatingPdf ? (
                   <Loader2 className="w-4 h-4 animate-spin" />
@@ -1830,7 +1830,7 @@ export const AssociateDashboard = () => {
           >
             <div className="flex justify-between items-center mb-6 border-b border-slate-100 pb-4">
               <div>
-                <span className="text-xs font-bold text-emerald-700 uppercase tracking-widest block">
+                <span className="text-xs font-bold text-brand-700 uppercase tracking-widest block">
                   Autogestión de Fondos
                 </span>
                 <h2 id="traslado-modal-title" className="text-xl font-bold text-slate-900 mt-0.5">
@@ -1845,19 +1845,19 @@ export const AssociateDashboard = () => {
               </button>
             </div>
 
-            <div className="mb-6 p-4 bg-emerald-50 border border-emerald-100 rounded-xl flex items-start space-x-3 text-emerald-950 text-xs">
-              <Info className="w-4 h-4 text-emerald-600 flex-shrink-0 mt-0.5" />
+            <div className="mb-6 p-4 bg-brand-50 border border-brand-100 rounded-xl flex items-start space-x-3 text-brand-950 text-xs">
+              <Info className="w-4 h-4 text-brand-600 flex-shrink-0 mt-0.5" />
               <div className="space-y-1">
                 <span className="font-bold block">Cuenta Origen: {cuentaPlanilla.tipo_cuenta} ({cuentaPlanilla.numero_cuenta})</span>
-                <span>Saldo disponible para trasladar: <strong className="text-emerald-900">Q{parseFloat(cuentaPlanilla.saldo_disponible).toFixed(2)}</strong></span>
+                <span>Saldo disponible para trasladar: <strong className="text-brand-900">Q{parseFloat(cuentaPlanilla.saldo_disponible).toFixed(2)}</strong></span>
               </div>
             </div>
 
             <form onSubmit={handleTrasladoSubmit} className="space-y-5">
               {/* Alertas internas de validación o error */}
               {(modalErrorMessage || realTimeError) && (
-                <div className="p-3 bg-red-50 text-red-700 border border-red-200 rounded-xl text-xs sm:text-sm flex items-start space-x-2 shadow-xs">
-                  <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+                <div className="p-3 bg-danger-50 text-danger-700 border border-danger-200 rounded-xl text-xs sm:text-sm flex items-start space-x-2 shadow-xs">
+                  <AlertCircle className="w-5 h-5 text-danger-600 flex-shrink-0 mt-0.5" />
                   <span>{modalErrorMessage || realTimeError}</span>
                 </div>
               )}
@@ -1878,7 +1878,7 @@ export const AssociateDashboard = () => {
                     onChange={(e) => setMontoTraslado(e.target.value)}
                     placeholder="Q0.00"
                     required
-                    className="w-full pl-9 pr-4 py-2.5 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-600"
+                    className="w-full pl-9 pr-4 py-2.5 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-600"
                   />
                 </div>
               </div>
@@ -1892,7 +1892,7 @@ export const AssociateDashboard = () => {
                   value={destinoSeleccionado}
                   onChange={(e) => handleDestinoChange(e.target.value)}
                   required
-                  className="w-full px-3 py-2.5 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-600 bg-white"
+                  className="w-full px-3 py-2.5 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-600 bg-white"
                 >
                   <option value="">-- Seleccione una opción --</option>
                   
@@ -1930,13 +1930,13 @@ export const AssociateDashboard = () => {
                   onChange={(e) => setObservacionesTraslado(e.target.value)}
                   placeholder="Detalles opcionales sobre el motivo del traslado"
                   rows={2}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-600 resize-none"
+                  className="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-600 resize-none"
                 />
               </div>
 
               {/* Advertencia Legal */}
-              <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl flex items-start space-x-2 text-amber-900 text-[10px] leading-relaxed">
-                <HelpCircle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+              <div className="p-3 bg-warning-50 border border-warning-200 rounded-xl flex items-start space-x-2 text-warning-900 text-[10px] leading-relaxed">
+                <HelpCircle className="w-4 h-4 text-warning-600 flex-shrink-0 mt-0.5" />
                 <span>
                   <strong>Aviso Importante:</strong> Se generará un número de caso único que pasará al flujo de revisión del equipo de operaciones para su aprobación correspondiente.
                 </span>
@@ -1954,7 +1954,7 @@ export const AssociateDashboard = () => {
                 <button
                   type="submit"
                   disabled={enviandoTraslado || !!realTimeError}
-                  className="px-5 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-sm font-semibold shadow-md flex items-center space-x-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-5 py-2 bg-brand-700 hover:bg-brand-800 text-white rounded-xl text-sm font-semibold shadow-md flex items-center space-x-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {enviandoTraslado ? (
                     <>
@@ -1986,7 +1986,7 @@ export const AssociateDashboard = () => {
             {/* Header */}
             <div className="flex justify-between items-center pb-4 border-b border-slate-100 flex-shrink-0">
               <div>
-                <span className="text-xs font-bold text-emerald-700 uppercase tracking-widest block">
+                <span className="text-xs font-bold text-brand-700 uppercase tracking-widest block">
                   Declaración Legal de Beneficiarios
                 </span>
                 <h2 className="text-lg sm:text-xl font-bold text-slate-900 mt-0.5">
@@ -2003,15 +2003,15 @@ export const AssociateDashboard = () => {
 
             {/* Body scrollable */}
             <div className="overflow-y-auto flex-1 py-4 space-y-4 pr-1">
-              <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-950 text-xs flex items-start space-x-2">
-                <Info className="w-4 h-4 text-emerald-700 flex-shrink-0 mt-0.5" />
+              <div className="p-3 bg-brand-50 border border-brand-200 rounded-xl text-brand-950 text-xs flex items-start space-x-2">
+                <Info className="w-4 h-4 text-brand-700 flex-shrink-0 mt-0.5" />
                 <span>
                   Los beneficiarios recibirán los fondos de la cuenta en caso de fallecimiento del titular. La sumatoria de todos los porcentajes asignados debe ser exactamente <strong>100.00%</strong>.
                 </span>
               </div>
 
               {modalBenError && (
-                <div className="p-3 bg-red-50 border border-red-200 text-red-700 rounded-xl text-xs font-semibold flex items-center space-x-2">
+                <div className="p-3 bg-danger-50 border border-danger-200 text-danger-700 rounded-xl text-xs font-semibold flex items-center space-x-2">
                   <AlertCircle className="w-4 h-4 flex-shrink-0" />
                   <span>{modalBenError}</span>
                 </div>
@@ -2029,7 +2029,7 @@ export const AssociateDashboard = () => {
                         <button
                           type="button"
                           onClick={() => handleRemoveBeneficiarioAsociado(idx)}
-                          className="text-red-500 hover:text-red-700 text-xs font-semibold flex items-center space-x-1 cursor-pointer"
+                          className="text-danger-500 hover:text-danger-700 text-xs font-semibold flex items-center space-x-1 cursor-pointer"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                           <span>Eliminar</span>
@@ -2051,7 +2051,7 @@ export const AssociateDashboard = () => {
                             setEditBeneficiariosList(updated);
                           }}
                           placeholder="Nombre y Apellidos completos"
-                          className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-emerald-500 text-slate-800"
+                          className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-brand-500 text-slate-800"
                         />
                       </div>
 
@@ -2066,7 +2066,7 @@ export const AssociateDashboard = () => {
                             updated[idx].parentesco = e.target.value;
                             setEditBeneficiariosList(updated);
                           }}
-                          className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-emerald-500 text-slate-800"
+                          className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-brand-500 text-slate-800"
                         >
                           <option value="CÓNYUGE">CÓNYUGE</option>
                           <option value="HIJO/A">HIJO/A</option>
@@ -2091,7 +2091,7 @@ export const AssociateDashboard = () => {
                             setEditBeneficiariosList(updated);
                           }}
                           placeholder="13 dígitos"
-                          className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-emerald-500 text-slate-800"
+                          className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-brand-500 text-slate-800"
                         />
                       </div>
 
@@ -2110,7 +2110,7 @@ export const AssociateDashboard = () => {
                             setEditBeneficiariosList(updated);
                           }}
                           placeholder="Ej. 55551234"
-                          className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-emerald-500 text-slate-800 font-mono"
+                          className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-brand-500 text-slate-800 font-mono"
                         />
                       </div>
 
@@ -2131,7 +2131,7 @@ export const AssociateDashboard = () => {
                               updated[idx].porcentaje = val;
                               setEditBeneficiariosList(updated);
                             }}
-                            className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-emerald-500 font-bold text-slate-800 pr-8"
+                            className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-brand-500 font-bold text-slate-800 pr-8"
                           />
                           <Percent className="w-3.5 h-3.5 absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
                         </div>
@@ -2146,7 +2146,7 @@ export const AssociateDashboard = () => {
                 type="button"
                 onClick={handleAddBeneficiarioAsociado}
                 disabled={totalPorcentajeAsociado >= 100}
-                className="w-full py-2.5 border-2 border-dashed border-slate-200 hover:border-emerald-500 text-slate-600 hover:text-emerald-700 rounded-xl text-xs font-bold flex items-center justify-center space-x-1.5 transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                className="w-full py-2.5 border-2 border-dashed border-slate-200 hover:border-brand-500 text-slate-600 hover:text-brand-700 rounded-xl text-xs font-bold flex items-center justify-center space-x-1.5 transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 <Plus className="w-4 h-4" />
                 <span>Agregar Beneficiario</span>
@@ -2155,10 +2155,10 @@ export const AssociateDashboard = () => {
               {/* Barra de Distribución Porcentual */}
               <div className={`p-4 rounded-xl border ${
                 Math.abs(totalPorcentajeAsociado - 100.00) < 0.01
-                  ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
+                  ? 'bg-brand-50 border-brand-200 text-brand-900'
                   : totalPorcentajeAsociado > 100
-                  ? 'bg-red-50 border-red-200 text-red-900'
-                  : 'bg-amber-50 border-amber-200 text-amber-900'
+                  ? 'bg-danger-50 border-danger-200 text-danger-900'
+                  : 'bg-warning-50 border-warning-200 text-warning-900'
               }`}>
                 <div className="flex justify-between items-center text-xs font-bold mb-1.5">
                   <span>Total Distribuido:</span>
@@ -2168,26 +2168,26 @@ export const AssociateDashboard = () => {
                   <div
                     className={`h-full transition-all duration-300 ${
                       Math.abs(totalPorcentajeAsociado - 100.00) < 0.01
-                        ? 'bg-emerald-600'
+                        ? 'bg-brand-600'
                         : totalPorcentajeAsociado > 100
-                        ? 'bg-red-600'
-                        : 'bg-amber-500'
+                        ? 'bg-danger-600'
+                        : 'bg-warning-500'
                     }`}
                     style={{ width: `${Math.min(100, totalPorcentajeAsociado)}%` }}
                   />
                 </div>
                 <div className="text-[11px] mt-1.5">
                   {Math.abs(totalPorcentajeAsociado - 100.00) < 0.01 ? (
-                    <span className="text-emerald-700 font-semibold flex items-center space-x-1">
+                    <span className="text-brand-700 font-semibold flex items-center space-x-1">
                       <CheckCircle2 className="w-3.5 h-3.5" />
                       <span>Distribución exacta y aprobable (100.00%).</span>
                     </span>
                   ) : totalPorcentajeAsociado > 100 ? (
-                    <span className="text-red-700 font-semibold">
+                    <span className="text-danger-700 font-semibold">
                       Excede el 100.00% por {(totalPorcentajeAsociado - 100).toFixed(2)}%. Reduzca los porcentajes.
                     </span>
                   ) : (
-                    <span className="text-amber-700 font-semibold">
+                    <span className="text-warning-700 font-semibold">
                       Falta asignar el {(100 - totalPorcentajeAsociado).toFixed(2)}% para completar el 100.00%.
                     </span>
                   )}
@@ -2216,7 +2216,7 @@ export const AssociateDashboard = () => {
                   type="button"
                   onClick={handleSaveBeneficiariosSubmit}
                   disabled={savingBeneficiarios || Math.abs(totalPorcentajeAsociado - 100.00) > 0.01 || !hasAssociateBenChanges}
-                  className="px-5 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-semibold shadow-md flex items-center space-x-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-5 py-2 bg-brand-700 hover:bg-brand-800 text-white rounded-xl text-xs font-semibold shadow-md flex items-center space-x-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                   title={!hasAssociateBenChanges ? 'Modifique algún campo o porcentaje para guardar' : ''}
                 >
                   {savingBeneficiarios ? (

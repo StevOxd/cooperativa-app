@@ -78,7 +78,7 @@ export const AssociateExpedienteModal = ({
         {/* Header Modal (Oculto al imprimir) */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/50 print:hidden">
           <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center text-emerald-700">
+            <div className="w-10 h-10 rounded-xl bg-brand-100 flex items-center justify-center text-brand-700">
               <FileText className="w-5 h-5" />
             </div>
             <div>
@@ -112,27 +112,27 @@ export const AssociateExpedienteModal = ({
         <div className="p-6 max-h-[80vh] overflow-y-auto print:max-h-none print:p-0 print:overflow-visible">
           {loading ? (
             <div className="py-16 text-center">
-              <Loader2 className="w-8 h-8 animate-spin text-emerald-600 mx-auto mb-2" />
+              <Loader2 className="w-8 h-8 animate-spin text-brand-600 mx-auto mb-2" />
               <p className="text-xs text-slate-500">Cargando expediente 360°...</p>
             </div>
           ) : errorMsg ? (
-            <div className="p-4 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs font-semibold flex items-center space-x-2">
+            <div className="p-4 rounded-xl bg-danger-50 border border-danger-200 text-danger-700 text-xs font-semibold flex items-center space-x-2">
               <AlertCircle className="w-5 h-5" />
               <span>{errorMsg}</span>
             </div>
           ) : expediente ? (
             <div className="space-y-6">
               {/* Membrete Formal de Reporte (Para impresión o vista formal) */}
-              <div className="border-b-2 border-emerald-800 pb-4 flex justify-between items-start">
+              <div className="border-b-2 border-brand-800 pb-4 flex justify-between items-start">
                 <div className="flex items-center space-x-3">
-                  <div className="w-12 h-12 rounded-xl bg-emerald-700 flex items-center justify-center text-white font-black text-xl">
+                  <div className="w-12 h-12 rounded-xl bg-brand-700 flex items-center justify-center text-white font-black text-xl">
                     <Building2 className="w-7 h-7" />
                   </div>
                   <div>
                     <h2 className="text-lg font-black text-slate-900 tracking-tight">
                       COOPERATIVA DE AHORRO Y CRÉDITO
                     </h2>
-                    <p className="text-xs text-emerald-800 font-semibold tracking-wider uppercase">
+                    <p className="text-xs text-brand-800 font-semibold tracking-wider uppercase">
                       FICHA DE POSICIÓN GLOBAL DEL ASOCIADO (REPORTE 1.1)
                     </p>
                     <p className="text-[11px] text-slate-400">
@@ -144,8 +144,8 @@ export const AssociateExpedienteModal = ({
                   <span
                     className={`inline-block px-3 py-1 rounded-full text-xs font-bold ${
                       expediente.asociado.estado_asociado === 'ACTIVO'
-                        ? 'bg-emerald-100 text-emerald-800'
-                        : 'bg-red-100 text-red-800'
+                        ? 'bg-brand-100 text-brand-800'
+                        : 'bg-danger-100 text-danger-800'
                     }`}
                   >
                     ESTADO: {expediente.asociado.estado_asociado}
@@ -176,7 +176,7 @@ export const AssociateExpedienteModal = ({
                   </div>
                   <div>
                     <span className="text-slate-400 block font-medium">Usuario:</span>
-                    <span className="font-bold text-emerald-700 font-mono text-sm">
+                    <span className="font-bold text-brand-700 font-mono text-sm">
                       {expediente.asociado.codigo_corporativo || 'Sin acceso portal'}
                     </span>
                   </div>
@@ -211,11 +211,11 @@ export const AssociateExpedienteModal = ({
 
               {/* Resumen Financiero Consolidado */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div className="p-4 bg-emerald-50 rounded-xl border border-emerald-200">
-                  <span className="text-xs text-emerald-800 font-semibold block">
+                <div className="p-4 bg-brand-50 rounded-xl border border-brand-200">
+                  <span className="text-xs text-brand-800 font-semibold block">
                     Saldo Total Disponible
                   </span>
-                  <span className="text-xl font-extrabold text-emerald-700 font-mono">
+                  <span className="text-xl font-extrabold text-brand-700 font-mono">
                     Q{expediente.metricas.saldo_total_disponible.toFixed(2)}
                   </span>
                 </div>
@@ -278,7 +278,7 @@ export const AssociateExpedienteModal = ({
                           </p>
                         </div>
                         <div className="text-right">
-                          <span className="text-xs font-extrabold text-emerald-700 font-mono block">
+                          <span className="text-xs font-extrabold text-brand-700 font-mono block">
                             Q{c.saldo_disponible.toFixed(2)}
                           </span>
                           <span className="text-[10px] text-slate-400">
@@ -314,7 +314,7 @@ export const AssociateExpedienteModal = ({
                             ))}
                           </div>
                         ) : (
-                          <p className="text-[11px] text-amber-600 italic">
+                          <p className="text-[11px] text-warning-600 italic">
                             No se han declarado beneficiarios para esta cuenta aún.
                           </p>
                         )}

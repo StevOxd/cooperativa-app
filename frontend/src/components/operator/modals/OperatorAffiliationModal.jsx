@@ -68,7 +68,7 @@ const OperatorAffiliationModal = ({
         <div className="flex justify-between items-start p-5 sm:p-6 pb-4 border-b border-slate-100 shrink-0 bg-white">
           <div>
             <div className="flex items-center space-x-2">
-              <span className="p-2 bg-emerald-100 text-emerald-800 rounded-xl">
+              <span className="p-2 bg-brand-100 text-brand-800 rounded-xl">
                 <UserPlus className="w-5 h-5" />
               </span>
               <div>
@@ -100,8 +100,8 @@ const OperatorAffiliationModal = ({
         {showRechazarAfiliacion ? (
           <form onSubmit={handleRechazarAfiliacionSubmit} className="flex flex-col flex-1 overflow-hidden">
             <div className="p-5 sm:p-6 overflow-y-auto flex-1 space-y-4">
-              <div className="bg-red-50/50 p-4 rounded-2xl border border-red-200 space-y-3">
-                <div className="flex items-center space-x-2 text-red-700 text-xs font-bold uppercase tracking-wider">
+              <div className="bg-danger-50/50 p-4 rounded-2xl border border-danger-200 space-y-3">
+                <div className="flex items-center space-x-2 text-danger-700 text-xs font-bold uppercase tracking-wider">
                   <AlertTriangle className="w-4 h-4" />
                   <span>Cancelar / Rechazar Caso de Afiliación</span>
                 </div>
@@ -115,7 +115,7 @@ const OperatorAffiliationModal = ({
                     rows={3}
                     required
                     placeholder="Escriba el motivo detallado de la cancelación..."
-                    className="w-full px-3 py-2 bg-white border border-red-300 rounded-xl text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-red-500 resize-none"
+                    className="w-full px-3 py-2 bg-white border border-danger-300 rounded-xl text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-danger-500 resize-none"
                   />
                 </div>
               </div>
@@ -132,7 +132,7 @@ const OperatorAffiliationModal = ({
               <button
                 type="submit"
                 disabled={rechazandoAfiliacion}
-                className="px-4 py-2 bg-red-700 hover:bg-red-800 text-white rounded-xl text-xs font-bold shadow-md cursor-pointer disabled:opacity-50 flex items-center space-x-1"
+                className="px-4 py-2 bg-danger-700 hover:bg-danger-800 text-white rounded-xl text-xs font-bold shadow-md cursor-pointer disabled:opacity-50 flex items-center space-x-1"
               >
                 {rechazandoAfiliacion ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <span>Confirmar Cancelación</span>}
               </button>
@@ -159,7 +159,7 @@ const OperatorAffiliationModal = ({
                       required
                       value={editPrimerNombre}
                       onChange={(e) => setEditPrimerNombre(e.target.value.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s]/g, ''))}
-                      className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-semibold text-slate-800 focus:ring-1 focus:ring-emerald-600"
+                      className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-semibold text-slate-800 focus:ring-1 focus:ring-brand-600"
                     />
                   </div>
 
@@ -169,7 +169,7 @@ const OperatorAffiliationModal = ({
                       type="text"
                       value={editSegundoNombre}
                       onChange={(e) => setEditSegundoNombre(e.target.value.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s]/g, ''))}
-                      className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-xs text-slate-800 focus:ring-1 focus:ring-emerald-600"
+                      className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-xs text-slate-800 focus:ring-1 focus:ring-brand-600"
                     />
                   </div>
 
@@ -180,7 +180,7 @@ const OperatorAffiliationModal = ({
                       required
                       value={editPrimerApellido}
                       onChange={(e) => setEditPrimerApellido(e.target.value.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s]/g, ''))}
-                      className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-semibold text-slate-800 focus:ring-1 focus:ring-emerald-600"
+                      className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-semibold text-slate-800 focus:ring-1 focus:ring-brand-600"
                     />
                   </div>
 
@@ -190,7 +190,7 @@ const OperatorAffiliationModal = ({
                       type="text"
                       value={editSegundoApellido}
                       onChange={(e) => setEditSegundoApellido(e.target.value.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s]/g, ''))}
-                      className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-xs text-slate-800 focus:ring-1 focus:ring-emerald-600"
+                      className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-xs text-slate-800 focus:ring-1 focus:ring-brand-600"
                     />
                   </div>
 
@@ -202,7 +202,7 @@ const OperatorAffiliationModal = ({
                       required
                       value={editCuiDpi}
                       onChange={(e) => setEditCuiDpi(e.target.value.replace(/\D/g, ''))}
-                      className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-mono font-bold text-emerald-800 focus:ring-1 focus:ring-emerald-600"
+                      className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-mono font-bold text-brand-800 focus:ring-1 focus:ring-brand-600"
                     />
                   </div>
 
@@ -213,7 +213,7 @@ const OperatorAffiliationModal = ({
                       required
                       value={editFechaNacimiento}
                       onChange={(e) => setEditFechaNacimiento(e.target.value)}
-                      className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-medium text-slate-800 focus:ring-1 focus:ring-emerald-600"
+                      className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-medium text-slate-800 focus:ring-1 focus:ring-brand-600"
                     />
                   </div>
 
@@ -221,7 +221,7 @@ const OperatorAffiliationModal = ({
                     <div className="flex items-center justify-between mb-0.5">
                       <label className="block text-[11px] font-medium text-slate-500">Teléfono (8 Dígitos)</label>
                       <span className={`text-[10px] font-mono font-semibold ${
-                        editTelefono.length === 8 ? 'text-emerald-700 font-bold' : 'text-slate-400'
+                        editTelefono.length === 8 ? 'text-brand-700 font-bold' : 'text-slate-400'
                       }`}>
                         {editTelefono.length}/8 dígitos
                       </span>
@@ -232,7 +232,7 @@ const OperatorAffiliationModal = ({
                       value={editTelefono}
                       onChange={(e) => setEditTelefono(e.target.value.replace(/\D/g, '').slice(0, 8))}
                       placeholder="Ej: 55551234"
-                      className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-mono text-slate-800 focus:ring-1 focus:ring-emerald-600"
+                      className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-mono text-slate-800 focus:ring-1 focus:ring-brand-600"
                     />
                   </div>
 
@@ -240,7 +240,7 @@ const OperatorAffiliationModal = ({
                     <div className="flex items-center justify-between mb-0.5">
                       <label className="block text-[11px] font-medium text-slate-500">Correo Electrónico</label>
                       {operatorEmailStatus.checking && (
-                        <span className="text-[10px] text-emerald-600 flex items-center space-x-1">
+                        <span className="text-[10px] text-brand-600 flex items-center space-x-1">
                           <Loader2 className="w-2.5 h-2.5 animate-spin" />
                           <span>Verificando...</span>
                         </span>
@@ -253,22 +253,22 @@ const OperatorAffiliationModal = ({
                         onChange={(e) => setEditEmail(e.target.value)}
                         className={`w-full pl-2.5 pr-8 py-1.5 bg-white border rounded-lg text-xs text-slate-800 transition-colors ${
                           operatorEmailStatus.disponible === false
-                            ? 'border-red-500 focus:ring-1 focus:ring-red-500 bg-red-50/20 text-red-900'
+                            ? 'border-danger-500 focus:ring-1 focus:ring-danger-500 bg-danger-50/20 text-danger-900'
                             : operatorEmailStatus.disponible === true
-                            ? 'border-emerald-500 focus:ring-1 focus:ring-emerald-600'
-                            : 'border-slate-300 focus:ring-1 focus:ring-emerald-600'
+                            ? 'border-brand-500 focus:ring-1 focus:ring-brand-600'
+                            : 'border-slate-300 focus:ring-1 focus:ring-brand-600'
                         }`}
                       />
                       {!operatorEmailStatus.checking && operatorEmailStatus.disponible === false && (
-                        <AlertCircle className="w-3.5 h-3.5 text-red-500 absolute right-2.5 top-2" />
+                        <AlertCircle className="w-3.5 h-3.5 text-danger-500 absolute right-2.5 top-2" />
                       )}
                       {!operatorEmailStatus.checking && operatorEmailStatus.disponible === true && (
-                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 absolute right-2.5 top-2" />
+                        <CheckCircle2 className="w-3.5 h-3.5 text-brand-600 absolute right-2.5 top-2" />
                       )}
                     </div>
                     {operatorEmailStatus.message && (
                       <p className={`text-[10px] mt-1 font-medium ${
-                        operatorEmailStatus.disponible === false ? 'text-red-600' : 'text-emerald-700'
+                        operatorEmailStatus.disponible === false ? 'text-danger-600' : 'text-brand-700'
                       }`}>
                         {operatorEmailStatus.message}
                       </p>
@@ -281,7 +281,7 @@ const OperatorAffiliationModal = ({
                       type="text"
                       value={editDireccion}
                       onChange={(e) => setEditDireccion(e.target.value)}
-                      className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-xs text-slate-800 focus:ring-1 focus:ring-emerald-600"
+                      className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-xs text-slate-800 focus:ring-1 focus:ring-brand-600"
                     />
                   </div>
                 </div>
@@ -289,7 +289,7 @@ const OperatorAffiliationModal = ({
 
               {/* Bloque de Formalización y Depósito en Ventanilla */}
               <div className="space-y-3">
-                <span className="text-xs font-bold uppercase text-emerald-800 tracking-wider block">
+                <span className="text-xs font-bold uppercase text-brand-800 tracking-wider block">
                   Formalización y Depósito en Ventanilla
                 </span>
 
@@ -307,7 +307,7 @@ const OperatorAffiliationModal = ({
                         required
                         value={montoAportacion}
                         onChange={(e) => setMontoAportacion(e.target.value)}
-                        className="w-full pl-8 pr-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-900 focus:ring-2 focus:ring-emerald-600"
+                        className="w-full pl-8 pr-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-900 focus:ring-2 focus:ring-brand-600"
                       />
                     </div>
                     <span className="text-[10px] text-slate-400 block mt-0.5">Mínimo estatutario Q100.00</span>
@@ -317,12 +317,12 @@ const OperatorAffiliationModal = ({
                     <label className="block text-xs font-semibold text-slate-700 mb-1">
                       Método de Recepción de Fondos
                     </label>
-                    <div className="px-3 py-2 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-between text-xs font-bold text-emerald-800">
+                    <div className="px-3 py-2 bg-brand-50 border border-brand-200 rounded-xl flex items-center justify-between text-xs font-bold text-brand-800">
                       <div className="flex items-center space-x-1.5">
-                        <DollarSign className="w-4 h-4 text-emerald-700" />
+                        <DollarSign className="w-4 h-4 text-brand-700" />
                         <span>Efectivo en Ventanilla</span>
                       </div>
-                      <span className="text-[10px] bg-emerald-200/80 text-emerald-900 px-2 py-0.5 rounded-md font-semibold">
+                      <span className="text-[10px] bg-brand-200/80 text-brand-900 px-2 py-0.5 rounded-md font-semibold">
                         Recepción Presencial
                       </span>
                     </div>
@@ -333,7 +333,7 @@ const OperatorAffiliationModal = ({
 
                   <div className="sm:col-span-2 p-3.5 bg-slate-50 border border-slate-200 rounded-2xl">
                     <div className="flex items-center space-x-2 text-xs font-bold text-slate-800 mb-1">
-                      <Lock className="w-4 h-4 text-emerald-600 shrink-0" />
+                      <Lock className="w-4 h-4 text-brand-600 shrink-0" />
                       <span>Generación Automática de Contraseña Segura</span>
                     </div>
                     <p className="text-[11px] text-slate-500 leading-relaxed">
@@ -350,7 +350,7 @@ const OperatorAffiliationModal = ({
                       onChange={(e) => setObservacionesAfiliacion(e.target.value)}
                       rows={2}
                       placeholder="Anotaciones de la atención presencial..."
-                      className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs text-slate-800 focus:ring-2 focus:ring-emerald-600 resize-none"
+                      className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs text-slate-800 focus:ring-2 focus:ring-brand-600 resize-none"
                     />
                   </div>
                 </div>
@@ -370,7 +370,7 @@ const OperatorAffiliationModal = ({
                 <button
                   type="button"
                   onClick={() => setShowRechazarAfiliacion(true)}
-                  className="w-full sm:w-auto px-3 py-2 text-red-700 hover:bg-red-50 rounded-xl text-xs font-bold border border-red-200 cursor-pointer"
+                  className="w-full sm:w-auto px-3 py-2 text-danger-700 hover:bg-danger-50 rounded-xl text-xs font-bold border border-danger-200 cursor-pointer"
                 >
                   Cancelar Caso
                 </button>
@@ -379,7 +379,7 @@ const OperatorAffiliationModal = ({
               <button
                 type="submit"
                 disabled={formalizando || operatorEmailStatus.disponible === false || operatorEmailStatus.checking}
-                className="w-full sm:w-auto px-6 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold shadow-md cursor-pointer flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full sm:w-auto px-6 py-2.5 bg-brand-700 hover:bg-brand-800 text-white rounded-xl text-xs font-bold shadow-md cursor-pointer flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {formalizando ? (
                   <>

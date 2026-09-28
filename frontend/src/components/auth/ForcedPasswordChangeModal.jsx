@@ -99,14 +99,14 @@ const ForcedPasswordChangeModal = ({ isOpen, user, onSuccess, onLogout }) => {
   return createPortal(
     <div className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4 bg-slate-950/85 backdrop-blur-md overflow-y-auto">
       <div
-        className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-8 shadow-2xl border border-amber-200/80 relative my-auto animate-scaleUp text-slate-800 space-y-5"
+        className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-8 shadow-2xl border border-warning-200/80 relative my-auto animate-scaleUp text-slate-800 space-y-5"
         role="dialog"
         aria-modal="true"
         aria-labelledby="forced-password-title"
       >
         {/* Cabecera de Alerta de Seguridad */}
         <div className="text-center space-y-2">
-          <div className="w-14 h-14 bg-amber-100 text-amber-700 rounded-2xl flex items-center justify-center mx-auto shadow-inner">
+          <div className="w-14 h-14 bg-warning-100 text-warning-700 rounded-2xl flex items-center justify-center mx-auto shadow-inner">
             <KeyRound className="w-7 h-7" />
           </div>
           <h2 id="forced-password-title" className="text-xl font-bold text-slate-900 tracking-tight">
@@ -120,8 +120,8 @@ const ForcedPasswordChangeModal = ({ isOpen, user, onSuccess, onLogout }) => {
 
         {/* Mensaje de Error */}
         {errorMsg && (
-          <div className="p-3 bg-red-50 border border-red-200 rounded-xl flex items-start space-x-2 text-xs text-red-700 animate-fadeIn">
-            <AlertCircle className="w-4 h-4 shrink-0 text-red-600 mt-0.5" />
+          <div className="p-3 bg-danger-50 border border-danger-200 rounded-xl flex items-start space-x-2 text-xs text-danger-700 animate-fadeIn">
+            <AlertCircle className="w-4 h-4 shrink-0 text-danger-600 mt-0.5" />
             <span>{errorMsg}</span>
           </div>
         )}
@@ -139,7 +139,7 @@ const ForcedPasswordChangeModal = ({ isOpen, user, onSuccess, onLogout }) => {
                 onChange={(e) => setPasswordActual(e.target.value)}
                 placeholder="Ingrese su contraseña temporal..."
                 required
-                className="w-full pl-3 pr-10 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-mono text-slate-900 focus:bg-white focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+                className="w-full pl-3 pr-10 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-mono text-slate-900 focus:bg-white focus:ring-2 focus:ring-warning-500 focus:border-warning-500"
               />
               <button
                 type="button"
@@ -164,7 +164,7 @@ const ForcedPasswordChangeModal = ({ isOpen, user, onSuccess, onLogout }) => {
                 onChange={(e) => setNuevaPassword(e.target.value)}
                 placeholder="Mínimo 6 caracteres (letras y números)..."
                 required
-                className="w-full pl-3 pr-10 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-mono text-slate-900 focus:bg-white focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+                className="w-full pl-3 pr-10 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-mono text-slate-900 focus:bg-white focus:ring-2 focus:ring-warning-500 focus:border-warning-500"
               />
               <button
                 type="button"
@@ -178,19 +178,19 @@ const ForcedPasswordChangeModal = ({ isOpen, user, onSuccess, onLogout }) => {
 
             {/* Checklist de Requisitos de Contraseña Fuerte */}
             <div className="mt-2 grid grid-cols-2 sm:grid-cols-4 gap-1.5 text-[10px]">
-              <span className={`flex items-center space-x-1 ${hasMinLength ? 'text-emerald-700 font-semibold' : 'text-slate-400'}`}>
+              <span className={`flex items-center space-x-1 ${hasMinLength ? 'text-brand-700 font-semibold' : 'text-slate-400'}`}>
                 <CheckCircle2 className="w-3 h-3 shrink-0" />
                 <span>Mín. 8 chars</span>
               </span>
-              <span className={`flex items-center space-x-1 ${hasLetters ? 'text-emerald-700 font-semibold' : 'text-slate-400'}`}>
+              <span className={`flex items-center space-x-1 ${hasLetters ? 'text-brand-700 font-semibold' : 'text-slate-400'}`}>
                 <CheckCircle2 className="w-3 h-3 shrink-0" />
                 <span>Letras (a-z)</span>
               </span>
-              <span className={`flex items-center space-x-1 ${hasNumbers ? 'text-emerald-700 font-semibold' : 'text-slate-400'}`}>
+              <span className={`flex items-center space-x-1 ${hasNumbers ? 'text-brand-700 font-semibold' : 'text-slate-400'}`}>
                 <CheckCircle2 className="w-3 h-3 shrink-0" />
                 <span>Números (0-9)</span>
               </span>
-              <span className={`flex items-center space-x-1 ${hasSpecial ? 'text-emerald-700 font-semibold' : 'text-slate-400'}`}>
+              <span className={`flex items-center space-x-1 ${hasSpecial ? 'text-brand-700 font-semibold' : 'text-slate-400'}`}>
                 <CheckCircle2 className="w-3 h-3 shrink-0" />
                 <span>Especial (!@#$)</span>
               </span>
@@ -209,7 +209,7 @@ const ForcedPasswordChangeModal = ({ isOpen, user, onSuccess, onLogout }) => {
                 onChange={(e) => setConfirmarPassword(e.target.value)}
                 placeholder="Repita su nueva contraseña..."
                 required
-                className="w-full pl-3 pr-10 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-mono text-slate-900 focus:bg-white focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+                className="w-full pl-3 pr-10 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-mono text-slate-900 focus:bg-white focus:ring-2 focus:ring-warning-500 focus:border-warning-500"
               />
               <button
                 type="button"
@@ -221,7 +221,7 @@ const ForcedPasswordChangeModal = ({ isOpen, user, onSuccess, onLogout }) => {
               </button>
             </div>
             {confirmarPassword && (
-              <span className={`text-[10px] mt-1 block font-medium ${passwordsMatch ? 'text-emerald-700' : 'text-red-600'}`}>
+              <span className={`text-[10px] mt-1 block font-medium ${passwordsMatch ? 'text-brand-700' : 'text-danger-600'}`}>
                 {passwordsMatch ? '✓ Las contraseñas coinciden' : '✗ Las contraseñas no coinciden'}
               </span>
             )}
@@ -235,7 +235,7 @@ const ForcedPasswordChangeModal = ({ isOpen, user, onSuccess, onLogout }) => {
               className={`w-full py-2.5 px-4 rounded-xl text-xs font-bold text-white transition-all flex items-center justify-center space-x-2 shadow-md ${
                 loading || !isFormValid
                   ? 'bg-slate-300 text-slate-500 cursor-not-allowed shadow-none'
-                  : 'bg-emerald-700 hover:bg-emerald-800 cursor-pointer hover:shadow-lg'
+                  : 'bg-brand-700 hover:bg-brand-800 cursor-pointer hover:shadow-lg'
               }`}
             >
               {loading ? (

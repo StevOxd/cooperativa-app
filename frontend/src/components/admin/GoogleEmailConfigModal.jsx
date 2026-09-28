@@ -129,14 +129,14 @@ export const GoogleEmailConfigModal = ({ isOpen, onClose, onConfigSaved }) => {
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-200">
       <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-2xl max-h-[90vh] overflow-y-auto transform transition-all flex flex-col">
         {/* Cabecera */}
-        <div className="flex items-center justify-between p-6 border-b border-slate-100 bg-gradient-to-r from-emerald-900 to-teal-950 text-white rounded-t-2xl">
+        <div className="flex items-center justify-between p-6 border-b border-slate-100 bg-gradient-to-r from-brand-900 to-teal-950 text-white rounded-t-2xl">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center border border-white/20">
-              <Mail className="w-5 h-5 text-emerald-300" />
+              <Mail className="w-5 h-5 text-brand-300" />
             </div>
             <div>
               <h2 className="text-lg font-bold">Servicio de Correo Google (Gmail)</h2>
-              <p className="text-xs text-emerald-200/80">
+              <p className="text-xs text-brand-200/80">
                 Despacho automatizado de credenciales, contraseñas temporales y códigos 2FA
               </p>
             </div>
@@ -162,7 +162,7 @@ export const GoogleEmailConfigModal = ({ isOpen, onClose, onConfigSaved }) => {
                 <button
                   type="button"
                   onClick={fetchStatus}
-                  className="text-xs text-emerald-700 hover:text-emerald-800 font-medium underline"
+                  className="text-xs text-brand-700 hover:text-brand-800 font-medium underline"
                 >
                   Actualizar Estado
                 </button>
@@ -171,13 +171,13 @@ export const GoogleEmailConfigModal = ({ isOpen, onClose, onConfigSaved }) => {
 
             <div className="mt-3 flex items-center gap-3">
               {serviceStatus?.provider === 'google' && serviceStatus?.verified ? (
-                <div className="flex items-center gap-2 text-emerald-700 font-bold text-sm bg-emerald-50 px-3 py-1.5 rounded-lg border border-emerald-200">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                <div className="flex items-center gap-2 text-brand-700 font-bold text-sm bg-brand-50 px-3 py-1.5 rounded-lg border border-brand-200">
+                  <CheckCircle2 className="w-4 h-4 text-brand-600" />
                   Google Mail Activo y Conectado
                 </div>
               ) : serviceStatus?.provider === 'google' && !serviceStatus?.verified ? (
-                <div className="flex items-center gap-2 text-amber-700 font-bold text-sm bg-amber-50 px-3 py-1.5 rounded-lg border border-amber-200">
-                  <AlertCircle className="w-4 h-4 text-amber-600" />
+                <div className="flex items-center gap-2 text-warning-700 font-bold text-sm bg-warning-50 px-3 py-1.5 rounded-lg border border-warning-200">
+                  <AlertCircle className="w-4 h-4 text-warning-600" />
                   Google Mail Configurado (Requiere Verificación)
                 </div>
               ) : (
@@ -205,13 +205,13 @@ export const GoogleEmailConfigModal = ({ isOpen, onClose, onConfigSaved }) => {
           <form onSubmit={handleSaveConfig} className="space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
-                <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                <ShieldCheck className="w-4 h-4 text-brand-600" />
                 Configurar Credenciales de Google
               </h3>
               <button
                 type="button"
                 onClick={() => setShowHelp(!showHelp)}
-                className="text-xs text-emerald-700 hover:text-emerald-800 flex items-center gap-1 font-medium"
+                className="text-xs text-brand-700 hover:text-brand-800 flex items-center gap-1 font-medium"
               >
                 <HelpCircle className="w-3.5 h-3.5" />
                 {showHelp ? 'Ocultar Guía' : '¿Cómo obtener la contraseña de aplicación?'}
@@ -220,11 +220,11 @@ export const GoogleEmailConfigModal = ({ isOpen, onClose, onConfigSaved }) => {
 
             {/* Guía Explicativa */}
             {showHelp && (
-              <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 text-xs text-emerald-950 space-y-2 animate-in fade-in duration-150">
-                <p className="font-semibold text-emerald-900">
+              <div className="bg-brand-50 border border-brand-200 rounded-xl p-4 text-xs text-brand-950 space-y-2 animate-in fade-in duration-150">
+                <p className="font-semibold text-brand-900">
                   Pasos para habilitar el envío con tu cuenta de Google (Gmail):
                 </p>
-                <ol className="list-decimal pl-4 space-y-1.5 text-emerald-800">
+                <ol className="list-decimal pl-4 space-y-1.5 text-brand-800">
                   <li>
                     Ingresa a tu cuenta Google y asegúrate de tener activada la <strong>Verificación en 2 pasos</strong>.
                   </li>
@@ -234,7 +234,7 @@ export const GoogleEmailConfigModal = ({ isOpen, onClose, onConfigSaved }) => {
                       href="https://myaccount.google.com/apppasswords"
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-emerald-700 font-bold underline inline-flex items-center gap-1"
+                      className="text-brand-700 font-bold underline inline-flex items-center gap-1"
                     >
                       myaccount.google.com/apppasswords <ExternalLink className="w-3 h-3" />
                     </a>
@@ -258,7 +258,7 @@ export const GoogleEmailConfigModal = ({ isOpen, onClose, onConfigSaved }) => {
                     onChange={(e) => setGmailUser(e.target.value)}
                     placeholder="ej. mi-cooperativa@gmail.com"
                     required
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 transition-all"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-600 transition-all"
                   />
                 </div>
               </div>
@@ -274,7 +274,7 @@ export const GoogleEmailConfigModal = ({ isOpen, onClose, onConfigSaved }) => {
                     onChange={(e) => setGmailAppPassword(e.target.value)}
                     placeholder="16 caracteres de Google"
                     required
-                    className="w-full pl-3.5 pr-10 py-2.5 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 transition-all font-mono"
+                    className="w-full pl-3.5 pr-10 py-2.5 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-600 transition-all font-mono"
                   />
                   <button
                     type="button"
@@ -296,7 +296,7 @@ export const GoogleEmailConfigModal = ({ isOpen, onClose, onConfigSaved }) => {
                 value={senderName}
                 onChange={(e) => setSenderName(e.target.value)}
                 placeholder="ej. Cooperativa Corporativa Financiera"
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 transition-all"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-600 transition-all"
               />
             </div>
 
@@ -304,7 +304,7 @@ export const GoogleEmailConfigModal = ({ isOpen, onClose, onConfigSaved }) => {
               <button
                 type="submit"
                 disabled={loading}
-                className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold shadow-md shadow-emerald-600/20 flex items-center gap-2 transition-all disabled:opacity-50"
+                className="px-5 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-700 text-white text-sm font-bold shadow-md shadow-brand-600/20 flex items-center gap-2 transition-all disabled:opacity-50"
               >
                 {loading ? (
                   <>
@@ -363,13 +363,13 @@ export const GoogleEmailConfigModal = ({ isOpen, onClose, onConfigSaved }) => {
               <div
                 className={`mt-3 p-3.5 rounded-xl border text-xs ${
                   testResult.success
-                    ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
+                    ? 'bg-brand-50 border-brand-200 text-brand-900'
                     : 'bg-rose-50 border-rose-200 text-rose-900'
                 }`}
               >
                 <div className="font-semibold flex items-center gap-1.5">
                   {testResult.success ? (
-                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                    <CheckCircle2 className="w-4 h-4 text-brand-600" />
                   ) : (
                     <AlertCircle className="w-4 h-4 text-rose-600" />
                   )}

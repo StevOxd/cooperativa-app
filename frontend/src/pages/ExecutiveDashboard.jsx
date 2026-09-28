@@ -230,13 +230,13 @@ export const ExecutiveDashboard = () => {
     switch (estado) {
       case 'EN_AUTORIZACION_EJECUTIVO':
         return (
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-sky-50 text-sky-700 border border-sky-200">
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-brand-50 text-brand-700 border border-brand-200">
             Pendiente Autorización
           </span>
         );
       case 'DEVUELTA_OPERADOR':
         return (
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-50 text-amber-700 border border-amber-200">
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-warning-50 text-warning-700 border border-warning-200">
             Devuelta a Operador
           </span>
         );
@@ -244,14 +244,14 @@ export const ExecutiveDashboard = () => {
       case 'APROBADO':
       case 'DESEMBOLSADA':
         return (
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-brand-50 text-brand-700 border border-brand-200">
             Aprobada y Desembolsada
           </span>
         );
       case 'DENEGADA':
       case 'RECHAZADA':
         return (
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-red-50 text-red-700 border border-red-200">
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-danger-50 text-danger-700 border border-danger-200">
             Denegada
           </span>
         );
@@ -276,11 +276,11 @@ export const ExecutiveDashboard = () => {
       {/* Encabezado Principal */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-white p-6 rounded-2xl border border-slate-200 shadow-xs">
         <div>
-          <span className="text-xs font-bold text-sky-700 uppercase tracking-widest block mb-1">
+          <span className="text-xs font-bold text-brand-700 uppercase tracking-widest block mb-1">
             Comité de Aprobaciones • Nivel Ejecutivo
           </span>
           <h1 className="text-2xl font-bold text-slate-900 tracking-tight flex items-center space-x-2">
-            <Building2 className="w-7 h-7 text-sky-600" />
+            <Building2 className="w-7 h-7 text-brand-600" />
             <span>Bandeja de Autorización Ejecutiva</span>
           </h1>
           <p className="text-sm text-slate-500 mt-0.5">
@@ -293,7 +293,7 @@ export const ExecutiveDashboard = () => {
           disabled={loading}
           className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold border border-slate-200 transition-colors flex items-center space-x-2 self-start sm:self-auto cursor-pointer"
         >
-          <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-sky-600' : ''}`} />
+          <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-brand-600' : ''}`} />
           <span>Actualizar Casos</span>
         </button>
       </div>
@@ -301,39 +301,39 @@ export const ExecutiveDashboard = () => {
       {/* Tarjetas de Métricas Ejecutivas */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-xs">
-          <div className="flex items-center justify-between text-sky-600 mb-2">
+          <div className="flex items-center justify-between text-brand-600 mb-2">
             <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Pendientes Autorización</span>
             <ShieldCheck className="w-5 h-5" />
           </div>
           <div className="text-2xl sm:text-3xl font-extrabold text-slate-900">{pendientesCount}</div>
-          <p className="text-[11px] text-sky-700 mt-1 font-medium">Requieren resolución ejecutiva</p>
+          <p className="text-[11px] text-brand-700 mt-1 font-medium">Requieren resolución ejecutiva</p>
         </div>
 
         <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-xs">
-          <div className="flex items-center justify-between text-emerald-600 mb-2">
+          <div className="flex items-center justify-between text-brand-600 mb-2">
             <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Aprobados / Fondos</span>
             <CheckCircle className="w-5 h-5" />
           </div>
           <div className="text-2xl sm:text-3xl font-extrabold text-slate-900">{aprobadasCount}</div>
-          <p className="text-[11px] text-emerald-700 mt-1 font-medium">Acreditados exitosamente</p>
+          <p className="text-[11px] text-brand-700 mt-1 font-medium">Acreditados exitosamente</p>
         </div>
 
         <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-xs">
-          <div className="flex items-center justify-between text-amber-600 mb-2">
+          <div className="flex items-center justify-between text-warning-600 mb-2">
             <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Devueltos a Operador</span>
             <RotateCcw className="w-5 h-5" />
           </div>
           <div className="text-2xl sm:text-3xl font-extrabold text-slate-900">{devueltasCount}</div>
-          <p className="text-[11px] text-amber-700 mt-1 font-medium">En subsanación operativa</p>
+          <p className="text-[11px] text-warning-700 mt-1 font-medium">En subsanación operativa</p>
         </div>
 
         <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-xs">
-          <div className="flex items-center justify-between text-red-600 mb-2">
+          <div className="flex items-center justify-between text-danger-600 mb-2">
             <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Denegados</span>
             <XCircle className="w-5 h-5" />
           </div>
           <div className="text-2xl sm:text-3xl font-extrabold text-slate-900">{denegadasCount}</div>
-          <p className="text-[11px] text-red-700 mt-1 font-medium">Rechazados formalmente</p>
+          <p className="text-[11px] text-danger-700 mt-1 font-medium">Rechazados formalmente</p>
         </div>
       </div>
 
@@ -346,12 +346,12 @@ export const ExecutiveDashboard = () => {
               onClick={() => setActiveFilterTab('PENDIENTES')}
               className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap flex items-center space-x-1.5 ${
                 activeFilterTab === 'PENDIENTES'
-                  ? 'bg-sky-600 text-white shadow-xs'
+                  ? 'bg-brand-600 text-white shadow-xs'
                   : 'bg-slate-50 hover:bg-slate-100 text-slate-600'
               }`}
             >
               <span>Pendientes</span>
-              <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${activeFilterTab === 'PENDIENTES' ? 'bg-sky-800 text-white' : 'bg-slate-200 text-slate-700'}`}>
+              <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${activeFilterTab === 'PENDIENTES' ? 'bg-brand-800 text-white' : 'bg-slate-200 text-slate-700'}`}>
                 {pendientesCount}
               </span>
             </button>
@@ -360,12 +360,12 @@ export const ExecutiveDashboard = () => {
               onClick={() => setActiveFilterTab('APROBADAS')}
               className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap flex items-center space-x-1.5 ${
                 activeFilterTab === 'APROBADAS'
-                  ? 'bg-emerald-600 text-white shadow-xs'
+                  ? 'bg-brand-600 text-white shadow-xs'
                   : 'bg-slate-50 hover:bg-slate-100 text-slate-600'
               }`}
             >
               <span>Aprobadas</span>
-              <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${activeFilterTab === 'APROBADAS' ? 'bg-emerald-800 text-white' : 'bg-slate-200 text-slate-700'}`}>
+              <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${activeFilterTab === 'APROBADAS' ? 'bg-brand-800 text-white' : 'bg-slate-200 text-slate-700'}`}>
                 {aprobadasCount}
               </span>
             </button>
@@ -374,12 +374,12 @@ export const ExecutiveDashboard = () => {
               onClick={() => setActiveFilterTab('DEVUELTAS')}
               className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap flex items-center space-x-1.5 ${
                 activeFilterTab === 'DEVUELTAS'
-                  ? 'bg-amber-600 text-white shadow-xs'
+                  ? 'bg-warning-600 text-white shadow-xs'
                   : 'bg-slate-50 hover:bg-slate-100 text-slate-600'
               }`}
             >
               <span>Devueltas</span>
-              <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${activeFilterTab === 'DEVUELTAS' ? 'bg-amber-800 text-white' : 'bg-slate-200 text-slate-700'}`}>
+              <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${activeFilterTab === 'DEVUELTAS' ? 'bg-warning-800 text-white' : 'bg-slate-200 text-slate-700'}`}>
                 {devueltasCount}
               </span>
             </button>
@@ -388,12 +388,12 @@ export const ExecutiveDashboard = () => {
               onClick={() => setActiveFilterTab('DENEGADAS')}
               className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap flex items-center space-x-1.5 ${
                 activeFilterTab === 'DENEGADAS'
-                  ? 'bg-red-600 text-white shadow-xs'
+                  ? 'bg-danger-600 text-white shadow-xs'
                   : 'bg-slate-50 hover:bg-slate-100 text-slate-600'
               }`}
             >
               <span>Denegadas</span>
-              <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${activeFilterTab === 'DENEGADAS' ? 'bg-red-800 text-white' : 'bg-slate-200 text-slate-700'}`}>
+              <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${activeFilterTab === 'DENEGADAS' ? 'bg-danger-800 text-white' : 'bg-slate-200 text-slate-700'}`}>
                 {denegadasCount}
               </span>
             </button>
@@ -418,7 +418,7 @@ export const ExecutiveDashboard = () => {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Buscar por asociado, DPI o #..."
-              className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-sky-500 focus:bg-white transition-all"
+              className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-brand-500 focus:bg-white transition-all"
             />
           </div>
         </div>
@@ -426,7 +426,7 @@ export const ExecutiveDashboard = () => {
         {/* Tabla de Solicitudes */}
         {loading ? (
           <div className="p-12 text-center text-slate-400">
-            <Loader2 className="w-8 h-8 text-sky-600 animate-spin mx-auto mb-2" />
+            <Loader2 className="w-8 h-8 text-brand-600 animate-spin mx-auto mb-2" />
             <p className="text-xs">Cargando solicitudes crediticias...</p>
           </div>
         ) : filteredCreditos.length === 0 ? (
@@ -461,7 +461,7 @@ export const ExecutiveDashboard = () => {
                   const isPendiente = c.estado === 'EN_AUTORIZACION_EJECUTIVO';
 
                   return (
-                    <tr key={c.id_solicitud_credito} className={`hover:bg-slate-50/70 transition-colors ${isPendiente ? 'bg-sky-50/30' : ''}`}>
+                    <tr key={c.id_solicitud_credito} className={`hover:bg-slate-50/70 transition-colors ${isPendiente ? 'bg-brand-50/30' : ''}`}>
                       <td className="px-4 py-3.5 text-xs">
                         <span className="font-mono font-bold text-slate-900 block">
                           #{c.id_solicitud_credito}
@@ -488,7 +488,7 @@ export const ExecutiveDashboard = () => {
                         {c.plazo_meses} meses
                       </td>
 
-                      <td className="px-4 py-3.5 text-right text-xs font-bold text-sky-800">
+                      <td className="px-4 py-3.5 text-right text-xs font-bold text-brand-800">
                         Q{parseFloat(c.cuota_mensual_estimada).toLocaleString('es-GT', { minimumFractionDigits: 2 })}
                       </td>
 
@@ -513,10 +513,10 @@ export const ExecutiveDashboard = () => {
                             href={getSecureDocumentUrl(c.documento_firmado_url)}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="inline-flex items-center px-2 py-1 rounded-lg bg-sky-50 hover:bg-sky-100 text-sky-700 text-[11px] font-bold border border-sky-200 transition-colors"
+                            className="inline-flex items-center px-2 py-1 rounded-lg bg-brand-50 hover:bg-brand-100 text-brand-700 text-[11px] font-bold border border-brand-200 transition-colors"
                             title="Ver documento firmado en pestaña nueva"
                           >
-                            <FileCheck className="w-3.5 h-3.5 mr-1 text-sky-600" />
+                            <FileCheck className="w-3.5 h-3.5 mr-1 text-brand-600" />
                             <span>PDF Firmado</span>
                           </a>
                         ) : (
@@ -532,7 +532,7 @@ export const ExecutiveDashboard = () => {
                         {isPendiente ? (
                           <button
                             onClick={() => openResolverModal(c)}
-                            className="px-3.5 py-1.5 rounded-xl bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold shadow-xs transition-all flex items-center space-x-1.5 mx-auto cursor-pointer"
+                            className="px-3.5 py-1.5 rounded-xl bg-brand-600 hover:bg-brand-700 text-white text-xs font-bold shadow-xs transition-all flex items-center space-x-1.5 mx-auto cursor-pointer"
                           >
                             <ShieldCheck className="w-3.5 h-3.5" />
                             <span>Dictaminar</span>
@@ -570,7 +570,7 @@ export const ExecutiveDashboard = () => {
             {/* Header del Modal */}
             <div className="flex justify-between items-start p-5 sm:p-6 pb-4 border-b border-slate-100 shrink-0 bg-white">
               <div className="flex items-center space-x-3">
-                <span className="p-2.5 bg-sky-100 text-sky-800 rounded-2xl">
+                <span className="p-2.5 bg-brand-100 text-brand-800 rounded-2xl">
                   <Building2 className="w-6 h-6" />
                 </span>
                 <div>
@@ -596,7 +596,7 @@ export const ExecutiveDashboard = () => {
             </div>
 
             {/* Sub-banner con resumen financiero */}
-            <div className="bg-sky-50/70 border-b border-sky-100 p-4 shrink-0 grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+            <div className="bg-brand-50/70 border-b border-brand-100 p-4 shrink-0 grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
               <div>
                 <span className="text-slate-500 block">Monto Solicitado:</span>
                 <span className="font-extrabold text-slate-900 text-sm">
@@ -609,7 +609,7 @@ export const ExecutiveDashboard = () => {
               </div>
               <div>
                 <span className="text-slate-500 block">Cuota Mensual Estimada:</span>
-                <span className="font-bold text-sky-900">
+                <span className="font-bold text-brand-900">
                   Q{parseFloat(selectedCredito.cuota_mensual_estimada).toLocaleString('es-GT', { minimumFractionDigits: 2 })}
                 </span>
               </div>
@@ -623,13 +623,13 @@ export const ExecutiveDashboard = () => {
 
             {/* Dictamen del Operador (Callout Destacado) */}
             {selectedCredito.dictamen_operador && (
-              <div className="p-3.5 bg-amber-50/80 border-b border-amber-200/80 flex items-start space-x-3 text-xs text-amber-950 shrink-0">
-                <AlertCircle className="w-4 h-4 text-amber-700 flex-shrink-0 mt-0.5" />
+              <div className="p-3.5 bg-warning-50/80 border-b border-warning-200/80 flex items-start space-x-3 text-xs text-warning-950 shrink-0">
+                <AlertCircle className="w-4 h-4 text-warning-700 flex-shrink-0 mt-0.5" />
                 <div>
-                  <span className="font-bold block text-amber-900">
+                  <span className="font-bold block text-warning-900">
                     Dictamen Operativo Previo (Revisado por {selectedCredito.operador_revisa_nombre || 'Operador'}):
                   </span>
-                  <p className="italic text-amber-900 mt-0.5">"{selectedCredito.dictamen_operador}"</p>
+                  <p className="italic text-warning-900 mt-0.5">"{selectedCredito.dictamen_operador}"</p>
                 </div>
               </div>
             )}
@@ -641,7 +641,7 @@ export const ExecutiveDashboard = () => {
                 onClick={() => setActiveModalTab('documento')}
                 className={`pb-3 transition-all border-b-2 cursor-pointer flex items-center space-x-1.5 ${
                   activeModalTab === 'documento'
-                    ? 'border-sky-600 text-sky-800'
+                    ? 'border-brand-600 text-brand-800'
                     : 'border-transparent text-slate-500 hover:text-slate-700'
                 }`}
               >
@@ -654,7 +654,7 @@ export const ExecutiveDashboard = () => {
                 onClick={() => setActiveModalTab('scoring')}
                 className={`pb-3 transition-all border-b-2 cursor-pointer flex items-center space-x-1.5 ${
                   activeModalTab === 'scoring'
-                    ? 'border-sky-600 text-sky-800'
+                    ? 'border-brand-600 text-brand-800'
                     : 'border-transparent text-slate-500 hover:text-slate-700'
                 }`}
               >
@@ -667,7 +667,7 @@ export const ExecutiveDashboard = () => {
                 onClick={() => setActiveModalTab('transacciones')}
                 className={`pb-3 transition-all border-b-2 cursor-pointer flex items-center space-x-1.5 ${
                   activeModalTab === 'transacciones'
-                    ? 'border-sky-600 text-sky-800'
+                    ? 'border-brand-600 text-brand-800'
                     : 'border-transparent text-slate-500 hover:text-slate-700'
                 }`}
               >
@@ -692,7 +692,7 @@ export const ExecutiveDashboard = () => {
                       </span>
                     </div>
 
-                    <label className="inline-flex items-center space-x-1.5 px-3.5 py-2 bg-sky-700 hover:bg-sky-800 text-white rounded-lg text-xs font-bold shadow-xs transition-colors cursor-pointer self-start sm:self-auto shrink-0">
+                    <label className="inline-flex items-center space-x-1.5 px-3.5 py-2 bg-brand-700 hover:bg-brand-800 text-white rounded-lg text-xs font-bold shadow-xs transition-colors cursor-pointer self-start sm:self-auto shrink-0">
                       <UploadCloud className="w-4 h-4" />
                       <span>{archivoFirmado ? 'Cambiar PDF Firmado' : 'Subir PDF Firmado por Ejecutivo'}</span>
                       <input
@@ -705,7 +705,7 @@ export const ExecutiveDashboard = () => {
                   </div>
 
                   {fileError && (
-                    <div className="p-3 bg-red-50 border border-red-200 text-red-700 rounded-xl text-xs font-semibold flex items-center space-x-2">
+                    <div className="p-3 bg-danger-50 border border-danger-200 text-danger-700 rounded-xl text-xs font-semibold flex items-center space-x-2">
                       <AlertCircle className="w-4 h-4 flex-shrink-0" />
                       <span>{fileError}</span>
                     </div>
@@ -713,18 +713,18 @@ export const ExecutiveDashboard = () => {
 
                   {/* Estado del Archivo Nuevo Seleccionado por Ejecutivo */}
                   {archivoFirmado && (
-                    <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-between text-xs text-emerald-900">
+                    <div className="p-3 bg-brand-50 border border-brand-200 rounded-xl flex items-center justify-between text-xs text-brand-900">
                       <div className="flex items-center space-x-2">
-                        <FileCheck className="w-4 h-4 text-emerald-600" />
+                        <FileCheck className="w-4 h-4 text-brand-600" />
                         <span className="font-bold">{archivoFirmado.name}</span>
-                        <span className="text-emerald-700">
+                        <span className="text-brand-700">
                           ({(archivoFirmado.size / 1024).toFixed(1)} KB) • PDF firmado listo para autorizar y desembolsar
                         </span>
                       </div>
                       <button
                         type="button"
                         onClick={() => setArchivoFirmado(null)}
-                        className="text-red-500 hover:text-red-700 font-bold flex items-center space-x-1 cursor-pointer"
+                        className="text-danger-500 hover:text-danger-700 font-bold flex items-center space-x-1 cursor-pointer"
                         title="Descartar este archivo"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
@@ -751,7 +751,7 @@ export const ExecutiveDashboard = () => {
                     <div>
                       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 p-3 bg-slate-50 border border-slate-200 rounded-xl mb-3">
                         <div className="flex items-center space-x-2 text-xs text-slate-700">
-                          <FileText className="w-4 h-4 text-sky-600 shrink-0" />
+                          <FileText className="w-4 h-4 text-brand-600 shrink-0" />
                           <div>
                             <span className="font-bold text-slate-800 block">
                               Expediente remitido por Operador: {selectedCredito.nombre_archivo_firmado || 'formulario_firmado.pdf'}
@@ -769,7 +769,7 @@ export const ExecutiveDashboard = () => {
                             download={`Solicitud_Credito_${selectedCredito.id_solicitud_credito}.pdf`}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="px-3 py-1.5 bg-sky-600 hover:bg-sky-700 text-white rounded-lg text-xs font-bold shadow-xs transition-colors flex items-center space-x-1.5 cursor-pointer"
+                            className="px-3 py-1.5 bg-brand-600 hover:bg-brand-700 text-white rounded-lg text-xs font-bold shadow-xs transition-colors flex items-center space-x-1.5 cursor-pointer"
                           >
                             <Download className="w-3.5 h-3.5" />
                             <span>Descargar PDF para Firmar</span>
@@ -812,7 +812,7 @@ export const ExecutiveDashboard = () => {
                 <div className="space-y-4">
                   {loadingEvaluacion ? (
                     <div className="p-8 text-center text-slate-400">
-                      <Loader2 className="w-6 h-6 text-sky-600 animate-spin mx-auto mb-2" />
+                      <Loader2 className="w-6 h-6 text-brand-600 animate-spin mx-auto mb-2" />
                       <p className="text-xs">Cargando diagnóstico financiero y scoring...</p>
                     </div>
                   ) : evaluacionData ? (
@@ -820,8 +820,8 @@ export const ExecutiveDashboard = () => {
                       {/* Estado General del Scoring */}
                       <div className={`p-4 rounded-xl border flex items-center justify-between ${
                         evaluacionData.evaluacion.dictamen === 'APTO'
-                          ? 'bg-emerald-50/70 border-emerald-200 text-emerald-950'
-                          : 'bg-amber-50/70 border-amber-200 text-amber-950'
+                          ? 'bg-brand-50/70 border-brand-200 text-brand-950'
+                          : 'bg-warning-50/70 border-warning-200 text-warning-950'
                       }`}>
                         <div>
                           <span className="text-[10px] font-bold uppercase tracking-wider block opacity-75">
@@ -833,8 +833,8 @@ export const ExecutiveDashboard = () => {
                         </div>
                         <span className={`px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider ${
                           evaluacionData.evaluacion.dictamen === 'APTO'
-                            ? 'bg-emerald-600 text-white'
-                            : 'bg-amber-600 text-white'
+                            ? 'bg-brand-600 text-white'
+                            : 'bg-warning-600 text-white'
                         }`}>
                           {evaluacionData.evaluacion.dictamen}
                         </span>
@@ -847,7 +847,7 @@ export const ExecutiveDashboard = () => {
                         </span>
                         {evaluacionData.analisisSolicitud.diagnosticos?.map((d, i) => (
                           <div key={i} className="flex items-start space-x-2 text-slate-700">
-                            <span className="text-sky-600 font-bold">•</span>
+                            <span className="text-brand-600 font-bold">•</span>
                             <span>{d}</span>
                           </div>
                         ))}
@@ -863,7 +863,7 @@ export const ExecutiveDashboard = () => {
                             {evaluacionData.solicitante.cuentasBancarias?.map((cb) => (
                               <div key={cb.id_cuenta_bancaria} className="p-2 rounded-lg bg-slate-50 flex justify-between text-xs">
                                 <span className="text-slate-700">{cb.tipo_cuenta} ({cb.numero_cuenta_bancaria})</span>
-                                <span className="font-bold text-sky-800">Q{(Number(cb.saldo_disponible) || 0).toLocaleString('es-GT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                <span className="font-bold text-brand-800">Q{(Number(cb.saldo_disponible) || 0).toLocaleString('es-GT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                               </div>
                             ))}
                           </div>
@@ -877,7 +877,7 @@ export const ExecutiveDashboard = () => {
                             {evaluacionData.solicitante.cuentas?.map((c) => (
                               <div key={c.id_cuenta} className="p-2 rounded-lg bg-slate-50 flex justify-between text-xs">
                                 <span className="text-slate-700">{c.tipo || c.tipo_cuenta || 'Cuenta Cooperativa'} ({c.numero_cuenta})</span>
-                                <span className="font-bold text-sky-800">
+                                <span className="font-bold text-brand-800">
                                   Q{(Number(c.saldo_disponible !== undefined ? c.saldo_disponible : (c.saldo || 0)) || 0).toLocaleString('es-GT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                 </span>
                               </div>
@@ -917,7 +917,7 @@ export const ExecutiveDashboard = () => {
                               <td className="px-3 py-2 text-center">
                                 <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border ${
                                   (tx.tipo_movimiento || tx.tipo) === 'CREDITO'
-                                    ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                                    ? 'bg-brand-50 text-brand-800 border-brand-200'
                                     : 'bg-rose-50 text-rose-800 border-rose-200'
                                 }`}>
                                   {(tx.tipo_movimiento || tx.tipo) === 'CREDITO' ? 'CRÉDITO' : 'DÉBITO'}
@@ -945,31 +945,31 @@ export const ExecutiveDashboard = () => {
                 <div className="space-y-3.5">
                   <div>
                     <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                      Observaciones / Dictamen de Resolución Ejecutiva <span className="text-amber-600 font-normal lowercase">(obligatorio para devolver o denegar)</span>
+                      Observaciones / Dictamen de Resolución Ejecutiva <span className="text-warning-600 font-normal lowercase">(obligatorio para devolver o denegar)</span>
                     </label>
                     <textarea
                       value={observaciones}
                       onChange={(e) => setObservaciones(e.target.value)}
                       placeholder="Ingrese los comentarios del dictamen ejecutivo (Obligatorio en caso de Devolver o Denegar)..."
                       rows={2}
-                      className="w-full px-3.5 py-2 border border-slate-300 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-sky-500 bg-white resize-none"
+                      className="w-full px-3.5 py-2 border border-slate-300 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-brand-500 bg-white resize-none"
                     />
                   </div>
 
                   {/* Alerta si falta subir el PDF firmado por el Ejecutivo */}
                   {!archivoFirmado && (
-                    <div className="flex items-start space-x-2.5 text-xs text-amber-900 bg-amber-50 px-3.5 py-2.5 rounded-xl border border-amber-300">
-                      <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                    <div className="flex items-start space-x-2.5 text-xs text-warning-900 bg-warning-50 px-3.5 py-2.5 rounded-xl border border-warning-300">
+                      <AlertTriangle className="w-4 h-4 text-warning-600 shrink-0 mt-0.5" />
                       <div className="leading-relaxed">
-                        <strong className="block text-amber-950 font-bold">Firma Ejecutiva Obligatoria:</strong>
+                        <strong className="block text-warning-950 font-bold">Firma Ejecutiva Obligatoria:</strong>
                         Para poder <strong>Aceptar y Desembolsar</strong> el crédito, la Gerencia Ejecutiva debe descargar el documento, firmarlo y subirlo en la pestaña <strong>"Formulario Firmado (PDF)"</strong> arriba.
                       </div>
                     </div>
                   )}
 
                   {archivoFirmado && (
-                    <div className="flex items-center space-x-2 text-xs text-sky-800 bg-sky-50 px-3 py-1.5 rounded-lg border border-sky-200">
-                      <Paperclip className="w-3.5 h-3.5 text-sky-600" />
+                    <div className="flex items-center space-x-2 text-xs text-brand-800 bg-brand-50 px-3 py-1.5 rounded-lg border border-brand-200">
+                      <Paperclip className="w-3.5 h-3.5 text-brand-600" />
                       <span>
                         Se adjuntará resolución firmada: <strong>{archivoFirmado.name}</strong> ({(archivoFirmado.size / 1024).toFixed(1)} KB)
                       </span>
@@ -992,7 +992,7 @@ export const ExecutiveDashboard = () => {
                         type="button"
                         disabled={resolving}
                         onClick={() => handleResolver('DENEGAR')}
-                        className="flex-1 sm:flex-initial px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold shadow-xs transition-all flex items-center justify-center space-x-1.5 cursor-pointer disabled:opacity-50"
+                        className="flex-1 sm:flex-initial px-4 py-2.5 bg-danger-600 hover:bg-danger-700 text-white rounded-xl text-xs font-bold shadow-xs transition-all flex items-center justify-center space-x-1.5 cursor-pointer disabled:opacity-50"
                         title="Rechazar formal y definitivamente la solicitud (requiere comentario)"
                       >
                         <XCircle className="w-4 h-4" />
@@ -1004,7 +1004,7 @@ export const ExecutiveDashboard = () => {
                         type="button"
                         disabled={resolving}
                         onClick={() => handleResolver('DEVOLVER')}
-                        className="flex-1 sm:flex-initial px-4 py-2.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-bold shadow-xs transition-all flex items-center justify-center space-x-1.5 cursor-pointer disabled:opacity-50"
+                        className="flex-1 sm:flex-initial px-4 py-2.5 bg-warning-500 hover:bg-warning-600 text-white rounded-xl text-xs font-bold shadow-xs transition-all flex items-center justify-center space-x-1.5 cursor-pointer disabled:opacity-50"
                         title="Devolver al Operador para que revise o complete la documentación (requiere comentario)"
                       >
                         <RotateCcw className="w-4 h-4" />
@@ -1016,7 +1016,7 @@ export const ExecutiveDashboard = () => {
                         type="button"
                         disabled={resolving || !archivoFirmado}
                         onClick={() => handleResolver('ACEPTAR')}
-                        className="flex-1 sm:flex-initial px-5 py-2.5 bg-sky-600 hover:bg-sky-700 text-white rounded-xl text-xs font-bold shadow-md transition-all flex items-center justify-center space-x-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="flex-1 sm:flex-initial px-5 py-2.5 bg-brand-600 hover:bg-brand-700 text-white rounded-xl text-xs font-bold shadow-md transition-all flex items-center justify-center space-x-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                         title={!archivoFirmado ? 'Debe subir el documento PDF firmado por el Ejecutivo para autorizar' : 'Aprobar el crédito y desembolsar los fondos inmediatamente'}
                       >
                         {resolving ? (

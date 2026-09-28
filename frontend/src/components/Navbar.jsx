@@ -71,7 +71,7 @@ export const Navbar = () => {
   const getRoleBadgeStyle = (rol) => {
     switch (rol) {
       case 'ADMINISTRADOR':
-        return 'bg-sky-500/10 text-sky-800 border-sky-500/30';
+        return 'bg-brand-500/10 text-brand-800 border-brand-500/30';
       case 'EJECUTIVO':
         return 'bg-blue-500/10 text-blue-800 border-blue-500/30 font-bold';
       case 'OPERADOR':
@@ -105,12 +105,12 @@ export const Navbar = () => {
             {/* Logo & Marca Institucional */}
             <div className="flex items-center space-x-8">
               <Link to="/dashboard" className="flex items-center space-x-3 group">
-                <div className="w-10 h-10 rounded-xl bg-sky-700 flex items-center justify-center text-white shadow-md shadow-sky-700/20 group-hover:scale-105 transition-transform">
+                <div className="w-10 h-10 rounded-xl bg-brand-700 flex items-center justify-center text-white shadow-md shadow-brand-700/20 group-hover:scale-105 transition-transform">
                   <Building2 className="w-6 h-6" />
                 </div>
                 <div>
                   <span className="font-bold text-slate-800 text-lg tracking-tight block">COOPERATIVA</span>
-                  <span className="text-[10px] text-sky-700 font-semibold uppercase tracking-wider block">
+                  <span className="text-[10px] text-brand-700 font-semibold uppercase tracking-wider block">
                     Sistema Integral
                   </span>
                 </div>
@@ -127,11 +127,11 @@ export const Navbar = () => {
                       to={link.to}
                       className={`flex items-center space-x-2 px-3.5 py-2 rounded-lg text-sm font-medium transition-colors ${
                         isActive
-                          ? 'bg-sky-50 text-sky-800 font-semibold'
+                          ? 'bg-brand-50 text-brand-800 font-semibold'
                           : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
                       }`}
                     >
-                      <Icon className={`w-4 h-4 ${isActive ? 'text-sky-700' : 'text-slate-400'}`} />
+                      <Icon className={`w-4 h-4 ${isActive ? 'text-brand-700' : 'text-slate-400'}`} />
                       <span>{link.label}</span>
                     </Link>
                   );
@@ -150,11 +150,11 @@ export const Navbar = () => {
                   aria-haspopup="true"
                   className={`flex items-center space-x-3 p-1.5 sm:px-3 sm:py-2 rounded-xl transition-all cursor-pointer border ${
                     isDropdownOpen
-                      ? 'bg-slate-100 border-slate-300 shadow-xs ring-2 ring-sky-500/20'
+                      ? 'bg-slate-100 border-slate-300 shadow-xs ring-2 ring-brand-500/20'
                       : 'hover:bg-slate-50 border-transparent hover:border-slate-200'
                   }`}
                 >
-                  <div className="w-9 h-9 rounded-full bg-sky-50 border border-sky-200 flex items-center justify-center text-sky-700 shadow-2xs">
+                  <div className="w-9 h-9 rounded-full bg-brand-50 border border-brand-200 flex items-center justify-center text-brand-700 shadow-2xs">
                     <User className="w-5 h-5" />
                   </div>
                   <div className="text-left hidden sm:block">
@@ -171,7 +171,7 @@ export const Navbar = () => {
                   </div>
                   <ChevronDown
                     className={`w-4 h-4 text-slate-400 transition-transform duration-200 hidden sm:block ${
-                      isDropdownOpen ? 'rotate-180 text-sky-700' : ''
+                      isDropdownOpen ? 'rotate-180 text-brand-700' : ''
                     }`}
                   />
                 </button>
@@ -196,7 +196,7 @@ export const Navbar = () => {
                           {user?.rol || 'USUARIO'}
                         </span>
                         {user?.mfa_enabled && (
-                          <span className="inline-flex items-center space-x-1 text-[10px] font-bold text-sky-700 bg-sky-50 border border-sky-200 px-2 py-0.5 rounded-full">
+                          <span className="inline-flex items-center space-x-1 text-[10px] font-bold text-brand-700 bg-brand-50 border border-brand-200 px-2 py-0.5 rounded-full">
                             <ShieldCheck className="w-3 h-3" />
                             <span>2FA Activo</span>
                           </span>
@@ -215,11 +215,11 @@ export const Navbar = () => {
                         }}
                         className="w-full flex items-center space-x-2.5 px-3 py-2 text-xs font-medium text-slate-700 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer text-left"
                       >
-                        <ShieldCheck className="w-4 h-4 text-sky-700 flex-shrink-0" />
+                        <ShieldCheck className="w-4 h-4 text-brand-700 flex-shrink-0" />
                         <div className="flex items-center justify-between w-full">
                           <span>Seguridad & Doble Factor (2FA)</span>
                           {user?.mfa_enabled ? (
-                            <span className="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-1.5 py-0.5 rounded">Activo</span>
+                            <span className="text-[10px] bg-brand-100 text-brand-800 font-bold px-1.5 py-0.5 rounded">Activo</span>
                           ) : (
                             <span className="text-[10px] bg-slate-100 text-slate-600 font-bold px-1.5 py-0.5 rounded">Opcional</span>
                           )}
@@ -284,11 +284,11 @@ export const Navbar = () => {
                     onClick={() => setIsMobileMenuOpen(false)}
                     className={`flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-colors ${
                       isActive
-                        ? 'bg-sky-50 text-sky-800 font-bold border border-sky-200'
+                        ? 'bg-brand-50 text-brand-800 font-bold border border-brand-200'
                         : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
                     }`}
                   >
-                    <Icon className={`w-5 h-5 ${isActive ? 'text-sky-700' : 'text-slate-400'}`} />
+                    <Icon className={`w-5 h-5 ${isActive ? 'text-brand-700' : 'text-slate-400'}`} />
                     <span>{link.label}</span>
                   </Link>
                 );

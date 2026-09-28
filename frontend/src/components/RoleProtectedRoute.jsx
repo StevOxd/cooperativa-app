@@ -14,7 +14,7 @@ export const RoleProtectedRoute = ({ allowedRoles = ['ADMINISTRADOR'], children 
   if (isLoading) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-slate-100 text-slate-700">
-        <Loader2 className="w-10 h-10 text-emerald-700 animate-spin mb-4" />
+        <Loader2 className="w-10 h-10 text-brand-700 animate-spin mb-4" />
         <p className="font-medium text-sm">Verificando permisos de acceso...</p>
       </div>
     );

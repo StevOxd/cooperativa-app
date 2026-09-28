@@ -528,12 +528,12 @@ export const PublicAffiliationPage = () => {
       <header className="sticky top-0 z-30 bg-white/95 backdrop-blur border-b border-slate-200/80 px-4 sm:px-6 py-3 shadow-xs print:hidden">
         <div className="max-w-4xl mx-auto flex items-center justify-between">
           <Link to="/login" className="inline-flex items-center space-x-3 group">
-            <div className="w-10 h-10 rounded-xl bg-emerald-700 flex items-center justify-center text-white shadow-sm shadow-emerald-700/20 group-hover:scale-105 transition-transform">
+            <div className="w-10 h-10 rounded-xl bg-brand-700 flex items-center justify-center text-white shadow-sm shadow-brand-700/20 group-hover:scale-105 transition-transform">
               <Building2 className="w-5 h-5" />
             </div>
             <div className="text-left">
               <span className="font-extrabold text-slate-900 text-base tracking-tight block leading-tight">COOPERATIVA</span>
-              <span className="text-[10px] text-emerald-800 font-bold uppercase tracking-wider block">
+              <span className="text-[10px] text-brand-800 font-bold uppercase tracking-wider block">
                 Corporación Bancaria
               </span>
             </div>
@@ -542,7 +542,7 @@ export const PublicAffiliationPage = () => {
             <span className="hidden sm:inline text-xs font-semibold text-slate-500">¿Ya tienes usuario?</span>
             <Link
               to="/login"
-              className="text-xs font-bold text-emerald-700 hover:text-emerald-800 bg-emerald-50 hover:bg-emerald-100 px-3 py-1.5 rounded-lg transition-colors"
+              className="text-xs font-bold text-brand-700 hover:text-brand-800 bg-brand-50 hover:bg-brand-100 px-3 py-1.5 rounded-lg transition-colors"
             >
               Iniciar Sesión
             </Link>
@@ -566,8 +566,8 @@ export const PublicAffiliationPage = () => {
           <div className="bg-white py-8 px-6 sm:px-10 rounded-3xl shadow-xl border border-slate-200 print:shadow-none print:border-none print:p-0 print:m-0 print:rounded-none print-avoid-break">
             {/* Alerta de Error */}
             {errorMsg && (
-              <div className="mb-6 p-4 rounded-xl bg-red-50 border border-red-200 flex items-start space-x-3 text-red-700">
-                <AlertCircle className="w-5 h-5 shrink-0 mt-0.5 text-red-600" />
+              <div className="mb-6 p-4 rounded-xl bg-danger-50 border border-danger-200 flex items-start space-x-3 text-danger-700">
+                <AlertCircle className="w-5 h-5 shrink-0 mt-0.5 text-danger-600" />
                 <div className="text-sm font-medium">{errorMsg}</div>
               </div>
             )}

@@ -26,7 +26,7 @@ export const DpiLookupStep = ({
   return (
     <form onSubmit={handleConsultarDpi} className="space-y-6">
       <div className="text-center space-y-2 border-b border-slate-100 pb-5">
-        <div className="w-12 h-12 bg-emerald-50 text-emerald-700 rounded-2xl flex items-center justify-center mx-auto border border-emerald-200">
+        <div className="w-12 h-12 bg-brand-50 text-brand-700 rounded-2xl flex items-center justify-center mx-auto border border-brand-200">
           <Search className="w-6 h-6" />
         </div>
         <h3 className="text-lg font-bold text-slate-900">Verificación de Identidad</h3>
@@ -77,7 +77,7 @@ export const DpiLookupStep = ({
       </button>
 
       <div className="text-center pt-2">
-        <Link to="/login" className="text-xs font-bold text-slate-600 hover:text-emerald-700 transition-colors">
+        <Link to="/login" className="text-xs font-bold text-slate-600 hover:text-brand-700 transition-colors">
           ¿Ya tienes cuenta activa? Inicia sesión aquí
         </Link>
       </div>

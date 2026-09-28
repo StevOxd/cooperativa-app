@@ -341,7 +341,7 @@ export const AccountSettingsModal = ({ isOpen, onClose, initialTab = '2fa' }) =>
         {/* Cabecera del Modal */}
         <div className="flex justify-between items-start border-b border-slate-100 pb-4 mb-6">
           <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-xl bg-sky-50 border border-sky-100 flex items-center justify-center text-sky-700 shadow-2xs">
+            <div className="w-10 h-10 rounded-xl bg-brand-50 border border-brand-100 flex items-center justify-center text-brand-700 shadow-2xs">
               <Shield className="w-5 h-5" />
             </div>
             <div>
@@ -374,14 +374,14 @@ export const AccountSettingsModal = ({ isOpen, onClose, initialTab = '2fa' }) =>
             }}
             className={`flex-1 flex items-center justify-center space-x-2 py-2.5 px-3 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
               activeTab === '2fa'
-                ? 'bg-white text-sky-900 shadow-xs'
+                ? 'bg-white text-brand-900 shadow-xs'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
             <Smartphone className="w-4 h-4" />
             <span>Seguridad & 2FA</span>
             {mfaEnabled && (
-              <span className="w-2 h-2 rounded-full bg-sky-500" title="2FA Activo" />
+              <span className="w-2 h-2 rounded-full bg-brand-500" title="2FA Activo" />
             )}
           </button>
 
@@ -394,7 +394,7 @@ export const AccountSettingsModal = ({ isOpen, onClose, initialTab = '2fa' }) =>
             }}
             className={`flex-1 flex items-center justify-center space-x-2 py-2.5 px-3 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
               activeTab === 'password'
-                ? 'bg-white text-sky-900 shadow-xs'
+                ? 'bg-white text-brand-900 shadow-xs'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
@@ -411,7 +411,7 @@ export const AccountSettingsModal = ({ isOpen, onClose, initialTab = '2fa' }) =>
             }}
             className={`flex-1 flex items-center justify-center space-x-2 py-2.5 px-3 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
               activeTab === 'profile'
-                ? 'bg-white text-sky-900 shadow-xs'
+                ? 'bg-white text-brand-900 shadow-xs'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
@@ -429,8 +429,8 @@ export const AccountSettingsModal = ({ isOpen, onClose, initialTab = '2fa' }) =>
         )}
 
         {successMsg && (
-          <div className="mb-5 p-3.5 rounded-xl bg-sky-50 border border-sky-200 flex items-start space-x-3 text-sky-800 text-xs">
-            <CheckCircle2 className="w-4 h-4 flex-shrink-0 mt-0.5 text-sky-600" />
+          <div className="mb-5 p-3.5 rounded-xl bg-brand-50 border border-brand-200 flex items-start space-x-3 text-brand-800 text-xs">
+            <CheckCircle2 className="w-4 h-4 flex-shrink-0 mt-0.5 text-brand-600" />
             <span className="leading-relaxed font-medium">{successMsg}</span>
           </div>
         )}
@@ -443,14 +443,14 @@ export const AccountSettingsModal = ({ isOpen, onClose, initialTab = '2fa' }) =>
             {/* Estado Actual del Factor de Doble Autenticación */}
             <div className={`p-4 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${
               mfaEnabled
-                ? 'bg-sky-50/60 border-sky-200'
-                : 'bg-amber-50/60 border-amber-200'
+                ? 'bg-brand-50/60 border-brand-200'
+                : 'bg-warning-50/60 border-warning-200'
             }`}>
               <div className="flex items-start space-x-3">
                 <div className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${
                   mfaEnabled
-                    ? 'bg-sky-600 text-white shadow-xs'
-                    : 'bg-amber-500 text-white'
+                    ? 'bg-brand-600 text-white shadow-xs'
+                    : 'bg-warning-500 text-white'
                 }`}>
                   {mfaEnabled ? <ShieldCheck className="w-5 h-5" /> : <ShieldAlert className="w-5 h-5" />}
                 </div>
@@ -461,8 +461,8 @@ export const AccountSettingsModal = ({ isOpen, onClose, initialTab = '2fa' }) =>
                     </h3>
                     <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold ${
                       mfaEnabled
-                        ? 'bg-sky-100 text-sky-800 border border-sky-200'
-                        : 'bg-amber-100 text-amber-800 border border-amber-200'
+                        ? 'bg-brand-100 text-brand-800 border border-brand-200'
+                        : 'bg-warning-100 text-warning-800 border border-warning-200'
                     }`}>
                       {mfaEnabled ? 'ACTIVO Y PROTEGIDO' : 'INACTIVO'}
                     </span>
@@ -494,7 +494,7 @@ export const AccountSettingsModal = ({ isOpen, onClose, initialTab = '2fa' }) =>
                       type="button"
                       onClick={handleStart2faSetup}
                       disabled={generatingQr}
-                      className="px-4 py-2.5 bg-sky-700 hover:bg-sky-800 text-white rounded-xl text-xs font-bold shadow-sm transition-all cursor-pointer flex items-center space-x-2 disabled:opacity-50"
+                      className="px-4 py-2.5 bg-brand-700 hover:bg-brand-800 text-white rounded-xl text-xs font-bold shadow-sm transition-all cursor-pointer flex items-center space-x-2 disabled:opacity-50"
                     >
                       {generatingQr ? (
                         <>
@@ -542,7 +542,7 @@ export const AccountSettingsModal = ({ isOpen, onClose, initialTab = '2fa' }) =>
                     onChange={(e) => setDisablePassword(e.target.value)}
                     placeholder="Contraseña actual"
                     required
-                    className="w-full px-3 py-2.5 bg-white border border-slate-300 rounded-xl text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-sky-600 pr-10"
+                    className="w-full px-3 py-2.5 bg-white border border-slate-300 rounded-xl text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600 pr-10"
                   />
                   <button
                     type="button"
@@ -579,8 +579,8 @@ export const AccountSettingsModal = ({ isOpen, onClose, initialTab = '2fa' }) =>
             {isConfiguring2fa && (
               <div className="p-5 rounded-xl bg-slate-50 border border-slate-200/80 space-y-5 animate-fadeIn">
                 <div className="flex justify-between items-center border-b border-slate-200 pb-3">
-                  <div className="flex items-center space-x-2 text-sky-900">
-                    <QrCode className="w-4 h-4 text-sky-700" />
+                  <div className="flex items-center space-x-2 text-brand-900">
+                    <QrCode className="w-4 h-4 text-brand-700" />
                     <span className="text-xs font-bold uppercase tracking-wider">
                       Enrolamiento de Doble Factor (TOTP)
                     </span>
@@ -611,7 +611,7 @@ export const AccountSettingsModal = ({ isOpen, onClose, initialTab = '2fa' }) =>
                       />
                     ) : (
                       <div className="w-44 h-44 flex items-center justify-center text-slate-400">
-                        <Loader2 className="w-8 h-8 animate-spin text-sky-600" />
+                        <Loader2 className="w-8 h-8 animate-spin text-brand-600" />
                       </div>
                     )}
                     <span className="text-[10px] text-slate-500 font-semibold mt-2 text-center">
@@ -622,7 +622,7 @@ export const AccountSettingsModal = ({ isOpen, onClose, initialTab = '2fa' }) =>
                   {/* Instrucciones y Clave Manual */}
                   <div className="md:col-span-7 space-y-4">
                     <div>
-                      <span className="text-[11px] font-bold text-sky-800 uppercase tracking-wider block">
+                      <span className="text-[11px] font-bold text-brand-800 uppercase tracking-wider block">
                         Paso 1: Escanear Código
                       </span>
                       <p className="text-xs text-slate-600 mt-0.5">
@@ -635,17 +635,17 @@ export const AccountSettingsModal = ({ isOpen, onClose, initialTab = '2fa' }) =>
                         Paso 2: O copie la clave secreta manualmente
                       </span>
                       <div className="flex items-center justify-between gap-2">
-                        <code className="text-xs font-mono font-bold text-sky-900 tracking-wider break-all select-all">
+                        <code className="text-xs font-mono font-bold text-brand-900 tracking-wider break-all select-all">
                           {secretKey || 'CARGANDO...'}
                         </code>
                         <button
                           type="button"
                           onClick={handleCopySecret}
-                          className="inline-flex items-center space-x-1 px-2.5 py-1 text-[11px] font-semibold bg-sky-50 hover:bg-sky-100 text-sky-800 rounded-lg border border-sky-200 transition-colors flex-shrink-0 cursor-pointer"
+                          className="inline-flex items-center space-x-1 px-2.5 py-1 text-[11px] font-semibold bg-brand-50 hover:bg-brand-100 text-brand-800 rounded-lg border border-brand-200 transition-colors flex-shrink-0 cursor-pointer"
                         >
                           {copiedSecret ? (
                             <>
-                              <Check className="w-3.5 h-3.5 text-sky-700" />
+                              <Check className="w-3.5 h-3.5 text-brand-700" />
                               <span>Copiado</span>
                             </>
                           ) : (
@@ -674,7 +674,7 @@ export const AccountSettingsModal = ({ isOpen, onClose, initialTab = '2fa' }) =>
                             autoComplete="one-time-code"
                             autoFocus
                             required
-                            className="w-full text-center tracking-[0.4em] font-mono font-bold text-xl py-2 px-3 bg-white border border-slate-300 rounded-xl text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-600 focus:border-sky-600"
+                            className="w-full text-center tracking-[0.4em] font-mono font-bold text-xl py-2 px-3 bg-white border border-slate-300 rounded-xl text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-600 focus:border-brand-600"
                           />
                         </div>
                       </div>
@@ -682,7 +682,7 @@ export const AccountSettingsModal = ({ isOpen, onClose, initialTab = '2fa' }) =>
                       <button
                         type="submit"
                         disabled={verifyingCode || totpCode.length !== 6}
-                        className="w-full py-2.5 px-4 bg-sky-700 hover:bg-sky-800 text-white font-bold text-xs rounded-xl shadow-sm transition-all flex items-center justify-center space-x-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="w-full py-2.5 px-4 bg-brand-700 hover:bg-brand-800 text-white font-bold text-xs rounded-xl shadow-sm transition-all flex items-center justify-center space-x-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         {verifyingCode ? (
                           <>
@@ -720,7 +720,7 @@ export const AccountSettingsModal = ({ isOpen, onClose, initialTab = '2fa' }) =>
                   onChange={(e) => setPasswordActual(e.target.value)}
                   placeholder="Ingrese su contraseña actual"
                   required
-                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-600 focus:bg-white pr-10"
+                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-600 focus:bg-white pr-10"
                 />
                 <button
                   type="button"
@@ -744,7 +744,7 @@ export const AccountSettingsModal = ({ isOpen, onClose, initialTab = '2fa' }) =>
                     onChange={(e) => setNuevaPassword(e.target.value)}
                     placeholder="Mínimo 6 caracteres"
                     required
-                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-600 focus:bg-white pr-10"
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-600 focus:bg-white pr-10"
                   />
                   <button
                     type="button"
@@ -767,7 +767,7 @@ export const AccountSettingsModal = ({ isOpen, onClose, initialTab = '2fa' }) =>
                     onChange={(e) => setConfirmarPassword(e.target.value)}
                     placeholder="Repita la contraseña"
                     required
-                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-600 focus:bg-white pr-10"
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-600 focus:bg-white pr-10"
                   />
                   <button
                     type="button"
@@ -786,13 +786,13 @@ export const AccountSettingsModal = ({ isOpen, onClose, initialTab = '2fa' }) =>
                 Requisitos de seguridad:
               </span>
               <ul className="text-xs text-slate-600 space-y-1 list-disc list-inside">
-                <li className={nuevaPassword.length >= 6 ? 'text-sky-700 font-semibold' : ''}>
+                <li className={nuevaPassword.length >= 6 ? 'text-brand-700 font-semibold' : ''}>
                   Al menos 6 caracteres de longitud
                 </li>
-                <li className={/[a-zA-Z]/.test(nuevaPassword) && /[0-9]/.test(nuevaPassword) ? 'text-sky-700 font-semibold' : ''}>
+                <li className={/[a-zA-Z]/.test(nuevaPassword) && /[0-9]/.test(nuevaPassword) ? 'text-brand-700 font-semibold' : ''}>
                   Combinación de letras y números
                 </li>
-                <li className={nuevaPassword && nuevaPassword === confirmarPassword ? 'text-sky-700 font-semibold' : ''}>
+                <li className={nuevaPassword && nuevaPassword === confirmarPassword ? 'text-brand-700 font-semibold' : ''}>
                   Coincidencia exacta con el campo de confirmación
                 </li>
               </ul>
@@ -802,7 +802,7 @@ export const AccountSettingsModal = ({ isOpen, onClose, initialTab = '2fa' }) =>
               <button
                 type="submit"
                 disabled={savingPassword}
-                className="px-5 py-2.5 bg-sky-700 hover:bg-sky-800 text-white font-bold text-xs rounded-xl shadow-sm transition-all flex items-center space-x-2 cursor-pointer disabled:opacity-50"
+                className="px-5 py-2.5 bg-brand-700 hover:bg-brand-800 text-white font-bold text-xs rounded-xl shadow-sm transition-all flex items-center space-x-2 cursor-pointer disabled:opacity-50"
               >
                 {savingPassword ? (
                   <>
@@ -848,7 +848,7 @@ export const AccountSettingsModal = ({ isOpen, onClose, initialTab = '2fa' }) =>
                 <label className="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1">
                   Código Corporativo
                 </label>
-                <div className="px-3.5 py-2.5 bg-slate-100 rounded-xl text-sm font-mono font-bold text-sky-800 border border-slate-200">
+                <div className="px-3.5 py-2.5 bg-slate-100 rounded-xl text-sm font-mono font-bold text-brand-800 border border-slate-200">
                   {user?.codigo_corporativo || '-'}
                 </div>
               </div>
@@ -884,7 +884,7 @@ export const AccountSettingsModal = ({ isOpen, onClose, initialTab = '2fa' }) =>
                   onChange={(e) => setTelefono(e.target.value.replace(/\D/g, ''))}
                   placeholder="8 dígitos (ej. 55110001)"
                   required
-                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-600 focus:bg-white"
+                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-600 focus:bg-white"
                 />
               </div>
             </div>
@@ -893,7 +893,7 @@ export const AccountSettingsModal = ({ isOpen, onClose, initialTab = '2fa' }) =>
               <button
                 type="submit"
                 disabled={savingProfile}
-                className="px-5 py-2.5 bg-sky-700 hover:bg-sky-800 text-white font-bold text-xs rounded-xl shadow-sm transition-all flex items-center space-x-2 cursor-pointer disabled:opacity-50"
+                className="px-5 py-2.5 bg-brand-700 hover:bg-brand-800 text-white font-bold text-xs rounded-xl shadow-sm transition-all flex items-center space-x-2 cursor-pointer disabled:opacity-50"
               >
                 {savingProfile ? (
                   <>

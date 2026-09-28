@@ -643,7 +643,7 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess }) => {
         {/* Header Modal */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/50">
           <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center text-emerald-700">
+            <div className="w-10 h-10 rounded-xl bg-brand-100 flex items-center justify-center text-brand-700">
               <UserPlus className="w-5 h-5" />
             </div>
             <div>
@@ -665,8 +665,8 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess }) => {
 
         {/* Alerta de Error dentro del Modal */}
         {errorMsg && (
-          <div className="mx-6 mt-4 p-3.5 rounded-xl bg-red-50 border border-red-200 flex items-start space-x-3 text-red-700">
-            <AlertCircle className="w-5 h-5 shrink-0 mt-0.5 text-red-600" />
+          <div className="mx-6 mt-4 p-3.5 rounded-xl bg-danger-50 border border-danger-200 flex items-start space-x-3 text-danger-700">
+            <AlertCircle className="w-5 h-5 shrink-0 mt-0.5 text-danger-600" />
             <div className="text-xs font-semibold">{errorMsg}</div>
           </div>
         )}
@@ -674,7 +674,7 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess }) => {
         {/* Vista de Éxito */}
         {successData ? (
           <div className="p-6 text-center space-y-4">
-            <div className="w-14 h-14 bg-emerald-100 rounded-full flex items-center justify-center mx-auto text-emerald-600">
+            <div className="w-14 h-14 bg-brand-100 rounded-full flex items-center justify-center mx-auto text-brand-600">
               <CheckCircle2 className="w-8 h-8" />
             </div>
             <div>
@@ -687,7 +687,7 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess }) => {
             <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 text-left space-y-2.5 text-xs">
               <div className="flex justify-between">
                 <span className="text-slate-500">Código de Cliente:</span>
-                <span className="font-bold text-emerald-700 font-mono text-sm">{successData.codigo_corporativo}</span>
+                <span className="font-bold text-brand-700 font-mono text-sm">{successData.codigo_corporativo}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-500">Nombre Titular:</span>
@@ -704,9 +704,9 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess }) => {
                 <span className="font-mono font-bold text-slate-800">{successData.cuenta_ahorro || successData.cuenta_aportaciones}</span>
               </div>
               {successData.cuenta_bancaria_creada && (
-                <div className="flex justify-between items-center p-2 bg-emerald-50 rounded-lg border border-emerald-200">
-                  <span className="text-emerald-800 font-medium">Cuenta de Ahorro Bancaria Creada:</span>
-                  <span className="font-mono font-bold text-emerald-700">{successData.cuenta_bancaria_creada}</span>
+                <div className="flex justify-between items-center p-2 bg-brand-50 rounded-lg border border-brand-200">
+                  <span className="text-brand-800 font-medium">Cuenta de Ahorro Bancaria Creada:</span>
+                  <span className="font-mono font-bold text-brand-700">{successData.cuenta_bancaria_creada}</span>
                 </div>
               )}
               {successData.numero_cuenta_bancaria_asociada && (
@@ -717,7 +717,7 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess }) => {
               )}
               <div className="flex justify-between">
                 <span className="text-slate-500">Depósito Inicial en Ventanilla:</span>
-                <span className="font-bold text-emerald-600">Q{parseFloat(successData.saldo_inicial).toFixed(2)}</span>
+                <span className="font-bold text-brand-600">Q{parseFloat(successData.saldo_inicial).toFixed(2)}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-500">Método de Recepción:</span>
@@ -729,7 +729,7 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess }) => {
               <button
                 type="button"
                 onClick={onClose}
-                className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-sm transition-all cursor-pointer"
+                className="px-5 py-2.5 bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs rounded-xl shadow-sm transition-all cursor-pointer"
               >
                 Cerrar y Actualizar Padrón
               </button>
@@ -752,13 +752,13 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess }) => {
                     </span>
                   ) : dpiStatus.verified ? (
                     formData.tipo_asociado === 'EB' ? (
-                      <span className="inline-flex items-center px-2 py-0.5 bg-amber-50 border border-amber-300 text-amber-900 rounded-md text-[11px] font-bold">
-                        <ShieldCheck className="w-3 h-3 mr-1 text-amber-600" />
+                      <span className="inline-flex items-center px-2 py-0.5 bg-warning-50 border border-warning-300 text-warning-900 rounded-md text-[11px] font-bold">
+                        <ShieldCheck className="w-3 h-3 mr-1 text-warning-600" />
                         Empleado Bancario (EB-X)
                       </span>
                     ) : (
-                      <span className="inline-flex items-center px-2 py-0.5 bg-emerald-50 border border-emerald-300 text-emerald-900 rounded-md text-[11px] font-bold">
-                        <Check className="w-3 h-3 mr-1 text-emerald-600" />
+                      <span className="inline-flex items-center px-2 py-0.5 bg-brand-50 border border-brand-300 text-brand-900 rounded-md text-[11px] font-bold">
+                        <Check className="w-3 h-3 mr-1 text-brand-600" />
                         Ajeno / Externo (EX-X)
                       </span>
                     )
@@ -780,7 +780,7 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess }) => {
                     <label className="block text-xs font-semibold text-slate-700">CUI / DPI *</label>
                     <span
                       className={`text-[11px] font-mono font-semibold ${
-                        formData.cui_dpi?.length === 13 ? 'text-emerald-600 font-bold' : 'text-slate-400'
+                        formData.cui_dpi?.length === 13 ? 'text-brand-600 font-bold' : 'text-slate-400'
                       }`}
                     >
                       {formData.cui_dpi?.length || 0}/13
@@ -807,20 +807,20 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess }) => {
                         if (errorMsg) setErrorMsg('');
                       }}
                       placeholder="13 dígitos numéricos"
-                      className={`w-full pl-9 pr-3 py-2 bg-slate-50 border rounded-lg text-slate-900 focus:ring-2 focus:ring-emerald-600 text-xs font-mono ${
+                      className={`w-full pl-9 pr-3 py-2 bg-slate-50 border rounded-lg text-slate-900 focus:ring-2 focus:ring-brand-600 text-xs font-mono ${
                         formData.cui_dpi?.length === 13
                           ? dpiStatus.verified && formData.tipo_asociado === 'EB'
-                            ? 'border-amber-400 focus:border-amber-500'
-                            : 'border-emerald-400 focus:border-emerald-500'
+                            ? 'border-warning-400 focus:border-warning-500'
+                            : 'border-brand-400 focus:border-brand-500'
                           : fieldErrors.cui_dpi
-                          ? 'border-red-400 bg-red-50/20'
+                          ? 'border-danger-400 bg-danger-50/20'
                           : 'border-slate-300'
                       }`}
                       required
                     />
                   </div>
                   {fieldErrors.cui_dpi ? (
-                    <p className="text-[10px] text-red-600 font-medium mt-1">{fieldErrors.cui_dpi}</p>
+                    <p className="text-[10px] text-danger-600 font-medium mt-1">{fieldErrors.cui_dpi}</p>
                   ) : dpiStatus.checking ? (
                     <p className="text-[10px] text-blue-600 font-medium mt-1 flex items-center gap-1">
                       <Loader2 className="w-3 h-3 animate-spin" /> Verificando en Core Banking...
@@ -828,7 +828,7 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess }) => {
                   ) : dpiStatus.verified && dpiStatus.message ? (
                     <p
                       className={`text-[10px] font-medium mt-1 ${
-                        formData.tipo_asociado === 'EB' ? 'text-amber-700 font-semibold' : 'text-emerald-700'
+                        formData.tipo_asociado === 'EB' ? 'text-warning-700 font-semibold' : 'text-brand-700'
                       }`}
                     >
                       ✓ {dpiStatus.message}
@@ -859,13 +859,13 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess }) => {
                       if (errorMsg) setErrorMsg('');
                     }}
                     placeholder="Ej: Juan"
-                    className={`w-full px-3 py-2 bg-slate-50 border rounded-lg text-slate-900 focus:ring-2 focus:ring-emerald-600 text-xs ${
-                      fieldErrors.primer_nombre ? 'border-red-400 bg-red-50/20' : 'border-slate-300'
+                    className={`w-full px-3 py-2 bg-slate-50 border rounded-lg text-slate-900 focus:ring-2 focus:ring-brand-600 text-xs ${
+                      fieldErrors.primer_nombre ? 'border-danger-400 bg-danger-50/20' : 'border-slate-300'
                     }`}
                     required
                   />
                   {fieldErrors.primer_nombre && (
-                    <p className="text-[10px] text-red-600 font-medium mt-1">{fieldErrors.primer_nombre}</p>
+                    <p className="text-[10px] text-danger-600 font-medium mt-1">{fieldErrors.primer_nombre}</p>
                   )}
                 </div>
 
@@ -883,7 +883,7 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess }) => {
                       if (errorMsg) setErrorMsg('');
                     }}
                     placeholder="Ej: José"
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-slate-900 focus:ring-2 focus:ring-emerald-600 text-xs"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-slate-900 focus:ring-2 focus:ring-brand-600 text-xs"
                   />
                 </div>
               </div>
@@ -911,13 +911,13 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess }) => {
                       if (errorMsg) setErrorMsg('');
                     }}
                     placeholder="Ej: Pérez"
-                    className={`w-full px-3 py-2 bg-slate-50 border rounded-lg text-slate-900 focus:ring-2 focus:ring-emerald-600 text-xs ${
-                      fieldErrors.primer_apellido ? 'border-red-400 bg-red-50/20' : 'border-slate-300'
+                    className={`w-full px-3 py-2 bg-slate-50 border rounded-lg text-slate-900 focus:ring-2 focus:ring-brand-600 text-xs ${
+                      fieldErrors.primer_apellido ? 'border-danger-400 bg-danger-50/20' : 'border-slate-300'
                     }`}
                     required
                   />
                   {fieldErrors.primer_apellido && (
-                    <p className="text-[10px] text-red-600 font-medium mt-1">{fieldErrors.primer_apellido}</p>
+                    <p className="text-[10px] text-danger-600 font-medium mt-1">{fieldErrors.primer_apellido}</p>
                   )}
                 </div>
 
@@ -935,7 +935,7 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess }) => {
                       if (errorMsg) setErrorMsg('');
                     }}
                     placeholder="Ej: Gómez"
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-slate-900 focus:ring-2 focus:ring-emerald-600 text-xs"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-slate-900 focus:ring-2 focus:ring-brand-600 text-xs"
                   />
                 </div>
               </div>
@@ -947,7 +947,7 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess }) => {
                     <label className="block text-xs font-semibold text-slate-700">Teléfono Móvil *</label>
                     <span
                       className={`text-[11px] font-mono font-semibold ${
-                        formData.telefono?.length === 8 ? 'text-emerald-600 font-bold' : 'text-slate-400'
+                        formData.telefono?.length === 8 ? 'text-brand-600 font-bold' : 'text-slate-400'
                       }`}
                     >
                       {formData.telefono?.length || 0}/8 dígitos
@@ -974,18 +974,18 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess }) => {
                         if (errorMsg) setErrorMsg('');
                       }}
                       placeholder="Ej: 55551234"
-                      className={`w-full pl-9 pr-3 py-2 bg-slate-50 border rounded-lg text-slate-900 focus:ring-2 focus:ring-emerald-600 text-xs font-mono ${
+                      className={`w-full pl-9 pr-3 py-2 bg-slate-50 border rounded-lg text-slate-900 focus:ring-2 focus:ring-brand-600 text-xs font-mono ${
                         formData.telefono?.length === 8
-                          ? 'border-emerald-400 focus:border-emerald-500'
+                          ? 'border-brand-400 focus:border-brand-500'
                           : fieldErrors.telefono
-                          ? 'border-red-400 bg-red-50/20'
+                          ? 'border-danger-400 bg-danger-50/20'
                           : 'border-slate-300'
                       }`}
                       required
                     />
                   </div>
                   {fieldErrors.telefono ? (
-                    <p className="text-[10px] text-red-600 font-medium mt-1">{fieldErrors.telefono}</p>
+                    <p className="text-[10px] text-danger-600 font-medium mt-1">{fieldErrors.telefono}</p>
                   ) : (
                     <p className="text-[10px] text-slate-400 mt-1">8 dígitos sin guiones.</p>
                   )}
@@ -1000,12 +1000,12 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess }) => {
                       </span>
                     )}
                     {!emailStatus.checking && emailStatus.available === true && (
-                      <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-full border border-emerald-200">
+                      <span className="text-[10px] font-bold text-brand-600 bg-brand-50 px-1.5 py-0.5 rounded-full border border-brand-200">
                         ✓ Disponible
                       </span>
                     )}
                     {!emailStatus.checking && emailStatus.available === false && (
-                      <span className="text-[10px] font-bold text-red-600 bg-red-50 px-1.5 py-0.5 rounded-full border border-red-200">
+                      <span className="text-[10px] font-bold text-danger-600 bg-danger-50 px-1.5 py-0.5 rounded-full border border-danger-200">
                         ✕ Ya registrado
                       </span>
                     )}
@@ -1031,22 +1031,22 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess }) => {
                       }}
                       onBlur={() => checkEmailAvailability(formData.email)}
                       placeholder="correo@ejemplo.com"
-                      className={`w-full pl-9 pr-3 py-2 bg-slate-50 border rounded-lg text-slate-900 focus:ring-2 focus:ring-emerald-600 text-xs ${
+                      className={`w-full pl-9 pr-3 py-2 bg-slate-50 border rounded-lg text-slate-900 focus:ring-2 focus:ring-brand-600 text-xs ${
                         emailStatus.available === true
-                          ? 'border-emerald-400 focus:border-emerald-500'
+                          ? 'border-brand-400 focus:border-brand-500'
                           : emailStatus.available === false || fieldErrors.email
-                          ? 'border-red-400 bg-red-50/20 focus:border-red-500'
+                          ? 'border-danger-400 bg-danger-50/20 focus:border-danger-500'
                           : 'border-slate-300'
                       }`}
                       required
                     />
                   </div>
                   {emailStatus.available === false ? (
-                    <p className="text-[10px] text-red-600 font-medium mt-1">{emailStatus.message}</p>
+                    <p className="text-[10px] text-danger-600 font-medium mt-1">{emailStatus.message}</p>
                   ) : fieldErrors.email ? (
-                    <p className="text-[10px] text-red-600 font-medium mt-1">{fieldErrors.email}</p>
+                    <p className="text-[10px] text-danger-600 font-medium mt-1">{fieldErrors.email}</p>
                   ) : emailStatus.available === true ? (
-                    <p className="text-[10px] text-emerald-700 font-medium mt-1">{emailStatus.message}</p>
+                    <p className="text-[10px] text-brand-700 font-medium mt-1">{emailStatus.message}</p>
                   ) : (
                     <p className="text-[10px] text-slate-400 mt-1">Se enviará contraseña temporal.</p>
                   )}
@@ -1063,8 +1063,8 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess }) => {
                     <span
                       className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
                         ageInfo.valid
-                          ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                          : 'bg-red-50 text-red-700 border border-red-200'
+                          ? 'bg-brand-50 text-brand-700 border border-brand-200'
+                          : 'bg-danger-50 text-danger-700 border border-danger-200'
                       }`}
                     >
                       {ageInfo.valid ? `✓ ${ageInfo.age} años (Mayor de edad)` : 'Menor de edad'}
@@ -1077,8 +1077,8 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess }) => {
                     <select
                       value={birthDay}
                       onChange={(e) => handleDatePartChange('day', e.target.value)}
-                      className={`w-full px-2.5 py-2 bg-slate-50 border rounded-lg text-slate-900 text-xs font-medium focus:ring-2 focus:ring-emerald-600 cursor-pointer ${
-                        fieldErrors.fecha_nacimiento ? 'border-red-400 bg-red-50/20' : 'border-slate-300'
+                      className={`w-full px-2.5 py-2 bg-slate-50 border rounded-lg text-slate-900 text-xs font-medium focus:ring-2 focus:ring-brand-600 cursor-pointer ${
+                        fieldErrors.fecha_nacimiento ? 'border-danger-400 bg-danger-50/20' : 'border-slate-300'
                       }`}
                       required
                     >
@@ -1095,8 +1095,8 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess }) => {
                     <select
                       value={birthMonth}
                       onChange={(e) => handleDatePartChange('month', e.target.value)}
-                      className={`w-full px-2.5 py-2 bg-slate-50 border rounded-lg text-slate-900 text-xs font-medium focus:ring-2 focus:ring-emerald-600 cursor-pointer ${
-                        fieldErrors.fecha_nacimiento ? 'border-red-400 bg-red-50/20' : 'border-slate-300'
+                      className={`w-full px-2.5 py-2 bg-slate-50 border rounded-lg text-slate-900 text-xs font-medium focus:ring-2 focus:ring-brand-600 cursor-pointer ${
+                        fieldErrors.fecha_nacimiento ? 'border-danger-400 bg-danger-50/20' : 'border-slate-300'
                       }`}
                       required
                     >
@@ -1113,8 +1113,8 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess }) => {
                     <select
                       value={birthYear}
                       onChange={(e) => handleDatePartChange('year', e.target.value)}
-                      className={`w-full px-2.5 py-2 bg-slate-50 border rounded-lg text-slate-900 text-xs font-medium focus:ring-2 focus:ring-emerald-600 cursor-pointer ${
-                        fieldErrors.fecha_nacimiento ? 'border-red-400 bg-red-50/20' : 'border-slate-300'
+                      className={`w-full px-2.5 py-2 bg-slate-50 border rounded-lg text-slate-900 text-xs font-medium focus:ring-2 focus:ring-brand-600 cursor-pointer ${
+                        fieldErrors.fecha_nacimiento ? 'border-danger-400 bg-danger-50/20' : 'border-slate-300'
                       }`}
                       required
                     >
@@ -1132,13 +1132,13 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess }) => {
                   {ageInfo ? (
                     <p
                       className={`text-[10px] font-medium ${
-                        ageInfo.valid ? 'text-emerald-700' : 'text-red-600'
+                        ageInfo.valid ? 'text-brand-700' : 'text-danger-600'
                       }`}
                     >
                       {ageInfo.message}
                     </p>
                   ) : fieldErrors.fecha_nacimiento ? (
-                    <p className="text-[10px] text-red-600 font-medium">{fieldErrors.fecha_nacimiento}</p>
+                    <p className="text-[10px] text-danger-600 font-medium">{fieldErrors.fecha_nacimiento}</p>
                   ) : (
                     <p className="text-[10px] text-slate-400">Requerido: 18+ años cumplidos para membresía.</p>
                   )}
@@ -1156,7 +1156,7 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess }) => {
                     value={formData.direccion}
                     onChange={handleChange}
                     placeholder="Calle, Avenida, Zona, Municipio"
-                    className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-slate-900 focus:ring-2 focus:ring-emerald-600 text-xs"
+                    className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-slate-900 focus:ring-2 focus:ring-brand-600 text-xs"
                   />
                 </div>
               </div>
@@ -1171,8 +1171,8 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess }) => {
                 <span
                   className={`text-[11px] font-semibold px-2 py-0.5 rounded-md border ${
                     formData.tipo_asociado === 'EB'
-                      ? 'text-amber-800 bg-amber-50 border-amber-200'
-                      : 'text-emerald-800 bg-emerald-50 border-emerald-200'
+                      ? 'text-warning-800 bg-warning-50 border-warning-200'
+                      : 'text-brand-800 bg-brand-50 border-brand-200'
                   }`}
                 >
                   {formData.tipo_asociado === 'EB' ? 'Colaborador Bancario (EB)' : 'Afiliado Externo (EX)'}
@@ -1185,7 +1185,7 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess }) => {
                     Aportación Ordinaria Inicial (Mínimo Q100.00) *
                   </label>
                   <div className="relative">
-                    <span className="absolute left-3 top-2 font-bold text-emerald-700 text-xs">Q</span>
+                    <span className="absolute left-3 top-2 font-bold text-brand-700 text-xs">Q</span>
                     <input
                       type="number"
                       step="0.01"
@@ -1193,14 +1193,14 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess }) => {
                       name="monto_aportacion"
                       value={formData.monto_aportacion}
                       onChange={handleChange}
-                      className={`w-full pl-7 pr-3 py-2 bg-slate-50 border rounded-lg text-slate-900 font-bold focus:ring-2 focus:ring-emerald-600 text-xs ${
-                        fieldErrors.monto_aportacion ? 'border-red-400 bg-red-50/20' : 'border-slate-300'
+                      className={`w-full pl-7 pr-3 py-2 bg-slate-50 border rounded-lg text-slate-900 font-bold focus:ring-2 focus:ring-brand-600 text-xs ${
+                        fieldErrors.monto_aportacion ? 'border-danger-400 bg-danger-50/20' : 'border-slate-300'
                       }`}
                       required
                     />
                   </div>
                   {fieldErrors.monto_aportacion && (
-                    <p className="text-[10px] text-red-600 font-medium mt-1">{fieldErrors.monto_aportacion}</p>
+                    <p className="text-[10px] text-danger-600 font-medium mt-1">{fieldErrors.monto_aportacion}</p>
                   )}
                 </div>
 
@@ -1208,20 +1208,20 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess }) => {
                   <label className="block text-xs font-semibold text-slate-700 mb-1">Método de Recepción *</label>
                   <div className="w-full px-3 py-2 bg-slate-100 border border-slate-300 rounded-lg text-slate-800 text-xs font-semibold flex items-center justify-between">
                     <div className="flex items-center space-x-2">
-                      <Banknote className="w-4 h-4 text-emerald-600" />
+                      <Banknote className="w-4 h-4 text-brand-600" />
                       <span>Efectivo en Ventanilla (Recepción In Situ)</span>
                     </div>
-                    <span className="text-[10px] bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded font-bold">Oficial</span>
+                    <span className="text-[10px] bg-brand-100 text-brand-800 px-1.5 py-0.5 rounded font-bold">Oficial</span>
                   </div>
                 </div>
               </div>
 
               {/* Si es Afiliado Externo (EX): Cuenta de Ahorro Bancaria Automática */}
               {formData.tipo_asociado === 'EX' && (
-                <div className="p-3 bg-emerald-50/70 border border-emerald-200 rounded-xl flex items-start space-x-2.5">
-                  <Building2 className="w-4 h-4 text-emerald-700 shrink-0 mt-0.5" />
+                <div className="p-3 bg-brand-50/70 border border-brand-200 rounded-xl flex items-start space-x-2.5">
+                  <Building2 className="w-4 h-4 text-brand-700 shrink-0 mt-0.5" />
                   <div className="text-xs text-slate-700 leading-relaxed">
-                    <span className="font-bold text-emerald-950 block">Apertura Automática de Cuenta de Ahorro en Entidad Bancaria:</span>
+                    <span className="font-bold text-brand-950 block">Apertura Automática de Cuenta de Ahorro en Entidad Bancaria:</span>
                     Al ser un afiliado externo sin relación bancaria previa, el sistema aperturará automáticamente una <strong>Cuenta de Ahorro respaldada en la Entidad Bancaria Corporativa</strong> vinculada a su CUI, además de su cuenta en la Cooperativa.
                   </div>
                 </div>
@@ -1232,14 +1232,14 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess }) => {
                 <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl space-y-3">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-2">
-                      <Landmark className="w-4 h-4 text-emerald-700" />
+                      <Landmark className="w-4 h-4 text-brand-700" />
                       <span className="text-xs font-bold text-slate-800">
                         Cuentas Bancarias del Colaborador (Banco de la Corporación)
                       </span>
                     </div>
                     {loadingCuentasBanco && (
                       <span className="text-[11px] text-slate-500 flex items-center gap-1">
-                        <Loader2 className="w-3 h-3 animate-spin text-emerald-600" /> Consultando banco...
+                        <Loader2 className="w-3 h-3 animate-spin text-brand-600" /> Consultando banco...
                       </span>
                     )}
                   </div>
@@ -1268,7 +1268,7 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess }) => {
                               }}
                               className={`p-2.5 rounded-xl border text-xs cursor-pointer transition-all ${
                                 isSelected
-                                  ? 'bg-emerald-50/90 border-emerald-500 ring-2 ring-emerald-500/20 shadow-xs'
+                                  ? 'bg-brand-50/90 border-brand-500 ring-2 ring-brand-500/20 shadow-xs'
                                   : 'bg-white border-slate-200 hover:border-slate-300'
                               }`}
                             >
@@ -1280,7 +1280,7 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess }) => {
                               </div>
                               <div className="flex justify-between items-center text-[11px]">
                                 <span className="text-slate-500">Saldo Disponible:</span>
-                                <span className={`font-bold ${cta.saldo_disponible > 0 ? 'text-emerald-700' : 'text-amber-600'}`}>
+                                <span className={`font-bold ${cta.saldo_disponible > 0 ? 'text-brand-700' : 'text-warning-600'}`}>
                                   Q{parseFloat(cta.saldo_disponible).toFixed(2)}
                                 </span>
                               </div>
@@ -1301,7 +1301,7 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess }) => {
                             setAcreditarErrorMsg('');
                             setAcreditarSuccessMsg('');
                           }}
-                          className="px-2.5 py-1 text-xs font-bold text-emerald-700 hover:text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 rounded-lg transition-colors cursor-pointer self-start sm:self-auto"
+                          className="px-2.5 py-1 text-xs font-bold text-brand-700 hover:text-brand-800 bg-brand-50 hover:bg-brand-100 border border-brand-300 rounded-lg transition-colors cursor-pointer self-start sm:self-auto"
                         >
                           {showAcreditarModal ? 'Ocultar Acreditación' : '+ Acreditar Dinero en Banco'}
                         </button>
@@ -1309,33 +1309,33 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess }) => {
 
                       {/* Panel Interactivo de Acreditación / Depósito a Cuenta Bancaria */}
                       {showAcreditarModal && (
-                        <div className="p-3 bg-white border border-emerald-300 rounded-xl space-y-2.5 animate-in fade-in duration-150">
+                        <div className="p-3 bg-white border border-brand-300 rounded-xl space-y-2.5 animate-in fade-in duration-150">
                           <div className="flex items-center justify-between">
                             <span className="text-xs font-bold text-slate-800">
                               Acreditar Fondos a Cuenta Bancaria del Colaborador
                             </span>
-                            <span className="text-[10px] font-mono text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded font-semibold border border-emerald-200">
+                            <span className="text-[10px] font-mono text-brand-800 bg-brand-50 px-2 py-0.5 rounded font-semibold border border-brand-200">
                               {cuentaBancoSeleccionada}
                             </span>
                           </div>
 
                           {acreditarSuccessMsg && (
-                            <div className="p-2 rounded-lg bg-emerald-50 border border-emerald-300 text-emerald-800 text-[11px] font-medium flex items-center space-x-1.5">
-                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                            <div className="p-2 rounded-lg bg-brand-50 border border-brand-300 text-brand-800 text-[11px] font-medium flex items-center space-x-1.5">
+                              <CheckCircle2 className="w-3.5 h-3.5 text-brand-600 shrink-0" />
                               <span>{acreditarSuccessMsg}</span>
                             </div>
                           )}
 
                           {acreditarErrorMsg && (
-                            <div className="p-2 rounded-lg bg-red-50 border border-red-300 text-red-700 text-[11px] font-medium flex items-center space-x-1.5">
-                              <AlertCircle className="w-3.5 h-3.5 text-red-600 shrink-0" />
+                            <div className="p-2 rounded-lg bg-danger-50 border border-danger-300 text-danger-700 text-[11px] font-medium flex items-center space-x-1.5">
+                              <AlertCircle className="w-3.5 h-3.5 text-danger-600 shrink-0" />
                               <span>{acreditarErrorMsg}</span>
                             </div>
                           )}
 
                           <div className="flex items-center space-x-2">
                             <div className="relative flex-1">
-                              <span className="absolute left-3 top-2 font-bold text-emerald-700 text-xs">Q</span>
+                              <span className="absolute left-3 top-2 font-bold text-brand-700 text-xs">Q</span>
                               <input
                                 type="number"
                                 step="0.01"
@@ -1343,14 +1343,14 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess }) => {
                                 value={montoAcreditar}
                                 onChange={(e) => setMontoAcreditar(e.target.value)}
                                 placeholder="Monto a acreditar"
-                                className="w-full pl-7 pr-3 py-1.5 bg-slate-50 border border-slate-300 rounded-lg text-xs font-bold text-slate-900 focus:ring-2 focus:ring-emerald-600"
+                                className="w-full pl-7 pr-3 py-1.5 bg-slate-50 border border-slate-300 rounded-lg text-xs font-bold text-slate-900 focus:ring-2 focus:ring-brand-600"
                               />
                             </div>
                             <button
                               type="button"
                               onClick={handleAcreditarFondos}
                               disabled={acreditando}
-                              className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-lg shadow-sm transition-all flex items-center space-x-1.5 cursor-pointer disabled:opacity-50"
+                              className="px-4 py-1.5 bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs rounded-lg shadow-sm transition-all flex items-center space-x-1.5 cursor-pointer disabled:opacity-50"
                             >
                               {acreditando ? (
                                 <>
@@ -1368,12 +1368,12 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess }) => {
                       )}
                     </div>
                   ) : (
-                    <div className="p-3 bg-amber-50/70 border border-amber-200 rounded-xl text-xs text-amber-900 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                    <div className="p-3 bg-warning-50/70 border border-warning-200 rounded-xl text-xs text-warning-900 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                       <span>No se encontraron cuentas activas en el Banco para este colaborador.</span>
                       <button
                         type="button"
                         onClick={handleAperturarCuentaBanco}
-                        className="px-3 py-1 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-lg transition-colors cursor-pointer self-start sm:self-auto"
+                        className="px-3 py-1 bg-warning-600 hover:bg-warning-700 text-white font-bold text-xs rounded-lg transition-colors cursor-pointer self-start sm:self-auto"
                       >
                         Aperturar Cuenta en Banco
                       </button>
@@ -1385,8 +1385,8 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess }) => {
 
             {/* Sección Informativa: Portal Web */}
             <div className="pt-2 border-t border-slate-100">
-              <div className="p-3 bg-emerald-50/70 border border-emerald-200 rounded-xl flex items-start space-x-2.5">
-                <KeyRound className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+              <div className="p-3 bg-brand-50/70 border border-brand-200 rounded-xl flex items-start space-x-2.5">
+                <KeyRound className="w-4 h-4 text-brand-600 shrink-0 mt-0.5" />
                 <div className="text-[11px] text-slate-600 leading-relaxed">
                   <span className="font-bold text-slate-800 block">Acceso al Portal Web de Asociados:</span>
                   Al registrar al nuevo asociado, el sistema generará y enviará automáticamente a su correo electrónico una <strong>contraseña temporal segura</strong> junto con su código de cliente para su primer ingreso al portal web.
@@ -1418,7 +1418,7 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess }) => {
                 <button
                   type="submit"
                   disabled={loading || emailStatus.available === false}
-                  className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-md flex items-center space-x-2 transition-all cursor-pointer disabled:opacity-50"
+                  className="px-5 py-2 bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs rounded-xl shadow-md flex items-center space-x-2 transition-all cursor-pointer disabled:opacity-50"
                 >
                   {loading ? (
                     <>

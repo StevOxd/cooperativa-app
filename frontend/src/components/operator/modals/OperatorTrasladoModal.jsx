@@ -27,7 +27,7 @@ const OperatorTrasladoModal = ({
       >
         <div className="flex justify-between items-center mb-5 border-b border-slate-100 pb-4">
           <h3 id="traslado-modal-title" className="text-lg font-bold text-slate-900 flex items-center space-x-2">
-            <ShieldAlert className={`w-5 h-5 ${actionType === 'APROBAR' ? 'text-emerald-600' : 'text-red-650'}`} />
+            <ShieldAlert className={`w-5 h-5 ${actionType === 'APROBAR' ? 'text-brand-600' : 'text-danger-600'}`} />
             <span>Confirmar Acción de Operador</span>
           </h3>
           <button
@@ -41,7 +41,7 @@ const OperatorTrasladoModal = ({
         <div className="space-y-4 text-sm text-slate-600 mb-6">
           <p>
             ¿Está seguro de que desea{' '}
-            <strong className={actionType === 'APROBAR' ? 'text-emerald-700' : 'text-red-700'}>
+            <strong className={actionType === 'APROBAR' ? 'text-brand-700' : 'text-danger-700'}>
               {actionType === 'APROBAR' ? 'APROBAR' : 'RECHAZAR'}
             </strong>{' '}
             la solicitud de traslado del asociado{' '}
@@ -83,7 +83,7 @@ const OperatorTrasladoModal = ({
                 }
                 required={actionType === 'RECHAZAR'}
                 rows={3}
-                className="w-full px-3 py-2.5 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-600 resize-none"
+                className="w-full px-3 py-2.5 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-600 resize-none"
               />
             </div>
 
@@ -99,7 +99,7 @@ const OperatorTrasladoModal = ({
                 type="submit"
                 disabled={resolvingTraslado}
                 className={`px-5 py-2 text-white rounded-xl text-sm font-semibold shadow-md flex items-center space-x-1.5 cursor-pointer ${
-                  actionType === 'APROBAR' ? 'bg-emerald-700 hover:bg-emerald-800' : 'bg-red-700 hover:bg-red-800'
+                  actionType === 'APROBAR' ? 'bg-brand-700 hover:bg-brand-800' : 'bg-danger-700 hover:bg-danger-800'
                 }`}
               >
                 {resolvingTraslado ? (

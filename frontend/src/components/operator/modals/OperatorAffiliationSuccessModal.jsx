@@ -27,7 +27,7 @@ const OperatorAffiliationSuccessModal = ({ formalizadoResult, onClose }) => {
         aria-modal="true"
         aria-labelledby="operator-success-modal-title"
       >
-        <div className="w-16 h-16 bg-emerald-100 text-emerald-700 rounded-full flex items-center justify-center mx-auto shadow-inner">
+        <div className="w-16 h-16 bg-brand-100 text-brand-700 rounded-full flex items-center justify-center mx-auto shadow-inner">
           <CheckCircle className="w-10 h-10" />
         </div>
 
@@ -43,7 +43,7 @@ const OperatorAffiliationSuccessModal = ({ formalizadoResult, onClose }) => {
           </div>
           <div className="flex justify-between items-center">
             <span className="text-slate-500 font-medium">Usuario Asignado:</span>
-            <span className="font-mono font-extrabold text-emerald-800 text-sm">{formalizadoResult.usuario}</span>
+            <span className="font-mono font-extrabold text-brand-800 text-sm">{formalizadoResult.usuario}</span>
           </div>
           <div className="flex justify-between items-center">
             <span className="text-slate-500 font-medium">No. Cuenta Bancaria:</span>
@@ -51,13 +51,13 @@ const OperatorAffiliationSuccessModal = ({ formalizadoResult, onClose }) => {
           </div>
           <div className="flex justify-between items-center">
             <span className="text-slate-500 font-medium">Depósito Inicial:</span>
-            <span className="font-mono font-bold text-emerald-800 text-sm">
+            <span className="font-mono font-bold text-brand-800 text-sm">
               Q{parseFloat(formalizadoResult.saldo_inicial).toFixed(2)}
             </span>
           </div>
           <div className="flex justify-between items-center pt-2 border-t border-slate-200">
             <span className="text-slate-500 font-medium">Contraseña Temporal:</span>
-            <span className="text-[11px] font-semibold text-emerald-800 bg-emerald-100/70 px-2 py-0.5 rounded-md border border-emerald-200">
+            <span className="text-[11px] font-semibold text-brand-800 bg-brand-100/70 px-2 py-0.5 rounded-md border border-brand-200">
               Despachada al Correo
             </span>
           </div>
@@ -67,7 +67,7 @@ const OperatorAffiliationSuccessModal = ({ formalizadoResult, onClose }) => {
             </div>
           )}
           {formalizadoResult.email_status?.simulado && (
-            <div className="text-[10px] text-amber-800 bg-amber-50 border border-amber-200 rounded-xl p-2.5 text-left mt-1">
+            <div className="text-[10px] text-warning-800 bg-warning-50 border border-warning-200 rounded-xl p-2.5 text-left mt-1">
               <strong>Nota del servicio de correo:</strong> Se encuentra en modo demostrativo local. Para despachar correos reales a bandejas externas (Gmail), active Google Mail con su Contraseña de Aplicación desde el menú de Administración.
             </div>
           )}
@@ -77,16 +77,16 @@ const OperatorAffiliationSuccessModal = ({ formalizadoResult, onClose }) => {
         <button
           type="button"
           onClick={handleDownloadPdf}
-          className="w-full py-2.5 bg-sky-50 hover:bg-sky-100 text-sky-800 border border-sky-300 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-xs flex items-center justify-center space-x-2"
+          className="w-full py-2.5 bg-brand-50 hover:bg-brand-100 text-brand-800 border border-brand-300 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-xs flex items-center justify-center space-x-2"
         >
-          <FileDown className="w-4 h-4 text-sky-700" />
+          <FileDown className="w-4 h-4 text-brand-700" />
           <span>Descargar Comprobante Oficial (PDF)</span>
         </button>
 
         <button
           type="button"
           onClick={onClose}
-          className="w-full py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer shadow-md"
+          className="w-full py-2.5 bg-brand-700 hover:bg-brand-800 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer shadow-md"
         >
           Finalizar y Volver a la Bandeja
         </button>

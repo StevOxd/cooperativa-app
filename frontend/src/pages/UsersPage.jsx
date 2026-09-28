@@ -589,7 +589,7 @@ export const UsersPage = () => {
                 type="button"
                 onClick={() => setFilterEstado('ACTIVO')}
                 className={`px-3 py-1 rounded-lg transition-colors cursor-pointer ${
-                  filterEstado === 'ACTIVO' ? 'bg-emerald-600 text-white shadow-sm font-bold' : 'text-slate-600 hover:text-slate-900'
+                  filterEstado === 'ACTIVO' ? 'bg-brand-600 text-white shadow-sm font-bold' : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
                 Activos
@@ -598,7 +598,7 @@ export const UsersPage = () => {
                 type="button"
                 onClick={() => setFilterEstado('INACTIVO')}
                 className={`px-3 py-1 rounded-lg transition-colors cursor-pointer ${
-                  filterEstado === 'INACTIVO' ? 'bg-amber-600 text-white shadow-sm font-bold' : 'text-slate-600 hover:text-slate-900'
+                  filterEstado === 'INACTIVO' ? 'bg-warning-600 text-white shadow-sm font-bold' : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
                 Inactivos
@@ -670,7 +670,7 @@ export const UsersPage = () => {
                             : u.rol === 'EJECUTIVO'
                             ? 'bg-indigo-50 text-indigo-700 border border-indigo-200'
                             : u.rol === 'OPERADOR'
-                            ? 'bg-sky-100 text-sky-800 border border-sky-200'
+                            ? 'bg-brand-100 text-brand-800 border border-brand-200'
                             : 'bg-slate-100 text-slate-800 border border-slate-200'
                         }`}
                       >
@@ -682,13 +682,13 @@ export const UsersPage = () => {
                       <span
                         className={`inline-flex items-center space-x-1.5 px-2 py-0.5 rounded-full text-xs font-semibold ${
                           u.estado === 'ACTIVO'
-                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                            ? 'bg-brand-50 text-brand-700 border border-brand-200'
                             : 'bg-slate-100 text-slate-600 border border-slate-300'
                         }`}
                       >
                         <span
                           className={`w-1.5 h-1.5 rounded-full ${
-                            u.estado === 'ACTIVO' ? 'bg-emerald-500' : 'bg-slate-400'
+                            u.estado === 'ACTIVO' ? 'bg-brand-500' : 'bg-slate-400'
                           }`}
                         />
                         <span>{u.estado}</span>
@@ -698,8 +698,8 @@ export const UsersPage = () => {
                     <td className="px-2.5 py-3 whitespace-nowrap">
                       {u.bloqueado_por_intentos ? (
                         <div className="flex items-center gap-1.5">
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-300 shadow-2xs">
-                            <AlertTriangle className="w-3 h-3 mr-1 text-amber-600" />
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-warning-100 text-warning-800 border border-warning-300 shadow-2xs">
+                            <AlertTriangle className="w-3 h-3 mr-1 text-warning-600" />
                             Bloqueado
                           </span>
                           {canManageUsers && (
@@ -707,7 +707,7 @@ export const UsersPage = () => {
                               type="button"
                               onClick={() => handleDesbloquear(u.id_persona || u.id)}
                               title="Desbloquear cuenta de usuario con un solo clic"
-                              className="inline-flex items-center px-1.5 py-0.5 text-xs font-semibold text-amber-900 bg-amber-200/80 hover:bg-amber-300 border border-amber-400/60 rounded-md transition-colors cursor-pointer"
+                              className="inline-flex items-center px-1.5 py-0.5 text-xs font-semibold text-warning-900 bg-warning-200/80 hover:bg-warning-300 border border-warning-400/60 rounded-md transition-colors cursor-pointer"
                             >
                               <Unlock className="w-3 h-3 mr-1" />
                               Desbloquear
@@ -715,8 +715,8 @@ export const UsersPage = () => {
                           )}
                         </div>
                       ) : u.en_linea ? (
-                        <span className="inline-flex items-center space-x-1.5 px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                        <span className="inline-flex items-center space-x-1.5 px-2 py-0.5 rounded-full text-xs font-semibold bg-brand-50 text-brand-700 border border-brand-200">
+                          <span className="w-2 h-2 rounded-full bg-brand-500 animate-pulse" />
                           <span>En línea</span>
                         </span>
                       ) : (
@@ -747,7 +747,7 @@ export const UsersPage = () => {
                         <button
                           onClick={() => openEditModal(u)}
                           title="Editar datos del usuario"
-                          className="p-1.5 text-slate-600 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg transition-colors cursor-pointer"
+                          className="p-1.5 text-slate-600 hover:text-brand-700 hover:bg-brand-50 rounded-lg transition-colors cursor-pointer"
                         >
                           <Edit2 className="w-4 h-4" />
                         </button>
@@ -757,8 +757,8 @@ export const UsersPage = () => {
                           title={u.estado === 'ACTIVO' ? 'Cambiar a INACTIVO (Requiere motivo)' : 'Reactivar usuario a ACTIVO'}
                           className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
                             u.estado === 'ACTIVO'
-                              ? 'text-amber-600 hover:text-white hover:bg-amber-600'
-                              : 'text-emerald-600 hover:text-white hover:bg-emerald-600'
+                              ? 'text-warning-600 hover:text-white hover:bg-warning-600'
+                              : 'text-brand-600 hover:text-white hover:bg-brand-600'
                           }`}
                         >
                           {u.estado === 'ACTIVO' ? <Ban className="w-4 h-4" /> : <CheckCircle className="w-4 h-4" />}
@@ -803,7 +803,7 @@ export const UsersPage = () => {
             {/* Cuerpo Desplazable */}
             <div className="p-6 sm:p-7 overflow-y-auto flex-1 space-y-4">
               {modalError && (
-                <div className="mb-4 p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs flex items-center space-x-2">
+                <div className="mb-4 p-3 rounded-xl bg-danger-50 border border-danger-200 text-danger-700 text-xs flex items-center space-x-2">
                   <AlertCircle className="w-4 h-4 flex-shrink-0" />
                   <span>{modalError}</span>
                 </div>
@@ -823,13 +823,13 @@ export const UsersPage = () => {
                         Usuario / Código
                       </label>
                       {!isEditing && (
-                        <span className="text-[10px] font-bold text-sky-700 bg-sky-50 border border-sky-200 px-2 py-0.5 rounded-full">
+                        <span className="text-[10px] font-bold text-brand-700 bg-brand-50 border border-brand-200 px-2 py-0.5 rounded-full">
                           Asignación Automática
                         </span>
                       )}
                     </div>
                     <div className="relative">
-                      <KeyRound className="w-4 h-4 text-sky-600 absolute left-3 top-3" />
+                      <KeyRound className="w-4 h-4 text-brand-600 absolute left-3 top-3" />
                       <input
                         type="text"
                         value={isEditing ? formData.codigo_corporativo : (loadingCode ? 'Consultando...' : (previewCode || 'Autogenerado según rol'))}
@@ -855,7 +855,7 @@ export const UsersPage = () => {
                         onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                         placeholder="usuario@cooperativa.com"
                         required
-                        className="w-full pl-9 pr-3 py-2 bg-white border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-500"
+                        className="w-full pl-9 pr-3 py-2 bg-white border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500"
                       />
                     </div>
                   </div>
@@ -867,7 +867,7 @@ export const UsersPage = () => {
                     <select
                       value={formData.rol}
                       onChange={(e) => setFormData({ ...formData, rol: e.target.value })}
-                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-500 font-semibold"
+                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500 font-semibold"
                     >
                       <option value="EJECUTIVO">EJECUTIVO (EJ-X)</option>
                       <option value="OPERADOR">OPERADOR (OP-X)</option>
@@ -885,7 +885,7 @@ export const UsersPage = () => {
                     <select
                       value={formData.estado}
                       onChange={(e) => setFormData({ ...formData, estado: e.target.value })}
-                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-500 font-semibold"
+                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500 font-semibold"
                     >
                       <option value="ACTIVO">ACTIVO</option>
                       <option value="INACTIVO">INACTIVO</option>
@@ -899,7 +899,7 @@ export const UsersPage = () => {
                     <select
                       value={formData.tipo_asociado || 'EX'}
                       onChange={(e) => setFormData({ ...formData, tipo_asociado: e.target.value })}
-                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-500 font-semibold"
+                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500 font-semibold"
                     >
                       <option value="EX">Ajeno / Externo (EX-X)</option>
                       <option value="EB">Empleado Bancario (EB-X)</option>
@@ -908,10 +908,10 @@ export const UsersPage = () => {
                 )}
 
                 {!isEditing ? (
-                  <div className="p-3.5 bg-sky-50/70 border border-sky-200 rounded-xl flex items-start space-x-3 text-xs text-sky-950">
-                    <ShieldCheck className="w-5 h-5 text-sky-700 flex-shrink-0 mt-0.5" />
+                  <div className="p-3.5 bg-brand-50/70 border border-brand-200 rounded-xl flex items-start space-x-3 text-xs text-brand-950">
+                    <ShieldCheck className="w-5 h-5 text-brand-700 flex-shrink-0 mt-0.5" />
                     <div>
-                      <span className="font-bold text-sky-900 block">Generación Criptográfica de Contraseña</span>
+                      <span className="font-bold text-brand-900 block">Generación Criptográfica de Contraseña</span>
                       <span className="text-slate-600 mt-0.5 block leading-relaxed">
                         Por políticas de ciberseguridad bancaria, la contraseña temporal no se asigna manualmente. Se generará de forma aleatoria por el servidor y se enviará automáticamente al correo electrónico registrado.
                       </span>
@@ -929,7 +929,7 @@ export const UsersPage = () => {
                         value={formData.password}
                         onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                         placeholder="Sin cambios"
-                        className="w-full pl-9 pr-3 py-2 bg-white border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-500"
+                        className="w-full pl-9 pr-3 py-2 bg-white border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500"
                       />
                     </div>
                   </div>
@@ -938,7 +938,7 @@ export const UsersPage = () => {
 
               {/* Sección 2: Datos Personales */}
               <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200/80 space-y-3">
-                <span className="text-xs font-bold uppercase text-sky-800 tracking-wider block">
+                <span className="text-xs font-bold uppercase text-brand-800 tracking-wider block">
                   2. Datos Personales (Persona)
                 </span>
 
@@ -948,7 +948,7 @@ export const UsersPage = () => {
                     <label className="block text-xs font-semibold text-slate-700">DPI / CUI *</label>
                     <span
                       className={`text-[11px] font-mono font-semibold ${
-                        formData.cui_dpi?.length === 13 ? 'text-emerald-600' : 'text-slate-400'
+                        formData.cui_dpi?.length === 13 ? 'text-brand-600' : 'text-slate-400'
                       }`}
                     >
                       {formData.cui_dpi?.length || 0}/13 dígitos
@@ -969,8 +969,8 @@ export const UsersPage = () => {
                       required
                       className={`w-full pl-9 pr-3 py-2 bg-white border rounded-xl text-sm font-mono text-slate-900 focus:outline-none focus:ring-2 ${
                         formData.cui_dpi?.length === 13
-                          ? 'border-emerald-300 focus:ring-emerald-500'
-                          : 'border-slate-200 focus:ring-sky-500'
+                          ? 'border-brand-300 focus:ring-brand-500'
+                          : 'border-slate-200 focus:ring-brand-500'
                       }`}
                     />
                   </div>
@@ -992,7 +992,7 @@ export const UsersPage = () => {
                       }}
                       placeholder="Ej. Carlos"
                       required
-                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-500"
+                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500"
                     />
                   </div>
 
@@ -1006,7 +1006,7 @@ export const UsersPage = () => {
                         setFormData({ ...formData, segundo_nombre: val });
                       }}
                       placeholder="Ej. Roberto"
-                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-500"
+                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500"
                     />
                   </div>
                 </div>
@@ -1024,7 +1024,7 @@ export const UsersPage = () => {
                       }}
                       placeholder="Ej. López"
                       required
-                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-500"
+                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500"
                     />
                   </div>
 
@@ -1038,7 +1038,7 @@ export const UsersPage = () => {
                         setFormData({ ...formData, segundo_apellido: val });
                       }}
                       placeholder="Ej. Gómez"
-                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-500"
+                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500"
                     />
                   </div>
                 </div>
@@ -1050,7 +1050,7 @@ export const UsersPage = () => {
                       <label className="block text-xs font-semibold text-slate-700">Teléfono *</label>
                       <span
                         className={`text-[11px] font-mono font-semibold ${
-                          formData.telefono?.length === 8 ? 'text-emerald-600' : 'text-slate-400'
+                          formData.telefono?.length === 8 ? 'text-brand-600' : 'text-slate-400'
                         }`}
                       >
                         {formData.telefono?.length || 0}/8 dígitos
@@ -1071,8 +1071,8 @@ export const UsersPage = () => {
                         required
                         className={`w-full pl-9 pr-3 py-2 bg-white border rounded-xl text-sm font-mono text-slate-900 focus:outline-none focus:ring-2 ${
                           formData.telefono?.length === 8
-                            ? 'border-emerald-300 focus:ring-emerald-500'
-                            : 'border-slate-200 focus:ring-sky-500'
+                            ? 'border-brand-300 focus:ring-brand-500'
+                            : 'border-slate-200 focus:ring-brand-500'
                         }`}
                       />
                     </div>
@@ -1090,8 +1090,8 @@ export const UsersPage = () => {
                         <span
                           className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
                             ageInfo.valid
-                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                              : 'bg-red-50 text-red-700 border border-red-200'
+                              ? 'bg-brand-50 text-brand-700 border border-brand-200'
+                              : 'bg-danger-50 text-danger-700 border border-danger-200'
                           }`}
                         >
                           {ageInfo.valid ? `✓ ${ageInfo.age} años` : 'Menor de edad'}
@@ -1109,9 +1109,9 @@ export const UsersPage = () => {
                         className={`w-full pl-9 pr-3 py-2 bg-white border rounded-xl text-sm text-slate-900 focus:outline-none focus:ring-2 ${
                           ageInfo
                             ? ageInfo.valid
-                              ? 'border-emerald-300 focus:ring-emerald-500'
-                              : 'border-red-300 focus:ring-red-500 bg-red-50/20'
-                            : 'border-slate-200 focus:ring-sky-500'
+                              ? 'border-brand-300 focus:ring-brand-500'
+                              : 'border-danger-300 focus:ring-danger-500 bg-danger-50/20'
+                            : 'border-slate-200 focus:ring-brand-500'
                         }`}
                       />
                     </div>
@@ -1119,7 +1119,7 @@ export const UsersPage = () => {
                       {ageInfo ? (
                         <p
                           className={`text-[11px] ${
-                            ageInfo.valid ? 'text-emerald-700 font-medium' : 'text-red-600 font-medium'
+                            ageInfo.valid ? 'text-brand-700 font-medium' : 'text-danger-600 font-medium'
                           }`}
                         >
                           {ageInfo.message}
@@ -1143,7 +1143,7 @@ export const UsersPage = () => {
                       value={formData.direccion}
                       onChange={(e) => setFormData({ ...formData, direccion: e.target.value })}
                       placeholder="Ej. 5ta Avenida 12-34, Zona 1, Ciudad de Guatemala"
-                      className="w-full pl-9 pr-3 py-2 bg-white border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-500"
+                      className="w-full pl-9 pr-3 py-2 bg-white border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500"
                     />
                   </div>
                 </div>
@@ -1190,8 +1190,8 @@ export const UsersPage = () => {
                 <div
                   className={`w-9 h-9 rounded-xl flex items-center justify-center ${
                     statusNewValue === 'INACTIVO'
-                      ? 'bg-amber-100 text-amber-700'
-                      : 'bg-emerald-100 text-emerald-700'
+                      ? 'bg-warning-100 text-warning-700'
+                      : 'bg-brand-100 text-brand-700'
                   }`}
                 >
                   {statusNewValue === 'INACTIVO' ? (
@@ -1227,7 +1227,7 @@ export const UsersPage = () => {
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-500 font-medium">Usuario:</span>
-                <span className="font-mono font-bold text-emerald-700">
+                <span className="font-mono font-bold text-brand-700">
                   {statusTargetUser.codigo_corporativo}
                 </span>
               </div>
@@ -1242,7 +1242,7 @@ export const UsersPage = () => {
                 <span
                   className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
                     statusTargetUser.estado === 'ACTIVO'
-                      ? 'bg-emerald-100 text-emerald-800'
+                      ? 'bg-brand-100 text-brand-800'
                       : 'bg-slate-200 text-slate-700'
                   }`}
                 >
@@ -1252,7 +1252,7 @@ export const UsersPage = () => {
             </div>
 
             {statusError && (
-              <div className="mb-4 p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs flex items-center space-x-2">
+              <div className="mb-4 p-3 rounded-xl bg-danger-50 border border-danger-200 text-danger-700 text-xs flex items-center space-x-2">
                 <AlertCircle className="w-4 h-4 flex-shrink-0" />
                 <span>{statusError}</span>
               </div>
@@ -1263,8 +1263,8 @@ export const UsersPage = () => {
                 <label className="block text-xs font-semibold text-slate-700 mb-1">
                   {statusNewValue === 'INACTIVO' ? (
                     <span>
-                      Motivo del cambio a <strong className="text-amber-700">INACTIVO</strong>{' '}
-                      <span className="text-red-500">* (Obligatorio)</span>
+                      Motivo del cambio a <strong className="text-warning-700">INACTIVO</strong>{' '}
+                      <span className="text-danger-500">* (Obligatorio)</span>
                     </span>
                   ) : (
                     <span>Motivo de la reactivación</span>
@@ -1280,7 +1280,7 @@ export const UsersPage = () => {
                       : 'Indica la justificación de reactivación (opcional)...'
                   }
                   required={statusNewValue === 'INACTIVO'}
-                  className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-500 resize-none"
+                  className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-warning-500 resize-none"
                 />
                 <p className="text-[11px] text-slate-400 mt-1">
                   Este motivo quedará inmutablemente registrado en la auditoría del sistema.
@@ -1300,8 +1300,8 @@ export const UsersPage = () => {
                   disabled={statusSubmitting}
                   className={`px-4 py-2 rounded-xl text-white font-bold text-xs shadow-md transition-all flex items-center space-x-2 disabled:opacity-50 cursor-pointer ${
                     statusNewValue === 'INACTIVO'
-                      ? 'bg-amber-600 hover:bg-amber-500'
-                      : 'bg-emerald-600 hover:bg-emerald-500'
+                      ? 'bg-warning-600 hover:bg-warning-500'
+                      : 'bg-brand-600 hover:bg-brand-500'
                   }`}
                 >
                   {statusSubmitting && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
@@ -1359,7 +1359,7 @@ export const UsersPage = () => {
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-500 font-medium">Usuario:</span>
-                <span className="font-mono font-bold text-emerald-700">
+                <span className="font-mono font-bold text-brand-700">
                   {resetTargetUser.codigo_corporativo}
                 </span>
               </div>
@@ -1370,7 +1370,7 @@ export const UsersPage = () => {
             </div>
 
             {resetError && (
-              <div className="mb-4 p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs flex items-center space-x-2">
+              <div className="mb-4 p-3 rounded-xl bg-danger-50 border border-danger-200 text-danger-700 text-xs flex items-center space-x-2">
                 <AlertCircle className="w-4 h-4 flex-shrink-0" />
                 <span>{resetError}</span>
               </div>
@@ -1378,16 +1378,16 @@ export const UsersPage = () => {
 
             {resetSuccess ? (
               <div className="space-y-4">
-                <div className="p-5 bg-emerald-50 border border-emerald-200 rounded-2xl text-center space-y-3">
-                  <div className="w-12 h-12 mx-auto rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center">
+                <div className="p-5 bg-brand-50 border border-brand-200 rounded-2xl text-center space-y-3">
+                  <div className="w-12 h-12 mx-auto rounded-full bg-brand-100 text-brand-600 flex items-center justify-center">
                     <CheckCircle2 className="w-7 h-7" />
                   </div>
-                  <h4 className="text-base font-bold text-emerald-900">
+                  <h4 className="text-base font-bold text-brand-900">
                     ¡Contraseña Reiniciada Exitosamente!
                   </h4>
-                  <div className="p-3.5 bg-white border border-emerald-200 rounded-xl text-left space-y-2 text-xs text-slate-700">
+                  <div className="p-3.5 bg-white border border-brand-200 rounded-xl text-left space-y-2 text-xs text-slate-700">
                     <p className="flex items-center text-slate-800">
-                      <Mail className="w-4 h-4 text-emerald-600 mr-2 flex-shrink-0" />
+                      <Mail className="w-4 h-4 text-brand-600 mr-2 flex-shrink-0" />
                       <span>
                         Correo de destino: <strong>{resetTargetUser.email}</strong>
                       </span>
@@ -1412,19 +1412,19 @@ export const UsersPage = () => {
               </div>
             ) : (
               <form onSubmit={handleResetPasswordSubmit} className="space-y-4">
-                <div className="p-4 bg-sky-50 border border-sky-200 rounded-2xl space-y-2 text-xs text-sky-900">
-                  <div className="flex items-center font-bold text-sky-950">
-                    <ShieldAlert className="w-4 h-4 text-sky-700 mr-1.5 flex-shrink-0" />
+                <div className="p-4 bg-brand-50 border border-brand-200 rounded-2xl space-y-2 text-xs text-brand-900">
+                  <div className="flex items-center font-bold text-brand-950">
+                    <ShieldAlert className="w-4 h-4 text-brand-700 mr-1.5 flex-shrink-0" />
                     <span>Envío Confidencial de Credencial Temporal</span>
                   </div>
                   <p>
                     Al confirmar, el sistema generará una <strong>contraseña temporal aleatoria y segura</strong> de 12 caracteres y la despachará de forma confidencial al correo registrado del usuario:
                   </p>
-                  <div className="font-semibold text-slate-800 bg-white/80 p-2 rounded-lg border border-sky-200 flex items-center">
-                    <Mail className="w-3.5 h-3.5 text-sky-600 mr-1.5 flex-shrink-0" />
+                  <div className="font-semibold text-slate-800 bg-white/80 p-2 rounded-lg border border-brand-200 flex items-center">
+                    <Mail className="w-3.5 h-3.5 text-brand-600 mr-1.5 flex-shrink-0" />
                     <span>{resetTargetUser.email}</span>
                   </div>
-                  <ul className="text-[11px] text-sky-800 space-y-0.5 mt-1 list-disc pl-4">
+                  <ul className="text-[11px] text-brand-800 space-y-0.5 mt-1 list-disc pl-4">
                     <li>La contraseña <strong>no se mostrará en pantalla</strong> para proteger la privacidad del usuario.</li>
                     <li>La cuenta requerirá obligatoriamente el <strong>cambio de contraseña</strong> al primer inicio de sesión.</li>
                     <li>Se restablecerán los intentos fallidos a 0 y se revocarán sesiones activas.</li>
@@ -1440,7 +1440,7 @@ export const UsersPage = () => {
                     value={resetMotivo}
                     onChange={(e) => setResetMotivo(e.target.value)}
                     placeholder="Ej. Solicitud voluntaria del usuario / Olvido de clave"
-                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-sky-500"
+                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-500"
                   />
                 </div>
 
@@ -1455,7 +1455,7 @@ export const UsersPage = () => {
                   <button
                     type="submit"
                     disabled={resetSubmitting}
-                    className="px-4 py-2 rounded-xl bg-sky-700 hover:bg-sky-800 text-white font-bold text-xs shadow-xs transition-colors flex items-center space-x-2 disabled:opacity-50 cursor-pointer"
+                    className="px-4 py-2 rounded-xl bg-brand-700 hover:bg-brand-800 text-white font-bold text-xs shadow-xs transition-colors flex items-center space-x-2 disabled:opacity-50 cursor-pointer"
                   >
                     {resetSubmitting ? (
                       <>

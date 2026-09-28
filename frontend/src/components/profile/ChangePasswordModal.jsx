@@ -142,7 +142,7 @@ export const ChangePasswordModal = ({ isOpen, onClose }) => {
         {/* Encabezado del Modal */}
         <div className="flex justify-between items-center mb-6 border-b border-slate-100 pb-4">
           <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-700 flex items-center justify-center border border-amber-200">
+            <div className="w-10 h-10 rounded-xl bg-warning-50 text-warning-700 flex items-center justify-center border border-warning-200">
               <KeyRound className="w-5 h-5" />
             </div>
             <div>
@@ -161,15 +161,15 @@ export const ChangePasswordModal = ({ isOpen, onClose }) => {
 
         {/* Mensajes de Feedback */}
         {successMessage && (
-          <div className="mb-4 p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center space-x-2">
-            <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+          <div className="mb-4 p-3.5 rounded-xl bg-brand-50 border border-brand-200 text-brand-800 text-xs flex items-center space-x-2">
+            <CheckCircle2 className="w-4 h-4 text-brand-600 flex-shrink-0" />
             <span className="font-medium">{successMessage}</span>
           </div>
         )}
 
         {errorMessage && (
-          <div className="mb-4 p-3.5 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs flex items-center space-x-2">
-            <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0" />
+          <div className="mb-4 p-3.5 rounded-xl bg-danger-50 border border-danger-200 text-danger-700 text-xs flex items-center space-x-2">
+            <AlertCircle className="w-4 h-4 text-danger-600 flex-shrink-0" />
             <span className="font-medium">{errorMessage}</span>
           </div>
         )}
@@ -191,7 +191,7 @@ export const ChangePasswordModal = ({ isOpen, onClose }) => {
                 placeholder="••••••••••••"
                 required
                 disabled={loading}
-                className="w-full pl-10 pr-10 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:border-emerald-600 focus:bg-white transition-all font-medium disabled:opacity-50"
+                className="w-full pl-10 pr-10 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-600 focus:border-brand-600 focus:bg-white transition-all font-medium disabled:opacity-50"
               />
               <button
                 type="button"
@@ -220,7 +220,7 @@ export const ChangePasswordModal = ({ isOpen, onClose }) => {
                 placeholder="Mínimo 6 caracteres (letras y números)"
                 required
                 disabled={loading}
-                className="w-full pl-10 pr-10 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:border-emerald-600 focus:bg-white transition-all font-medium disabled:opacity-50"
+                className="w-full pl-10 pr-10 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-600 focus:border-brand-600 focus:bg-white transition-all font-medium disabled:opacity-50"
               />
               <button
                 type="button"
@@ -249,7 +249,7 @@ export const ChangePasswordModal = ({ isOpen, onClose }) => {
                 placeholder="Repita la nueva contraseña"
                 required
                 disabled={loading}
-                className="w-full pl-10 pr-10 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:border-emerald-600 focus:bg-white transition-all font-medium disabled:opacity-50"
+                className="w-full pl-10 pr-10 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-600 focus:border-brand-600 focus:bg-white transition-all font-medium disabled:opacity-50"
               />
               <button
                 type="button"
@@ -283,7 +283,7 @@ export const ChangePasswordModal = ({ isOpen, onClose }) => {
             <button
               type="submit"
               disabled={loading}
-              className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-sm shadow-md transition-all flex items-center space-x-2 disabled:opacity-50 cursor-pointer"
+              className="px-5 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-500 text-white font-semibold text-sm shadow-md transition-all flex items-center space-x-2 disabled:opacity-50 cursor-pointer"
             >
               {loading && <Loader2 className="w-4 h-4 animate-spin" />}
               <span>{loading ? 'Actualizando...' : 'Actualizar Contraseña'}</span>

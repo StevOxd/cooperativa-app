@@ -58,14 +58,14 @@ export const ConfirmModal = ({
   const iconBg = isDanger
     ? 'bg-rose-50 border-rose-200 text-rose-600'
     : isWarning
-    ? 'bg-amber-50 border-amber-200 text-amber-600'
-    : 'bg-emerald-50 border-emerald-200 text-emerald-600';
+    ? 'bg-warning-50 border-warning-200 text-warning-600'
+    : 'bg-brand-50 border-brand-200 text-brand-600';
 
   const confirmBtnBg = isDanger
     ? 'bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white shadow-rose-200'
     : isWarning
-    ? 'bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white shadow-amber-200'
-    : 'bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white shadow-emerald-200';
+    ? 'bg-warning-600 hover:bg-warning-700 active:bg-warning-800 text-white shadow-warning-200'
+    : 'bg-brand-600 hover:bg-brand-700 active:bg-brand-800 text-white shadow-brand-200';
 
   return createPortal(
     <div
@@ -84,10 +84,10 @@ export const ConfirmModal = ({
         <div
           className={`h-1.5 w-full ${
             isDanger
-              ? 'bg-gradient-to-r from-rose-500 to-red-600'
+              ? 'bg-gradient-to-r from-rose-500 to-danger-600'
               : isWarning
-              ? 'bg-gradient-to-r from-amber-400 to-orange-500'
-              : 'bg-gradient-to-r from-emerald-500 to-teal-600'
+              ? 'bg-gradient-to-r from-warning-400 to-orange-500'
+              : 'bg-gradient-to-r from-brand-500 to-teal-600'
           }`}
         />
 
@@ -146,7 +146,7 @@ export const ConfirmModal = ({
                   <span className="text-slate-500 font-medium">{item.label}:</span>
                   <span
                     className={`font-mono font-bold ${
-                      item.highlight ? 'text-emerald-700' : 'text-slate-800'
+                      item.highlight ? 'text-brand-700' : 'text-slate-800'
                     }`}
                   >
                     {item.value}
@@ -157,9 +157,9 @@ export const ConfirmModal = ({
           )}
 
           {/* Advertencia / Nota explicativa */}
-          <div className="p-3 bg-amber-50/80 border border-amber-200/80 rounded-xl flex items-start space-x-2 text-amber-900 text-xs">
-            <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-            <p className="text-[11px] leading-relaxed text-amber-800">
+          <div className="p-3 bg-warning-50/80 border border-warning-200/80 rounded-xl flex items-start space-x-2 text-warning-900 text-xs">
+            <AlertCircle className="w-4 h-4 text-warning-600 shrink-0 mt-0.5" />
+            <p className="text-[11px] leading-relaxed text-warning-800">
               Esta acción no se puede deshacer. Podrá iniciar una nueva simulación con las condiciones de su preferencia cuando lo requiera.
             </p>
           </div>

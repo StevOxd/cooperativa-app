@@ -185,12 +185,12 @@ export const AssociateOnboardingTour = ({
         {/* ================= MODAL: BIENVENIDA INICIAL ================= */}
         {modalMode === 'welcome' && (
           <div className="p-6 sm:p-8 text-center space-y-5">
-            <div className="w-16 h-16 bg-emerald-100 text-emerald-700 rounded-2xl flex items-center justify-center mx-auto shadow-inner">
+            <div className="w-16 h-16 bg-brand-100 text-brand-700 rounded-2xl flex items-center justify-center mx-auto shadow-inner">
               <Compass className="w-8 h-8 animate-pulse" />
             </div>
 
             <div>
-              <span className="text-xs font-bold text-emerald-700 uppercase tracking-widest bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200">
+              <span className="text-xs font-bold text-brand-700 uppercase tracking-widest bg-brand-50 px-3 py-1 rounded-full border border-brand-200">
                 Bienvenido Asociado
               </span>
               <h2 className="text-2xl font-black text-slate-900 mt-2.5 tracking-tight">
@@ -204,19 +204,19 @@ export const AssociateOnboardingTour = ({
             {/* Tarjetas resumen de lo que verá */}
             <div className="grid grid-cols-2 gap-2 text-left pt-1">
               <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center space-x-2.5">
-                <Wallet className="w-5 h-5 text-emerald-700 shrink-0" />
+                <Wallet className="w-5 h-5 text-brand-700 shrink-0" />
                 <span className="text-xs font-semibold text-slate-700">Aportaciones y Ahorros</span>
               </div>
               <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center space-x-2.5">
-                <Send className="w-5 h-5 text-emerald-700 shrink-0" />
+                <Send className="w-5 h-5 text-brand-700 shrink-0" />
                 <span className="text-xs font-semibold text-slate-700">Traslados de Planilla</span>
               </div>
               <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center space-x-2.5">
-                <TrendingUp className="w-5 h-5 text-emerald-700 shrink-0" />
+                <TrendingUp className="w-5 h-5 text-brand-700 shrink-0" />
                 <span className="text-xs font-semibold text-slate-700">Simulador de Créditos</span>
               </div>
               <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center space-x-2.5">
-                <ShieldCheck className="w-5 h-5 text-emerald-700 shrink-0" />
+                <ShieldCheck className="w-5 h-5 text-brand-700 shrink-0" />
                 <span className="text-xs font-semibold text-slate-700">Seguridad Bancaria</span>
               </div>
             </div>
@@ -228,7 +228,7 @@ export const AssociateOnboardingTour = ({
                 type="checkbox"
                 checked={dontShowAgain}
                 onChange={handleCheckboxChange}
-                className="w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500 cursor-pointer"
+                className="w-4 h-4 text-brand-600 rounded border-slate-300 focus:ring-brand-500 cursor-pointer"
               />
               <label htmlFor="tour-dismiss-welcome" className="text-xs text-slate-600 select-none cursor-pointer font-medium">
                 No volver a mostrar este mensaje al iniciar sesión
@@ -247,7 +247,7 @@ export const AssociateOnboardingTour = ({
               <button
                 type="button"
                 onClick={handleStartTour}
-                className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-sm shadow-md flex items-center justify-center space-x-2 transition-all cursor-pointer"
+                className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-brand-700 hover:bg-brand-800 text-white font-bold text-sm shadow-md flex items-center justify-center space-x-2 transition-all cursor-pointer"
               >
                 <span>Iniciar Recorrido</span>
                 <ArrowRight className="w-4 h-4" />
@@ -262,11 +262,11 @@ export const AssociateOnboardingTour = ({
             {/* Header del paso */}
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center">
+                <div className="w-10 h-10 rounded-xl bg-brand-100 text-brand-800 flex items-center justify-center">
                   <StepIcon className="w-5 h-5" />
                 </div>
                 <div>
-                  <span className="text-[11px] font-bold text-emerald-700 uppercase tracking-wider block">
+                  <span className="text-[11px] font-bold text-brand-700 uppercase tracking-wider block">
                     Paso {currentStepData.stepNumber} de {TOUR_STEPS.length} • {currentStepData.badge}
                   </span>
                   <h3 className="text-lg font-bold text-slate-900 leading-tight">
@@ -279,7 +279,7 @@ export const AssociateOnboardingTour = ({
             {/* Barra de Progreso */}
             <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
               <div
-                className="bg-emerald-600 h-full transition-all duration-300 rounded-full"
+                className="bg-brand-600 h-full transition-all duration-300 rounded-full"
                 style={{
                   width: `${((currentStep + 1) / TOUR_STEPS.length) * 100}%`,
                 }}
@@ -293,8 +293,8 @@ export const AssociateOnboardingTour = ({
               </p>
 
               {/* Recuadro de Tip o Consejo de Uso */}
-              <div className="p-3.5 bg-emerald-50/70 border border-emerald-200 rounded-2xl flex items-start space-x-2.5 text-xs text-emerald-900">
-                <Info className="w-4 h-4 text-emerald-700 shrink-0 mt-0.5" />
+              <div className="p-3.5 bg-brand-50/70 border border-brand-200 rounded-2xl flex items-start space-x-2.5 text-xs text-brand-900">
+                <Info className="w-4 h-4 text-brand-700 shrink-0 mt-0.5" />
                 <span className="leading-snug">{currentStepData.tip}</span>
               </div>
             </div>
@@ -307,7 +307,7 @@ export const AssociateOnboardingTour = ({
                   type="checkbox"
                   checked={dontShowAgain}
                   onChange={handleCheckboxChange}
-                  className="w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500 cursor-pointer"
+                  className="w-4 h-4 text-brand-600 rounded border-slate-300 focus:ring-brand-500 cursor-pointer"
                 />
                 <label htmlFor="tour-dismiss-step" className="text-xs text-slate-600 select-none cursor-pointer">
                   No volver a mostrar
@@ -328,7 +328,7 @@ export const AssociateOnboardingTour = ({
                 <button
                   type="button"
                   onClick={handleNext}
-                  className="px-4 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold shadow-sm transition-all flex items-center space-x-1 cursor-pointer"
+                  className="px-4 py-2 rounded-xl bg-brand-700 hover:bg-brand-800 text-white text-xs font-bold shadow-sm transition-all flex items-center space-x-1 cursor-pointer"
                 >
                   <span>
                     {currentStep === TOUR_STEPS.length - 1 ? 'Finalizar' : 'Siguiente'}
@@ -343,7 +343,7 @@ export const AssociateOnboardingTour = ({
         {/* ================= MODAL: COMPLETADO ================= */}
         {modalMode === 'completed' && (
           <div className="p-6 sm:p-8 text-center space-y-5">
-            <div className="w-16 h-16 bg-emerald-100 text-emerald-700 rounded-full flex items-center justify-center mx-auto shadow-inner">
+            <div className="w-16 h-16 bg-brand-100 text-brand-700 rounded-full flex items-center justify-center mx-auto shadow-inner">
               <CheckCircle2 className="w-9 h-9" />
             </div>
 
@@ -363,7 +363,7 @@ export const AssociateOnboardingTour = ({
                 type="checkbox"
                 checked={dontShowAgain}
                 onChange={handleCheckboxChange}
-                className="w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500 cursor-pointer"
+                className="w-4 h-4 text-brand-600 rounded border-slate-300 focus:ring-brand-500 cursor-pointer"
               />
               <label htmlFor="tour-dismiss-finish" className="text-xs text-slate-600 select-none cursor-pointer font-medium">
                 No volver a mostrar automáticamente este mensaje
@@ -374,7 +374,7 @@ export const AssociateOnboardingTour = ({
               <button
                 type="button"
                 onClick={handleFinish}
-                className="w-full py-3 px-6 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-sm shadow-md transition-all cursor-pointer"
+                className="w-full py-3 px-6 rounded-xl bg-brand-700 hover:bg-brand-800 text-white font-bold text-sm shadow-md transition-all cursor-pointer"
               >
                 Comenzar a Gestionar mis Cuentas
               </button>

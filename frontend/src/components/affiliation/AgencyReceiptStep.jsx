@@ -55,7 +55,7 @@ export const AgencyReceiptStep = ({ casoGenerado }) => {
 
       {/* Tarjeta de Número de Caso Destacado */}
       <div className="bg-slate-900 text-white rounded-2xl p-5 text-center shadow-lg border border-slate-800 print:p-3 print:rounded-xl print:shadow-none">
-        <p className="text-xs uppercase tracking-wider text-sky-400 font-bold print:text-[10px]">
+        <p className="text-xs uppercase tracking-wider text-brand-400 font-bold print:text-[10px]">
           Tu Número de Caso Oficial
         </p>
         <p className="text-2xl sm:text-3xl font-mono font-black tracking-wider text-white mt-1 print:text-2xl">
@@ -67,9 +67,9 @@ export const AgencyReceiptStep = ({ casoGenerado }) => {
       </div>
 
       {/* Mensaje imperativo de acudir a la agencia */}
-      <div className="p-4 bg-amber-50 border-2 border-amber-300 rounded-2xl text-left space-y-2 text-amber-950 print:p-3 print:rounded-xl print:border print:border-amber-400 print:space-y-1">
-        <p className="font-extrabold text-xs uppercase tracking-wider flex items-center space-x-1.5 text-amber-900 print:text-[10px]">
-          <Landmark className="w-4 h-4 text-amber-700 print:w-3.5 print:h-3.5" />
+      <div className="p-4 bg-warning-50 border-2 border-warning-300 rounded-2xl text-left space-y-2 text-warning-950 print:p-3 print:rounded-xl print:border print:border-warning-400 print:space-y-1">
+        <p className="font-extrabold text-xs uppercase tracking-wider flex items-center space-x-1.5 text-warning-900 print:text-[10px]">
+          <Landmark className="w-4 h-4 text-warning-700 print:w-3.5 print:h-3.5" />
           <span>Instrucciones para Completar tu Afiliación:</span>
         </p>
         <p className="text-xs leading-relaxed font-medium print:text-[10px] print:leading-tight">
@@ -94,7 +94,7 @@ export const AgencyReceiptStep = ({ casoGenerado }) => {
         </div>
         <div className="flex justify-between border-t border-slate-200 pt-1.5 print:pt-1">
           <span className="text-slate-500 font-medium">Estado del Caso:</span>
-          <span className="font-bold text-amber-700 uppercase">Pendiente en Agencia</span>
+          <span className="font-bold text-warning-700 uppercase">Pendiente en Agencia</span>
         </div>
       </div>
 

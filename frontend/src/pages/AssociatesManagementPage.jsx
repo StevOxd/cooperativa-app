@@ -177,7 +177,7 @@ export const AssociatesManagementPage = () => {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-2 border-b border-slate-200">
         <div>
           <h1 className="text-2xl font-black text-slate-800 tracking-tight flex items-center space-x-3">
-            <div className="w-9 h-9 rounded-xl bg-emerald-600 flex items-center justify-center text-white shadow-xs">
+            <div className="w-9 h-9 rounded-xl bg-brand-600 flex items-center justify-center text-white shadow-xs">
               <Users className="w-5 h-5" />
             </div>
             <span>Gestión de Asociados y Cuentas</span>
@@ -194,14 +194,14 @@ export const AssociatesManagementPage = () => {
             className="px-3.5 py-2.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded-xl text-xs font-bold shadow-2xs flex items-center space-x-2 transition-all cursor-pointer"
             title="Exportar Reporte 1.2 en CSV compatible con Excel"
           >
-            <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
+            <FileSpreadsheet className="w-4 h-4 text-brand-600" />
             <span>Exportar Padrón (CSV)</span>
           </button>
 
           {canCreateAssociate && (
             <button
               onClick={() => setIsNewModalOpen(true)}
-              className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-md flex items-center space-x-2 transition-all cursor-pointer"
+              className="px-4 py-2.5 bg-brand-600 hover:bg-brand-700 text-white rounded-xl text-xs font-bold shadow-md flex items-center space-x-2 transition-all cursor-pointer"
             >
               <UserPlus className="w-4 h-4" />
               <span>+ Nuevo Asociado (Ventanilla)</span>
@@ -217,12 +217,12 @@ export const AssociatesManagementPage = () => {
           <span className="text-2xl font-black text-slate-800 font-mono mt-1 block">
             {pagination.total}
           </span>
-          <span className="text-[11px] text-emerald-600 font-medium">Asociados registrados</span>
+          <span className="text-[11px] text-brand-600 font-medium">Asociados registrados</span>
         </div>
 
         <div className="p-4 bg-white rounded-2xl border border-slate-200 shadow-2xs">
           <span className="text-xs font-semibold text-slate-500 block">Asociados Activos</span>
-          <span className="text-2xl font-black text-emerald-600 font-mono mt-1 block">
+          <span className="text-2xl font-black text-brand-600 font-mono mt-1 block">
             {totalActivos}
           </span>
           <span className="text-[11px] text-slate-400 font-medium">En esta vista</span>
@@ -239,7 +239,7 @@ export const AssociatesManagementPage = () => {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Buscar por DPI, Nombre, Usuario o Correo..."
-              className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-600"
+              className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-600"
             />
           </div>
 
@@ -247,7 +247,7 @@ export const AssociatesManagementPage = () => {
             <select
               value={estadoFilter}
               onChange={(e) => setEstadoFilter(e.target.value)}
-              className="px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-800 focus:ring-2 focus:ring-emerald-600"
+              className="px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-800 focus:ring-2 focus:ring-brand-600"
             >
               <option value="">Todos los Estados</option>
               <option value="ACTIVO">Activos</option>
@@ -315,7 +315,7 @@ export const AssociatesManagementPage = () => {
                       <td className="py-3.5 px-4 font-mono font-medium text-slate-800">
                         {a.cui_dpi}
                       </td>
-                      <td className="py-3.5 px-4 font-mono font-bold text-emerald-700">
+                      <td className="py-3.5 px-4 font-mono font-bold text-brand-700">
                         {a.codigo_corporativo || (
                           <span className="text-slate-400 font-normal">Sin cuenta</span>
                         )}
@@ -328,16 +328,16 @@ export const AssociatesManagementPage = () => {
                       <td className="py-3.5 px-4 text-right font-mono font-bold text-slate-900">
                         Q{a.saldo_total_disponible.toFixed(2)}
                       </td>
-                      <td className="py-3.5 px-4 text-right font-mono font-bold text-emerald-600">
+                      <td className="py-3.5 px-4 text-right font-mono font-bold text-brand-600">
                         Q{a.saldo_aportaciones.toFixed(2)}
                       </td>
                       <td className="py-3.5 px-4 text-center">
                         <span
                           className={`inline-block px-2.5 py-1 rounded-full text-[10px] font-bold ${
                             a.estado_asociado === 'ACTIVO'
-                              ? 'bg-emerald-100 text-emerald-800'
+                              ? 'bg-brand-100 text-brand-800'
                               : a.estado_asociado === 'SUSPENDIDO'
-                              ? 'bg-red-100 text-red-800'
+                              ? 'bg-danger-100 text-danger-800'
                               : 'bg-slate-100 text-slate-600'
                           }`}
                         >
@@ -353,7 +353,7 @@ export const AssociatesManagementPage = () => {
                               setSelectedAsociado(a);
                               setIsExpedienteModalOpen(true);
                             }}
-                            className="p-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-lg transition-colors cursor-pointer"
+                            className="p-1.5 bg-brand-50 hover:bg-brand-100 text-brand-700 rounded-lg transition-colors cursor-pointer"
                             title="Ver Expediente 360° (Reporte 1.1)"
                             aria-label={`Ver Expediente 360° de ${a.nombre_completo}`}
                           >
@@ -394,8 +394,8 @@ export const AssociatesManagementPage = () => {
                             onClick={() => promptToggleEstado(a)}
                             className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
                               a.estado_asociado === 'ACTIVO'
-                                ? 'bg-amber-50 hover:bg-amber-100 text-amber-700'
-                                : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700'
+                                ? 'bg-warning-50 hover:bg-warning-100 text-warning-700'
+                                : 'bg-brand-50 hover:bg-brand-100 text-brand-700'
                             }`}
                             title={a.estado_asociado === 'ACTIVO' ? 'Suspender Asociado' : 'Activar Asociado'}
                             aria-label={a.estado_asociado === 'ACTIVO' ? `Suspender Asociado ${a.nombre_completo}` : `Activar Asociado ${a.nombre_completo}`}
