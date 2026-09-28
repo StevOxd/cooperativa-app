@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { UpdateProfileModal } from './profile/UpdateProfileModal';
 import { ChangePasswordModal } from './profile/ChangePasswordModal';
 import { AccountSettingsModal } from './profile/AccountSettingsModal';
+import { GoogleEmailConfigModal } from './admin/GoogleEmailConfigModal';
 import {
   Building2,
   Users,
@@ -19,6 +20,7 @@ import {
   Database,
   Settings,
   ShieldCheck,
+  Mail,
 } from 'lucide-react';
 
 export const Navbar = () => {
@@ -31,6 +33,7 @@ export const Navbar = () => {
   const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
   const [isAccountSettingsOpen, setIsAccountSettingsOpen] = useState(false);
   const [accountSettingsInitialTab, setAccountSettingsInitialTab] = useState('2fa');
+  const [isEmailConfigOpen, setIsEmailConfigOpen] = useState(false);
 
   const dropdownRef = useRef(null);
 
@@ -225,6 +228,21 @@ export const Navbar = () => {
                           )}
                         </div>
                       </button>
+
+                      {/* Configuración del Servicio de Correo (solo ADMINISTRADOR) */}
+                      {isAdmin && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsDropdownOpen(false);
+                            setIsEmailConfigOpen(true);
+                          }}
+                          className="w-full flex items-center space-x-2.5 px-3 py-2 text-xs font-medium text-slate-700 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer text-left"
+                        >
+                          <Mail className="w-4 h-4 text-sky-700 flex-shrink-0" />
+                          <span>Servicio de Correo (Google SMTP)</span>
+                        </button>
+                      )}
                     </div>
 
                     {/* Separador Horizontal */}
@@ -304,6 +322,14 @@ export const Navbar = () => {
         onClose={() => setIsAccountSettingsOpen(false)}
         initialTab={accountSettingsInitialTab}
       />
+
+      {/* Modal de Configuración y Prueba de Google Mail (solo ADMINISTRADOR) */}
+      {isAdmin && (
+        <GoogleEmailConfigModal
+          isOpen={isEmailConfigOpen}
+          onClose={() => setIsEmailConfigOpen(false)}
+        />
+      )}
 
       {/* Modales de Perfil y Contraseña Legados (por compatibilidad) */}
       <UpdateProfileModal
