@@ -23,8 +23,8 @@ auditoria/
 reportes/
 reports/
 .agent/reportes/
-.agent/subagents/
 .agent/skills/
+!.agent/subagents/
 
 # Almacenamiento persistente de archivos y PDFs de clientes (ARQ-01)
 backend/uploads/**
