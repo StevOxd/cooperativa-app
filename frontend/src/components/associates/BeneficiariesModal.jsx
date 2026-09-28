@@ -291,9 +291,9 @@ export const BeneficiariesModal = ({
   if (!isOpen || !asociado) return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-[999] overflow-y-auto bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-[999] overflow-y-auto bg-slate-950/60 flex items-center justify-center p-4">
       <div
-        className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200"
+        className="bg-white rounded-lg shadow-lg border border-slate-200 w-full max-w-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200"
         role="dialog"
         aria-modal="true"
         aria-labelledby="beneficiaries-modal-title"
@@ -301,7 +301,7 @@ export const BeneficiariesModal = ({
         {/* Header Modal */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/50">
           <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-xl bg-purple-100 flex items-center justify-center text-purple-700">
+            <div className="w-10 h-10 rounded-lg bg-purple-100 flex items-center justify-center text-purple-700">
               <Users2 className="w-5 h-5" />
             </div>
             <div>
@@ -315,7 +315,7 @@ export const BeneficiariesModal = ({
           </div>
           <button
             onClick={onClose}
-            className="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
+            className="text-slate-400 hover:text-slate-600 p-1.5 rounded-md hover:bg-slate-100 transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
@@ -359,7 +359,7 @@ export const BeneficiariesModal = ({
 
         {/* Alerta de Error dentro del Modal */}
         {errorMsg && (
-          <div className="mx-6 mt-4 p-3.5 rounded-xl bg-danger-50 border border-danger-200 flex items-start space-x-3 text-danger-700">
+          <div className="mx-6 mt-4 p-3.5 rounded-lg bg-danger-50 border border-danger-200 flex items-start space-x-3 text-danger-700">
             <AlertCircle className="w-5 h-5 shrink-0 mt-0.5 text-danger-600" />
             <div className="text-xs font-semibold">{errorMsg}</div>
           </div>
@@ -367,7 +367,7 @@ export const BeneficiariesModal = ({
 
         {/* Alerta de Éxito dentro del Modal */}
         {successMsg && (
-          <div className="mx-6 mt-4 p-3.5 rounded-xl bg-brand-50 border border-brand-200 flex items-start space-x-3 text-brand-800">
+          <div className="mx-6 mt-4 p-3.5 rounded-lg bg-brand-50 border border-brand-200 flex items-start space-x-3 text-brand-800">
             <CheckCircle2 className="w-5 h-5 shrink-0 mt-0.5 text-brand-600" />
             <div className="text-xs font-semibold">{successMsg}</div>
           </div>
@@ -384,7 +384,7 @@ export const BeneficiariesModal = ({
               <select
                 value={selectedCuentaId || ''}
                 onChange={handleCuentaChange}
-                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 font-semibold text-xs focus:ring-2 focus:ring-purple-600"
+                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-md text-slate-900 font-semibold text-xs focus:ring-2 focus:ring-purple-600"
                 required
               >
                 {cuentas.map((c) => (
@@ -399,7 +399,7 @@ export const BeneficiariesModal = ({
           </div>
 
           {/* Barra de Progreso Visual de la Regla del 100.00% */}
-          <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
+          <div className="p-4 bg-slate-50 rounded-lg border border-slate-200 space-y-2">
             <div className="flex justify-between items-center text-xs">
               <span className="font-bold text-slate-700 flex items-center space-x-1.5">
                 <PieChart className="w-4 h-4 text-purple-600" />
@@ -468,7 +468,7 @@ export const BeneficiariesModal = ({
               <button
                 type="button"
                 onClick={handleAddBeneficiario}
-                className="px-2.5 py-1 text-xs font-bold text-purple-700 bg-purple-50 hover:bg-purple-100 border border-purple-200 rounded-lg flex items-center space-x-1 transition-colors cursor-pointer"
+                className="px-2.5 py-1 text-xs font-bold text-purple-700 bg-purple-50 hover:bg-purple-100 border border-purple-200 rounded-md flex items-center space-x-1 transition-colors cursor-pointer"
               >
                 <Plus className="w-3.5 h-3.5" />
                 <span>Agregar Beneficiario</span>
@@ -478,7 +478,7 @@ export const BeneficiariesModal = ({
             {beneficiarios.map((ben, index) => (
               <div
                 key={index}
-                className="p-3.5 bg-slate-50/70 border border-slate-200 rounded-xl space-y-2 relative group"
+                className="p-3.5 bg-slate-50/70 border border-slate-200 rounded-lg space-y-2 relative group"
               >
                 <div className="flex justify-between items-center">
                   <span className="text-xs font-bold text-slate-500 uppercase">
@@ -506,7 +506,7 @@ export const BeneficiariesModal = ({
                       value={ben.nombre_completo}
                       onChange={(e) => handleBenChange(index, 'nombre_completo', e.target.value)}
                       placeholder="Nombres y Apellidos"
-                      className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-xs"
+                      className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-md text-xs"
                       required
                     />
                   </div>
@@ -518,7 +518,7 @@ export const BeneficiariesModal = ({
                     <select
                       value={ben.parentesco}
                       onChange={(e) => handleBenChange(index, 'parentesco', e.target.value)}
-                      className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-xs"
+                      className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-md text-xs"
                     >
                       {PARENTESCOS.map((p) => (
                         <option key={p} value={p}>
@@ -540,7 +540,7 @@ export const BeneficiariesModal = ({
                       value={ben.cui_dpi || ''}
                       onChange={(e) => handleBenChange(index, 'cui_dpi', e.target.value)}
                       placeholder="13 dígitos"
-                      className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-mono"
+                      className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-md text-xs font-mono"
                     />
                   </div>
 
@@ -554,7 +554,7 @@ export const BeneficiariesModal = ({
                       value={ben.telefono || ''}
                       onChange={(e) => handleBenChange(index, 'telefono', e.target.value)}
                       placeholder="Ej. 55551234"
-                      className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-mono"
+                      className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-md text-xs font-mono"
                     />
                   </div>
 
@@ -570,7 +570,7 @@ export const BeneficiariesModal = ({
                         max="100.00"
                         value={ben.porcentaje}
                         onChange={(e) => handleBenChange(index, 'porcentaje', e.target.value)}
-                        className="w-full pr-6 pl-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-bold text-slate-900 focus:ring-2 focus:ring-purple-600"
+                        className="w-full pr-6 pl-2.5 py-1.5 bg-white border border-slate-300 rounded-md text-xs font-bold text-slate-900 focus:ring-2 focus:ring-purple-600"
                         required
                       />
                       <span className="absolute right-2 top-2 text-xs font-bold text-slate-400 pointer-events-none">
@@ -593,7 +593,7 @@ export const BeneficiariesModal = ({
               value={motivoCambio}
               onChange={(e) => setMotivoCambio(e.target.value)}
               placeholder="Ej. Solicitud directa en ventanilla por actualización familiar"
-              className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-purple-600"
+              className="w-full px-3 py-2 bg-white border border-slate-300 rounded-md text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-purple-600"
             />
           </div>
 
@@ -611,14 +611,14 @@ export const BeneficiariesModal = ({
                 type="button"
                 onClick={onClose}
                 disabled={saving}
-                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-xl transition-colors cursor-pointer"
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-md transition-colors cursor-pointer"
               >
                 Cerrar
               </button>
               <button
                 type="submit"
                 disabled={saving || !esValido100 || !hasChanges}
-                className="px-5 py-2 bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs rounded-xl shadow-md flex items-center space-x-2 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-5 py-2 bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs rounded-md flex items-center space-x-2 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 title={!hasChanges ? 'Modifique algún campo o porcentaje para habilitar el guardado' : ''}
               >
                 {saving ? (
@@ -650,7 +650,7 @@ export const BeneficiariesModal = ({
                 <select
                   value={selectedCuentaId || ''}
                   onChange={handleCuentaChange}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-purple-600"
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-md text-xs font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-purple-600"
                 >
                   {cuentas.map((c) => (
                     <option key={c.id_cuenta} value={c.id_cuenta}>
@@ -669,7 +669,7 @@ export const BeneficiariesModal = ({
                 <p className="text-xs font-semibold">Cargando registro de auditoría...</p>
               </div>
             ) : historialList.length === 0 ? (
-              <div className="py-16 text-center text-slate-400 bg-slate-50/50 rounded-2xl border border-dashed border-slate-200">
+              <div className="py-16 text-center text-slate-400 bg-slate-50/50 rounded-lg border border-dashed border-slate-200">
                 <History className="w-12 h-12 text-slate-300 mx-auto mb-2" />
                 <p className="font-semibold text-slate-700 text-sm">Sin modificaciones registradas</p>
                 <p className="text-xs text-slate-400 mt-0.5">
@@ -697,7 +697,7 @@ export const BeneficiariesModal = ({
                   }
 
                   return (
-                    <div key={item.id_historial} className="bg-slate-50/70 border border-slate-200 rounded-xl p-4 space-y-3">
+                    <div key={item.id_historial} className="bg-slate-50/70 border border-slate-200 rounded-lg p-4 space-y-3">
                       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 pb-2 border-b border-slate-200/80 text-xs">
                         <div className="flex items-center space-x-2">
                           <Clock className="w-3.5 h-3.5 text-purple-600" />
@@ -773,7 +773,7 @@ export const BeneficiariesModal = ({
               <button
                 type="button"
                 onClick={onClose}
-                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-xl transition-colors cursor-pointer"
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-md transition-colors cursor-pointer"
               >
                 Cerrar
               </button>

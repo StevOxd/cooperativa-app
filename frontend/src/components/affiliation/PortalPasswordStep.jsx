@@ -60,7 +60,7 @@ export const PortalPasswordStep = ({
             value={credenciales.email}
             onChange={(e) => setCredenciales((prev) => ({ ...prev, email: e.target.value }))}
             placeholder="Ingrese correo electrónico"
-            className={`w-full pl-9 pr-10 py-2.5 bg-white border rounded-xl text-slate-900 text-sm focus:outline-none shadow-2xs transition-colors ${
+            className={`w-full pl-9 pr-10 py-2.5 bg-white border rounded-md text-slate-900 text-sm focus:outline-none transition-colors ${
               credEmailStatus.disponible === false
                 ? 'border-danger-500 focus:ring-2 focus:ring-danger-500 bg-danger-50/20 text-danger-900'
                 : credEmailStatus.disponible === true
@@ -105,7 +105,7 @@ export const PortalPasswordStep = ({
             value={credenciales.password}
             onChange={(e) => setCredenciales((prev) => ({ ...prev, password: e.target.value }))}
             placeholder="Ingrese contraseña para el portal"
-            className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600 shadow-2xs"
+            className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-md text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600"
             required
           />
         </div>
@@ -118,14 +118,14 @@ export const PortalPasswordStep = ({
             value={credenciales.confirmPassword}
             onChange={(e) => setCredenciales((prev) => ({ ...prev, confirmPassword: e.target.value }))}
             placeholder="Confirme su contraseña"
-            className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600 shadow-2xs"
+            className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-md text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600"
             required
           />
         </div>
       </div>
 
       {/* Resumen del débito */}
-      <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-xs space-y-1.5">
+      <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-lg text-xs space-y-1.5">
         <div className="flex justify-between">
           <span className="text-slate-600 font-medium">Cuenta de Débito:</span>
           <span className="font-mono font-bold text-slate-800">{cuentaSeleccionadaObj?.numero_cuenta_bancaria}</span>
@@ -141,7 +141,7 @@ export const PortalPasswordStep = ({
           type="button"
           onClick={() => setPhase('EXISTENTE_CONFIG')}
           disabled={loading}
-          className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-xl flex items-center space-x-1.5 transition-all cursor-pointer"
+          className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-md flex items-center space-x-1.5 transition-all cursor-pointer"
         >
           <ArrowLeft className="w-3.5 h-3.5" />
           <span>Volver a Cuentas</span>
@@ -149,7 +149,7 @@ export const PortalPasswordStep = ({
         <button
           type="submit"
           disabled={loading || credEmailStatus.disponible === false || credEmailStatus.checking}
-          className="px-6 py-2.5 bg-blue-700 hover:bg-blue-800 text-white font-bold text-sm rounded-xl shadow-md flex items-center space-x-2 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+          className="px-6 py-2.5 bg-blue-700 hover:bg-blue-800 text-white font-bold text-sm rounded-md flex items-center space-x-2 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {loading ? (
             <>

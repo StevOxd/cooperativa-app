@@ -645,7 +645,7 @@ export const AssociateDashboard = () => {
   return (
     <div className="space-y-6">
       {/* Encabezado del Portal */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-white p-6 rounded-lg border border-slate-200">
         <div>
           <span className="text-xs font-bold text-brand-700 uppercase tracking-widest block mb-1">
             Portal de Autogestión del Asociado
@@ -660,7 +660,7 @@ export const AssociateDashboard = () => {
         <div className="flex items-center space-x-2">
           <button
             onClick={() => setShowTour(true)}
-            className="inline-flex items-center space-x-1.5 px-3.5 py-2 rounded-xl border border-brand-300 bg-brand-50 hover:bg-brand-100 text-brand-800 text-xs font-bold shadow-2xs transition-colors cursor-pointer"
+            className="inline-flex items-center space-x-1.5 px-3.5 py-2 rounded-md border border-brand-300 bg-brand-50 hover:bg-brand-100 text-brand-800 text-xs font-bold transition-colors cursor-pointer"
             title="Ver recorrido guiado por las funciones del portal"
           >
             <Compass className="w-3.5 h-3.5 text-brand-700" />
@@ -668,14 +668,14 @@ export const AssociateDashboard = () => {
           </button>
           <button
             onClick={openTrasladoModal}
-            className="inline-flex items-center space-x-1.5 px-4 py-2 rounded-xl bg-brand-700 hover:bg-brand-800 text-white text-xs font-bold shadow-sm transition-colors cursor-pointer"
+            className="inline-flex items-center space-x-1.5 px-4 py-2 rounded-md bg-brand-700 hover:bg-brand-800 text-white text-xs font-bold transition-colors cursor-pointer"
           >
             <Send className="w-3.5 h-3.5" />
             <span>Solicitar Traslado</span>
           </button>
           <button
             onClick={fetchData}
-            className="inline-flex items-center space-x-1.5 px-3.5 py-2 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-600 text-xs font-semibold shadow-xs transition-colors cursor-pointer"
+            className="inline-flex items-center space-x-1.5 px-3.5 py-2 rounded-md border border-slate-200 hover:bg-slate-50 text-slate-600 text-xs font-semibold transition-colors cursor-pointer"
             title="Actualizar datos"
           >
             <RefreshCw className="w-3.5 h-3.5" />
@@ -749,7 +749,7 @@ export const AssociateDashboard = () => {
           {/* Tarjetas de Resumen Financiero */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {/* Total Ahorros */}
-            <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+            <div className="bg-white p-6 rounded-lg border border-slate-200 flex items-center justify-between">
               <div className="space-y-1">
                 <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider block">
                   Total Ahorros
@@ -758,13 +758,13 @@ export const AssociateDashboard = () => {
                   Q{totalAhorrado.toLocaleString('es-GT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </span>
               </div>
-              <div className="w-12 h-12 rounded-xl bg-brand-50 text-brand-700 flex items-center justify-center">
+              <div className="w-12 h-12 rounded-lg bg-brand-50 text-brand-700 flex items-center justify-center">
                 <Wallet className="w-6 h-6" />
               </div>
             </div>
 
             {/* Cuentas Activas */}
-            <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+            <div className="bg-white p-6 rounded-lg border border-slate-200 flex items-center justify-between">
               <div className="space-y-1">
                 <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider block">
                   Cuentas Activas
@@ -773,13 +773,13 @@ export const AssociateDashboard = () => {
                   {activeCuentasCount}
                 </span>
               </div>
-              <div className="w-12 h-12 rounded-xl bg-blue-50 text-blue-700 flex items-center justify-center">
+              <div className="w-12 h-12 rounded-lg bg-blue-50 text-blue-700 flex items-center justify-center">
                 <CreditCard className="w-6 h-6" />
               </div>
             </div>
 
             {/* Créditos Solicitados */}
-            <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+            <div className="bg-white p-6 rounded-lg border border-slate-200 flex items-center justify-between">
               <div className="space-y-1">
                 <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider block">
                   Créditos Activos / En Curso
@@ -788,7 +788,7 @@ export const AssociateDashboard = () => {
                   {activeCreditosCount}
                 </span>
               </div>
-              <div className="w-12 h-12 rounded-xl bg-purple-50 text-purple-700 flex items-center justify-center">
+              <div className="w-12 h-12 rounded-lg bg-purple-50 text-purple-700 flex items-center justify-center">
                 <FileText className="w-6 h-6" />
               </div>
             </div>
@@ -802,7 +802,7 @@ export const AssociateDashboard = () => {
             </h2>
 
             {cuentas.length === 0 ? (
-              <div className="bg-white p-8 rounded-2xl border border-slate-200 text-center text-slate-500 shadow-xs">
+              <div className="bg-white p-8 rounded-lg border border-slate-200 text-center text-slate-500">
                 <Wallet className="w-12 h-12 text-slate-300 mx-auto mb-2" />
                 <p className="font-bold text-slate-800 text-base">No posee cuentas activas en la cooperativa aún.</p>
                 <p className="text-xs text-slate-500 mt-1 max-w-md mx-auto leading-relaxed">
@@ -811,7 +811,7 @@ export const AssociateDashboard = () => {
                 <button
                   type="button"
                   onClick={() => setActiveTab('planilla')}
-                  className="mt-4 px-4 py-2 bg-brand-700 hover:bg-brand-800 text-white text-xs font-bold rounded-xl shadow-xs transition-colors cursor-pointer inline-flex items-center space-x-1.5"
+                  className="mt-4 px-4 py-2 bg-brand-700 hover:bg-brand-800 text-white text-xs font-bold rounded-md transition-colors cursor-pointer inline-flex items-center space-x-1.5"
                 >
                   <span>Ir a Cuenta Origen y Traslados</span>
                   <span>&rarr;</span>
@@ -822,7 +822,7 @@ export const AssociateDashboard = () => {
                 {cuentas.map((c) => (
                   <div 
                     key={c.id_cuenta}
-                    className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs hover:border-slate-300 transition-all flex flex-col justify-between"
+                    className="bg-white p-6 rounded-lg border border-slate-200 hover:border-slate-300 transition-all flex flex-col justify-between"
                   >
                     <div>
                       <div className="flex justify-between items-start mb-4">
@@ -859,7 +859,7 @@ export const AssociateDashboard = () => {
                         type="button"
                         onClick={() => handleDownloadPdf(c)}
                         disabled={generatingPdf && downloadingAccountId === c.id_cuenta}
-                        className="inline-flex items-center space-x-1.5 text-xs font-semibold text-brand-700 hover:text-brand-900 bg-brand-50 hover:bg-brand-100 px-2.5 py-1.5 rounded-lg border border-brand-200/60 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="inline-flex items-center space-x-1.5 text-xs font-semibold text-brand-700 hover:text-brand-900 bg-brand-50 hover:bg-brand-100 px-2.5 py-1.5 rounded-md border border-brand-200/60 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                         title="Descargar Estado de Cuenta Oficial en PDF"
                       >
                         {generatingPdf && downloadingAccountId === c.id_cuenta ? (
@@ -890,8 +890,7 @@ export const AssociateDashboard = () => {
         <div className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-start">
             {/* Cuenta Origen Info (Izquierda) */}
-            <div className="md:col-span-5 bg-gradient-to-br from-brand-800 to-teal-950 p-6 sm:p-8 rounded-2xl text-white shadow-md relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full blur-xl pointer-events-none" />
+            <div className="md:col-span-5 bg-gradient-to-br from-brand-800 to-teal-950 p-6 sm:p-8 rounded-lg text-white relative overflow-hidden">
               <div className="relative z-10 space-y-6">
                 <div>
                   <div className="flex items-center justify-between mb-1">
@@ -939,7 +938,7 @@ export const AssociateDashboard = () => {
                 <button
                   onClick={openTrasladoModal}
                   disabled={!cuentaPlanilla}
-                  className="w-full py-3 bg-white hover:bg-slate-50 text-brand-950 font-bold text-sm rounded-xl shadow-md transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full py-3 bg-white hover:bg-slate-50 text-brand-950 font-bold text-sm rounded-md transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed border border-line"
                 >
                   Trasladar Fondos
                 </button>
@@ -947,7 +946,7 @@ export const AssociateDashboard = () => {
             </div>
 
             {/* Historial de Traslados (Derecha) */}
-            <div className="md:col-span-7 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+            <div className="md:col-span-7 bg-white p-6 rounded-lg border border-slate-200 space-y-4">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pb-2 border-b border-slate-100">
                 <div>
                   <h3 className="text-base font-bold text-slate-800">
@@ -968,14 +967,14 @@ export const AssociateDashboard = () => {
                     value={searchTrasladoQuery}
                     onChange={(e) => setSearchTrasladoQuery(e.target.value)}
                     placeholder="Buscar por caso o destino..."
-                    className="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-brand-500 focus:bg-white"
+                    className="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-md focus:outline-none focus:ring-1 focus:ring-brand-500 focus:bg-white"
                   />
                 </div>
                 <div>
                   <select
                     value={filterTrasladoEstado}
                     onChange={(e) => setFilterTrasladoEstado(e.target.value)}
-                    className="w-full px-2.5 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-brand-500 font-medium text-slate-700"
+                    className="w-full px-2.5 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-md focus:outline-none focus:ring-1 focus:ring-brand-500 font-medium text-slate-700"
                   >
                     <option value="TODOS">Todos los Estados</option>
                     <option value="PENDIENTE">Pendientes</option>
@@ -987,7 +986,7 @@ export const AssociateDashboard = () => {
                   <select
                     value={filterTrasladoTipo}
                     onChange={(e) => setFilterTrasladoTipo(e.target.value)}
-                    className="w-full px-2.5 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-brand-500 font-medium text-slate-700"
+                    className="w-full px-2.5 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-md focus:outline-none focus:ring-1 focus:ring-brand-500 font-medium text-slate-700"
                   >
                     <option value="TODOS">Todos los Tipos</option>
                     <option value="TRASLADO_DIRECTO">Traslado Directo</option>
@@ -1077,8 +1076,8 @@ export const AssociateDashboard = () => {
           </div>
 
           {creditosAprobados.length === 0 ? (
-            <div className="bg-white p-12 rounded-2xl border border-slate-200 text-center space-y-4 max-w-xl mx-auto shadow-xs">
-              <div className="w-16 h-16 rounded-2xl bg-brand-50 text-brand-700 flex items-center justify-center mx-auto">
+            <div className="bg-white p-12 rounded-lg border border-slate-200 text-center space-y-4 max-w-xl mx-auto">
+              <div className="w-16 h-16 rounded-lg bg-brand-50 text-brand-700 flex items-center justify-center mx-auto">
                 <Calculator className="w-8 h-8" />
               </div>
               <div className="space-y-1">
@@ -1092,7 +1091,7 @@ export const AssociateDashboard = () => {
               <div className="pt-2">
                 <Link
                   to="/simulador-credito"
-                  className="inline-flex items-center space-x-2 px-5 py-2.5 rounded-xl bg-brand-700 hover:bg-brand-800 text-white text-xs font-bold shadow-md transition-all cursor-pointer"
+                  className="inline-flex items-center space-x-2 px-5 py-2.5 rounded-lg bg-brand-700 hover:bg-brand-800 text-white text-xs font-bold transition-all cursor-pointer"
                 >
                   <Calculator className="w-4 h-4" />
                   <span>Ir al Simulador de Créditos</span>
@@ -1114,9 +1113,9 @@ export const AssociateDashboard = () => {
                       <button
                         key={cr.id_solicitud_credito}
                         onClick={() => setSelectedCreditoPlanId(cr.id_solicitud_credito)}
-                        className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                        className={`px-3.5 py-1.5 rounded-md text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
                           isSelected
-                            ? 'bg-brand-800 text-white shadow-xs'
+                            ? 'bg-brand-800 text-white'
                             : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
                         }`}
                       >
@@ -1130,8 +1129,7 @@ export const AssociateDashboard = () => {
               {/* Tarjeta Principal del Crédito Aprobado */}
               {currentCreditoPlan && (
                 <>
-                  <div className="bg-gradient-to-br from-brand-800 to-teal-950 p-6 sm:p-8 rounded-2xl text-white shadow-md relative overflow-hidden">
-                    <div className="absolute top-0 right-0 w-48 h-48 bg-white/5 rounded-full blur-2xl pointer-events-none" />
+                  <div className="bg-gradient-to-br from-brand-800 to-teal-950 p-6 sm:p-8 rounded-lg text-white relative overflow-hidden">
 
                     <div className="relative z-10 space-y-6">
                       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-white/10 pb-4">
@@ -1199,7 +1197,7 @@ export const AssociateDashboard = () => {
                   </div>
 
                   {/* Desglose de Fórmula: Cuota Capital + Interés = Cuota del Mes */}
-                  <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-4">
+                  <div className="bg-white p-6 rounded-lg border border-slate-200 space-y-4">
                     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-slate-100 pb-3">
                       <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider flex items-center space-x-2">
                         <Percent className="w-4 h-4 text-brand-600" />
@@ -1215,7 +1213,7 @@ export const AssociateDashboard = () => {
 
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-stretch">
                       {/* Bloque 1: Cuota Capital */}
-                      <div className="p-5 rounded-xl bg-slate-50 border border-slate-200 text-center relative flex flex-col justify-between">
+                      <div className="p-5 rounded-lg bg-slate-50 border border-slate-200 text-center relative flex flex-col justify-between">
                         <div>
                           <span className="text-xs font-extrabold text-slate-700 uppercase tracking-wider block mb-1">
                             Cuota Capital
@@ -1227,13 +1225,13 @@ export const AssociateDashboard = () => {
                         <div className="mt-3 font-mono text-xs font-bold text-slate-700">
                           Amortiza progresivamente
                         </div>
-                        <div className="hidden md:flex absolute -right-3.5 top-1/2 -translate-y-1/2 z-10 w-7 h-7 rounded-full bg-brand-700 text-white font-black text-sm items-center justify-center shadow-xs">
+                        <div className="hidden md:flex absolute -right-3.5 top-1/2 -translate-y-1/2 z-10 w-7 h-7 rounded-full bg-brand-700 text-white font-black text-sm items-center justify-center">
                           +
                         </div>
                       </div>
 
                       {/* Bloque 2: Interés del Mes */}
-                      <div className="p-5 rounded-xl bg-slate-50 border border-slate-200 text-center relative flex flex-col justify-between">
+                      <div className="p-5 rounded-lg bg-slate-50 border border-slate-200 text-center relative flex flex-col justify-between">
                         <div>
                           <span className="text-xs font-extrabold text-warning-800 uppercase tracking-wider block mb-1">
                             Interés del Mes
@@ -1245,13 +1243,13 @@ export const AssociateDashboard = () => {
                         <div className="mt-3 font-mono text-xs font-bold text-warning-700">
                           Tasa mensual: {(parseFloat(currentCreditoPlan.tasa_interes) / 12).toFixed(4)}%
                         </div>
-                        <div className="hidden md:flex absolute -right-3.5 top-1/2 -translate-y-1/2 z-10 w-7 h-7 rounded-full bg-brand-700 text-white font-black text-sm items-center justify-center shadow-xs">
+                        <div className="hidden md:flex absolute -right-3.5 top-1/2 -translate-y-1/2 z-10 w-7 h-7 rounded-full bg-brand-700 text-white font-black text-sm items-center justify-center">
                           =
                         </div>
                       </div>
 
                       {/* Bloque 3: Cuota del Mes */}
-                      <div className="p-5 rounded-xl bg-gradient-to-br from-brand-50 to-teal-50 border-2 border-brand-500 text-center flex flex-col justify-between">
+                      <div className="p-5 rounded-lg bg-gradient-to-br from-brand-50 to-teal-50 border-2 border-brand-500 text-center flex flex-col justify-between">
                         <div>
                           <span className="text-xs font-extrabold text-brand-900 uppercase tracking-wider block mb-1">
                             Cuota del Mes
@@ -1268,7 +1266,7 @@ export const AssociateDashboard = () => {
                   </div>
 
                   {/* Tabla de Amortización Francesa */}
-                  <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-4">
+                  <div className="bg-white p-6 rounded-lg border border-slate-200 space-y-4">
                     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-slate-100 pb-3">
                       <div>
                         <h3 className="text-base font-bold text-slate-900 flex items-center space-x-2">
@@ -1291,7 +1289,7 @@ export const AssociateDashboard = () => {
 
                     {/* Controles de Paginación Anual (Bloques de 12 cuotas) para créditos > 12 meses */}
                     {totalCuotasPages > 1 && (
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 bg-slate-50 border border-slate-200 rounded-xl">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 bg-slate-50 border border-slate-200 rounded-lg">
                         <div className="flex items-center space-x-2 text-xs text-slate-600 font-medium">
                           <span>
                             Mostrando cuotas <strong>{(cuotaPage - 1) * cuotasPerPage + 1}</strong> a <strong>{Math.min(cuotaPage * cuotasPerPage, planAmortizacion.length)}</strong> de <strong>{planAmortizacion.length}</strong>
@@ -1305,7 +1303,7 @@ export const AssociateDashboard = () => {
                             type="button"
                             onClick={() => setCuotaPage((prev) => Math.max(1, prev - 1))}
                             disabled={cuotaPage === 1}
-                            className="inline-flex items-center px-2.5 py-1 rounded-lg border border-slate-200 bg-white text-slate-700 text-xs font-semibold hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-2xs"
+                            className="inline-flex items-center px-2.5 py-1 rounded-md border border-slate-200 bg-white text-slate-700 text-xs font-semibold hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
                           >
                             <ChevronLeft className="w-3.5 h-3.5 mr-1" />
                             Anterior
@@ -1322,9 +1320,9 @@ export const AssociateDashboard = () => {
                                   key={pageNum}
                                   type="button"
                                   onClick={() => setCuotaPage(pageNum)}
-                                  className={`px-2.5 py-1 text-xs font-bold rounded-lg transition-all ${
+                                  className={`px-2.5 py-1 text-xs font-bold rounded-md transition-all ${
                                     isActive
-                                      ? 'bg-brand-600 text-white shadow-xs'
+                                      ? 'bg-brand-600 text-white'
                                       : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100'
                                   }`}
                                   title={`Cuotas ${startCuota} a ${endCuota}`}
@@ -1339,7 +1337,7 @@ export const AssociateDashboard = () => {
                             type="button"
                             onClick={() => setCuotaPage((prev) => Math.min(totalCuotasPages, prev + 1))}
                             disabled={cuotaPage === totalCuotasPages}
-                            className="inline-flex items-center px-2.5 py-1 rounded-lg border border-slate-200 bg-white text-slate-700 text-xs font-semibold hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-2xs"
+                            className="inline-flex items-center px-2.5 py-1 rounded-md border border-slate-200 bg-white text-slate-700 text-xs font-semibold hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
                           >
                             Siguiente
                             <ChevronRight className="w-3.5 h-3.5 ml-1" />
@@ -1348,7 +1346,7 @@ export const AssociateDashboard = () => {
                       </div>
                     )}
 
-                    <div className="overflow-x-auto border border-slate-100 rounded-xl">
+                    <div className="overflow-x-auto border border-slate-100 rounded-lg">
                       <table className="w-full text-left text-sm">
                         <thead className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wider border-b border-slate-200">
                           <tr>
@@ -1482,7 +1480,7 @@ export const AssociateDashboard = () => {
             {catalogoProductos.map((p) => (
               <div
                 key={p.id_tipo_cuenta}
-                className="bg-white rounded-2xl border border-slate-200 shadow-sm hover:border-slate-300 transition-all overflow-hidden flex flex-col justify-between"
+                className="bg-white rounded-lg border border-slate-200 hover:border-slate-300 transition-all overflow-hidden flex flex-col justify-between"
               >
                 <div className="p-6 space-y-4">
                   <div className="flex justify-between items-start">
@@ -1519,7 +1517,7 @@ export const AssociateDashboard = () => {
       {/* ==================== TAB: MIS BENEFICIARIOS ==================== */}
       {activeTab === 'beneficiarios' && (
         <div className="space-y-6">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-white p-6 rounded-lg border border-slate-200">
             <div>
               <div className="flex items-center space-x-2">
                 <Users2 className="w-6 h-6 text-brand-600" />
@@ -1535,7 +1533,7 @@ export const AssociateDashboard = () => {
             <button
               onClick={fetchMisBeneficiarios}
               disabled={loadingBeneficiarios}
-              className="inline-flex items-center space-x-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl transition-colors cursor-pointer self-start sm:self-auto"
+              className="inline-flex items-center space-x-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-md transition-colors cursor-pointer self-start sm:self-auto"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${loadingBeneficiarios ? 'animate-spin text-brand-600' : ''}`} />
               <span>Actualizar Lista</span>
@@ -1543,12 +1541,12 @@ export const AssociateDashboard = () => {
           </div>
 
           {loadingBeneficiarios ? (
-            <div className="py-20 flex flex-col items-center justify-center text-slate-500 bg-white rounded-2xl border border-slate-200">
+            <div className="py-20 flex flex-col items-center justify-center text-slate-500 bg-white rounded-lg border border-slate-200">
               <Loader2 className="w-8 h-8 text-brand-600 animate-spin mb-2" />
               <p className="text-xs font-semibold">Cargando beneficiarios registrados...</p>
             </div>
           ) : misBeneficiariosData.length === 0 ? (
-            <div className="bg-white p-12 rounded-2xl border border-slate-200 text-center space-y-3">
+            <div className="bg-white p-12 rounded-lg border border-slate-200 text-center space-y-3">
               <Users2 className="w-12 h-12 text-slate-300 mx-auto" />
               <h3 className="text-base font-bold text-slate-800">No se encontraron cuentas activas</h3>
               <p className="text-xs text-slate-500 max-w-md mx-auto">
@@ -1562,7 +1560,7 @@ export const AssociateDashboard = () => {
                 const isComplete = Math.abs(totalPct - 100.00) < 0.01;
 
                 return (
-                  <div key={cuenta.id_cuenta} className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                  <div key={cuenta.id_cuenta} className="bg-white rounded-lg border border-slate-200 overflow-hidden">
                     <div className="p-5 sm:p-6 bg-gradient-to-r from-slate-50 to-white border-b border-slate-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                       <div>
                         <div className="flex items-center space-x-2">
@@ -1594,7 +1592,7 @@ export const AssociateDashboard = () => {
 
                       <button
                         onClick={() => openEditarBeneficiariosModal(cuenta)}
-                        className="inline-flex items-center space-x-1.5 px-4 py-2 bg-brand-700 hover:bg-brand-800 text-white rounded-xl text-xs font-semibold shadow-sm transition-colors cursor-pointer"
+                        className="inline-flex items-center space-x-1.5 px-4 py-2 bg-brand-700 hover:bg-brand-800 text-white rounded-md text-xs font-semibold transition-colors cursor-pointer"
                       >
                         <Users2 className="w-3.5 h-3.5" />
                         <span>Gestionar Beneficiarios</span>
@@ -1603,7 +1601,7 @@ export const AssociateDashboard = () => {
 
                     <div className="p-5 sm:p-6">
                       {!cuenta.beneficiarios || cuenta.beneficiarios.length === 0 ? (
-                        <div className="text-center py-8 bg-slate-50/50 rounded-xl border border-dashed border-slate-200">
+                        <div className="text-center py-8 bg-slate-50/50 rounded-lg border border-dashed border-slate-200">
                           <AlertCircle className="w-8 h-8 text-warning-500 mx-auto mb-2" />
                           <p className="text-xs font-bold text-slate-700">Sin beneficiarios registrados</p>
                           <p className="text-xs text-slate-500 mt-0.5">
@@ -1671,9 +1669,9 @@ export const AssociateDashboard = () => {
 
       {/* Modal de Movimientos de Cuenta */}
       {isModalOpen && selectedCuenta && createPortal(
-        <div className="fixed inset-0 z-[999] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm overflow-y-auto">
+        <div className="fixed inset-0 z-[999] flex items-center justify-center p-4 bg-slate-950/60 overflow-y-auto">
           <div
-            className="bg-white rounded-2xl max-w-4xl w-full p-6 sm:p-8 shadow-2xl border border-slate-200 relative my-8 animate-scaleUp"
+            className="bg-white rounded-lg max-w-4xl w-full p-6 sm:p-8 shadow-lg border border-slate-200 relative my-8 animate-scaleUp"
             role="dialog"
             aria-modal="true"
             aria-labelledby="movimientos-modal-title"
@@ -1692,7 +1690,7 @@ export const AssociateDashboard = () => {
                   type="button"
                   onClick={() => handleDownloadPdf(selectedCuenta, transactions)}
                   disabled={generatingPdf}
-                  className="inline-flex items-center space-x-1.5 px-3 py-1.5 bg-brand-50 hover:bg-brand-100 text-brand-800 border border-brand-200/80 rounded-lg text-xs font-semibold shadow-sm transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="inline-flex items-center space-x-1.5 px-3 py-1.5 bg-brand-50 hover:bg-brand-100 text-brand-800 border border-brand-200/80 rounded-md text-xs font-semibold transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                   title="Descargar Estado de Cuenta Oficial en PDF"
                 >
                   {generatingPdf ? (
@@ -1707,14 +1705,14 @@ export const AssociateDashboard = () => {
                     setIsModalOpen(false);
                     setTransactions([]);
                   }}
-                  className="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
+                  className="text-slate-400 hover:text-slate-600 p-1.5 rounded-md hover:bg-slate-100 transition-colors cursor-pointer"
                 >
                   <X className="w-5 h-5" />
                 </button>
               </div>
             </div>
 
-            <div className="mb-6 p-4 rounded-xl bg-slate-50 border border-slate-200/60 flex flex-wrap gap-6 justify-between items-center text-sm">
+            <div className="mb-6 p-4 rounded-lg bg-slate-50 border border-slate-200/60 flex flex-wrap gap-6 justify-between items-center text-sm">
               <div>
                 <span className="text-slate-400 block text-xs">Saldo Disponible</span>
                 <span className="text-lg font-bold text-slate-900">
@@ -1744,7 +1742,7 @@ export const AssociateDashboard = () => {
                 <p className="text-sm">No se encontraron movimientos registrados para esta cuenta.</p>
               </div>
             ) : (
-              <div className="overflow-x-auto max-h-96 border border-slate-200 rounded-xl overflow-y-auto">
+              <div className="overflow-x-auto max-h-96 border border-slate-200 rounded-lg overflow-y-auto">
                 <table className="w-full text-left text-sm">
                   <thead className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wider sticky top-0 border-b border-slate-200">
                     <tr>
@@ -1795,7 +1793,7 @@ export const AssociateDashboard = () => {
                 type="button"
                 onClick={() => handleDownloadPdf(selectedCuenta, transactions)}
                 disabled={generatingPdf}
-                className="w-full sm:w-auto inline-flex items-center justify-center space-x-2 px-4 py-2.5 bg-gradient-to-r from-brand-700 to-brand-900 hover:from-brand-800 hover:to-brand-950 text-white rounded-xl text-sm font-semibold shadow-sm transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full sm:w-auto inline-flex items-center justify-center space-x-2 px-4 py-2.5 bg-gradient-to-r from-brand-700 to-brand-900 hover:from-brand-800 hover:to-brand-950 text-white rounded-md text-sm font-semibold transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {generatingPdf ? (
                   <Loader2 className="w-4 h-4 animate-spin" />
@@ -1809,7 +1807,7 @@ export const AssociateDashboard = () => {
                   setIsModalOpen(false);
                   setTransactions([]);
                 }}
-                className="w-full sm:w-auto px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-sm font-semibold cursor-pointer"
+                className="w-full sm:w-auto px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-md text-sm font-semibold cursor-pointer"
               >
                 Cerrar Ventana
               </button>
@@ -1821,9 +1819,9 @@ export const AssociateDashboard = () => {
 
       {/* ==================== MODAL: FORMULARIO DE TRASLADO DE PLANILLA ==================== */}
       {isTrasladoModalOpen && cuentaPlanilla && createPortal(
-        <div className="fixed inset-0 z-[999] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm overflow-y-auto">
+        <div className="fixed inset-0 z-[999] flex items-center justify-center p-4 bg-slate-950/60 overflow-y-auto">
           <div
-            className="bg-white rounded-2xl max-w-lg w-full p-6 sm:p-8 shadow-2xl border border-slate-200 relative my-8 animate-scaleUp"
+            className="bg-white rounded-lg max-w-lg w-full p-6 sm:p-8 shadow-lg border border-slate-200 relative my-8 animate-scaleUp"
             role="dialog"
             aria-modal="true"
             aria-labelledby="traslado-modal-title"
@@ -1839,13 +1837,13 @@ export const AssociateDashboard = () => {
               </div>
               <button
                 onClick={closeTrasladoModal}
-                className="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
+                className="text-slate-400 hover:text-slate-600 p-1.5 rounded-md hover:bg-slate-100 transition-colors cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="mb-6 p-4 bg-brand-50 border border-brand-100 rounded-xl flex items-start space-x-3 text-brand-950 text-xs">
+            <div className="mb-6 p-4 bg-brand-50 border border-brand-100 rounded-lg flex items-start space-x-3 text-brand-950 text-xs">
               <Info className="w-4 h-4 text-brand-600 flex-shrink-0 mt-0.5" />
               <div className="space-y-1">
                 <span className="font-bold block">Cuenta Origen: {cuentaPlanilla.tipo_cuenta} ({cuentaPlanilla.numero_cuenta})</span>
@@ -1856,7 +1854,7 @@ export const AssociateDashboard = () => {
             <form onSubmit={handleTrasladoSubmit} className="space-y-5">
               {/* Alertas internas de validación o error */}
               {(modalErrorMessage || realTimeError) && (
-                <div className="p-3 bg-danger-50 text-danger-700 border border-danger-200 rounded-xl text-xs sm:text-sm flex items-start space-x-2 shadow-xs">
+                <div className="p-3 bg-danger-50 text-danger-700 border border-danger-200 rounded-lg text-xs sm:text-sm flex items-start space-x-2">
                   <AlertCircle className="w-5 h-5 text-danger-600 flex-shrink-0 mt-0.5" />
                   <span>{modalErrorMessage || realTimeError}</span>
                 </div>
@@ -1878,7 +1876,7 @@ export const AssociateDashboard = () => {
                     onChange={(e) => setMontoTraslado(e.target.value)}
                     placeholder="Q0.00"
                     required
-                    className="w-full pl-9 pr-4 py-2.5 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-600"
+                    className="w-full pl-9 pr-4 py-2.5 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-brand-600"
                   />
                 </div>
               </div>
@@ -1892,7 +1890,7 @@ export const AssociateDashboard = () => {
                   value={destinoSeleccionado}
                   onChange={(e) => handleDestinoChange(e.target.value)}
                   required
-                  className="w-full px-3 py-2.5 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-600 bg-white"
+                  className="w-full px-3 py-2.5 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-brand-600 bg-white"
                 >
                   <option value="">-- Seleccione una opción --</option>
                   
@@ -1930,12 +1928,12 @@ export const AssociateDashboard = () => {
                   onChange={(e) => setObservacionesTraslado(e.target.value)}
                   placeholder="Detalles opcionales sobre el motivo del traslado"
                   rows={2}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-600 resize-none"
+                  className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-brand-600 resize-none"
                 />
               </div>
 
               {/* Advertencia Legal */}
-              <div className="p-3 bg-warning-50 border border-warning-200 rounded-xl flex items-start space-x-2 text-warning-900 text-xs leading-relaxed">
+              <div className="p-3 bg-warning-50 border border-warning-200 rounded-lg flex items-start space-x-2 text-warning-900 text-xs leading-relaxed">
                 <HelpCircle className="w-4 h-4 text-warning-600 flex-shrink-0 mt-0.5" />
                 <span>
                   <strong>Aviso Importante:</strong> Se generará un número de caso único que pasará al flujo de revisión del equipo de operaciones para su aprobación correspondiente.
@@ -1947,14 +1945,14 @@ export const AssociateDashboard = () => {
                 <button
                   type="button"
                   onClick={closeTrasladoModal}
-                  className="px-5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-sm font-semibold cursor-pointer"
+                  className="px-5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-md text-sm font-semibold cursor-pointer"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
                   disabled={enviandoTraslado || !!realTimeError}
-                  className="px-5 py-2 bg-brand-700 hover:bg-brand-800 text-white rounded-xl text-sm font-semibold shadow-md flex items-center space-x-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-5 py-2 bg-brand-700 hover:bg-brand-800 text-white rounded-md text-sm font-semibold flex items-center space-x-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {enviandoTraslado ? (
                     <>
@@ -1977,9 +1975,9 @@ export const AssociateDashboard = () => {
 
       {/* Modal para Editar Beneficiarios del Asociado (Req-9) */}
       {selectedCuentaParaEditar && createPortal(
-        <div className="fixed inset-0 z-[999] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm overflow-y-auto">
+        <div className="fixed inset-0 z-[999] flex items-center justify-center p-4 bg-slate-950/60 overflow-y-auto">
           <div
-            className="bg-white rounded-2xl max-w-3xl w-full p-6 sm:p-8 shadow-2xl border border-slate-200 relative my-8 animate-scaleUp max-h-[90vh] flex flex-col"
+            className="bg-white rounded-lg max-w-3xl w-full p-6 sm:p-8 shadow-lg border border-slate-200 relative my-8 animate-scaleUp max-h-[90vh] flex flex-col"
             role="dialog"
             aria-modal="true"
           >
@@ -1995,7 +1993,7 @@ export const AssociateDashboard = () => {
               </div>
               <button
                 onClick={closeEditarBeneficiariosModal}
-                className="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
+                className="text-slate-400 hover:text-slate-600 p-1.5 rounded-md hover:bg-slate-100 transition-colors cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -2003,7 +2001,7 @@ export const AssociateDashboard = () => {
 
             {/* Body scrollable */}
             <div className="overflow-y-auto flex-1 py-4 space-y-4 pr-1">
-              <div className="p-3 bg-brand-50 border border-brand-200 rounded-xl text-brand-950 text-xs flex items-start space-x-2">
+              <div className="p-3 bg-brand-50 border border-brand-200 rounded-lg text-brand-950 text-xs flex items-start space-x-2">
                 <Info className="w-4 h-4 text-brand-700 flex-shrink-0 mt-0.5" />
                 <span>
                   Los beneficiarios recibirán los fondos de la cuenta en caso de fallecimiento del titular. La sumatoria de todos los porcentajes asignados debe ser exactamente <strong>100.00%</strong>.
@@ -2011,7 +2009,7 @@ export const AssociateDashboard = () => {
               </div>
 
               {modalBenError && (
-                <div className="p-3 bg-danger-50 border border-danger-200 text-danger-700 rounded-xl text-xs font-semibold flex items-center space-x-2">
+                <div className="p-3 bg-danger-50 border border-danger-200 text-danger-700 rounded-lg text-xs font-semibold flex items-center space-x-2">
                   <AlertCircle className="w-4 h-4 flex-shrink-0" />
                   <span>{modalBenError}</span>
                 </div>
@@ -2020,7 +2018,7 @@ export const AssociateDashboard = () => {
               {/* Lista de Beneficiarios */}
               <div className="space-y-3">
                 {editBeneficiariosList.map((ben, idx) => (
-                  <div key={idx} className="p-4 rounded-xl border border-slate-200 bg-slate-50/50 space-y-3 relative">
+                  <div key={idx} className="p-4 rounded-lg border border-slate-200 bg-slate-50/50 space-y-3 relative">
                     <div className="flex justify-between items-center">
                       <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">
                         Beneficiario #{idx + 1}
@@ -2051,7 +2049,7 @@ export const AssociateDashboard = () => {
                             setEditBeneficiariosList(updated);
                           }}
                           placeholder="Nombre y Apellidos completos"
-                          className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-brand-500 text-slate-800"
+                          className="w-full px-3 py-2 bg-white border border-slate-200 rounded-md focus:outline-none focus:ring-1 focus:ring-brand-500 text-slate-800"
                         />
                       </div>
 
@@ -2066,7 +2064,7 @@ export const AssociateDashboard = () => {
                             updated[idx].parentesco = e.target.value;
                             setEditBeneficiariosList(updated);
                           }}
-                          className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-brand-500 text-slate-800"
+                          className="w-full px-3 py-2 bg-white border border-slate-200 rounded-md focus:outline-none focus:ring-1 focus:ring-brand-500 text-slate-800"
                         >
                           <option value="CÓNYUGE">CÓNYUGE</option>
                           <option value="HIJO/A">HIJO/A</option>
@@ -2091,7 +2089,7 @@ export const AssociateDashboard = () => {
                             setEditBeneficiariosList(updated);
                           }}
                           placeholder="13 dígitos"
-                          className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-brand-500 text-slate-800"
+                          className="w-full px-3 py-2 bg-white border border-slate-200 rounded-md focus:outline-none focus:ring-1 focus:ring-brand-500 text-slate-800"
                         />
                       </div>
 
@@ -2110,7 +2108,7 @@ export const AssociateDashboard = () => {
                             setEditBeneficiariosList(updated);
                           }}
                           placeholder="Ej. 55551234"
-                          className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-brand-500 text-slate-800 font-mono"
+                          className="w-full px-3 py-2 bg-white border border-slate-200 rounded-md focus:outline-none focus:ring-1 focus:ring-brand-500 text-slate-800 font-mono"
                         />
                       </div>
 
@@ -2131,7 +2129,7 @@ export const AssociateDashboard = () => {
                               updated[idx].porcentaje = val;
                               setEditBeneficiariosList(updated);
                             }}
-                            className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-brand-500 font-bold text-slate-800 pr-8"
+                            className="w-full px-3 py-2 bg-white border border-slate-200 rounded-md focus:outline-none focus:ring-1 focus:ring-brand-500 font-bold text-slate-800 pr-8"
                           />
                           <Percent className="w-3.5 h-3.5 absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
                         </div>
@@ -2146,14 +2144,14 @@ export const AssociateDashboard = () => {
                 type="button"
                 onClick={handleAddBeneficiarioAsociado}
                 disabled={totalPorcentajeAsociado >= 100}
-                className="w-full py-2.5 border-2 border-dashed border-slate-200 hover:border-brand-500 text-slate-600 hover:text-brand-700 rounded-xl text-xs font-bold flex items-center justify-center space-x-1.5 transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                className="w-full py-2.5 border-2 border-dashed border-slate-200 hover:border-brand-500 text-slate-600 hover:text-brand-700 rounded-md text-xs font-bold flex items-center justify-center space-x-1.5 transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 <Plus className="w-4 h-4" />
                 <span>Agregar Beneficiario</span>
               </button>
 
               {/* Barra de Distribución Porcentual */}
-              <div className={`p-4 rounded-xl border ${
+              <div className={`p-4 rounded-lg border ${
                 Math.abs(totalPorcentajeAsociado - 100.00) < 0.01
                   ? 'bg-brand-50 border-brand-200 text-brand-900'
                   : totalPorcentajeAsociado > 100
@@ -2208,7 +2206,7 @@ export const AssociateDashboard = () => {
                 <button
                   type="button"
                   onClick={closeEditarBeneficiariosModal}
-                  className="px-5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold cursor-pointer"
+                  className="px-5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-md text-xs font-semibold cursor-pointer"
                 >
                   Cancelar
                 </button>
@@ -2216,7 +2214,7 @@ export const AssociateDashboard = () => {
                   type="button"
                   onClick={handleSaveBeneficiariosSubmit}
                   disabled={savingBeneficiarios || Math.abs(totalPorcentajeAsociado - 100.00) > 0.01 || !hasAssociateBenChanges}
-                  className="px-5 py-2 bg-brand-700 hover:bg-brand-800 text-white rounded-xl text-xs font-semibold shadow-md flex items-center space-x-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-5 py-2 bg-brand-700 hover:bg-brand-800 text-white rounded-md text-xs font-semibold flex items-center space-x-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                   title={!hasAssociateBenChanges ? 'Modifique algún campo o porcentaje para guardar' : ''}
                 >
                   {savingBeneficiarios ? (

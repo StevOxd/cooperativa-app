@@ -633,9 +633,9 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess }) => {
   };
 
   return createPortal(
-    <div className="fixed inset-0 z-[999] overflow-y-auto bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-[999] overflow-y-auto bg-slate-950/60 flex items-center justify-center p-4">
       <div
-        className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200"
+        className="bg-white rounded-lg shadow-lg border border-slate-200 w-full max-w-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200"
         role="dialog"
         aria-modal="true"
         aria-labelledby="new-associate-modal-title"
@@ -643,7 +643,7 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess }) => {
         {/* Header Modal */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/50">
           <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-xl bg-brand-100 flex items-center justify-center text-brand-700">
+            <div className="w-10 h-10 rounded-lg bg-brand-100 flex items-center justify-center text-brand-700">
               <UserPlus className="w-5 h-5" />
             </div>
             <div>
@@ -657,7 +657,7 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess }) => {
           </div>
           <button
             onClick={onClose}
-            className="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
+            className="text-slate-400 hover:text-slate-600 p-1.5 rounded-md hover:bg-slate-100 transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
@@ -665,7 +665,7 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess }) => {
 
         {/* Alerta de Error dentro del Modal */}
         {errorMsg && (
-          <div className="mx-6 mt-4 p-3.5 rounded-xl bg-danger-50 border border-danger-200 flex items-start space-x-3 text-danger-700">
+          <div className="mx-6 mt-4 p-3.5 rounded-lg bg-danger-50 border border-danger-200 flex items-start space-x-3 text-danger-700">
             <AlertCircle className="w-5 h-5 shrink-0 mt-0.5 text-danger-600" />
             <div className="text-xs font-semibold">{errorMsg}</div>
           </div>
@@ -684,7 +684,7 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess }) => {
               </p>
             </div>
 
-            <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 text-left space-y-2.5 text-xs">
+            <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 text-left space-y-2.5 text-xs">
               <div className="flex justify-between">
                 <span className="text-slate-500">Código de Cliente:</span>
                 <span className="font-bold text-brand-700 font-mono text-sm">{successData.codigo_corporativo}</span>
@@ -729,7 +729,7 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess }) => {
               <button
                 type="button"
                 onClick={onClose}
-                className="px-5 py-2.5 bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs rounded-xl shadow-sm transition-all cursor-pointer"
+                className="px-5 py-2.5 bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs rounded-md transition-all cursor-pointer"
               >
                 Cerrar y Actualizar Padrón
               </button>
@@ -807,7 +807,7 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess }) => {
                         if (errorMsg) setErrorMsg('');
                       }}
                       placeholder="13 dígitos numéricos"
-                      className={`w-full pl-9 pr-3 py-2 bg-slate-50 border rounded-lg text-slate-900 focus:ring-2 focus:ring-brand-600 text-xs font-mono ${
+                      className={`w-full pl-9 pr-3 py-2 bg-slate-50 border rounded-md text-slate-900 focus:ring-2 focus:ring-brand-600 text-xs font-mono ${
                         formData.cui_dpi?.length === 13
                           ? dpiStatus.verified && formData.tipo_asociado === 'EB'
                             ? 'border-warning-400 focus:border-warning-500'
@@ -859,7 +859,7 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess }) => {
                       if (errorMsg) setErrorMsg('');
                     }}
                     placeholder="Ej: Juan"
-                    className={`w-full px-3 py-2 bg-slate-50 border rounded-lg text-slate-900 focus:ring-2 focus:ring-brand-600 text-xs ${
+                    className={`w-full px-3 py-2 bg-slate-50 border rounded-md text-slate-900 focus:ring-2 focus:ring-brand-600 text-xs ${
                       fieldErrors.primer_nombre ? 'border-danger-400 bg-danger-50/20' : 'border-slate-300'
                     }`}
                     required
@@ -883,7 +883,7 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess }) => {
                       if (errorMsg) setErrorMsg('');
                     }}
                     placeholder="Ej: José"
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-slate-900 focus:ring-2 focus:ring-brand-600 text-xs"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-md text-slate-900 focus:ring-2 focus:ring-brand-600 text-xs"
                   />
                 </div>
               </div>
@@ -911,7 +911,7 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess }) => {
                       if (errorMsg) setErrorMsg('');
                     }}
                     placeholder="Ej: Pérez"
-                    className={`w-full px-3 py-2 bg-slate-50 border rounded-lg text-slate-900 focus:ring-2 focus:ring-brand-600 text-xs ${
+                    className={`w-full px-3 py-2 bg-slate-50 border rounded-md text-slate-900 focus:ring-2 focus:ring-brand-600 text-xs ${
                       fieldErrors.primer_apellido ? 'border-danger-400 bg-danger-50/20' : 'border-slate-300'
                     }`}
                     required
@@ -935,7 +935,7 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess }) => {
                       if (errorMsg) setErrorMsg('');
                     }}
                     placeholder="Ej: Gómez"
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-slate-900 focus:ring-2 focus:ring-brand-600 text-xs"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-md text-slate-900 focus:ring-2 focus:ring-brand-600 text-xs"
                   />
                 </div>
               </div>
@@ -974,7 +974,7 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess }) => {
                         if (errorMsg) setErrorMsg('');
                       }}
                       placeholder="Ej: 55551234"
-                      className={`w-full pl-9 pr-3 py-2 bg-slate-50 border rounded-lg text-slate-900 focus:ring-2 focus:ring-brand-600 text-xs font-mono ${
+                      className={`w-full pl-9 pr-3 py-2 bg-slate-50 border rounded-md text-slate-900 focus:ring-2 focus:ring-brand-600 text-xs font-mono ${
                         formData.telefono?.length === 8
                           ? 'border-brand-400 focus:border-brand-500'
                           : fieldErrors.telefono
@@ -1031,7 +1031,7 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess }) => {
                       }}
                       onBlur={() => checkEmailAvailability(formData.email)}
                       placeholder="correo@ejemplo.com"
-                      className={`w-full pl-9 pr-3 py-2 bg-slate-50 border rounded-lg text-slate-900 focus:ring-2 focus:ring-brand-600 text-xs ${
+                      className={`w-full pl-9 pr-3 py-2 bg-slate-50 border rounded-md text-slate-900 focus:ring-2 focus:ring-brand-600 text-xs ${
                         emailStatus.available === true
                           ? 'border-brand-400 focus:border-brand-500'
                           : emailStatus.available === false || fieldErrors.email
@@ -1077,7 +1077,7 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess }) => {
                     <select
                       value={birthDay}
                       onChange={(e) => handleDatePartChange('day', e.target.value)}
-                      className={`w-full px-2.5 py-2 bg-slate-50 border rounded-lg text-slate-900 text-xs font-medium focus:ring-2 focus:ring-brand-600 cursor-pointer ${
+                      className={`w-full px-2.5 py-2 bg-slate-50 border rounded-md text-slate-900 text-xs font-medium focus:ring-2 focus:ring-brand-600 cursor-pointer ${
                         fieldErrors.fecha_nacimiento ? 'border-danger-400 bg-danger-50/20' : 'border-slate-300'
                       }`}
                       required
@@ -1095,7 +1095,7 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess }) => {
                     <select
                       value={birthMonth}
                       onChange={(e) => handleDatePartChange('month', e.target.value)}
-                      className={`w-full px-2.5 py-2 bg-slate-50 border rounded-lg text-slate-900 text-xs font-medium focus:ring-2 focus:ring-brand-600 cursor-pointer ${
+                      className={`w-full px-2.5 py-2 bg-slate-50 border rounded-md text-slate-900 text-xs font-medium focus:ring-2 focus:ring-brand-600 cursor-pointer ${
                         fieldErrors.fecha_nacimiento ? 'border-danger-400 bg-danger-50/20' : 'border-slate-300'
                       }`}
                       required
@@ -1113,7 +1113,7 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess }) => {
                     <select
                       value={birthYear}
                       onChange={(e) => handleDatePartChange('year', e.target.value)}
-                      className={`w-full px-2.5 py-2 bg-slate-50 border rounded-lg text-slate-900 text-xs font-medium focus:ring-2 focus:ring-brand-600 cursor-pointer ${
+                      className={`w-full px-2.5 py-2 bg-slate-50 border rounded-md text-slate-900 text-xs font-medium focus:ring-2 focus:ring-brand-600 cursor-pointer ${
                         fieldErrors.fecha_nacimiento ? 'border-danger-400 bg-danger-50/20' : 'border-slate-300'
                       }`}
                       required
@@ -1156,7 +1156,7 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess }) => {
                     value={formData.direccion}
                     onChange={handleChange}
                     placeholder="Calle, Avenida, Zona, Municipio"
-                    className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-slate-900 focus:ring-2 focus:ring-brand-600 text-xs"
+                    className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-300 rounded-md text-slate-900 focus:ring-2 focus:ring-brand-600 text-xs"
                   />
                 </div>
               </div>
@@ -1193,7 +1193,7 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess }) => {
                       name="monto_aportacion"
                       value={formData.monto_aportacion}
                       onChange={handleChange}
-                      className={`w-full pl-7 pr-3 py-2 bg-slate-50 border rounded-lg text-slate-900 font-bold focus:ring-2 focus:ring-brand-600 text-xs ${
+                      className={`w-full pl-7 pr-3 py-2 bg-slate-50 border rounded-md text-slate-900 font-bold focus:ring-2 focus:ring-brand-600 text-xs ${
                         fieldErrors.monto_aportacion ? 'border-danger-400 bg-danger-50/20' : 'border-slate-300'
                       }`}
                       required
@@ -1218,7 +1218,7 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess }) => {
 
               {/* Si es Afiliado Externo (EX): Cuenta de Ahorro Bancaria Automática */}
               {formData.tipo_asociado === 'EX' && (
-                <div className="p-3 bg-brand-50/70 border border-brand-200 rounded-xl flex items-start space-x-2.5">
+                <div className="p-3 bg-brand-50/70 border border-brand-200 rounded-lg flex items-start space-x-2.5">
                   <Building2 className="w-4 h-4 text-brand-700 shrink-0 mt-0.5" />
                   <div className="text-xs text-slate-700 leading-relaxed">
                     <span className="font-bold text-brand-950 block">Apertura Automática de Cuenta de Ahorro en Entidad Bancaria:</span>
@@ -1229,7 +1229,7 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess }) => {
 
               {/* Si es Empleado Bancario (EB): Cuentas del Banco y Opción de Acreditar Dinero */}
               {formData.tipo_asociado === 'EB' && (
-                <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl space-y-3">
+                <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-lg space-y-3">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-2">
                       <Landmark className="w-4 h-4 text-brand-700" />
@@ -1266,9 +1266,9 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess }) => {
                                   numero_cuenta_bancaria: cta.numero_cuenta_bancaria,
                                 }));
                               }}
-                              className={`p-2.5 rounded-xl border text-xs cursor-pointer transition-all ${
+                              className={`p-2.5 rounded-lg border text-xs cursor-pointer transition-all ${
                                 isSelected
-                                  ? 'bg-brand-50/90 border-brand-500 ring-2 ring-brand-500/20 shadow-xs'
+                                  ? 'bg-brand-50/90 border-brand-500 ring-2 ring-brand-500/20'
                                   : 'bg-white border-slate-200 hover:border-slate-300'
                               }`}
                             >
@@ -1301,7 +1301,7 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess }) => {
                             setAcreditarErrorMsg('');
                             setAcreditarSuccessMsg('');
                           }}
-                          className="px-2.5 py-1 text-xs font-bold text-brand-700 hover:text-brand-800 bg-brand-50 hover:bg-brand-100 border border-brand-300 rounded-lg transition-colors cursor-pointer self-start sm:self-auto"
+                          className="px-2.5 py-1 text-xs font-bold text-brand-700 hover:text-brand-800 bg-brand-50 hover:bg-brand-100 border border-brand-300 rounded-md transition-colors cursor-pointer self-start sm:self-auto"
                         >
                           {showAcreditarModal ? 'Ocultar Acreditación' : '+ Acreditar Dinero en Banco'}
                         </button>
@@ -1309,7 +1309,7 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess }) => {
 
                       {/* Panel Interactivo de Acreditación / Depósito a Cuenta Bancaria */}
                       {showAcreditarModal && (
-                        <div className="p-3 bg-white border border-brand-300 rounded-xl space-y-2.5 animate-in fade-in duration-150">
+                        <div className="p-3 bg-white border border-brand-300 rounded-lg space-y-2.5 animate-in fade-in duration-150">
                           <div className="flex items-center justify-between">
                             <span className="text-xs font-bold text-slate-800">
                               Acreditar Fondos a Cuenta Bancaria del Colaborador
@@ -1343,14 +1343,14 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess }) => {
                                 value={montoAcreditar}
                                 onChange={(e) => setMontoAcreditar(e.target.value)}
                                 placeholder="Monto a acreditar"
-                                className="w-full pl-7 pr-3 py-1.5 bg-slate-50 border border-slate-300 rounded-lg text-xs font-bold text-slate-900 focus:ring-2 focus:ring-brand-600"
+                                className="w-full pl-7 pr-3 py-1.5 bg-slate-50 border border-slate-300 rounded-md text-xs font-bold text-slate-900 focus:ring-2 focus:ring-brand-600"
                               />
                             </div>
                             <button
                               type="button"
                               onClick={handleAcreditarFondos}
                               disabled={acreditando}
-                              className="px-4 py-1.5 bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs rounded-lg shadow-sm transition-all flex items-center space-x-1.5 cursor-pointer disabled:opacity-50"
+                              className="px-4 py-1.5 bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs rounded-md transition-all flex items-center space-x-1.5 cursor-pointer disabled:opacity-50"
                             >
                               {acreditando ? (
                                 <>
@@ -1368,12 +1368,12 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess }) => {
                       )}
                     </div>
                   ) : (
-                    <div className="p-3 bg-warning-50/70 border border-warning-200 rounded-xl text-xs text-warning-900 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                    <div className="p-3 bg-warning-50/70 border border-warning-200 rounded-lg text-xs text-warning-900 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                       <span>No se encontraron cuentas activas en el Banco para este colaborador.</span>
                       <button
                         type="button"
                         onClick={handleAperturarCuentaBanco}
-                        className="px-3 py-1 bg-warning-600 hover:bg-warning-700 text-white font-bold text-xs rounded-lg transition-colors cursor-pointer self-start sm:self-auto"
+                        className="px-3 py-1 bg-warning-600 hover:bg-warning-700 text-white font-bold text-xs rounded-md transition-colors cursor-pointer self-start sm:self-auto"
                       >
                         Aperturar Cuenta en Banco
                       </button>
@@ -1385,7 +1385,7 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess }) => {
 
             {/* Sección Informativa: Portal Web */}
             <div className="pt-2 border-t border-slate-100">
-              <div className="p-3 bg-brand-50/70 border border-brand-200 rounded-xl flex items-start space-x-2.5">
+              <div className="p-3 bg-brand-50/70 border border-brand-200 rounded-lg flex items-start space-x-2.5">
                 <KeyRound className="w-4 h-4 text-brand-600 shrink-0 mt-0.5" />
                 <div className="text-xs text-slate-600 leading-relaxed">
                   <span className="font-bold text-slate-800 block">Acceso al Portal Web de Asociados:</span>
@@ -1400,7 +1400,7 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess }) => {
                 type="button"
                 onClick={onClose}
                 disabled={loading}
-                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-xl transition-colors cursor-pointer"
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-md transition-colors cursor-pointer"
               >
                 Cancelar
               </button>
@@ -1410,7 +1410,7 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess }) => {
                   type="button"
                   onClick={handleResetForm}
                   disabled={loading}
-                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-800 font-semibold text-xs rounded-xl transition-colors cursor-pointer"
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-800 font-semibold text-xs rounded-md transition-colors cursor-pointer"
                 >
                   Limpiar Campos
                 </button>
@@ -1418,7 +1418,7 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess }) => {
                 <button
                   type="submit"
                   disabled={loading || emailStatus.available === false}
-                  className="px-5 py-2 bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs rounded-xl shadow-md flex items-center space-x-2 transition-all cursor-pointer disabled:opacity-50"
+                  className="px-5 py-2 bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs rounded-md flex items-center space-x-2 transition-all cursor-pointer disabled:opacity-50"
                 >
                   {loading ? (
                     <>

@@ -293,7 +293,7 @@ export const AdminDashboard = () => {
   return (
     <div className="space-y-6">
       {/* Encabezado Principal del Centro de Monitoreo */}
-      <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-xs flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+      <div className="bg-white rounded-lg p-6 sm:p-8 border border-slate-200 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
           <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-brand-50 border border-brand-200 text-brand-800 text-xs font-bold mb-2">
             <span className="w-2 h-2 rounded-full bg-brand-500 animate-pulse" />
@@ -311,12 +311,12 @@ export const AdminDashboard = () => {
       {/* 4 Tarjetas Métricas Superiores (KPIs Administrativos) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* KPI 1: Total Usuarios Registrados */}
-        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs hover:shadow-md transition-shadow">
+        <div className="bg-white p-5 rounded-lg border border-slate-200 transition-shadow">
           <div className="flex items-center justify-between mb-3">
             <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
               Total Usuarios
             </span>
-            <div className="w-10 h-10 rounded-xl bg-slate-100 text-slate-700 flex items-center justify-center">
+            <div className="w-10 h-10 rounded-lg bg-slate-100 text-slate-700 flex items-center justify-center">
               <Users className="w-5 h-5" />
             </div>
           </div>
@@ -333,12 +333,12 @@ export const AdminDashboard = () => {
         </div>
 
         {/* KPI 2: Usuarios Activos */}
-        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs hover:shadow-md transition-shadow">
+        <div className="bg-white p-5 rounded-lg border border-slate-200 transition-shadow">
           <div className="flex items-center justify-between mb-3">
             <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
               Usuarios Activos
             </span>
-            <div className="w-10 h-10 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center">
+            <div className="w-10 h-10 rounded-lg bg-brand-50 text-brand-600 flex items-center justify-center">
               <UserCheck className="w-5 h-5" />
             </div>
           </div>
@@ -354,12 +354,12 @@ export const AdminDashboard = () => {
         </div>
 
         {/* KPI 3: Cuentas Bloqueadas / Inactivas */}
-        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs hover:shadow-md transition-shadow">
+        <div className="bg-white p-5 rounded-lg border border-slate-200 transition-shadow">
           <div className="flex items-center justify-between mb-3">
             <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
               Bloqueados / Inactivos
             </span>
-            <div className="w-10 h-10 rounded-xl bg-warning-50 text-warning-600 flex items-center justify-center">
+            <div className="w-10 h-10 rounded-lg bg-warning-50 text-warning-600 flex items-center justify-center">
               <ShieldAlert className="w-5 h-5" />
             </div>
           </div>
@@ -376,12 +376,12 @@ export const AdminDashboard = () => {
         </div>
 
         {/* KPI 4: Sesiones Activas / En Línea */}
-        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs hover:shadow-md transition-shadow">
+        <div className="bg-white p-5 rounded-lg border border-slate-200 transition-shadow">
           <div className="flex items-center justify-between mb-3">
             <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
               Sesiones en Línea
             </span>
-            <div className="w-10 h-10 rounded-xl bg-teal-50 text-teal-600 flex items-center justify-center">
+            <div className="w-10 h-10 rounded-lg bg-teal-50 text-teal-600 flex items-center justify-center">
               <Wifi className="w-5 h-5" />
             </div>
           </div>
@@ -398,7 +398,7 @@ export const AdminDashboard = () => {
       {/* Sección de Estadísticas y Gráficas de Usuarios (2 Paneles) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Panel 1: Distribución por Rol (Dona) */}
-        <div className="lg:col-span-5 bg-white p-6 rounded-3xl border border-slate-200 shadow-xs flex flex-col justify-between">
+        <div className="lg:col-span-5 bg-white p-6 rounded-lg border border-slate-200 flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between mb-4 border-b border-slate-100 pb-3">
               <div>
@@ -423,7 +423,7 @@ export const AdminDashboard = () => {
 
           {/* Leyenda personalizada */}
           <div className="grid grid-cols-3 gap-2 pt-4 border-t border-slate-100 text-center">
-            <div className="p-2 rounded-xl bg-brand-50/60 border border-brand-100">
+            <div className="p-2 rounded-lg bg-brand-50/60 border border-brand-100">
               <div className="flex items-center justify-center space-x-1 text-brand-800 text-xs font-bold">
                 <span className="w-2 h-2 rounded-full bg-brand-600" />
                 <span>Asociados</span>
@@ -436,7 +436,7 @@ export const AdminDashboard = () => {
               </span>
             </div>
 
-            <div className="p-2 rounded-xl bg-blue-50/60 border border-blue-100">
+            <div className="p-2 rounded-lg bg-blue-50/60 border border-blue-100">
               <div className="flex items-center justify-center space-x-1 text-blue-800 text-xs font-bold">
                 <span className="w-2 h-2 rounded-full bg-blue-600" />
                 <span>Operadores</span>
@@ -449,7 +449,7 @@ export const AdminDashboard = () => {
               </span>
             </div>
 
-            <div className="p-2 rounded-xl bg-purple-50/60 border border-purple-100">
+            <div className="p-2 rounded-lg bg-purple-50/60 border border-purple-100">
               <div className="flex items-center justify-center space-x-1 text-purple-800 text-xs font-bold">
                 <span className="w-2 h-2 rounded-full bg-purple-600" />
                 <span>Admins</span>
@@ -465,7 +465,7 @@ export const AdminDashboard = () => {
         </div>
 
         {/* Panel 2: Actividad de Registros por Mes (Barras) */}
-        <div className="lg:col-span-7 bg-white p-6 rounded-3xl border border-slate-200 shadow-xs flex flex-col justify-between">
+        <div className="lg:col-span-7 bg-white p-6 rounded-lg border border-slate-200 flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between mb-4 border-b border-slate-100 pb-3">
               <div>
@@ -485,10 +485,10 @@ export const AdminDashboard = () => {
       </div>
 
       {/* Sección Inferior: Últimos Eventos de Seguridad */}
-      <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-xs">
+      <div className="bg-white p-6 rounded-lg border border-slate-200">
         <div className="flex items-center justify-between mb-4 border-b border-slate-100 pb-3">
           <div className="flex items-center space-x-2">
-            <div className="w-8 h-8 rounded-xl bg-warning-50 text-warning-700 flex items-center justify-center border border-warning-200">
+            <div className="w-8 h-8 rounded-lg bg-warning-50 text-warning-700 flex items-center justify-center border border-warning-200">
               <Shield className="w-4 h-4" />
             </div>
             <div>

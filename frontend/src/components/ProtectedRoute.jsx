@@ -29,7 +29,7 @@ export const ProtectedRoute = ({ allowedRoles, children }) => {
   if (allowedRoles && allowedRoles.length > 0 && !allowedRoles.includes(user?.rol)) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-slate-100 p-4">
-        <div className="bg-white p-8 rounded-2xl shadow-xl max-w-md w-full text-center border border-slate-200">
+        <div className="bg-white p-8 rounded-lg shadow-lg max-w-md w-full text-center border border-slate-200">
           <div className="w-16 h-16 bg-danger-50 text-danger-600 rounded-full flex items-center justify-center mx-auto mb-4 font-bold text-2xl">
             !
           </div>

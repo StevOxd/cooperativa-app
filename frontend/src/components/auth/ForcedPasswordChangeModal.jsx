@@ -97,16 +97,16 @@ const ForcedPasswordChangeModal = ({ isOpen, user, onSuccess, onLogout }) => {
   };
 
   return createPortal(
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4 bg-slate-950/85 backdrop-blur-md overflow-y-auto">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4 bg-slate-950/85 overflow-y-auto">
       <div
-        className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-8 shadow-2xl border border-warning-200/80 relative my-auto animate-scaleUp text-slate-800 space-y-5"
+        className="bg-white rounded-lg max-w-md w-full p-6 sm:p-8 shadow-lg border border-warning-200/80 relative my-auto animate-scaleUp text-slate-800 space-y-5"
         role="dialog"
         aria-modal="true"
         aria-labelledby="forced-password-title"
       >
         {/* Cabecera de Alerta de Seguridad */}
         <div className="text-center space-y-2">
-          <div className="w-14 h-14 bg-warning-100 text-warning-700 rounded-2xl flex items-center justify-center mx-auto shadow-inner">
+          <div className="w-14 h-14 bg-warning-100 text-warning-700 rounded-lg flex items-center justify-center mx-auto">
             <KeyRound className="w-7 h-7" />
           </div>
           <h2 id="forced-password-title" className="text-xl font-bold text-slate-900 tracking-tight">
@@ -120,7 +120,7 @@ const ForcedPasswordChangeModal = ({ isOpen, user, onSuccess, onLogout }) => {
 
         {/* Mensaje de Error */}
         {errorMsg && (
-          <div className="p-3 bg-danger-50 border border-danger-200 rounded-xl flex items-start space-x-2 text-xs text-danger-700 animate-fadeIn">
+          <div className="p-3 bg-danger-50 border border-danger-200 rounded-lg flex items-start space-x-2 text-xs text-danger-700 animate-fadeIn">
             <AlertCircle className="w-4 h-4 shrink-0 text-danger-600 mt-0.5" />
             <span>{errorMsg}</span>
           </div>
@@ -139,7 +139,7 @@ const ForcedPasswordChangeModal = ({ isOpen, user, onSuccess, onLogout }) => {
                 onChange={(e) => setPasswordActual(e.target.value)}
                 placeholder="Ingrese su contraseña temporal..."
                 required
-                className="w-full pl-3 pr-10 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-mono text-slate-900 focus:bg-white focus:ring-2 focus:ring-warning-500 focus:border-warning-500"
+                className="w-full pl-3 pr-10 py-2.5 bg-slate-50 border border-slate-300 rounded-md text-xs font-mono text-slate-900 focus:bg-white focus:ring-2 focus:ring-warning-500 focus:border-warning-500"
               />
               <button
                 type="button"
@@ -164,7 +164,7 @@ const ForcedPasswordChangeModal = ({ isOpen, user, onSuccess, onLogout }) => {
                 onChange={(e) => setNuevaPassword(e.target.value)}
                 placeholder="Mínimo 6 caracteres (letras y números)..."
                 required
-                className="w-full pl-3 pr-10 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-mono text-slate-900 focus:bg-white focus:ring-2 focus:ring-warning-500 focus:border-warning-500"
+                className="w-full pl-3 pr-10 py-2.5 bg-slate-50 border border-slate-300 rounded-md text-xs font-mono text-slate-900 focus:bg-white focus:ring-2 focus:ring-warning-500 focus:border-warning-500"
               />
               <button
                 type="button"
@@ -209,7 +209,7 @@ const ForcedPasswordChangeModal = ({ isOpen, user, onSuccess, onLogout }) => {
                 onChange={(e) => setConfirmarPassword(e.target.value)}
                 placeholder="Repita su nueva contraseña..."
                 required
-                className="w-full pl-3 pr-10 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-mono text-slate-900 focus:bg-white focus:ring-2 focus:ring-warning-500 focus:border-warning-500"
+                className="w-full pl-3 pr-10 py-2.5 bg-slate-50 border border-slate-300 rounded-md text-xs font-mono text-slate-900 focus:bg-white focus:ring-2 focus:ring-warning-500 focus:border-warning-500"
               />
               <button
                 type="button"
@@ -232,10 +232,10 @@ const ForcedPasswordChangeModal = ({ isOpen, user, onSuccess, onLogout }) => {
             <button
               type="submit"
               disabled={loading || !isFormValid}
-              className={`w-full py-2.5 px-4 rounded-xl text-xs font-bold text-white transition-all flex items-center justify-center space-x-2 shadow-md ${
+              className={`w-full py-2.5 px-4 rounded-md text-xs font-bold text-white transition-all flex items-center justify-center space-x-2 shadow-lg ${
                 loading || !isFormValid
                   ? 'bg-slate-300 text-slate-500 cursor-not-allowed shadow-none'
-                  : 'bg-brand-700 hover:bg-brand-800 cursor-pointer hover:shadow-lg'
+                  : 'bg-brand-700 hover:bg-brand-800 cursor-pointer'
               }`}
             >
               {loading ? (
@@ -254,7 +254,7 @@ const ForcedPasswordChangeModal = ({ isOpen, user, onSuccess, onLogout }) => {
             <button
               type="button"
               onClick={onLogout}
-              className="w-full py-2 px-3 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-xl text-xs font-medium transition-colors flex items-center justify-center space-x-1.5 cursor-pointer"
+              className="w-full py-2 px-3 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-md text-xs font-medium transition-colors flex items-center justify-center space-x-1.5 cursor-pointer"
             >
               <LogOut className="w-3.5 h-3.5" />
               <span>Cerrar Sesión</span>

@@ -525,10 +525,10 @@ export const PublicAffiliationPage = () => {
       }}
     >
       {/* Barra Institucional Sticky: el logo y nombre de la cooperativa nunca se cortan al hacer scroll */}
-      <header className="sticky top-0 z-30 bg-white/95 backdrop-blur border-b border-slate-200/80 px-4 sm:px-6 py-3 shadow-xs print:hidden">
+      <header className="sticky top-0 z-30 bg-white border-b border-slate-200/80 px-4 sm:px-6 py-3 print:hidden">
         <div className="max-w-4xl mx-auto flex items-center justify-between">
           <Link to="/login" className="inline-flex items-center space-x-3 group">
-            <div className="w-10 h-10 rounded-xl bg-brand-700 flex items-center justify-center text-white shadow-sm shadow-brand-700/20 group-hover:scale-105 transition-transform">
+            <div className="w-10 h-10 rounded-lg bg-brand-700 flex items-center justify-center text-white group-hover:scale-105 transition-transform">
               <Building2 className="w-5 h-5" />
             </div>
             <div className="text-left">
@@ -563,10 +563,10 @@ export const PublicAffiliationPage = () => {
 
         {/* Contenedor Principal */}
         <div className="sm:mx-auto sm:w-full sm:max-w-2xl print:max-w-none print:w-full">
-          <div className="bg-white py-8 px-6 sm:px-10 rounded-3xl shadow-xl border border-slate-200 print:shadow-none print:border-none print:p-0 print:m-0 print:rounded-none print-avoid-break">
+          <div className="bg-white py-8 px-6 sm:px-10 rounded-lg shadow-lg border border-slate-200 print:shadow-none print:border-none print:p-0 print:m-0 print:rounded-none print-avoid-break">
             {/* Alerta de Error */}
             {errorMsg && (
-              <div className="mb-6 p-4 rounded-xl bg-danger-50 border border-danger-200 flex items-start space-x-3 text-danger-700">
+              <div className="mb-6 p-4 rounded-lg bg-danger-50 border border-danger-200 flex items-start space-x-3 text-danger-700">
                 <AlertCircle className="w-5 h-5 shrink-0 mt-0.5 text-danger-600" />
                 <div className="text-sm font-medium">{errorMsg}</div>
               </div>

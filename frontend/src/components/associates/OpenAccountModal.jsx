@@ -226,9 +226,9 @@ export const OpenAccountModal = ({ isOpen, onClose, asociado, onSuccess }) => {
   };
 
   return createPortal(
-    <div className="fixed inset-0 z-[999] overflow-y-auto bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-[999] overflow-y-auto bg-slate-950/60 flex items-center justify-center p-4">
       <div
-        className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-xl overflow-hidden animate-in fade-in zoom-in-95 duration-200"
+        className="bg-white rounded-lg shadow-lg border border-slate-200 w-full max-w-xl overflow-hidden animate-in fade-in zoom-in-95 duration-200"
         role="dialog"
         aria-modal="true"
         aria-labelledby="open-account-modal-title"
@@ -236,7 +236,7 @@ export const OpenAccountModal = ({ isOpen, onClose, asociado, onSuccess }) => {
         {/* Header Modal */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/50">
           <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center text-blue-700">
+            <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center text-blue-700">
               <CreditCard className="w-5 h-5" />
             </div>
             <div>
@@ -250,7 +250,7 @@ export const OpenAccountModal = ({ isOpen, onClose, asociado, onSuccess }) => {
           </div>
           <button
             onClick={onClose}
-            className="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
+            className="text-slate-400 hover:text-slate-600 p-1.5 rounded-md hover:bg-slate-100 transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
@@ -258,7 +258,7 @@ export const OpenAccountModal = ({ isOpen, onClose, asociado, onSuccess }) => {
 
         {/* Alerta de Error dentro del Modal */}
         {errorMsg && (
-          <div className="mx-6 mt-4 p-3.5 rounded-xl bg-danger-50 border border-danger-200 flex items-start space-x-3 text-danger-700">
+          <div className="mx-6 mt-4 p-3.5 rounded-lg bg-danger-50 border border-danger-200 flex items-start space-x-3 text-danger-700">
             <AlertCircle className="w-5 h-5 shrink-0 mt-0.5 text-danger-600" />
             <div className="text-xs font-semibold">{errorMsg}</div>
           </div>
@@ -277,7 +277,7 @@ export const OpenAccountModal = ({ isOpen, onClose, asociado, onSuccess }) => {
               </p>
             </div>
 
-            <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 text-left space-y-2 text-xs">
+            <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 text-left space-y-2 text-xs">
               <div className="flex justify-between">
                 <span className="text-slate-500">Titular:</span>
                 <span className="font-bold text-slate-800">{asociado.nombre_completo}</span>
@@ -312,7 +312,7 @@ export const OpenAccountModal = ({ isOpen, onClose, asociado, onSuccess }) => {
 
             {emailNotice && (
               <div
-                className={`p-3 rounded-xl text-xs flex items-center space-x-2 ${
+                className={`p-3 rounded-lg text-xs flex items-center space-x-2 ${
                   emailSent
                     ? 'bg-brand-50 text-brand-800 border border-brand-200'
                     : 'bg-danger-50 text-danger-800 border border-danger-200'
@@ -332,7 +332,7 @@ export const OpenAccountModal = ({ isOpen, onClose, asociado, onSuccess }) => {
                 <button
                   type="button"
                   onClick={handleDownloadPdf}
-                  className="flex-1 sm:flex-initial px-4 py-2.5 bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs rounded-xl shadow-xs transition-all flex items-center justify-center space-x-1.5 cursor-pointer"
+                  className="flex-1 sm:flex-initial px-4 py-2.5 bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs rounded-md transition-all flex items-center justify-center space-x-1.5 cursor-pointer"
                   title="Descargar comprobante en formato PDF"
                 >
                   <FileDown className="w-4 h-4" />
@@ -343,7 +343,7 @@ export const OpenAccountModal = ({ isOpen, onClose, asociado, onSuccess }) => {
                   type="button"
                   onClick={handleSendEmail}
                   disabled={sendingEmail || emailSent}
-                  className="flex-1 sm:flex-initial px-4 py-2.5 bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs rounded-xl shadow-xs transition-all flex items-center justify-center space-x-1.5 cursor-pointer disabled:opacity-50"
+                  className="flex-1 sm:flex-initial px-4 py-2.5 bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs rounded-md transition-all flex items-center justify-center space-x-1.5 cursor-pointer disabled:opacity-50"
                   title="Enviar comprobante por correo electrónico al asociado"
                 >
                   {sendingEmail ? (
@@ -365,7 +365,7 @@ export const OpenAccountModal = ({ isOpen, onClose, asociado, onSuccess }) => {
               <button
                 type="button"
                 onClick={onClose}
-                className="w-full sm:w-auto px-5 py-2.5 bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold text-xs rounded-xl transition-all cursor-pointer"
+                className="w-full sm:w-auto px-5 py-2.5 bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold text-xs rounded-md transition-all cursor-pointer"
               >
                 Cerrar y Actualizar Padrón
               </button>
@@ -385,9 +385,9 @@ export const OpenAccountModal = ({ isOpen, onClose, asociado, onSuccess }) => {
                     <div
                       key={p.id_tipo_cuenta}
                       onClick={() => handleChange({ target: { name: 'id_tipo_cuenta', value: p.id_tipo_cuenta } })}
-                      className={`p-3 rounded-xl border-2 transition-all cursor-pointer ${
+                      className={`p-3 rounded-lg border-2 transition-all cursor-pointer ${
                         isSelected
-                          ? 'border-blue-600 bg-blue-50/50 shadow-xs'
+                          ? 'border-blue-600 bg-blue-50/50'
                           : 'border-slate-200 hover:border-slate-300 bg-white'
                       }`}
                     >
@@ -426,7 +426,7 @@ export const OpenAccountModal = ({ isOpen, onClose, asociado, onSuccess }) => {
                   name="monto_apertura"
                   value={formData.monto_apertura}
                   onChange={handleChange}
-                  className="w-full pl-8 pr-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 font-bold focus:ring-2 focus:ring-blue-600 text-sm"
+                  className="w-full pl-8 pr-3 py-2 bg-slate-50 border border-slate-300 rounded-md text-slate-900 font-bold focus:ring-2 focus:ring-blue-600 text-sm"
                   required
                 />
               </div>
@@ -442,7 +442,7 @@ export const OpenAccountModal = ({ isOpen, onClose, asociado, onSuccess }) => {
                 <button
                   type="button"
                   onClick={() => handleChange({ target: { name: 'origen_fondos', value: 'EFECTIVO_VENTANILLA' } })}
-                  className={`p-3 rounded-xl border text-center transition-all cursor-pointer ${
+                  className={`p-3 rounded-md border text-center transition-all cursor-pointer ${
                     formData.origen_fondos === 'EFECTIVO_VENTANILLA'
                       ? 'border-blue-600 bg-blue-50/60 text-blue-700 font-bold'
                       : 'border-slate-200 text-slate-600 hover:bg-slate-50'
@@ -456,7 +456,7 @@ export const OpenAccountModal = ({ isOpen, onClose, asociado, onSuccess }) => {
                 <button
                   type="button"
                   onClick={() => handleChange({ target: { name: 'origen_fondos', value: 'CUENTA_INTERNA' } })}
-                  className={`p-3 rounded-xl border text-center transition-all cursor-pointer ${
+                  className={`p-3 rounded-md border text-center transition-all cursor-pointer ${
                     formData.origen_fondos === 'CUENTA_INTERNA'
                       ? 'border-blue-600 bg-blue-50/60 text-blue-700 font-bold'
                       : 'border-slate-200 text-slate-600 hover:bg-slate-50'
@@ -470,7 +470,7 @@ export const OpenAccountModal = ({ isOpen, onClose, asociado, onSuccess }) => {
 
               {/* Detalle según Origen */}
               {formData.origen_fondos === 'CUENTA_INTERNA' && (
-                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
+                <div className="p-3 bg-slate-50 rounded-lg border border-slate-200">
                   <label className="block text-xs font-semibold text-slate-700 mb-1">
                     Cuenta Interna de Débito:
                   </label>
@@ -479,7 +479,7 @@ export const OpenAccountModal = ({ isOpen, onClose, asociado, onSuccess }) => {
                       name="id_cuenta_origen"
                       value={formData.id_cuenta_origen}
                       onChange={handleChange}
-                      className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs"
+                      className="w-full px-3 py-2 bg-white border border-slate-300 rounded-md text-xs"
                       required
                     >
                       {cuentasAsociado.map((c) => (
@@ -501,14 +501,14 @@ export const OpenAccountModal = ({ isOpen, onClose, asociado, onSuccess }) => {
                 type="button"
                 onClick={onClose}
                 disabled={loading}
-                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-xl transition-colors cursor-pointer"
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-md transition-colors cursor-pointer"
               >
                 Cancelar
               </button>
               <button
                 type="submit"
                 disabled={loading}
-                className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-md flex items-center space-x-2 transition-all cursor-pointer disabled:opacity-50"
+                className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-md flex items-center space-x-2 transition-all cursor-pointer disabled:opacity-50"
               >
                 {loading ? (
                   <>

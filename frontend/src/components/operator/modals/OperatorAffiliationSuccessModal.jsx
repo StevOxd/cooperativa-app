@@ -20,14 +20,14 @@ const OperatorAffiliationSuccessModal = ({ formalizadoResult, onClose }) => {
   };
 
   return createPortal(
-    <div className="fixed inset-0 z-[999] flex items-center justify-center p-3 sm:p-4 bg-slate-950/60 backdrop-blur-sm overflow-y-auto">
+    <div className="fixed inset-0 z-[999] flex items-center justify-center p-3 sm:p-4 bg-slate-950/60 overflow-y-auto">
       <div
-        className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-8 shadow-2xl border border-slate-200 relative my-auto animate-scaleUp text-center space-y-4 max-h-[92vh] overflow-y-auto"
+        className="bg-white rounded-lg max-w-md w-full p-6 sm:p-8 shadow-lg border border-slate-200 relative my-auto animate-scaleUp text-center space-y-4 max-h-[92vh] overflow-y-auto"
         role="dialog"
         aria-modal="true"
         aria-labelledby="operator-success-modal-title"
       >
-        <div className="w-16 h-16 bg-brand-100 text-brand-700 rounded-full flex items-center justify-center mx-auto shadow-inner">
+        <div className="w-16 h-16 bg-brand-100 text-brand-700 rounded-full flex items-center justify-center mx-auto">
           <CheckCircle className="w-10 h-10" />
         </div>
 
@@ -36,7 +36,7 @@ const OperatorAffiliationSuccessModal = ({ formalizadoResult, onClose }) => {
           Se ha formalizado la afiliación y aperturado la cuenta bancaria de ahorro.
         </p>
 
-        <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 text-left space-y-2.5 text-xs">
+        <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 text-left space-y-2.5 text-xs">
           <div className="flex justify-between items-center">
             <span className="text-slate-500 font-medium">Asociado Titular:</span>
             <span className="font-bold text-slate-900 text-right">{formalizadoResult.nombre_completo}</span>
@@ -67,7 +67,7 @@ const OperatorAffiliationSuccessModal = ({ formalizadoResult, onClose }) => {
             </div>
           )}
           {formalizadoResult.email_status?.simulado && (
-            <div className="text-xs text-warning-800 bg-warning-50 border border-warning-200 rounded-xl p-2.5 text-left mt-1">
+            <div className="text-xs text-warning-800 bg-warning-50 border border-warning-200 rounded-lg p-2.5 text-left mt-1">
               <strong>Nota del servicio de correo:</strong> Se encuentra en modo demostrativo local. Para despachar correos reales a bandejas externas (Gmail), active Google Mail con su Contraseña de Aplicación desde el menú de Administración.
             </div>
           )}
@@ -77,7 +77,7 @@ const OperatorAffiliationSuccessModal = ({ formalizadoResult, onClose }) => {
         <button
           type="button"
           onClick={handleDownloadPdf}
-          className="w-full py-2.5 bg-brand-50 hover:bg-brand-100 text-brand-800 border border-brand-300 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-xs flex items-center justify-center space-x-2"
+          className="w-full py-2.5 bg-brand-50 hover:bg-brand-100 text-brand-800 border border-brand-300 rounded-md text-xs font-bold transition-all cursor-pointer flex items-center justify-center space-x-2"
         >
           <FileDown className="w-4 h-4 text-brand-700" />
           <span>Descargar Comprobante Oficial (PDF)</span>
@@ -86,7 +86,7 @@ const OperatorAffiliationSuccessModal = ({ formalizadoResult, onClose }) => {
         <button
           type="button"
           onClick={onClose}
-          className="w-full py-2.5 bg-brand-700 hover:bg-brand-800 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer shadow-md"
+          className="w-full py-2.5 bg-brand-700 hover:bg-brand-800 text-white rounded-md text-xs font-bold transition-colors cursor-pointer"
         >
           Finalizar y Volver a la Bandeja
         </button>

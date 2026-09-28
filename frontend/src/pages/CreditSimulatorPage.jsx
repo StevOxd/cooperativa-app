@@ -412,7 +412,7 @@ export const CreditSimulatorPage = () => {
 
       {/* Banner de restricción de solicitudes pendientes */}
       {limitePendientesAlcanzado && (
-        <div className="p-4 rounded-2xl bg-warning-50 border-2 border-warning-300 flex items-start space-x-3 text-warning-900 shadow-xs">
+        <div className="p-4 rounded-lg bg-warning-50 border-2 border-warning-300 flex items-start space-x-3 text-warning-900">
           <AlertTriangle className="w-5 h-5 text-warning-600 flex-shrink-0 mt-0.5" />
           <div className="text-sm">
             <p className="font-extrabold text-warning-900">
@@ -429,7 +429,7 @@ export const CreditSimulatorPage = () => {
         {/* Columna Izquierda: Panel de Firma de Solicitud en Proceso o Formulario de Simulación */}
         <div className="lg:col-span-7">
           {solicitudPendienteFirma ? (
-            <div className="bg-white p-6 sm:p-8 rounded-2xl border-2 border-warning-300 shadow-sm space-y-6">
+            <div className="bg-white p-6 sm:p-8 rounded-lg border-2 border-warning-300 space-y-6">
               <div className="flex items-center justify-between border-b border-warning-100 pb-3">
                 <div className="flex items-center space-x-2">
                   <Clock className="w-5 h-5 text-warning-600" />
@@ -442,7 +442,7 @@ export const CreditSimulatorPage = () => {
                 </span>
               </div>
 
-              <div className="p-4 rounded-xl bg-warning-50/70 border border-warning-200 text-xs text-warning-900 space-y-2">
+              <div className="p-4 rounded-lg bg-warning-50/70 border border-warning-200 text-xs text-warning-900 space-y-2">
                 <div className="flex items-start space-x-2">
                   <AlertCircle className="w-4 h-4 text-warning-600 shrink-0 mt-0.5" />
                   <p className="leading-relaxed">
@@ -455,7 +455,7 @@ export const CreditSimulatorPage = () => {
               </div>
 
               {/* Parámetros Bloqueados de la Solicitud */}
-              <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
+              <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 space-y-3">
                 <div className="flex justify-between items-center">
                   <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider">
                     Condiciones Aseguradas de la Solicitud
@@ -498,7 +498,7 @@ export const CreditSimulatorPage = () => {
               </div>
 
               {/* Paso 1: Descargar Formulario Oficial */}
-              <div className="p-4 rounded-xl bg-brand-50/70 border border-brand-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="p-4 rounded-lg bg-brand-50/70 border border-brand-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div className="text-xs">
                   <span className="font-bold text-brand-950 block">
                     Paso 1: Descargar Formulario Oficial (PDF)
@@ -510,7 +510,7 @@ export const CreditSimulatorPage = () => {
                 <button
                   type="button"
                   onClick={() => handleDescargarPdfDeSolicitud(solicitudPendienteFirma)}
-                  className="px-4 py-2.5 rounded-xl text-xs font-bold bg-brand-600 hover:bg-brand-700 text-white shadow-xs transition-all flex items-center justify-center space-x-1.5 shrink-0 cursor-pointer"
+                  className="px-4 py-2.5 rounded-md text-xs font-bold bg-brand-600 hover:bg-brand-700 text-white transition-all flex items-center justify-center space-x-1.5 shrink-0 cursor-pointer"
                 >
                   <Download className="w-3.5 h-3.5" />
                   <span>Descargar PDF</span>
@@ -527,7 +527,7 @@ export const CreditSimulatorPage = () => {
                 </div>
 
                 {!archivoFirmadoBase64 ? (
-                  <label className="border-2 border-dashed border-warning-300 hover:border-warning-500 bg-warning-50/30 hover:bg-warning-50/60 rounded-xl p-5 flex flex-col items-center justify-center cursor-pointer transition-colors group">
+                  <label className="border-2 border-dashed border-warning-300 hover:border-warning-500 bg-warning-50/30 hover:bg-warning-50/60 rounded-lg p-5 flex flex-col items-center justify-center cursor-pointer transition-colors group">
                     <input
                       type="file"
                       accept=".pdf,image/png,image/jpeg,image/jpg"
@@ -543,7 +543,7 @@ export const CreditSimulatorPage = () => {
                     </span>
                   </label>
                 ) : (
-                  <div className="p-3.5 bg-brand-50/80 border border-brand-200 rounded-xl flex items-center justify-between">
+                  <div className="p-3.5 bg-brand-50/80 border border-brand-200 rounded-lg flex items-center justify-between">
                     <div className="flex items-center space-x-2.5 overflow-hidden">
                       <div className="w-8 h-8 rounded-lg bg-brand-600 text-white flex items-center justify-center shrink-0">
                         <FileCheck className="w-4 h-4" />
@@ -560,7 +560,7 @@ export const CreditSimulatorPage = () => {
                     <button
                       type="button"
                       onClick={handleRemoveFile}
-                      className="text-slate-400 hover:text-danger-600 p-1.5 rounded-lg hover:bg-danger-50 transition-colors cursor-pointer"
+                      className="text-slate-400 hover:text-danger-600 p-1.5 rounded-md hover:bg-danger-50 transition-colors cursor-pointer"
                       title="Quitar archivo seleccionado"
                     >
                       <X className="w-4 h-4" />
@@ -574,7 +574,7 @@ export const CreditSimulatorPage = () => {
                     type="button"
                     onClick={() => handleSubirExpediente(solicitudPendienteFirma.id_solicitud_credito)}
                     disabled={submitting || !archivoFirmadoBase64}
-                    className="flex-1 py-3 px-5 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs shadow-sm flex items-center justify-center space-x-2 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="flex-1 py-3 px-5 rounded-md bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs flex items-center justify-center space-x-2 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {submitting ? (
                       <>
@@ -593,7 +593,7 @@ export const CreditSimulatorPage = () => {
                     type="button"
                     onClick={() => openCancelarModal(solicitudPendienteFirma)}
                     disabled={submitting || cancelando}
-                    className="py-3 px-4 rounded-xl border border-rose-300 text-rose-700 hover:bg-rose-50 font-bold text-xs transition-all flex items-center justify-center space-x-1.5 cursor-pointer disabled:opacity-50"
+                    className="py-3 px-4 rounded-md border border-rose-300 text-rose-700 hover:bg-rose-50 font-bold text-xs transition-all flex items-center justify-center space-x-1.5 cursor-pointer disabled:opacity-50"
                     title="Desistir de esta solicitud para calcular con un monto o plazo diferente"
                   >
                     <X className="w-3.5 h-3.5" />
@@ -603,7 +603,7 @@ export const CreditSimulatorPage = () => {
               </div>
             </div>
           ) : (
-            <div className="bg-white p-6 sm:p-8 rounded-2xl border border-slate-200 shadow-sm space-y-6">
+            <div className="bg-white p-6 sm:p-8 rounded-lg border border-slate-200 space-y-6">
               <h2 className="text-lg font-bold text-slate-800 border-b border-slate-100 pb-3">
                 Calcular Préstamo y Generar Solicitud
               </h2>
@@ -628,7 +628,7 @@ export const CreditSimulatorPage = () => {
                       step={100}
                       value={monto}
                       onChange={(e) => setMonto(Math.max(500, parseFloat(e.target.value) || 0))}
-                      className={`w-full pl-9 pr-4 py-2 border rounded-xl text-sm focus:outline-none focus:ring-2 ${
+                      className={`w-full pl-9 pr-4 py-2 border rounded-md text-sm focus:outline-none focus:ring-2 ${
                         montoExcedeCupo
                           ? 'border-danger-300 focus:ring-danger-500 bg-danger-50/20'
                           : 'border-slate-300 focus:ring-brand-600'
@@ -642,11 +642,11 @@ export const CreditSimulatorPage = () => {
                     step={500}
                     value={monto}
                     onChange={(e) => setMonto(parseFloat(e.target.value))}
-                    className="w-full mt-3 h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-brand-700"
+                    className="w-full mt-3 h-1.5 bg-slate-200 rounded-md appearance-none cursor-pointer accent-brand-700"
                   />
 
                   {montoExcedeCupo && (
-                    <div className="mt-2.5 p-3 bg-danger-50 border border-danger-200 rounded-xl text-xs text-danger-700 flex items-start space-x-2">
+                    <div className="mt-2.5 p-3 bg-danger-50 border border-danger-200 rounded-lg text-xs text-danger-700 flex items-start space-x-2">
                       <AlertCircle className="w-4 h-4 text-danger-600 flex-shrink-0 mt-0.5" />
                       <div>
                         <span className="font-bold block">Monto supera el cupo crediticio disponible</span>
@@ -676,7 +676,7 @@ export const CreditSimulatorPage = () => {
                       max={120}
                       value={plazo}
                       onChange={(e) => setPlazo(Math.max(3, parseInt(e.target.value, 10) || 0))}
-                      className="w-full pl-9 pr-4 py-2 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-600"
+                      className="w-full pl-9 pr-4 py-2 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-brand-600"
                     />
                   </div>
                   <input
@@ -686,18 +686,18 @@ export const CreditSimulatorPage = () => {
                     step={1}
                     value={plazo}
                     onChange={(e) => setPlazo(parseInt(e.target.value, 10))}
-                    className="w-full mt-3 h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-brand-700"
+                    className="w-full mt-3 h-1.5 bg-slate-200 rounded-md appearance-none cursor-pointer accent-brand-700"
                   />
                 </div>
 
                 {/* Selección de Cuenta para Acreditación de Fondos */}
                 {loadingCuentas ? (
-                  <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-center space-x-2 text-xs text-slate-500">
+                  <div className="p-4 bg-slate-50 rounded-lg border border-slate-200 flex items-center justify-center space-x-2 text-xs text-slate-500">
                     <Loader2 className="w-4 h-4 animate-spin text-brand-600" />
                     <span>Cargando cuentas para acreditación...</span>
                   </div>
                 ) : cuentasAcreditacion.length === 1 ? (
-                  <div className="bg-brand-50/70 border border-brand-200 rounded-xl p-4">
+                  <div className="bg-brand-50/70 border border-brand-200 rounded-lg p-4">
                     <div className="flex items-center space-x-2 mb-1">
                       <Wallet className="w-4 h-4 text-brand-700" />
                       <span className="text-xs font-bold text-brand-900 uppercase tracking-wider">
@@ -707,7 +707,7 @@ export const CreditSimulatorPage = () => {
                     <p className="text-xs text-brand-700 mb-2.5">
                       Al contar con una única cuenta bancaria activa registrada, los fondos serán acreditados automáticamente a esta cuenta al ser aprobada su solicitud:
                     </p>
-                    <div className="bg-white border border-brand-200 rounded-lg p-3 flex justify-between items-center shadow-xs">
+                    <div className="bg-white border border-brand-200 rounded-lg p-3 flex justify-between items-center">
                       <div>
                         <span className="text-xs font-bold text-slate-800 block">
                           {cuentasAcreditacion[0].etiqueta_tipo || `Cuenta de ${cuentasAcreditacion[0].tipo_cuenta}`}
@@ -742,9 +742,9 @@ export const CreditSimulatorPage = () => {
                           <div
                             key={cta.key}
                             onClick={() => setSelectedCuentaKey(cta.key)}
-                            className={`p-3.5 rounded-xl border-2 cursor-pointer transition-all ${
+                            className={`p-3.5 rounded-lg border-2 cursor-pointer transition-all ${
                               isSelected
-                                ? 'border-brand-600 bg-brand-50/60 shadow-xs ring-1 ring-brand-600'
+                                ? 'border-brand-600 bg-brand-50/60 ring-1 ring-brand-600'
                                 : 'border-slate-200 hover:border-slate-300 bg-white'
                             }`}
                           >
@@ -775,7 +775,7 @@ export const CreditSimulatorPage = () => {
                     </div>
                   </div>
                 ) : (
-                  <div className="p-3 bg-warning-50 border border-warning-200 rounded-xl text-xs text-warning-800 flex items-center space-x-2">
+                  <div className="p-3 bg-warning-50 border border-warning-200 rounded-lg text-xs text-warning-800 flex items-center space-x-2">
                     <AlertCircle className="w-4 h-4 text-warning-600 flex-shrink-0" />
                     <span>No se encontraron cuentas bancarias activas (Monetaria o Ahorro) vinculadas para recibir el desembolso.</span>
                   </div>
@@ -791,7 +791,7 @@ export const CreditSimulatorPage = () => {
                     onChange={(e) => setObservaciones(e.target.value)}
                     placeholder="Ej. Inversión en vivienda, compra de insumos, capital de trabajo, etc."
                     rows={3}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-600 resize-none"
+                    className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-brand-600 resize-none"
                   />
                 </div>
 
@@ -800,7 +800,7 @@ export const CreditSimulatorPage = () => {
                   <button
                     type="submit"
                     disabled={isFormDisabled}
-                    className="w-full py-3.5 px-6 rounded-xl bg-brand-700 hover:bg-brand-800 text-white font-bold text-sm shadow-md flex items-center justify-center space-x-2 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-full py-3.5 px-6 rounded-md bg-brand-700 hover:bg-brand-800 text-white font-bold text-sm flex items-center justify-center space-x-2 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {submitting ? (
                       <>
@@ -836,7 +836,7 @@ export const CreditSimulatorPage = () => {
         {/* Resumen e Informativo (Derecha) */}
         <div className="lg:col-span-5 space-y-6">
           {/* Tarjeta de Capacidad y Scoring */}
-          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+          <div className="bg-white p-6 rounded-lg border border-slate-200 space-y-4">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider flex items-center space-x-2">
                 <ShieldCheck className="w-4 h-4 text-brand-600" />
@@ -875,7 +875,7 @@ export const CreditSimulatorPage = () => {
                   </span>
                 </div>
 
-                <div className="p-3.5 bg-gradient-to-br from-brand-50 to-teal-50 border border-brand-200 rounded-xl flex justify-between items-center">
+                <div className="p-3.5 bg-gradient-to-br from-brand-50 to-teal-50 border border-brand-200 rounded-lg flex justify-between items-center">
                   <div>
                     <span className="text-xs font-bold uppercase tracking-wider text-brand-900 block">
                       Cupo Disponible
@@ -906,8 +906,7 @@ export const CreditSimulatorPage = () => {
           </div>
 
           {/* Tarjeta de Resumen */}
-          <div className="bg-brand-900 p-6 sm:p-8 rounded-2xl text-white shadow-md space-y-6 relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-48 h-48 bg-white/5 rounded-full blur-2xl pointer-events-none" />
+          <div className="bg-brand-900 p-6 sm:p-8 rounded-lg text-white space-y-6 relative overflow-hidden">
             
             <h3 className="text-base font-bold border-b border-white/10 pb-3 flex items-center space-x-2">
               <Calculator className="w-5 h-5 text-brand-300" />
@@ -962,7 +961,7 @@ export const CreditSimulatorPage = () => {
           </div>
 
           {/* Requisitos Informativos */}
-          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-3">
+          <div className="bg-white p-6 rounded-lg border border-slate-200 space-y-3">
             <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
               Requisitos de Préstamo
             </h4>
@@ -977,14 +976,14 @@ export const CreditSimulatorPage = () => {
       </div>
 
       {/* Historial de Solicitudes (Seguimiento) */}
-      <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+      <div className="bg-white p-6 rounded-lg border border-slate-200">
         <div className="flex justify-between items-center mb-4">
           <h3 className="text-base font-bold text-slate-800">
             Historial de mis Solicitudes
           </h3>
           <button
             onClick={fetchCreditos}
-            className="p-1.5 text-slate-500 hover:text-brand-700 hover:bg-slate-50 rounded-lg transition-colors cursor-pointer"
+            className="p-1.5 text-slate-500 hover:text-brand-700 hover:bg-slate-50 rounded-md transition-colors cursor-pointer"
           >
             <RefreshCw className="w-4 h-4" />
           </button>
@@ -998,7 +997,7 @@ export const CreditSimulatorPage = () => {
         ) : creditos.length === 0 ? (
           <p className="text-xs text-slate-400 text-center py-6">No posee solicitudes registradas.</p>
         ) : (
-          <div className="overflow-x-auto border border-slate-100 rounded-xl">
+          <div className="overflow-x-auto border border-slate-100 rounded-lg">
             <table className="w-full text-left text-sm">
               <thead className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wider border-b border-slate-200">
                 <tr>
@@ -1047,7 +1046,7 @@ export const CreditSimulatorPage = () => {
                         <button
                           type="button"
                           onClick={() => handleDescargarPdfDeSolicitud(c)}
-                          className="inline-flex items-center px-2.5 py-1 rounded-lg bg-warning-50 hover:bg-warning-100 text-warning-800 text-xs font-bold border border-warning-300 transition-colors cursor-pointer"
+                          className="inline-flex items-center px-2.5 py-1 rounded-md bg-warning-50 hover:bg-warning-100 text-warning-800 text-xs font-bold border border-warning-300 transition-colors cursor-pointer"
                           title="Descargar formulario oficial prellenado para firma"
                         >
                           <Download className="w-3.5 h-3.5 mr-1 text-warning-600" />

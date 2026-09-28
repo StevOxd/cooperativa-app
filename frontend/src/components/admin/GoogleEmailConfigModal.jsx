@@ -126,12 +126,12 @@ export const GoogleEmailConfigModal = ({ isOpen, onClose, onConfigSaved }) => {
   };
 
   return createPortal(
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-2xl max-h-[90vh] overflow-y-auto transform transition-all flex flex-col">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 animate-in fade-in duration-200">
+      <div className="bg-white rounded-lg shadow-lg border border-slate-200 w-full max-w-2xl max-h-[90vh] overflow-y-auto transform transition-all flex flex-col">
         {/* Cabecera */}
-        <div className="flex items-center justify-between p-6 border-b border-slate-100 bg-gradient-to-r from-brand-900 to-teal-950 text-white rounded-t-2xl">
+        <div className="flex items-center justify-between p-6 border-b border-slate-100 bg-gradient-to-r from-brand-900 to-teal-950 text-white rounded-t-lg">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center border border-white/20">
+            <div className="w-10 h-10 rounded-lg bg-white/10 flex items-center justify-center border border-white/20">
               <Mail className="w-5 h-5 text-brand-300" />
             </div>
             <div>
@@ -143,7 +143,7 @@ export const GoogleEmailConfigModal = ({ isOpen, onClose, onConfigSaved }) => {
           </div>
           <button
             onClick={onClose}
-            className="text-white/70 hover:text-white p-2 rounded-lg hover:bg-white/10 transition-colors"
+            className="text-white/70 hover:text-white p-2 rounded-md hover:bg-white/10 transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
@@ -151,7 +151,7 @@ export const GoogleEmailConfigModal = ({ isOpen, onClose, onConfigSaved }) => {
 
         <div className="p-6 space-y-6">
           {/* Tarjeta de Estado del Servicio */}
-          <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
+          <div className="bg-slate-50 border border-slate-200 rounded-lg p-4">
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
                 Estado Actual del Servicio
@@ -220,7 +220,7 @@ export const GoogleEmailConfigModal = ({ isOpen, onClose, onConfigSaved }) => {
 
             {/* Guía Explicativa */}
             {showHelp && (
-              <div className="bg-brand-50 border border-brand-200 rounded-xl p-4 text-xs text-brand-950 space-y-2 animate-in fade-in duration-150">
+              <div className="bg-brand-50 border border-brand-200 rounded-lg p-4 text-xs text-brand-950 space-y-2 animate-in fade-in duration-150">
                 <p className="font-semibold text-brand-900">
                   Pasos para habilitar el envío con tu cuenta de Google (Gmail):
                 </p>
@@ -258,7 +258,7 @@ export const GoogleEmailConfigModal = ({ isOpen, onClose, onConfigSaved }) => {
                     onChange={(e) => setGmailUser(e.target.value)}
                     placeholder="ej. mi-cooperativa@gmail.com"
                     required
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-600 transition-all"
+                    className="w-full px-3.5 py-2.5 rounded-md border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-600 transition-all"
                   />
                 </div>
               </div>
@@ -274,7 +274,7 @@ export const GoogleEmailConfigModal = ({ isOpen, onClose, onConfigSaved }) => {
                     onChange={(e) => setGmailAppPassword(e.target.value)}
                     placeholder="16 caracteres de Google"
                     required
-                    className="w-full pl-3.5 pr-10 py-2.5 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-600 transition-all font-mono"
+                    className="w-full pl-3.5 pr-10 py-2.5 rounded-md border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-600 transition-all font-mono"
                   />
                   <button
                     type="button"
@@ -296,7 +296,7 @@ export const GoogleEmailConfigModal = ({ isOpen, onClose, onConfigSaved }) => {
                 value={senderName}
                 onChange={(e) => setSenderName(e.target.value)}
                 placeholder="ej. Cooperativa Corporativa Financiera"
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-600 transition-all"
+                className="w-full px-3.5 py-2.5 rounded-md border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-600 transition-all"
               />
             </div>
 
@@ -304,7 +304,7 @@ export const GoogleEmailConfigModal = ({ isOpen, onClose, onConfigSaved }) => {
               <button
                 type="submit"
                 disabled={loading}
-                className="px-5 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-700 text-white text-sm font-bold shadow-md shadow-brand-600/20 flex items-center gap-2 transition-all disabled:opacity-50"
+                className="px-5 py-2.5 rounded-md bg-brand-600 hover:bg-brand-700 text-white text-sm font-bold flex items-center gap-2 transition-all disabled:opacity-50"
               >
                 {loading ? (
                   <>
@@ -338,12 +338,12 @@ export const GoogleEmailConfigModal = ({ isOpen, onClose, onConfigSaved }) => {
                 onChange={(e) => setTestRecipient(e.target.value)}
                 placeholder="ej. usuario@dominio.com"
                 required
-                className="flex-1 px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-600"
+                className="flex-1 px-3.5 py-2.5 rounded-md border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-600"
               />
               <button
                 type="submit"
                 disabled={sendingTest}
-                className="px-5 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-sm font-bold shadow-md shadow-teal-600/20 flex items-center justify-center gap-2 transition-all disabled:opacity-50"
+                className="px-5 py-2.5 rounded-md bg-teal-600 hover:bg-teal-700 text-white text-sm font-bold flex items-center justify-center gap-2 transition-all disabled:opacity-50"
               >
                 {sendingTest ? (
                   <>
@@ -361,7 +361,7 @@ export const GoogleEmailConfigModal = ({ isOpen, onClose, onConfigSaved }) => {
 
             {testResult && (
               <div
-                className={`mt-3 p-3.5 rounded-xl border text-xs ${
+                className={`mt-3 p-3.5 rounded-lg border text-xs ${
                   testResult.success
                     ? 'bg-brand-50 border-brand-200 text-brand-900'
                     : 'bg-rose-50 border-rose-200 text-rose-900'
@@ -386,11 +386,11 @@ export const GoogleEmailConfigModal = ({ isOpen, onClose, onConfigSaved }) => {
         </div>
 
         {/* Pie */}
-        <div className="p-4 bg-slate-50 border-t border-slate-100 flex justify-end rounded-b-2xl">
+        <div className="p-4 bg-slate-50 border-t border-slate-100 flex justify-end rounded-b-lg">
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-800 hover:bg-slate-200/60 rounded-xl transition-colors"
+            className="px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-800 hover:bg-slate-200/60 rounded-md transition-colors"
           >
             Cerrar
           </button>

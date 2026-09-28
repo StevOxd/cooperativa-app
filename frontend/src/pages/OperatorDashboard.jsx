@@ -683,7 +683,7 @@ export const OperatorDashboard = () => {
   return (
     <div className="space-y-6">
       {/* Encabezado del Operador */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-white p-6 rounded-2xl border border-slate-200 shadow-xs">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-white p-6 rounded-lg border border-slate-200">
         <div>
           <span className="text-xs font-bold text-brand-700 uppercase tracking-widest block mb-1">
             Bandeja de Operaciones
@@ -699,7 +699,7 @@ export const OperatorDashboard = () => {
         <button
           onClick={refreshAll}
           disabled={loadingAfiliaciones || loadingTraslados || loadingCreditos}
-          className="inline-flex items-center space-x-1.5 px-4 py-2 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-bold shadow-2xs transition-colors cursor-pointer disabled:opacity-50"
+          className="inline-flex items-center space-x-1.5 px-4 py-2 rounded-md border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-bold transition-colors cursor-pointer disabled:opacity-50"
         >
           <RefreshCw className={`w-3.5 h-3.5 ${loadingAfiliaciones || loadingTraslados || loadingCreditos ? 'animate-spin' : ''}`} />
           <span>Actualizar Bandeja</span>
@@ -707,13 +707,13 @@ export const OperatorDashboard = () => {
       </div>
 
       {/* Pestañas Operativas */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+      <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
         <div className="flex border-b border-slate-200 bg-slate-50/60 px-4 pt-3 gap-2 overflow-x-auto">
           <button
             onClick={() => setActiveTab('afiliaciones')}
             className={`pb-3 px-4 text-xs font-bold flex items-center space-x-2 border-b-2 cursor-pointer transition-all ${
               activeTab === 'afiliaciones'
-                ? 'border-brand-600 text-brand-800 bg-white rounded-t-xl -mb-px'
+                ? 'border-brand-600 text-brand-800 bg-white rounded-t-lg -mb-px'
                 : 'border-transparent text-slate-500 hover:text-slate-800'
             }`}
           >
@@ -736,7 +736,7 @@ export const OperatorDashboard = () => {
             onClick={() => setActiveTab('traslados')}
             className={`pb-3 px-4 text-xs font-bold flex items-center space-x-2 border-b-2 cursor-pointer transition-all ${
               activeTab === 'traslados'
-                ? 'border-brand-600 text-brand-800 bg-white rounded-t-xl -mb-px'
+                ? 'border-brand-600 text-brand-800 bg-white rounded-t-lg -mb-px'
                 : 'border-transparent text-slate-500 hover:text-slate-800'
             }`}
           >
@@ -755,7 +755,7 @@ export const OperatorDashboard = () => {
             onClick={() => setActiveTab('creditos')}
             className={`pb-3 px-4 text-xs font-bold flex items-center space-x-2 border-b-2 cursor-pointer transition-all ${
               activeTab === 'creditos'
-                ? 'border-brand-600 text-brand-800 bg-white rounded-t-xl -mb-px'
+                ? 'border-brand-600 text-brand-800 bg-white rounded-t-lg -mb-px'
                 : 'border-transparent text-slate-500 hover:text-slate-800'
             }`}
           >
@@ -791,9 +791,9 @@ export const OperatorDashboard = () => {
                 <button
                   key={pill.id}
                   onClick={() => setFilterAfiliacionEstado(pill.id)}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center space-x-1.5 cursor-pointer ${
+                  className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all flex items-center space-x-1.5 cursor-pointer ${
                     filterAfiliacionEstado === pill.id
-                      ? 'bg-slate-900 text-white shadow-xs'
+                      ? 'bg-slate-900 text-white'
                       : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                   }`}
                 >
@@ -820,7 +820,7 @@ export const OperatorDashboard = () => {
                   value={searchAfiliacion}
                   onChange={(e) => setSearchAfiliacion(e.target.value)}
                   placeholder="Buscar por No. Caso, CUI/DPI, Nombre o Correo..."
-                  className="w-full pl-10 pr-9 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-600 font-medium"
+                  className="w-full pl-10 pr-9 py-2 bg-slate-50 border border-slate-200 rounded-md text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-600 font-medium"
                 />
                 {searchAfiliacion && (
                   <button
@@ -847,7 +847,7 @@ export const OperatorDashboard = () => {
                 <p className="text-xs font-semibold">Cargando solicitudes de afiliación...</p>
               </div>
             ) : filteredAfiliaciones.length === 0 ? (
-              <div className="py-20 text-center text-slate-400 bg-slate-50/50 rounded-xl border border-dashed border-slate-200">
+              <div className="py-20 text-center text-slate-400 bg-slate-50/50 rounded-lg border border-dashed border-slate-200">
                 <CheckCircle className="w-14 h-14 text-slate-300 mx-auto mb-2" />
                 <p className="font-semibold text-slate-700 text-sm">No hay solicitudes de afiliación pendientes</p>
                 <p className="text-xs text-slate-400 mt-0.5">
@@ -986,7 +986,7 @@ export const OperatorDashboard = () => {
                           <td className="py-3.5 px-4 text-center whitespace-nowrap">
                             {a.estado === 'ATENDIDA' ? (
                               <div className="flex items-center justify-center space-x-1.5 mx-auto">
-                                <span className="inline-flex items-center space-x-1.5 px-2.5 py-1.5 rounded-xl bg-brand-50 text-brand-800 text-xs font-bold border border-brand-200 shadow-2xs">
+                                <span className="inline-flex items-center space-x-1.5 px-2.5 py-1.5 rounded-lg bg-brand-50 text-brand-800 text-xs font-bold border border-brand-200">
                                   <Check className="w-3.5 h-3.5 text-brand-600" />
                                   <span>Caso Formalizado</span>
                                 </span>
@@ -994,7 +994,7 @@ export const OperatorDashboard = () => {
                                   type="button"
                                   onClick={() => handleDownloadComprobanteExistente(a)}
                                   title="Descargar Comprobante Oficial de Apertura en PDF"
-                                  className="inline-flex items-center space-x-1 px-2.5 py-1.5 rounded-xl bg-brand-50 hover:bg-brand-100 text-brand-800 border border-brand-300 text-xs font-bold transition-all cursor-pointer shadow-2xs"
+                                  className="inline-flex items-center space-x-1 px-2.5 py-1.5 rounded-md bg-brand-50 hover:bg-brand-100 text-brand-800 border border-brand-300 text-xs font-bold transition-all cursor-pointer"
                                 >
                                   <FileDown className="w-3.5 h-3.5 text-brand-700" />
                                   <span>PDF</span>
@@ -1002,7 +1002,7 @@ export const OperatorDashboard = () => {
                               </div>
                             ) : a.estado === 'CANCELADA' ? (
                               <span
-                                className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-rose-50 text-rose-800 text-xs font-bold border border-rose-200 mx-auto shadow-2xs"
+                                className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-rose-50 text-rose-800 text-xs font-bold border border-rose-200 mx-auto"
                                 title={a.observaciones ? `Motivo: ${a.observaciones}` : 'Caso denegado'}
                               >
                                 <X className="w-3.5 h-3.5 text-rose-600" />
@@ -1012,7 +1012,7 @@ export const OperatorDashboard = () => {
                               <button
                                 disabled
                                 title={`Este caso está siendo gestionado por ${a.operador_bloqueo_nombre} (${a.operador_bloqueo_codigo})`}
-                                className="px-3 py-1.5 rounded-xl bg-slate-100 text-slate-400 text-xs font-bold border border-slate-200 cursor-not-allowed flex items-center space-x-1 mx-auto"
+                                className="px-3 py-1.5 rounded-md bg-slate-100 text-slate-400 text-xs font-bold border border-slate-200 cursor-not-allowed flex items-center space-x-1 mx-auto"
                               >
                                 <Lock className="w-3 h-3" />
                                 <span>Bloqueado</span>
@@ -1021,7 +1021,7 @@ export const OperatorDashboard = () => {
                               <button
                                 onClick={() => handleOpenAfiliacionModal(a)}
                                 disabled={lockingCaso}
-                                className={`px-3 py-1.5 rounded-xl text-xs font-bold shadow-xs transition-colors cursor-pointer flex items-center space-x-1.5 mx-auto ${
+                                className={`px-3 py-1.5 rounded-md text-xs font-bold transition-colors cursor-pointer flex items-center space-x-1.5 mx-auto ${
                                   bloqueadoPorMi
                                     ? 'bg-blue-600 hover:bg-blue-700 text-white'
                                     : 'bg-brand-700 hover:bg-brand-800 text-white'
@@ -1112,7 +1112,7 @@ export const OperatorDashboard = () => {
                     <p className="text-xs font-semibold">Cargando bandeja de traslados...</p>
                   </div>
                 ) : solicitudes.length === 0 ? (
-                  <div className="py-20 text-center text-slate-400 bg-slate-50/50 rounded-xl border border-dashed border-slate-200">
+                  <div className="py-20 text-center text-slate-400 bg-slate-50/50 rounded-lg border border-dashed border-slate-200">
                     <CheckCircle className="w-14 h-14 text-slate-300 mx-auto mb-2" />
                     <p className="font-semibold text-slate-700 text-sm">¡Bandeja de traslados al día!</p>
                     <p className="text-xs text-slate-400 mt-0.5">No hay solicitudes de traslado o aperturas pendientes.</p>
@@ -1170,13 +1170,13 @@ export const OperatorDashboard = () => {
                               <div className="flex items-center justify-center space-x-2">
                                 <button
                                   onClick={() => openResolverTrasladoModal(s, 'APROBAR')}
-                                  className="px-3 py-1.5 rounded-lg bg-brand-50 hover:bg-brand-100 text-brand-700 text-xs font-bold border border-brand-200 transition-colors cursor-pointer"
+                                  className="px-3 py-1.5 rounded-md bg-brand-50 hover:bg-brand-100 text-brand-700 text-xs font-bold border border-brand-200 transition-colors cursor-pointer"
                                 >
                                   Aprobar
                                 </button>
                                 <button
                                   onClick={() => openResolverTrasladoModal(s, 'RECHAZAR')}
-                                  className="px-3 py-1.5 rounded-lg bg-danger-50 hover:bg-danger-100 text-danger-700 text-xs font-bold border border-danger-200 transition-colors cursor-pointer"
+                                  className="px-3 py-1.5 rounded-md bg-danger-50 hover:bg-danger-100 text-danger-700 text-xs font-bold border border-danger-200 transition-colors cursor-pointer"
                                 >
                                   Rechazar
                                 </button>
@@ -1195,7 +1195,7 @@ export const OperatorDashboard = () => {
             {subTabTraslados === 'historial' && (
               <div className="space-y-4">
                 {/* Barra de Filtros y Búsqueda */}
-                <div className="flex flex-col sm:flex-row gap-3 items-center justify-between bg-slate-50/70 p-3.5 rounded-xl border border-slate-200">
+                <div className="flex flex-col sm:flex-row gap-3 items-center justify-between bg-slate-50/70 p-3.5 rounded-lg border border-slate-200">
                   <div className="relative w-full sm:max-w-md">
                     <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
                     <input
@@ -1206,7 +1206,7 @@ export const OperatorDashboard = () => {
                         if (e.key === 'Enter') fetchHistorialTraslados(searchHistorialTraslados, filterHistorialEstado);
                       }}
                       placeholder="Buscar por Nombre, CUI/DPI, Caso o No. Cuenta..."
-                      className="w-full pl-10 pr-9 py-2 bg-white border border-slate-200 rounded-xl text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-600 font-medium"
+                      className="w-full pl-10 pr-9 py-2 bg-white border border-slate-200 rounded-md text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-600 font-medium"
                     />
                     {searchHistorialTraslados && (
                       <button
@@ -1229,7 +1229,7 @@ export const OperatorDashboard = () => {
                         setFilterHistorialEstado(e.target.value);
                         fetchHistorialTraslados(searchHistorialTraslados, e.target.value);
                       }}
-                      className="px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs text-slate-700 font-semibold focus:outline-none focus:ring-2 focus:ring-brand-600"
+                      className="px-3 py-2 bg-white border border-slate-200 rounded-md text-xs text-slate-700 font-semibold focus:outline-none focus:ring-2 focus:ring-brand-600"
                     >
                       <option value="TODOS">Todos los Estados</option>
                       <option value="PENDIENTE">Pendientes</option>
@@ -1240,7 +1240,7 @@ export const OperatorDashboard = () => {
                     <button
                       onClick={() => fetchHistorialTraslados(searchHistorialTraslados, filterHistorialEstado)}
                       disabled={loadingHistorialTraslados}
-                      className="px-3.5 py-2 bg-brand-700 hover:bg-brand-800 text-white rounded-xl text-xs font-bold shadow-xs transition-colors flex items-center space-x-1.5 cursor-pointer disabled:opacity-50 shrink-0"
+                      className="px-3.5 py-2 bg-brand-700 hover:bg-brand-800 text-white rounded-md text-xs font-bold transition-colors flex items-center space-x-1.5 cursor-pointer disabled:opacity-50 shrink-0"
                     >
                       <Search className="w-3.5 h-3.5" />
                       <span>Buscar</span>
@@ -1255,7 +1255,7 @@ export const OperatorDashboard = () => {
                     <p className="text-xs font-semibold">Consultando historial de traslados...</p>
                   </div>
                 ) : historialTraslados.length === 0 ? (
-                  <div className="py-20 text-center text-slate-400 bg-slate-50/50 rounded-xl border border-dashed border-slate-200">
+                  <div className="py-20 text-center text-slate-400 bg-slate-50/50 rounded-lg border border-dashed border-slate-200">
                     <Activity className="w-14 h-14 text-slate-300 mx-auto mb-2" />
                     <p className="font-semibold text-slate-700 text-sm">No se encontraron registros de traslados</p>
                     <p className="text-xs text-slate-400 mt-0.5">
@@ -1370,7 +1370,7 @@ export const OperatorDashboard = () => {
                   value={searchCredito}
                   onChange={(e) => setSearchCredito(e.target.value)}
                   placeholder="Buscar por ID, CUI/DPI, Nombre o Código Corporativo..."
-                  className="w-full pl-10 pr-9 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-600 font-medium"
+                  className="w-full pl-10 pr-9 py-2 bg-slate-50 border border-slate-200 rounded-md text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-600 font-medium"
                 />
                 {searchCredito && (
                   <button
@@ -1397,7 +1397,7 @@ export const OperatorDashboard = () => {
                 <p className="text-xs font-semibold">Cargando solicitudes de crédito...</p>
               </div>
             ) : filteredCreditos.length === 0 ? (
-              <div className="py-20 text-center text-slate-400 bg-slate-50/50 rounded-xl border border-dashed border-slate-200">
+              <div className="py-20 text-center text-slate-400 bg-slate-50/50 rounded-lg border border-dashed border-slate-200">
                 <CheckCircle className="w-14 h-14 text-slate-300 mx-auto mb-2" />
                 <p className="font-semibold text-slate-700 text-sm">No hay solicitudes de crédito</p>
                 <p className="text-xs text-slate-400 mt-0.5">
@@ -1515,7 +1515,7 @@ export const OperatorDashboard = () => {
                             <div className="flex items-center justify-center">
                               <button
                                 onClick={() => openResolverCreditoModal(c, '')}
-                                className={`px-3 py-1.5 rounded-lg text-white text-xs font-bold shadow-2xs transition-colors flex items-center space-x-1.5 cursor-pointer ${
+                                className={`px-3 py-1.5 rounded-md text-white text-xs font-bold transition-colors flex items-center space-x-1.5 cursor-pointer ${
                                   c.estado === 'DEVUELTA_OPERADOR'
                                     ? 'bg-warning-600 hover:bg-warning-700'
                                     : 'bg-brand-600 hover:bg-brand-700'
@@ -1530,7 +1530,7 @@ export const OperatorDashboard = () => {
                             <div className="flex flex-col items-center space-y-1">
                               <button
                                 onClick={() => openResolverCreditoModal(c, '')}
-                                className="inline-flex items-center px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-medium border border-slate-200 transition-colors cursor-pointer"
+                                className="inline-flex items-center px-2.5 py-1 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-medium border border-slate-200 transition-colors cursor-pointer"
                               >
                                 <Eye className="w-3 h-3 mr-1 text-slate-500" />
                                 <span>Expediente</span>

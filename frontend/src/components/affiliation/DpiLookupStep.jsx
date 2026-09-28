@@ -26,7 +26,7 @@ export const DpiLookupStep = ({
   return (
     <form onSubmit={handleConsultarDpi} className="space-y-6">
       <div className="text-center space-y-2 border-b border-slate-100 pb-5">
-        <div className="w-12 h-12 bg-brand-50 text-brand-700 rounded-2xl flex items-center justify-center mx-auto border border-brand-200">
+        <div className="w-12 h-12 bg-brand-50 text-brand-700 rounded-lg flex items-center justify-center mx-auto border border-brand-200">
           <Search className="w-6 h-6" />
         </div>
         <h3 className="text-lg font-bold text-slate-900">Verificación de Identidad</h3>
@@ -50,7 +50,7 @@ export const DpiLookupStep = ({
               if (errorMsg) setErrorMsg('');
             }}
             placeholder="Ingrese CUI / DPI (13 dígitos)"
-            className="w-full pl-11 pr-4 py-3 bg-white border border-slate-300 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600 text-base font-mono tracking-wider shadow-2xs"
+            className="w-full pl-11 pr-4 py-3 bg-white border border-slate-300 rounded-md text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600 text-base font-mono tracking-wider"
             required
             autoFocus
           />
@@ -61,7 +61,7 @@ export const DpiLookupStep = ({
       <button
         type="submit"
         disabled={loading}
-        className="w-full py-3 px-6 rounded-xl bg-blue-700 hover:bg-blue-800 text-white font-bold text-sm shadow-md flex items-center justify-center space-x-2 transition-all cursor-pointer disabled:opacity-50"
+        className="w-full py-3 px-6 rounded-md bg-blue-700 hover:bg-blue-800 text-white font-bold text-sm flex items-center justify-center space-x-2 transition-all cursor-pointer disabled:opacity-50"
       >
         {loading ? (
           <>

@@ -132,9 +132,9 @@ export const ChangePasswordModal = ({ isOpen, onClose }) => {
   };
 
   return createPortal(
-    <div className="fixed inset-0 z-[999] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm overflow-y-auto">
+    <div className="fixed inset-0 z-[999] flex items-center justify-center p-4 bg-slate-950/60 overflow-y-auto">
       <div
-        className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-8 shadow-2xl border border-slate-200 relative my-8"
+        className="bg-white rounded-lg max-w-md w-full p-6 sm:p-8 shadow-lg border border-slate-200 relative my-8"
         role="dialog"
         aria-modal="true"
         aria-labelledby="change-password-modal-title"
@@ -142,7 +142,7 @@ export const ChangePasswordModal = ({ isOpen, onClose }) => {
         {/* Encabezado del Modal */}
         <div className="flex justify-between items-center mb-6 border-b border-slate-100 pb-4">
           <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-xl bg-warning-50 text-warning-700 flex items-center justify-center border border-warning-200">
+            <div className="w-10 h-10 rounded-lg bg-warning-50 text-warning-700 flex items-center justify-center border border-warning-200">
               <KeyRound className="w-5 h-5" />
             </div>
             <div>
@@ -153,7 +153,7 @@ export const ChangePasswordModal = ({ isOpen, onClose }) => {
           <button
             type="button"
             onClick={onClose}
-            className="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
+            className="text-slate-400 hover:text-slate-600 p-1.5 rounded-md hover:bg-slate-100 transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
@@ -161,14 +161,14 @@ export const ChangePasswordModal = ({ isOpen, onClose }) => {
 
         {/* Mensajes de Feedback */}
         {successMessage && (
-          <div className="mb-4 p-3.5 rounded-xl bg-brand-50 border border-brand-200 text-brand-800 text-xs flex items-center space-x-2">
+          <div className="mb-4 p-3.5 rounded-lg bg-brand-50 border border-brand-200 text-brand-800 text-xs flex items-center space-x-2">
             <CheckCircle2 className="w-4 h-4 text-brand-600 flex-shrink-0" />
             <span className="font-medium">{successMessage}</span>
           </div>
         )}
 
         {errorMessage && (
-          <div className="mb-4 p-3.5 rounded-xl bg-danger-50 border border-danger-200 text-danger-700 text-xs flex items-center space-x-2">
+          <div className="mb-4 p-3.5 rounded-lg bg-danger-50 border border-danger-200 text-danger-700 text-xs flex items-center space-x-2">
             <AlertCircle className="w-4 h-4 text-danger-600 flex-shrink-0" />
             <span className="font-medium">{errorMessage}</span>
           </div>
@@ -191,7 +191,7 @@ export const ChangePasswordModal = ({ isOpen, onClose }) => {
                 placeholder="••••••••••••"
                 required
                 disabled={loading}
-                className="w-full pl-10 pr-10 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-600 focus:border-brand-600 focus:bg-white transition-all font-medium disabled:opacity-50"
+                className="w-full pl-10 pr-10 py-2.5 bg-slate-50 border border-slate-300 rounded-md text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-600 focus:border-brand-600 focus:bg-white transition-all font-medium disabled:opacity-50"
               />
               <button
                 type="button"
@@ -220,7 +220,7 @@ export const ChangePasswordModal = ({ isOpen, onClose }) => {
                 placeholder="Mínimo 6 caracteres (letras y números)"
                 required
                 disabled={loading}
-                className="w-full pl-10 pr-10 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-600 focus:border-brand-600 focus:bg-white transition-all font-medium disabled:opacity-50"
+                className="w-full pl-10 pr-10 py-2.5 bg-slate-50 border border-slate-300 rounded-md text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-600 focus:border-brand-600 focus:bg-white transition-all font-medium disabled:opacity-50"
               />
               <button
                 type="button"
@@ -249,7 +249,7 @@ export const ChangePasswordModal = ({ isOpen, onClose }) => {
                 placeholder="Repita la nueva contraseña"
                 required
                 disabled={loading}
-                className="w-full pl-10 pr-10 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-600 focus:border-brand-600 focus:bg-white transition-all font-medium disabled:opacity-50"
+                className="w-full pl-10 pr-10 py-2.5 bg-slate-50 border border-slate-300 rounded-md text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-600 focus:border-brand-600 focus:bg-white transition-all font-medium disabled:opacity-50"
               />
               <button
                 type="button"
@@ -262,7 +262,7 @@ export const ChangePasswordModal = ({ isOpen, onClose }) => {
             </div>
           </div>
 
-          <div className="p-3 bg-slate-50 border border-slate-200/80 rounded-xl text-xs text-slate-500 space-y-1">
+          <div className="p-3 bg-slate-50 border border-slate-200/80 rounded-lg text-xs text-slate-500 space-y-1">
             <p className="font-semibold text-slate-700">Requisitos de Seguridad:</p>
             <ul className="list-disc list-inside space-y-0.5 text-slate-600">
               <li>Mínimo 6 caracteres de longitud.</li>
@@ -276,14 +276,14 @@ export const ChangePasswordModal = ({ isOpen, onClose }) => {
               type="button"
               onClick={onClose}
               disabled={loading}
-              className="px-4 py-2.5 rounded-xl text-sm font-medium text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer disabled:opacity-50"
+              className="px-4 py-2.5 rounded-md text-sm font-medium text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer disabled:opacity-50"
             >
               Cancelar
             </button>
             <button
               type="submit"
               disabled={loading}
-              className="px-5 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-500 text-white font-semibold text-sm shadow-md transition-all flex items-center space-x-2 disabled:opacity-50 cursor-pointer"
+              className="px-5 py-2.5 rounded-md bg-brand-600 hover:bg-brand-500 text-white font-semibold text-sm transition-all flex items-center space-x-2 disabled:opacity-50 cursor-pointer"
             >
               {loading && <Loader2 className="w-4 h-4 animate-spin" />}
               <span>{loading ? 'Actualizando...' : 'Actualizar Contraseña'}</span>

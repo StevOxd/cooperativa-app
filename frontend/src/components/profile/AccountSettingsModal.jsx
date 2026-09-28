@@ -331,9 +331,9 @@ export const AccountSettingsModal = ({ isOpen, onClose, initialTab = '2fa' }) =>
   if (!isOpen) return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-[999] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm overflow-y-auto animate-fadeIn">
+    <div className="fixed inset-0 z-[999] flex items-center justify-center p-4 bg-slate-950/60 overflow-y-auto animate-fadeIn">
       <div
-        className="bg-white rounded-2xl max-w-2xl w-full p-6 sm:p-8 shadow-2xl border border-slate-200 relative my-8 animate-scaleUp"
+        className="bg-white rounded-lg max-w-2xl w-full p-6 sm:p-8 shadow-lg border border-slate-200 relative my-8 animate-scaleUp"
         role="dialog"
         aria-modal="true"
         aria-labelledby="account-settings-title"
@@ -341,7 +341,7 @@ export const AccountSettingsModal = ({ isOpen, onClose, initialTab = '2fa' }) =>
         {/* Cabecera del Modal */}
         <div className="flex justify-between items-start border-b border-slate-100 pb-4 mb-6">
           <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-xl bg-brand-50 border border-brand-100 flex items-center justify-center text-brand-700 shadow-2xs">
+            <div className="w-10 h-10 rounded-lg bg-brand-50 border border-brand-100 flex items-center justify-center text-brand-700">
               <Shield className="w-5 h-5" />
             </div>
             <div>
@@ -356,7 +356,7 @@ export const AccountSettingsModal = ({ isOpen, onClose, initialTab = '2fa' }) =>
           <button
             type="button"
             onClick={onClose}
-            className="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
+            className="text-slate-400 hover:text-slate-600 p-1.5 rounded-md hover:bg-slate-100 transition-colors cursor-pointer"
             aria-label="Cerrar modal"
           >
             <X className="w-5 h-5" />
@@ -364,7 +364,7 @@ export const AccountSettingsModal = ({ isOpen, onClose, initialTab = '2fa' }) =>
         </div>
 
         {/* Selector de Pestañas (Tabs) */}
-        <div className="flex space-x-1 p-1 bg-slate-100 rounded-xl mb-6">
+        <div className="flex space-x-1 p-1 bg-slate-100 rounded-lg mb-6">
           <button
             type="button"
             onClick={() => {
@@ -372,9 +372,9 @@ export const AccountSettingsModal = ({ isOpen, onClose, initialTab = '2fa' }) =>
               setErrorMsg('');
               setSuccessMsg('');
             }}
-            className={`flex-1 flex items-center justify-center space-x-2 py-2.5 px-3 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+            className={`flex-1 flex items-center justify-center space-x-2 py-2.5 px-3 rounded-md text-xs font-semibold transition-all cursor-pointer border border-line ${
               activeTab === '2fa'
-                ? 'bg-white text-brand-900 shadow-xs'
+                ? 'bg-white text-brand-900'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
@@ -392,9 +392,9 @@ export const AccountSettingsModal = ({ isOpen, onClose, initialTab = '2fa' }) =>
               setErrorMsg('');
               setSuccessMsg('');
             }}
-            className={`flex-1 flex items-center justify-center space-x-2 py-2.5 px-3 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+            className={`flex-1 flex items-center justify-center space-x-2 py-2.5 px-3 rounded-md text-xs font-semibold transition-all cursor-pointer border border-line ${
               activeTab === 'password'
-                ? 'bg-white text-brand-900 shadow-xs'
+                ? 'bg-white text-brand-900'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
@@ -409,9 +409,9 @@ export const AccountSettingsModal = ({ isOpen, onClose, initialTab = '2fa' }) =>
               setErrorMsg('');
               setSuccessMsg('');
             }}
-            className={`flex-1 flex items-center justify-center space-x-2 py-2.5 px-3 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+            className={`flex-1 flex items-center justify-center space-x-2 py-2.5 px-3 rounded-md text-xs font-semibold transition-all cursor-pointer border border-line ${
               activeTab === 'profile'
-                ? 'bg-white text-brand-900 shadow-xs'
+                ? 'bg-white text-brand-900'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
@@ -422,14 +422,14 @@ export const AccountSettingsModal = ({ isOpen, onClose, initialTab = '2fa' }) =>
 
         {/* Notificaciones globales de la pestaña */}
         {errorMsg && (
-          <div className="mb-5 p-3.5 rounded-xl bg-rose-50 border border-rose-200 flex items-start space-x-3 text-rose-700 text-xs">
+          <div className="mb-5 p-3.5 rounded-lg bg-rose-50 border border-rose-200 flex items-start space-x-3 text-rose-700 text-xs">
             <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
             <span className="leading-relaxed font-medium">{errorMsg}</span>
           </div>
         )}
 
         {successMsg && (
-          <div className="mb-5 p-3.5 rounded-xl bg-brand-50 border border-brand-200 flex items-start space-x-3 text-brand-800 text-xs">
+          <div className="mb-5 p-3.5 rounded-lg bg-brand-50 border border-brand-200 flex items-start space-x-3 text-brand-800 text-xs">
             <CheckCircle2 className="w-4 h-4 flex-shrink-0 mt-0.5 text-brand-600" />
             <span className="leading-relaxed font-medium">{successMsg}</span>
           </div>
@@ -441,7 +441,7 @@ export const AccountSettingsModal = ({ isOpen, onClose, initialTab = '2fa' }) =>
         {activeTab === '2fa' && (
           <div className="space-y-6">
             {/* Estado Actual del Factor de Doble Autenticación */}
-            <div className={`p-4 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${
+            <div className={`p-4 rounded-lg border flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${
               mfaEnabled
                 ? 'bg-brand-50/60 border-brand-200'
                 : 'bg-warning-50/60 border-warning-200'
@@ -449,7 +449,7 @@ export const AccountSettingsModal = ({ isOpen, onClose, initialTab = '2fa' }) =>
               <div className="flex items-start space-x-3">
                 <div className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${
                   mfaEnabled
-                    ? 'bg-brand-600 text-white shadow-xs'
+                    ? 'bg-brand-600 text-white'
                     : 'bg-warning-500 text-white'
                 }`}>
                   {mfaEnabled ? <ShieldCheck className="w-5 h-5" /> : <ShieldAlert className="w-5 h-5" />}
@@ -485,7 +485,7 @@ export const AccountSettingsModal = ({ isOpen, onClose, initialTab = '2fa' }) =>
                         setErrorMsg('');
                         setSuccessMsg('');
                       }}
-                      className="px-3 py-2 bg-white hover:bg-rose-50 text-rose-600 border border-rose-200 hover:border-rose-300 rounded-xl text-xs font-semibold shadow-2xs transition-colors cursor-pointer"
+                      className="px-3 py-2 bg-white hover:bg-rose-50 text-rose-600 border border-rose-200 hover:border-rose-300 rounded-md text-xs font-semibold transition-colors cursor-pointer"
                     >
                       Desactivar 2FA
                     </button>
@@ -494,7 +494,7 @@ export const AccountSettingsModal = ({ isOpen, onClose, initialTab = '2fa' }) =>
                       type="button"
                       onClick={handleStart2faSetup}
                       disabled={generatingQr}
-                      className="px-4 py-2.5 bg-brand-700 hover:bg-brand-800 text-white rounded-xl text-xs font-bold shadow-sm transition-all cursor-pointer flex items-center space-x-2 disabled:opacity-50"
+                      className="px-4 py-2.5 bg-brand-700 hover:bg-brand-800 text-white rounded-md text-xs font-bold transition-all cursor-pointer flex items-center space-x-2 disabled:opacity-50"
                     >
                       {generatingQr ? (
                         <>
@@ -515,7 +515,7 @@ export const AccountSettingsModal = ({ isOpen, onClose, initialTab = '2fa' }) =>
 
             {/* Vista de Desactivación de 2FA */}
             {isDisabling2fa && (
-              <form onSubmit={handleDisable2faSubmit} className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-4 animate-fadeIn">
+              <form onSubmit={handleDisable2faSubmit} className="p-4 rounded-lg bg-slate-50 border border-slate-200 space-y-4 animate-fadeIn">
                 <div className="flex justify-between items-center">
                   <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
                     Confirmar Desactivación de Seguridad
@@ -542,7 +542,7 @@ export const AccountSettingsModal = ({ isOpen, onClose, initialTab = '2fa' }) =>
                     onChange={(e) => setDisablePassword(e.target.value)}
                     placeholder="Contraseña actual"
                     required
-                    className="w-full px-3 py-2.5 bg-white border border-slate-300 rounded-xl text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600 pr-10"
+                    className="w-full px-3 py-2.5 bg-white border border-slate-300 rounded-md text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600 pr-10"
                   />
                   <button
                     type="button"
@@ -556,14 +556,14 @@ export const AccountSettingsModal = ({ isOpen, onClose, initialTab = '2fa' }) =>
                   <button
                     type="button"
                     onClick={() => setIsDisabling2fa(false)}
-                    className="px-3 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-semibold rounded-lg cursor-pointer"
+                    className="px-3 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-semibold rounded-md cursor-pointer"
                   >
                     Cancelar
                   </button>
                   <button
                     type="submit"
                     disabled={disablingLoading}
-                    className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-lg shadow-sm cursor-pointer disabled:opacity-50 flex items-center space-x-1.5"
+                    className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-md cursor-pointer disabled:opacity-50 flex items-center space-x-1.5"
                   >
                     {disablingLoading ? (
                       <Loader2 className="w-4 h-4 animate-spin" />
@@ -577,7 +577,7 @@ export const AccountSettingsModal = ({ isOpen, onClose, initialTab = '2fa' }) =>
 
             {/* Vista Interactiva de Configuración 2FA con Código QR */}
             {isConfiguring2fa && (
-              <div className="p-5 rounded-xl bg-slate-50 border border-slate-200/80 space-y-5 animate-fadeIn">
+              <div className="p-5 rounded-lg bg-slate-50 border border-slate-200/80 space-y-5 animate-fadeIn">
                 <div className="flex justify-between items-center border-b border-slate-200 pb-3">
                   <div className="flex items-center space-x-2 text-brand-900">
                     <QrCode className="w-4 h-4 text-brand-700" />
@@ -602,7 +602,7 @@ export const AccountSettingsModal = ({ isOpen, onClose, initialTab = '2fa' }) =>
                 {/* Pasos Visuales */}
                 <div className="grid grid-cols-1 md:grid-cols-12 gap-5 items-center">
                   {/* Código QR Centrado */}
-                  <div className="md:col-span-5 flex flex-col items-center justify-center p-3 bg-white rounded-xl border border-slate-200 shadow-2xs">
+                  <div className="md:col-span-5 flex flex-col items-center justify-center p-3 bg-white rounded-lg border border-slate-200">
                     {qrCodeUrl ? (
                       <img
                         src={qrCodeUrl}
@@ -630,7 +630,7 @@ export const AccountSettingsModal = ({ isOpen, onClose, initialTab = '2fa' }) =>
                       </p>
                     </div>
 
-                    <div className="p-3 bg-white rounded-xl border border-slate-200 space-y-1.5">
+                    <div className="p-3 bg-white rounded-lg border border-slate-200 space-y-1.5">
                       <span className="text-xs font-bold text-slate-400 uppercase block">
                         Paso 2: O copie la clave secreta manualmente
                       </span>
@@ -641,7 +641,7 @@ export const AccountSettingsModal = ({ isOpen, onClose, initialTab = '2fa' }) =>
                         <button
                           type="button"
                           onClick={handleCopySecret}
-                          className="inline-flex items-center space-x-1 px-2.5 py-1 text-xs font-semibold bg-brand-50 hover:bg-brand-100 text-brand-800 rounded-lg border border-brand-200 transition-colors flex-shrink-0 cursor-pointer"
+                          className="inline-flex items-center space-x-1 px-2.5 py-1 text-xs font-semibold bg-brand-50 hover:bg-brand-100 text-brand-800 rounded-md border border-brand-200 transition-colors flex-shrink-0 cursor-pointer"
                         >
                           {copiedSecret ? (
                             <>
@@ -674,7 +674,7 @@ export const AccountSettingsModal = ({ isOpen, onClose, initialTab = '2fa' }) =>
                             autoComplete="one-time-code"
                             autoFocus
                             required
-                            className="w-full text-center tracking-[0.4em] font-mono font-bold text-xl py-2 px-3 bg-white border border-slate-300 rounded-xl text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-600 focus:border-brand-600"
+                            className="w-full text-center tracking-[0.4em] font-mono font-bold text-xl py-2 px-3 bg-white border border-slate-300 rounded-md text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-600 focus:border-brand-600"
                           />
                         </div>
                       </div>
@@ -682,7 +682,7 @@ export const AccountSettingsModal = ({ isOpen, onClose, initialTab = '2fa' }) =>
                       <button
                         type="submit"
                         disabled={verifyingCode || totpCode.length !== 6}
-                        className="w-full py-2.5 px-4 bg-brand-700 hover:bg-brand-800 text-white font-bold text-xs rounded-xl shadow-sm transition-all flex items-center justify-center space-x-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="w-full py-2.5 px-4 bg-brand-700 hover:bg-brand-800 text-white font-bold text-xs rounded-md transition-all flex items-center justify-center space-x-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         {verifyingCode ? (
                           <>
@@ -720,7 +720,7 @@ export const AccountSettingsModal = ({ isOpen, onClose, initialTab = '2fa' }) =>
                   onChange={(e) => setPasswordActual(e.target.value)}
                   placeholder="Ingrese su contraseña actual"
                   required
-                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-600 focus:bg-white pr-10"
+                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-md text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-600 focus:bg-white pr-10"
                 />
                 <button
                   type="button"
@@ -744,7 +744,7 @@ export const AccountSettingsModal = ({ isOpen, onClose, initialTab = '2fa' }) =>
                     onChange={(e) => setNuevaPassword(e.target.value)}
                     placeholder="Mínimo 6 caracteres"
                     required
-                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-600 focus:bg-white pr-10"
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-md text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-600 focus:bg-white pr-10"
                   />
                   <button
                     type="button"
@@ -767,7 +767,7 @@ export const AccountSettingsModal = ({ isOpen, onClose, initialTab = '2fa' }) =>
                     onChange={(e) => setConfirmarPassword(e.target.value)}
                     placeholder="Repita la contraseña"
                     required
-                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-600 focus:bg-white pr-10"
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-md text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-600 focus:bg-white pr-10"
                   />
                   <button
                     type="button"
@@ -781,7 +781,7 @@ export const AccountSettingsModal = ({ isOpen, onClose, initialTab = '2fa' }) =>
             </div>
 
             {/* Checklist de requisitos de seguridad */}
-            <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/80 space-y-1">
+            <div className="p-3 bg-slate-50 rounded-lg border border-slate-200/80 space-y-1">
               <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block">
                 Requisitos de seguridad:
               </span>
@@ -802,7 +802,7 @@ export const AccountSettingsModal = ({ isOpen, onClose, initialTab = '2fa' }) =>
               <button
                 type="submit"
                 disabled={savingPassword}
-                className="px-5 py-2.5 bg-brand-700 hover:bg-brand-800 text-white font-bold text-xs rounded-xl shadow-sm transition-all flex items-center space-x-2 cursor-pointer disabled:opacity-50"
+                className="px-5 py-2.5 bg-brand-700 hover:bg-brand-800 text-white font-bold text-xs rounded-md transition-all flex items-center space-x-2 cursor-pointer disabled:opacity-50"
               >
                 {savingPassword ? (
                   <>
@@ -830,7 +830,7 @@ export const AccountSettingsModal = ({ isOpen, onClose, initialTab = '2fa' }) =>
                 <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">
                   Nombre Completo
                 </label>
-                <div className="px-3.5 py-2.5 bg-slate-100 rounded-xl text-sm font-semibold text-slate-700 border border-slate-200">
+                <div className="px-3.5 py-2.5 bg-slate-100 rounded-lg text-sm font-semibold text-slate-700 border border-slate-200">
                   {user?.nombre_completo || user?.nombre || '-'}
                 </div>
               </div>
@@ -839,7 +839,7 @@ export const AccountSettingsModal = ({ isOpen, onClose, initialTab = '2fa' }) =>
                 <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">
                   CUI / DPI
                 </label>
-                <div className="px-3.5 py-2.5 bg-slate-100 rounded-xl text-sm font-mono font-semibold text-slate-700 border border-slate-200">
+                <div className="px-3.5 py-2.5 bg-slate-100 rounded-lg text-sm font-mono font-semibold text-slate-700 border border-slate-200">
                   {user?.cui_dpi || '-'}
                 </div>
               </div>
@@ -848,7 +848,7 @@ export const AccountSettingsModal = ({ isOpen, onClose, initialTab = '2fa' }) =>
                 <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">
                   Código Corporativo
                 </label>
-                <div className="px-3.5 py-2.5 bg-slate-100 rounded-xl text-sm font-mono font-bold text-brand-800 border border-slate-200">
+                <div className="px-3.5 py-2.5 bg-slate-100 rounded-lg text-sm font-mono font-bold text-brand-800 border border-slate-200">
                   {user?.codigo_corporativo || '-'}
                 </div>
               </div>
@@ -857,7 +857,7 @@ export const AccountSettingsModal = ({ isOpen, onClose, initialTab = '2fa' }) =>
                 <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">
                   Rol Institucional
                 </label>
-                <div className="px-3.5 py-2.5 bg-slate-100 rounded-xl text-sm font-bold text-slate-800 border border-slate-200">
+                <div className="px-3.5 py-2.5 bg-slate-100 rounded-lg text-sm font-bold text-slate-800 border border-slate-200">
                   {user?.rol_nombre || user?.rol || '-'}
                 </div>
               </div>
@@ -866,7 +866,7 @@ export const AccountSettingsModal = ({ isOpen, onClose, initialTab = '2fa' }) =>
                 <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">
                   Correo Electrónico
                 </label>
-                <div className="px-3.5 py-2.5 bg-slate-100 rounded-xl text-sm font-semibold text-slate-700 border border-slate-200">
+                <div className="px-3.5 py-2.5 bg-slate-100 rounded-lg text-sm font-semibold text-slate-700 border border-slate-200">
                   {user?.email || '-'}
                 </div>
               </div>
@@ -884,7 +884,7 @@ export const AccountSettingsModal = ({ isOpen, onClose, initialTab = '2fa' }) =>
                   onChange={(e) => setTelefono(e.target.value.replace(/\D/g, ''))}
                   placeholder="8 dígitos (ej. 55110001)"
                   required
-                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-600 focus:bg-white"
+                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-md text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-600 focus:bg-white"
                 />
               </div>
             </div>
@@ -893,7 +893,7 @@ export const AccountSettingsModal = ({ isOpen, onClose, initialTab = '2fa' }) =>
               <button
                 type="submit"
                 disabled={savingProfile}
-                className="px-5 py-2.5 bg-brand-700 hover:bg-brand-800 text-white font-bold text-xs rounded-xl shadow-sm transition-all flex items-center space-x-2 cursor-pointer disabled:opacity-50"
+                className="px-5 py-2.5 bg-brand-700 hover:bg-brand-800 text-white font-bold text-xs rounded-md transition-all flex items-center space-x-2 cursor-pointer disabled:opacity-50"
               >
                 {savingProfile ? (
                   <>

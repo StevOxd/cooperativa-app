@@ -18,9 +18,9 @@ const OperatorTrasladoModal = ({
   if (!selectedSolicitud || !actionType) return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-[999] flex items-center justify-center p-3 sm:p-4 bg-slate-950/60 backdrop-blur-sm overflow-y-auto">
+    <div className="fixed inset-0 z-[999] flex items-center justify-center p-3 sm:p-4 bg-slate-950/60 overflow-y-auto">
       <div
-        className="bg-white rounded-2xl max-w-md w-full p-6 sm:p-8 shadow-2xl border border-slate-200 relative my-auto animate-scaleUp max-h-[92vh] overflow-y-auto"
+        className="bg-white rounded-lg max-w-md w-full p-6 sm:p-8 shadow-lg border border-slate-200 relative my-auto animate-scaleUp max-h-[92vh] overflow-y-auto"
         role="dialog"
         aria-modal="true"
         aria-labelledby="traslado-modal-title"
@@ -32,7 +32,7 @@ const OperatorTrasladoModal = ({
           </h3>
           <button
             onClick={closeResolverTrasladoModal}
-            className="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
+            className="text-slate-400 hover:text-slate-600 p-1.5 rounded-md hover:bg-slate-100 transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
@@ -51,7 +51,7 @@ const OperatorTrasladoModal = ({
             ?
           </p>
 
-          <div className="p-3.5 bg-slate-50 border rounded-xl space-y-1.5 text-xs text-slate-700 font-mono">
+          <div className="p-3.5 bg-slate-50 border rounded-lg space-y-1.5 text-xs text-slate-700 font-mono">
             <div>
               Caso: <strong>{selectedSolicitud.numero_caso}</strong>
             </div>
@@ -83,7 +83,7 @@ const OperatorTrasladoModal = ({
                 }
                 required={actionType === 'RECHAZAR'}
                 rows={3}
-                className="w-full px-3 py-2.5 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-600 resize-none"
+                className="w-full px-3 py-2.5 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-brand-600 resize-none"
               />
             </div>
 
@@ -91,14 +91,14 @@ const OperatorTrasladoModal = ({
               <button
                 type="button"
                 onClick={closeResolverTrasladoModal}
-                className="px-5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-sm font-semibold cursor-pointer"
+                className="px-5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-md text-sm font-semibold cursor-pointer"
               >
                 Volver
               </button>
               <button
                 type="submit"
                 disabled={resolvingTraslado}
-                className={`px-5 py-2 text-white rounded-xl text-sm font-semibold shadow-md flex items-center space-x-1.5 cursor-pointer ${
+                className={`px-5 py-2 text-white rounded-md text-sm font-semibold flex items-center space-x-1.5 cursor-pointer ${
                   actionType === 'APROBAR' ? 'bg-brand-700 hover:bg-brand-800' : 'bg-danger-700 hover:bg-danger-800'
                 }`}
               >

@@ -62,20 +62,20 @@ export const ConfirmModal = ({
     : 'bg-brand-50 border-brand-200 text-brand-600';
 
   const confirmBtnBg = isDanger
-    ? 'bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white shadow-rose-200'
+    ? 'bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white'
     : isWarning
-    ? 'bg-warning-600 hover:bg-warning-700 active:bg-warning-800 text-white shadow-warning-200'
-    : 'bg-brand-600 hover:bg-brand-700 active:bg-brand-800 text-white shadow-brand-200';
+    ? 'bg-warning-600 hover:bg-warning-700 active:bg-warning-800 text-white'
+    : 'bg-brand-600 hover:bg-brand-700 active:bg-brand-800 text-white';
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-950/60 backdrop-blur-xs p-4 animate-in fade-in duration-200"
+      className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-950/60 p-4 animate-in fade-in duration-200"
       onClick={() => {
         if (!loading) onClose();
       }}
     >
       <div
-        className="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-slate-100 overflow-hidden transform animate-in zoom-in-95 duration-200"
+        className="bg-white w-full max-w-md rounded-lg shadow-lg border border-slate-100 overflow-hidden transform animate-in zoom-in-95 duration-200"
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
@@ -95,7 +95,7 @@ export const ConfirmModal = ({
           {/* Encabezado e Ícono */}
           <div className="flex items-start space-x-3.5 mb-4">
             <div
-              className={`w-12 h-12 rounded-2xl border flex items-center justify-center shrink-0 shadow-xs ${iconBg}`}
+              className={`w-12 h-12 rounded-lg border flex items-center justify-center shrink-0 ${iconBg}`}
             >
               {isDanger || isWarning ? (
                 <AlertTriangle className="w-6 h-6 animate-pulse" />
@@ -116,7 +116,7 @@ export const ConfirmModal = ({
                 type="button"
                 onClick={onClose}
                 disabled={loading}
-                className="absolute -top-1 right-0 p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer disabled:opacity-30"
+                className="absolute -top-1 right-0 p-1.5 rounded-md text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer disabled:opacity-30"
                 title="Cerrar ventana"
               >
                 <X className="w-4 h-4" />
@@ -137,7 +137,7 @@ export const ConfirmModal = ({
 
           {/* Tarjeta de Detalles del Objeto */}
           {details.length > 0 && (
-            <div className="mb-4 bg-slate-50 border border-slate-200/80 rounded-xl p-3.5 space-y-2 text-xs">
+            <div className="mb-4 bg-slate-50 border border-slate-200/80 rounded-lg p-3.5 space-y-2 text-xs">
               {details.map((item, idx) => (
                 <div
                   key={idx}
@@ -157,7 +157,7 @@ export const ConfirmModal = ({
           )}
 
           {/* Advertencia / Nota explicativa */}
-          <div className="p-3 bg-warning-50/80 border border-warning-200/80 rounded-xl flex items-start space-x-2 text-warning-900 text-xs">
+          <div className="p-3 bg-warning-50/80 border border-warning-200/80 rounded-lg flex items-start space-x-2 text-warning-900 text-xs">
             <AlertCircle className="w-4 h-4 text-warning-600 shrink-0 mt-0.5" />
             <p className="text-xs leading-relaxed text-warning-800">
               Esta acción no se puede deshacer. Podrá iniciar una nueva simulación con las condiciones de su preferencia cuando lo requiera.
@@ -170,7 +170,7 @@ export const ConfirmModal = ({
               type="button"
               onClick={onClose}
               disabled={loading}
-              className="flex-1 py-2.5 px-4 rounded-xl border border-slate-300 hover:bg-slate-100 text-slate-700 font-semibold text-xs transition-colors cursor-pointer disabled:opacity-50"
+              className="flex-1 py-2.5 px-4 rounded-md border border-slate-300 hover:bg-slate-100 text-slate-700 font-semibold text-xs transition-colors cursor-pointer disabled:opacity-50"
             >
               {cancelText}
             </button>
@@ -178,7 +178,7 @@ export const ConfirmModal = ({
               type="button"
               onClick={onConfirm}
               disabled={loading}
-              className={`flex-1 py-2.5 px-4 rounded-xl font-bold text-xs shadow-md transition-all flex items-center justify-center space-x-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${confirmBtnBg}`}
+              className={`flex-1 py-2.5 px-4 rounded-md font-bold text-xs transition-all flex items-center justify-center space-x-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${confirmBtnBg}`}
             >
               {loading ? (
                 <>

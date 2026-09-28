@@ -99,13 +99,13 @@ export const Navbar = () => {
 
   return (
     <>
-      <header className="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-xs">
+      <header className="bg-white border-b border-slate-200 sticky top-0 z-40">
         <div className="w-full max-w-[1680px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12">
           <div className="flex justify-between h-16 items-center">
             {/* Logo & Marca Institucional */}
             <div className="flex items-center space-x-8">
               <Link to="/dashboard" className="flex items-center space-x-3 group">
-                <div className="w-10 h-10 rounded-xl bg-brand-700 flex items-center justify-center text-white shadow-md shadow-brand-700/20 group-hover:scale-105 transition-transform">
+                <div className="w-10 h-10 rounded-lg bg-brand-700 flex items-center justify-center text-white group-hover:scale-105 transition-transform">
                   <Building2 className="w-6 h-6" />
                 </div>
                 <div>
@@ -148,13 +148,13 @@ export const Navbar = () => {
                   onClick={() => setIsDropdownOpen(!isDropdownOpen)}
                   aria-expanded={isDropdownOpen}
                   aria-haspopup="true"
-                  className={`flex items-center space-x-3 p-1.5 sm:px-3 sm:py-2 rounded-xl transition-all cursor-pointer border ${
+                  className={`flex items-center space-x-3 p-1.5 sm:px-3 sm:py-2 rounded-md transition-all cursor-pointer border ${
                     isDropdownOpen
-                      ? 'bg-slate-100 border-slate-300 shadow-xs ring-2 ring-brand-500/20'
+                      ? 'bg-slate-100 border-slate-300 ring-2 ring-brand-500/20'
                       : 'hover:bg-slate-50 border-transparent hover:border-slate-200'
                   }`}
                 >
-                  <div className="w-9 h-9 rounded-full bg-brand-50 border border-brand-200 flex items-center justify-center text-brand-700 shadow-2xs">
+                  <div className="w-9 h-9 rounded-full bg-brand-50 border border-brand-200 flex items-center justify-center text-brand-700">
                     <User className="w-5 h-5" />
                   </div>
                   <div className="text-left hidden sm:block">
@@ -178,9 +178,9 @@ export const Navbar = () => {
 
                 {/* Menú Flotante Institucional */}
                 {isDropdownOpen && (
-                  <div className="absolute right-0 mt-2 w-68 rounded-2xl bg-white shadow-xl border border-slate-200 py-1.5 z-50">
+                  <div className="absolute right-0 mt-2 w-68 rounded-lg bg-white shadow-lg border border-slate-200 py-1.5 z-50">
                     {/* Encabezado del Perfil */}
-                    <div className="px-4 py-3 border-b border-slate-100 bg-slate-50/60 rounded-t-2xl">
+                    <div className="px-4 py-3 border-b border-slate-100 bg-slate-50/60 rounded-t-lg">
                       <p className="text-xs font-bold text-slate-900 truncate">
                         {user?.nombre_completo || user?.nombre || 'Usuario'}
                       </p>
@@ -213,7 +213,7 @@ export const Navbar = () => {
                           setAccountSettingsInitialTab('2fa');
                           setIsAccountSettingsOpen(true);
                         }}
-                        className="w-full flex items-center space-x-2.5 px-3 py-2 text-xs font-medium text-slate-700 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer text-left"
+                        className="w-full flex items-center space-x-2.5 px-3 py-2 text-xs font-medium text-slate-700 hover:text-slate-900 hover:bg-slate-100 rounded-md transition-colors cursor-pointer text-left"
                       >
                         <ShieldCheck className="w-4 h-4 text-brand-700 flex-shrink-0" />
                         <div className="flex items-center justify-between w-full">
@@ -238,7 +238,7 @@ export const Navbar = () => {
                           setIsDropdownOpen(false);
                           logout();
                         }}
-                        className="w-full flex items-center space-x-2.5 px-3 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-50 hover:text-rose-700 rounded-xl transition-colors cursor-pointer text-left"
+                        className="w-full flex items-center space-x-2.5 px-3 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-50 hover:text-rose-700 rounded-md transition-colors cursor-pointer text-left"
                       >
                         <LogOut className="w-4 h-4 text-rose-500 flex-shrink-0" />
                         <span>Cerrar Sesión</span>
@@ -257,7 +257,7 @@ export const Navbar = () => {
                 }}
                 aria-label={isMobileMenuOpen ? 'Cerrar menú de navegación' : 'Abrir menú de navegación'}
                 aria-expanded={isMobileMenuOpen}
-                className="md:hidden p-2 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors cursor-pointer border border-slate-200"
+                className="md:hidden p-2 rounded-md text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors cursor-pointer border border-slate-200"
               >
                 {isMobileMenuOpen ? (
                   <X className="w-5 h-5 text-slate-700" />
@@ -282,7 +282,7 @@ export const Navbar = () => {
                     key={link.to}
                     to={link.to}
                     onClick={() => setIsMobileMenuOpen(false)}
-                    className={`flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-colors ${
+                    className={`flex items-center space-x-3 px-3.5 py-2.5 rounded-lg text-sm font-medium transition-colors ${
                       isActive
                         ? 'bg-brand-50 text-brand-800 font-bold border border-brand-200'
                         : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'

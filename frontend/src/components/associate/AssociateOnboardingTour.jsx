@@ -170,8 +170,8 @@ export const AssociateOnboardingTour = ({
   const StepIcon = currentStepData?.icon || Sparkles;
 
   return createPortal(
-    <div className="fixed inset-0 z-[999] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-white w-full max-w-xl rounded-3xl shadow-2xl border border-slate-200 overflow-hidden relative transition-all">
+    <div className="fixed inset-0 z-[999] flex items-center justify-center p-4 bg-slate-950/60 animate-in fade-in duration-200">
+      <div className="bg-white w-full max-w-xl rounded-lg shadow-lg border border-slate-200 overflow-hidden relative transition-all">
         
         {/* Botón de Cierre Superior */}
         <button
@@ -185,7 +185,7 @@ export const AssociateOnboardingTour = ({
         {/* ================= MODAL: BIENVENIDA INICIAL ================= */}
         {modalMode === 'welcome' && (
           <div className="p-6 sm:p-8 text-center space-y-5">
-            <div className="w-16 h-16 bg-brand-100 text-brand-700 rounded-2xl flex items-center justify-center mx-auto shadow-inner">
+            <div className="w-16 h-16 bg-brand-100 text-brand-700 rounded-lg flex items-center justify-center mx-auto">
               <Compass className="w-8 h-8 animate-pulse" />
             </div>
 
@@ -203,19 +203,19 @@ export const AssociateOnboardingTour = ({
 
             {/* Tarjetas resumen de lo que verá */}
             <div className="grid grid-cols-2 gap-2 text-left pt-1">
-              <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center space-x-2.5">
+              <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg flex items-center space-x-2.5">
                 <Wallet className="w-5 h-5 text-brand-700 shrink-0" />
                 <span className="text-xs font-semibold text-slate-700">Aportaciones y Ahorros</span>
               </div>
-              <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center space-x-2.5">
+              <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg flex items-center space-x-2.5">
                 <Send className="w-5 h-5 text-brand-700 shrink-0" />
                 <span className="text-xs font-semibold text-slate-700">Traslados de Planilla</span>
               </div>
-              <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center space-x-2.5">
+              <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg flex items-center space-x-2.5">
                 <TrendingUp className="w-5 h-5 text-brand-700 shrink-0" />
                 <span className="text-xs font-semibold text-slate-700">Simulador de Créditos</span>
               </div>
-              <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center space-x-2.5">
+              <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg flex items-center space-x-2.5">
                 <ShieldCheck className="w-5 h-5 text-brand-700 shrink-0" />
                 <span className="text-xs font-semibold text-slate-700">Seguridad Bancaria</span>
               </div>
@@ -240,14 +240,14 @@ export const AssociateOnboardingTour = ({
               <button
                 type="button"
                 onClick={handleClose}
-                className="w-full sm:w-auto px-5 py-2.5 rounded-xl border border-slate-300 text-slate-700 hover:bg-slate-50 font-semibold text-sm transition-colors cursor-pointer"
+                className="w-full sm:w-auto px-5 py-2.5 rounded-md border border-slate-300 text-slate-700 hover:bg-slate-50 font-semibold text-sm transition-colors cursor-pointer"
               >
                 Omitir por ahora
               </button>
               <button
                 type="button"
                 onClick={handleStartTour}
-                className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-brand-700 hover:bg-brand-800 text-white font-bold text-sm shadow-md flex items-center justify-center space-x-2 transition-all cursor-pointer"
+                className="w-full sm:w-auto px-6 py-2.5 rounded-md bg-brand-700 hover:bg-brand-800 text-white font-bold text-sm flex items-center justify-center space-x-2 transition-all cursor-pointer"
               >
                 <span>Iniciar Recorrido</span>
                 <ArrowRight className="w-4 h-4" />
@@ -262,7 +262,7 @@ export const AssociateOnboardingTour = ({
             {/* Header del paso */}
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 rounded-xl bg-brand-100 text-brand-800 flex items-center justify-center">
+                <div className="w-10 h-10 rounded-lg bg-brand-100 text-brand-800 flex items-center justify-center">
                   <StepIcon className="w-5 h-5" />
                 </div>
                 <div>
@@ -293,7 +293,7 @@ export const AssociateOnboardingTour = ({
               </p>
 
               {/* Recuadro de Tip o Consejo de Uso */}
-              <div className="p-3.5 bg-brand-50/70 border border-brand-200 rounded-2xl flex items-start space-x-2.5 text-xs text-brand-900">
+              <div className="p-3.5 bg-brand-50/70 border border-brand-200 rounded-lg flex items-start space-x-2.5 text-xs text-brand-900">
                 <Info className="w-4 h-4 text-brand-700 shrink-0 mt-0.5" />
                 <span className="leading-snug">{currentStepData.tip}</span>
               </div>
@@ -320,7 +320,7 @@ export const AssociateOnboardingTour = ({
                   type="button"
                   onClick={handlePrev}
                   disabled={currentStep === 0}
-                  className="px-3.5 py-2 rounded-xl text-slate-600 hover:bg-slate-100 disabled:opacity-30 disabled:hover:bg-transparent text-xs font-semibold transition-colors flex items-center space-x-1 cursor-pointer"
+                  className="px-3.5 py-2 rounded-md text-slate-600 hover:bg-slate-100 disabled:opacity-30 disabled:hover:bg-transparent text-xs font-semibold transition-colors flex items-center space-x-1 cursor-pointer"
                 >
                   <ArrowLeft className="w-3.5 h-3.5" />
                   <span>Anterior</span>
@@ -328,7 +328,7 @@ export const AssociateOnboardingTour = ({
                 <button
                   type="button"
                   onClick={handleNext}
-                  className="px-4 py-2 rounded-xl bg-brand-700 hover:bg-brand-800 text-white text-xs font-bold shadow-sm transition-all flex items-center space-x-1 cursor-pointer"
+                  className="px-4 py-2 rounded-md bg-brand-700 hover:bg-brand-800 text-white text-xs font-bold transition-all flex items-center space-x-1 cursor-pointer"
                 >
                   <span>
                     {currentStep === TOUR_STEPS.length - 1 ? 'Finalizar' : 'Siguiente'}
@@ -343,7 +343,7 @@ export const AssociateOnboardingTour = ({
         {/* ================= MODAL: COMPLETADO ================= */}
         {modalMode === 'completed' && (
           <div className="p-6 sm:p-8 text-center space-y-5">
-            <div className="w-16 h-16 bg-brand-100 text-brand-700 rounded-full flex items-center justify-center mx-auto shadow-inner">
+            <div className="w-16 h-16 bg-brand-100 text-brand-700 rounded-full flex items-center justify-center mx-auto">
               <CheckCircle2 className="w-9 h-9" />
             </div>
 
@@ -374,7 +374,7 @@ export const AssociateOnboardingTour = ({
               <button
                 type="button"
                 onClick={handleFinish}
-                className="w-full py-3 px-6 rounded-xl bg-brand-700 hover:bg-brand-800 text-white font-bold text-sm shadow-md transition-all cursor-pointer"
+                className="w-full py-3 px-6 rounded-md bg-brand-700 hover:bg-brand-800 text-white font-bold text-sm transition-all cursor-pointer"
               >
                 Comenzar a Gestionar mis Cuentas
               </button>

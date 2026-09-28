@@ -503,7 +503,7 @@ export const UsersPage = () => {
             <button
               type="button"
               onClick={openCreateModal}
-              className="inline-flex items-center space-x-2 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm shadow-md transition-all cursor-pointer"
+              className="inline-flex items-center space-x-2 px-4 py-2.5 rounded-md bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm transition-all cursor-pointer"
             >
               <UserPlus className="w-4 h-4" />
               <span>Nuevo Usuario</span>
@@ -513,7 +513,7 @@ export const UsersPage = () => {
       </div>
 
       {/* Barra de Filtros y Búsqueda */}
-      <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col xl:flex-row gap-4 justify-between items-stretch xl:items-center">
+      <div className="bg-white p-4 rounded-lg border border-slate-200 flex flex-col xl:flex-row gap-4 justify-between items-stretch xl:items-center">
         {/* Buscador exclusivo por usuario */}
         <form onSubmit={handleSearchSubmit} className="w-full xl:w-72 relative">
           <input
@@ -521,7 +521,7 @@ export const UsersPage = () => {
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder="Buscar por usuario..."
-            className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono"
+            className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-md text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono"
           />
           <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
         </form>
@@ -532,12 +532,12 @@ export const UsersPage = () => {
           <div className="flex items-center space-x-2">
             <Filter className="w-4 h-4 text-slate-400" />
             <span className="text-xs font-semibold text-slate-500 uppercase">Rol:</span>
-            <div className="flex flex-wrap rounded-xl bg-slate-100 p-1 border border-slate-200 text-xs font-medium">
+            <div className="flex flex-wrap rounded-lg bg-slate-100 p-1 border border-slate-200 text-xs font-medium">
               <button
                 type="button"
                 onClick={() => setFilterRol('')}
-                className={`px-3 py-1 rounded-lg transition-colors cursor-pointer ${
-                  filterRol === '' ? 'bg-white text-slate-900 shadow-sm font-bold' : 'text-slate-600 hover:text-slate-900'
+                className={`px-3 py-1 rounded-md transition-colors cursor-pointer border border-line ${
+                  filterRol === '' ? 'bg-white text-slate-900 font-bold' : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
                 Todos
@@ -545,8 +545,8 @@ export const UsersPage = () => {
               <button
                 type="button"
                 onClick={() => setFilterRol('ASOCIADO')}
-                className={`px-3 py-1 rounded-lg transition-colors cursor-pointer ${
-                  filterRol === 'ASOCIADO' ? 'bg-blue-600 text-white shadow-sm font-bold' : 'text-slate-600 hover:text-slate-900'
+                className={`px-3 py-1 rounded-md transition-colors cursor-pointer ${
+                  filterRol === 'ASOCIADO' ? 'bg-blue-600 text-white font-bold' : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
                 Asociados
@@ -554,8 +554,8 @@ export const UsersPage = () => {
               <button
                 type="button"
                 onClick={() => setFilterRol('EJECUTIVO')}
-                className={`px-3 py-1 rounded-lg transition-colors cursor-pointer ${
-                  filterRol === 'EJECUTIVO' ? 'bg-blue-600 text-white shadow-sm font-bold' : 'text-slate-600 hover:text-slate-900'
+                className={`px-3 py-1 rounded-md transition-colors cursor-pointer ${
+                  filterRol === 'EJECUTIVO' ? 'bg-blue-600 text-white font-bold' : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
                 Ejecutivos
@@ -563,8 +563,8 @@ export const UsersPage = () => {
               <button
                 type="button"
                 onClick={() => setFilterRol('OPERADOR')}
-                className={`px-3 py-1 rounded-lg transition-colors cursor-pointer ${
-                  filterRol === 'OPERADOR' ? 'bg-blue-600 text-white shadow-sm font-bold' : 'text-slate-600 hover:text-slate-900'
+                className={`px-3 py-1 rounded-md transition-colors cursor-pointer ${
+                  filterRol === 'OPERADOR' ? 'bg-blue-600 text-white font-bold' : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
                 Operadores
@@ -575,12 +575,12 @@ export const UsersPage = () => {
           {/* Filtro por Estado */}
           <div className="flex items-center space-x-2">
             <span className="text-xs font-semibold text-slate-500 uppercase">Estado:</span>
-            <div className="flex rounded-xl bg-slate-100 p-1 border border-slate-200 text-xs font-medium">
+            <div className="flex rounded-lg bg-slate-100 p-1 border border-slate-200 text-xs font-medium">
               <button
                 type="button"
                 onClick={() => setFilterEstado('')}
-                className={`px-3 py-1 rounded-lg transition-colors cursor-pointer ${
-                  filterEstado === '' ? 'bg-white text-slate-900 shadow-sm font-bold' : 'text-slate-600 hover:text-slate-900'
+                className={`px-3 py-1 rounded-md transition-colors cursor-pointer border border-line ${
+                  filterEstado === '' ? 'bg-white text-slate-900 font-bold' : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
                 Todos
@@ -588,8 +588,8 @@ export const UsersPage = () => {
               <button
                 type="button"
                 onClick={() => setFilterEstado('ACTIVO')}
-                className={`px-3 py-1 rounded-lg transition-colors cursor-pointer ${
-                  filterEstado === 'ACTIVO' ? 'bg-brand-600 text-white shadow-sm font-bold' : 'text-slate-600 hover:text-slate-900'
+                className={`px-3 py-1 rounded-md transition-colors cursor-pointer ${
+                  filterEstado === 'ACTIVO' ? 'bg-brand-600 text-white font-bold' : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
                 Activos
@@ -597,8 +597,8 @@ export const UsersPage = () => {
               <button
                 type="button"
                 onClick={() => setFilterEstado('INACTIVO')}
-                className={`px-3 py-1 rounded-lg transition-colors cursor-pointer ${
-                  filterEstado === 'INACTIVO' ? 'bg-warning-600 text-white shadow-sm font-bold' : 'text-slate-600 hover:text-slate-900'
+                className={`px-3 py-1 rounded-md transition-colors cursor-pointer ${
+                  filterEstado === 'INACTIVO' ? 'bg-warning-600 text-white font-bold' : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
                 Inactivos
@@ -609,7 +609,7 @@ export const UsersPage = () => {
       </div>
 
       {/* Tabla de Usuarios 3FN con Código Corporativo e id_persona */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+      <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
             <thead className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wider border-b border-slate-200">
@@ -644,7 +644,7 @@ export const UsersPage = () => {
                 {users.map((u) => (
                   <tr key={u.id_persona || u.id} className="hover:bg-slate-50/80 transition-colors">
                     <td className="pl-4 pr-2 py-3 whitespace-nowrap">
-                      <span className="inline-flex items-center px-2.5 py-1 rounded-lg bg-blue-50 text-blue-800 font-mono font-extrabold text-xs border border-blue-200 shadow-xs">
+                      <span className="inline-flex items-center px-2.5 py-1 rounded-lg bg-blue-50 text-blue-800 font-mono font-extrabold text-xs border border-blue-200">
                         {u.codigo_corporativo}
                       </span>
                     </td>
@@ -698,7 +698,7 @@ export const UsersPage = () => {
                     <td className="px-2.5 py-3 whitespace-nowrap">
                       {u.bloqueado_por_intentos ? (
                         <div className="flex items-center gap-1.5">
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-warning-100 text-warning-800 border border-warning-300 shadow-2xs">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-warning-100 text-warning-800 border border-warning-300">
                             <AlertTriangle className="w-3 h-3 mr-1 text-warning-600" />
                             Bloqueado
                           </span>
@@ -739,7 +739,7 @@ export const UsersPage = () => {
                         <button
                           onClick={() => openResetPasswordModal(u)}
                           title="Reiniciar Contraseña y generar clave temporal"
-                          className="p-1.5 text-blue-600 hover:text-white hover:bg-blue-600 rounded-lg transition-colors cursor-pointer"
+                          className="p-1.5 text-blue-600 hover:text-white hover:bg-blue-600 rounded-md transition-colors cursor-pointer"
                         >
                           <KeyRound className="w-4 h-4" />
                         </button>
@@ -747,7 +747,7 @@ export const UsersPage = () => {
                         <button
                           onClick={() => openEditModal(u)}
                           title="Editar datos del usuario"
-                          className="p-1.5 text-slate-600 hover:text-brand-700 hover:bg-brand-50 rounded-lg transition-colors cursor-pointer"
+                          className="p-1.5 text-slate-600 hover:text-brand-700 hover:bg-brand-50 rounded-md transition-colors cursor-pointer"
                         >
                           <Edit2 className="w-4 h-4" />
                         </button>
@@ -755,7 +755,7 @@ export const UsersPage = () => {
                         <button
                           onClick={() => openChangeStatusModal(u, u.estado === 'ACTIVO' ? 'INACTIVO' : 'ACTIVO')}
                           title={u.estado === 'ACTIVO' ? 'Cambiar a INACTIVO (Requiere motivo)' : 'Reactivar usuario a ACTIVO'}
-                          className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
+                          className={`p-1.5 rounded-md transition-colors cursor-pointer ${
                             u.estado === 'ACTIVO'
                               ? 'text-warning-600 hover:text-white hover:bg-warning-600'
                               : 'text-brand-600 hover:text-white hover:bg-brand-600'
@@ -775,9 +775,9 @@ export const UsersPage = () => {
 
       {/* Modal de Crear / Editar Usuario con Código Corporativo e id_persona */}
       {isModalOpen && createPortal(
-        <div className="fixed inset-0 z-[999] flex items-center justify-center p-3 sm:p-4 bg-slate-950/60 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[999] flex items-center justify-center p-3 sm:p-4 bg-slate-950/60">
           <div
-            className="bg-white rounded-3xl max-w-2xl w-full shadow-2xl border border-slate-200 relative my-auto max-h-[90vh] flex flex-col animate-scaleUp overflow-hidden"
+            className="bg-white rounded-lg max-w-2xl w-full shadow-lg border border-slate-200 relative my-auto max-h-[90vh] flex flex-col animate-scaleUp overflow-hidden"
             role="dialog"
             aria-modal="true"
             aria-labelledby="user-form-modal-title"
@@ -794,7 +794,7 @@ export const UsersPage = () => {
               </div>
               <button
                 onClick={() => setIsModalOpen(false)}
-                className="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
+                className="text-slate-400 hover:text-slate-600 p-1.5 rounded-md hover:bg-slate-100 transition-colors cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -803,7 +803,7 @@ export const UsersPage = () => {
             {/* Cuerpo Desplazable */}
             <div className="p-6 sm:p-7 overflow-y-auto flex-1 space-y-4">
               {modalError && (
-                <div className="mb-4 p-3 rounded-xl bg-danger-50 border border-danger-200 text-danger-700 text-xs flex items-center space-x-2">
+                <div className="mb-4 p-3 rounded-lg bg-danger-50 border border-danger-200 text-danger-700 text-xs flex items-center space-x-2">
                   <AlertCircle className="w-4 h-4 flex-shrink-0" />
                   <span>{modalError}</span>
                 </div>
@@ -811,7 +811,7 @@ export const UsersPage = () => {
 
               <form id="user-edit-form" onSubmit={handleFormSubmit} className="space-y-4">
               {/* Sección 1: Identificación y Credenciales */}
-              <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200/80 space-y-3">
+              <div className="bg-slate-50 p-4 rounded-lg border border-slate-200/80 space-y-3">
                 <span className="text-xs font-bold uppercase text-blue-800 tracking-wider block">
                   1. Credenciales y Código de Usuario
                 </span>
@@ -835,7 +835,7 @@ export const UsersPage = () => {
                         value={isEditing ? formData.codigo_corporativo : (loadingCode ? 'Consultando...' : (previewCode || 'Autogenerado según rol'))}
                         disabled
                         readOnly
-                        className="w-full pl-9 pr-3 py-2 bg-slate-100 border border-slate-200 rounded-xl text-sm font-mono font-bold text-slate-700 cursor-not-allowed select-none focus:outline-none"
+                        className="w-full pl-9 pr-3 py-2 bg-slate-100 border border-slate-200 rounded-md text-sm font-mono font-bold text-slate-700 cursor-not-allowed select-none focus:outline-none"
                       />
                     </div>
                     {!isEditing && (
@@ -855,7 +855,7 @@ export const UsersPage = () => {
                         onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                         placeholder="usuario@cooperativa.com"
                         required
-                        className="w-full pl-9 pr-3 py-2 bg-white border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                        className="w-full pl-9 pr-3 py-2 bg-white border border-slate-200 rounded-md text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500"
                       />
                     </div>
                   </div>
@@ -867,7 +867,7 @@ export const UsersPage = () => {
                     <select
                       value={formData.rol}
                       onChange={(e) => setFormData({ ...formData, rol: e.target.value })}
-                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500 font-semibold"
+                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-md text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500 font-semibold"
                     >
                       <option value="EJECUTIVO">EJECUTIVO (EJ-X)</option>
                       <option value="OPERADOR">OPERADOR (OP-X)</option>
@@ -885,7 +885,7 @@ export const UsersPage = () => {
                     <select
                       value={formData.estado}
                       onChange={(e) => setFormData({ ...formData, estado: e.target.value })}
-                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500 font-semibold"
+                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-md text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500 font-semibold"
                     >
                       <option value="ACTIVO">ACTIVO</option>
                       <option value="INACTIVO">INACTIVO</option>
@@ -899,7 +899,7 @@ export const UsersPage = () => {
                     <select
                       value={formData.tipo_asociado || 'EX'}
                       onChange={(e) => setFormData({ ...formData, tipo_asociado: e.target.value })}
-                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500 font-semibold"
+                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-md text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500 font-semibold"
                     >
                       <option value="EX">Ajeno / Externo (EX-X)</option>
                       <option value="EB">Empleado Bancario (EB-X)</option>
@@ -908,7 +908,7 @@ export const UsersPage = () => {
                 )}
 
                 {!isEditing ? (
-                  <div className="p-3.5 bg-brand-50/70 border border-brand-200 rounded-xl flex items-start space-x-3 text-xs text-brand-950">
+                  <div className="p-3.5 bg-brand-50/70 border border-brand-200 rounded-lg flex items-start space-x-3 text-xs text-brand-950">
                     <ShieldCheck className="w-5 h-5 text-brand-700 flex-shrink-0 mt-0.5" />
                     <div>
                       <span className="font-bold text-brand-900 block">Generación Criptográfica de Contraseña</span>
@@ -929,7 +929,7 @@ export const UsersPage = () => {
                         value={formData.password}
                         onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                         placeholder="Sin cambios"
-                        className="w-full pl-9 pr-3 py-2 bg-white border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                        className="w-full pl-9 pr-3 py-2 bg-white border border-slate-200 rounded-md text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500"
                       />
                     </div>
                   </div>
@@ -937,7 +937,7 @@ export const UsersPage = () => {
               </div>
 
               {/* Sección 2: Datos Personales */}
-              <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200/80 space-y-3">
+              <div className="bg-slate-50 p-4 rounded-lg border border-slate-200/80 space-y-3">
                 <span className="text-xs font-bold uppercase text-brand-800 tracking-wider block">
                   2. Datos Personales (Persona)
                 </span>
@@ -967,7 +967,7 @@ export const UsersPage = () => {
                       }}
                       placeholder="Ej. 2999123450101 (13 dígitos)"
                       required
-                      className={`w-full pl-9 pr-3 py-2 bg-white border rounded-xl text-sm font-mono text-slate-900 focus:outline-none focus:ring-2 ${
+                      className={`w-full pl-9 pr-3 py-2 bg-white border rounded-md text-sm font-mono text-slate-900 focus:outline-none focus:ring-2 ${
                         formData.cui_dpi?.length === 13
                           ? 'border-brand-300 focus:ring-brand-500'
                           : 'border-slate-200 focus:ring-brand-500'
@@ -992,7 +992,7 @@ export const UsersPage = () => {
                       }}
                       placeholder="Ej. Carlos"
                       required
-                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-md text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500"
                     />
                   </div>
 
@@ -1006,7 +1006,7 @@ export const UsersPage = () => {
                         setFormData({ ...formData, segundo_nombre: val });
                       }}
                       placeholder="Ej. Roberto"
-                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-md text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500"
                     />
                   </div>
                 </div>
@@ -1024,7 +1024,7 @@ export const UsersPage = () => {
                       }}
                       placeholder="Ej. López"
                       required
-                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-md text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500"
                     />
                   </div>
 
@@ -1038,7 +1038,7 @@ export const UsersPage = () => {
                         setFormData({ ...formData, segundo_apellido: val });
                       }}
                       placeholder="Ej. Gómez"
-                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-md text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500"
                     />
                   </div>
                 </div>
@@ -1069,7 +1069,7 @@ export const UsersPage = () => {
                         }}
                         placeholder="Ej. 55551234"
                         required
-                        className={`w-full pl-9 pr-3 py-2 bg-white border rounded-xl text-sm font-mono text-slate-900 focus:outline-none focus:ring-2 ${
+                        className={`w-full pl-9 pr-3 py-2 bg-white border rounded-md text-sm font-mono text-slate-900 focus:outline-none focus:ring-2 ${
                           formData.telefono?.length === 8
                             ? 'border-brand-300 focus:ring-brand-500'
                             : 'border-slate-200 focus:ring-brand-500'
@@ -1106,7 +1106,7 @@ export const UsersPage = () => {
                         max={new Date().toISOString().split('T')[0]}
                         onChange={(e) => setFormData({ ...formData, fecha_nacimiento: e.target.value })}
                         required
-                        className={`w-full pl-9 pr-3 py-2 bg-white border rounded-xl text-sm text-slate-900 focus:outline-none focus:ring-2 ${
+                        className={`w-full pl-9 pr-3 py-2 bg-white border rounded-md text-sm text-slate-900 focus:outline-none focus:ring-2 ${
                           ageInfo
                             ? ageInfo.valid
                               ? 'border-brand-300 focus:ring-brand-500'
@@ -1143,7 +1143,7 @@ export const UsersPage = () => {
                       value={formData.direccion}
                       onChange={(e) => setFormData({ ...formData, direccion: e.target.value })}
                       placeholder="Ej. 5ta Avenida 12-34, Zona 1, Ciudad de Guatemala"
-                      className="w-full pl-9 pr-3 py-2 bg-white border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                      className="w-full pl-9 pr-3 py-2 bg-white border border-slate-200 rounded-md text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500"
                     />
                   </div>
                 </div>
@@ -1153,11 +1153,11 @@ export const UsersPage = () => {
             </div>
 
             {/* Pie Fijo con Botones de Acción */}
-            <div className="flex justify-end space-x-3 px-6 py-4 border-t border-slate-100 flex-shrink-0 bg-slate-50/90 rounded-b-3xl">
+            <div className="flex justify-end space-x-3 px-6 py-4 border-t border-slate-100 flex-shrink-0 bg-slate-50/90 rounded-b-lg">
               <button
                 type="button"
                 onClick={() => setIsModalOpen(false)}
-                className="px-4 py-2 rounded-xl text-sm font-medium text-slate-600 hover:bg-slate-200/70 transition-colors cursor-pointer"
+                className="px-4 py-2 rounded-md text-sm font-medium text-slate-600 hover:bg-slate-200/70 transition-colors cursor-pointer"
               >
                 Cancelar
               </button>
@@ -1165,7 +1165,7 @@ export const UsersPage = () => {
                 form="user-edit-form"
                 type="submit"
                 disabled={modalSubmitting}
-                className="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm shadow-md transition-all flex items-center space-x-2 disabled:opacity-50 cursor-pointer"
+                className="px-5 py-2 rounded-md bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm transition-all flex items-center space-x-2 disabled:opacity-50 cursor-pointer"
               >
                 {modalSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
                 <span>{isEditing ? 'Actualizar Usuario' : 'Guardar Usuario'}</span>
@@ -1178,9 +1178,9 @@ export const UsersPage = () => {
 
       {/* Modal / Ventana de Cambio de Estado (INACTIVO / ACTIVO con Motivo Obligatorio) */}
       {statusModalOpen && statusTargetUser && createPortal(
-        <div className="fixed inset-0 z-[999] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[999] flex items-center justify-center p-4 bg-slate-950/60">
           <div
-            className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-7 shadow-2xl border border-slate-200 relative animate-scaleUp"
+            className="bg-white rounded-lg max-w-md w-full p-6 sm:p-7 shadow-lg border border-slate-200 relative animate-scaleUp"
             role="dialog"
             aria-modal="true"
             aria-labelledby="status-change-modal-title"
@@ -1188,7 +1188,7 @@ export const UsersPage = () => {
             <div className="flex justify-between items-center mb-5 border-b border-slate-100 pb-3">
               <div className="flex items-center space-x-2.5">
                 <div
-                  className={`w-9 h-9 rounded-xl flex items-center justify-center ${
+                  className={`w-9 h-9 rounded-lg flex items-center justify-center ${
                     statusNewValue === 'INACTIVO'
                       ? 'bg-warning-100 text-warning-700'
                       : 'bg-brand-100 text-brand-700'
@@ -1211,14 +1211,14 @@ export const UsersPage = () => {
               </div>
               <button
                 onClick={() => setStatusModalOpen(false)}
-                className="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
+                className="text-slate-400 hover:text-slate-600 p-1 rounded-md hover:bg-slate-100 transition-colors cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             {/* Ficha del usuario afectado */}
-            <div className="p-3 bg-slate-50 border border-slate-200 rounded-2xl mb-4 space-y-1 text-xs">
+            <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg mb-4 space-y-1 text-xs">
               <div className="flex justify-between">
                 <span className="text-slate-500 font-medium">Nombre:</span>
                 <span className="text-slate-800 font-bold">
@@ -1252,7 +1252,7 @@ export const UsersPage = () => {
             </div>
 
             {statusError && (
-              <div className="mb-4 p-3 rounded-xl bg-danger-50 border border-danger-200 text-danger-700 text-xs flex items-center space-x-2">
+              <div className="mb-4 p-3 rounded-lg bg-danger-50 border border-danger-200 text-danger-700 text-xs flex items-center space-x-2">
                 <AlertCircle className="w-4 h-4 flex-shrink-0" />
                 <span>{statusError}</span>
               </div>
@@ -1280,7 +1280,7 @@ export const UsersPage = () => {
                       : 'Indica la justificación de reactivación (opcional)...'
                   }
                   required={statusNewValue === 'INACTIVO'}
-                  className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-warning-500 resize-none"
+                  className="w-full px-3 py-2 bg-white border border-slate-200 rounded-md text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-warning-500 resize-none"
                 />
                 <p className="text-xs text-slate-400 mt-1">
                   Este motivo quedará inmutablemente registrado en la auditoría del sistema.
@@ -1291,14 +1291,14 @@ export const UsersPage = () => {
                 <button
                   type="button"
                   onClick={() => setStatusModalOpen(false)}
-                  className="px-4 py-2 rounded-xl text-xs font-medium text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+                  className="px-4 py-2 rounded-md text-xs font-medium text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
                   disabled={statusSubmitting}
-                  className={`px-4 py-2 rounded-xl text-white font-bold text-xs shadow-md transition-all flex items-center space-x-2 disabled:opacity-50 cursor-pointer ${
+                  className={`px-4 py-2 rounded-md text-white font-bold text-xs transition-all flex items-center space-x-2 disabled:opacity-50 cursor-pointer ${
                     statusNewValue === 'INACTIVO'
                       ? 'bg-warning-600 hover:bg-warning-500'
                       : 'bg-brand-600 hover:bg-brand-500'
@@ -1320,16 +1320,16 @@ export const UsersPage = () => {
 
       {/* Modal de Reinicio de Contraseña */}
       {resetModalOpen && resetTargetUser && createPortal(
-        <div className="fixed inset-0 z-[999] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[999] flex items-center justify-center p-4 bg-slate-950/60">
           <div
-            className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-7 shadow-2xl border border-slate-200 relative animate-scaleUp"
+            className="bg-white rounded-lg max-w-md w-full p-6 sm:p-7 shadow-lg border border-slate-200 relative animate-scaleUp"
             role="dialog"
             aria-modal="true"
             aria-labelledby="password-reset-modal-title"
           >
             <div className="flex justify-between items-center mb-5 border-b border-slate-100 pb-3">
               <div className="flex items-center space-x-2.5">
-                <div className="w-9 h-9 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center">
+                <div className="w-9 h-9 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center">
                   <KeyRound className="w-5 h-5" />
                 </div>
                 <div>
@@ -1343,14 +1343,14 @@ export const UsersPage = () => {
               </div>
               <button
                 onClick={() => setResetModalOpen(false)}
-                className="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
+                className="text-slate-400 hover:text-slate-600 p-1 rounded-md hover:bg-slate-100 transition-colors cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             {/* Ficha del usuario */}
-            <div className="p-3 bg-slate-50 border border-slate-200 rounded-2xl mb-4 space-y-1 text-xs">
+            <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg mb-4 space-y-1 text-xs">
               <div className="flex justify-between">
                 <span className="text-slate-500 font-medium">Nombre:</span>
                 <span className="text-slate-800 font-bold">
@@ -1370,7 +1370,7 @@ export const UsersPage = () => {
             </div>
 
             {resetError && (
-              <div className="mb-4 p-3 rounded-xl bg-danger-50 border border-danger-200 text-danger-700 text-xs flex items-center space-x-2">
+              <div className="mb-4 p-3 rounded-lg bg-danger-50 border border-danger-200 text-danger-700 text-xs flex items-center space-x-2">
                 <AlertCircle className="w-4 h-4 flex-shrink-0" />
                 <span>{resetError}</span>
               </div>
@@ -1378,14 +1378,14 @@ export const UsersPage = () => {
 
             {resetSuccess ? (
               <div className="space-y-4">
-                <div className="p-5 bg-brand-50 border border-brand-200 rounded-2xl text-center space-y-3">
+                <div className="p-5 bg-brand-50 border border-brand-200 rounded-lg text-center space-y-3">
                   <div className="w-12 h-12 mx-auto rounded-full bg-brand-100 text-brand-600 flex items-center justify-center">
                     <CheckCircle2 className="w-7 h-7" />
                   </div>
                   <h4 className="text-base font-bold text-brand-900">
                     ¡Contraseña Reiniciada Exitosamente!
                   </h4>
-                  <div className="p-3.5 bg-white border border-brand-200 rounded-xl text-left space-y-2 text-xs text-slate-700">
+                  <div className="p-3.5 bg-white border border-brand-200 rounded-lg text-left space-y-2 text-xs text-slate-700">
                     <p className="flex items-center text-slate-800">
                       <Mail className="w-4 h-4 text-brand-600 mr-2 flex-shrink-0" />
                       <span>
@@ -1404,7 +1404,7 @@ export const UsersPage = () => {
                   <button
                     type="button"
                     onClick={() => setResetModalOpen(false)}
-                    className="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs transition-colors cursor-pointer"
+                    className="w-full py-2.5 rounded-md bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs transition-colors cursor-pointer"
                   >
                     Entendido / Cerrar
                   </button>
@@ -1412,7 +1412,7 @@ export const UsersPage = () => {
               </div>
             ) : (
               <form onSubmit={handleResetPasswordSubmit} className="space-y-4">
-                <div className="p-4 bg-brand-50 border border-brand-200 rounded-2xl space-y-2 text-xs text-brand-900">
+                <div className="p-4 bg-brand-50 border border-brand-200 rounded-lg space-y-2 text-xs text-brand-900">
                   <div className="flex items-center font-bold text-brand-950">
                     <ShieldAlert className="w-4 h-4 text-brand-700 mr-1.5 flex-shrink-0" />
                     <span>Envío Confidencial de Credencial Temporal</span>
@@ -1440,7 +1440,7 @@ export const UsersPage = () => {
                     value={resetMotivo}
                     onChange={(e) => setResetMotivo(e.target.value)}
                     placeholder="Ej. Solicitud voluntaria del usuario / Olvido de clave"
-                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-md text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-500"
                   />
                 </div>
 
@@ -1448,14 +1448,14 @@ export const UsersPage = () => {
                   <button
                     type="button"
                     onClick={() => setResetModalOpen(false)}
-                    className="px-4 py-2 rounded-xl text-xs font-medium text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+                    className="px-4 py-2 rounded-md text-xs font-medium text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
                   >
                     Cancelar
                   </button>
                   <button
                     type="submit"
                     disabled={resetSubmitting}
-                    className="px-4 py-2 rounded-xl bg-brand-700 hover:bg-brand-800 text-white font-bold text-xs shadow-xs transition-colors flex items-center space-x-2 disabled:opacity-50 cursor-pointer"
+                    className="px-4 py-2 rounded-md bg-brand-700 hover:bg-brand-800 text-white font-bold text-xs transition-colors flex items-center space-x-2 disabled:opacity-50 cursor-pointer"
                   >
                     {resetSubmitting ? (
                       <>

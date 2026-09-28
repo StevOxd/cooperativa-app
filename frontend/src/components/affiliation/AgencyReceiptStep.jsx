@@ -19,7 +19,7 @@ export const AgencyReceiptStep = ({ casoGenerado }) => {
       {/* Encabezado Institucional Exclusivo para Impresión */}
       <div className="hidden print:flex items-center justify-between border-b border-slate-300 pb-3 mb-2 text-left">
         <div className="flex items-center space-x-3">
-          <div className="w-10 h-10 rounded-xl bg-[#0c4a6e] flex items-center justify-center text-white">
+          <div className="w-10 h-10 rounded-lg bg-[#0c4a6e] flex items-center justify-center text-white">
             <Building2 className="w-6 h-6 text-white" />
           </div>
           <div>
@@ -39,7 +39,7 @@ export const AgencyReceiptStep = ({ casoGenerado }) => {
 
       {/* Icono de Reloj (Solo en pantalla) */}
       <div className="print:hidden">
-        <div className="w-16 h-16 bg-blue-50 text-blue-700 rounded-full flex items-center justify-center mx-auto shadow-inner border border-blue-100">
+        <div className="w-16 h-16 bg-blue-50 text-blue-700 rounded-full flex items-center justify-center mx-auto border border-blue-100">
           <Clock className="w-8 h-8" />
         </div>
       </div>
@@ -54,7 +54,7 @@ export const AgencyReceiptStep = ({ casoGenerado }) => {
       </div>
 
       {/* Tarjeta de Número de Caso Destacado */}
-      <div className="bg-slate-900 text-white rounded-2xl p-5 text-center shadow-lg border border-slate-800 print:p-3 print:rounded-xl print:shadow-none">
+      <div className="bg-slate-900 text-white rounded-lg p-5 text-center shadow-lg border border-slate-800 print:p-3 print:rounded-lg print:shadow-none">
         <p className="text-xs uppercase tracking-wider text-brand-400 font-bold print:text-xs">
           Tu Número de Caso Oficial
         </p>
@@ -67,7 +67,7 @@ export const AgencyReceiptStep = ({ casoGenerado }) => {
       </div>
 
       {/* Mensaje imperativo de acudir a la agencia */}
-      <div className="p-4 bg-warning-50 border-2 border-warning-300 rounded-2xl text-left space-y-2 text-warning-950 print:p-3 print:rounded-xl print:border print:border-warning-400 print:space-y-1">
+      <div className="p-4 bg-warning-50 border-2 border-warning-300 rounded-lg text-left space-y-2 text-warning-950 print:p-3 print:rounded-lg print:border print:border-warning-400 print:space-y-1">
         <p className="font-extrabold text-xs uppercase tracking-wider flex items-center space-x-1.5 text-warning-900 print:text-xs">
           <Landmark className="w-4 h-4 text-warning-700 print:w-3.5 print:h-3.5" />
           <span>Instrucciones para Completar tu Afiliación:</span>
@@ -79,7 +79,7 @@ export const AgencyReceiptStep = ({ casoGenerado }) => {
       </div>
 
       {/* Ficha Resumen */}
-      <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 text-left text-xs space-y-2 print:p-3 print:rounded-xl print:text-xs print:space-y-1.5">
+      <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 text-left text-xs space-y-2 print:p-3 print:rounded-lg print:text-xs print:space-y-1.5">
         <div className="flex justify-between">
           <span className="text-slate-500 font-medium">Solicitante:</span>
           <span className="font-bold text-slate-800">{casoGenerado.nombre_completo}</span>
@@ -121,7 +121,7 @@ export const AgencyReceiptStep = ({ casoGenerado }) => {
           <button
             type="button"
             onClick={() => generateAffiliationCasePdf({ caso: casoGenerado })}
-            className="w-full sm:w-auto px-8 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm shadow-md shadow-blue-500/20 flex items-center justify-center space-x-2 transition-all cursor-pointer"
+            className="w-full sm:w-auto px-8 py-3 rounded-md bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm flex items-center justify-center space-x-2 transition-all cursor-pointer"
           >
             <Download className="w-4 h-4" />
             <span>Descargar PDF</span>

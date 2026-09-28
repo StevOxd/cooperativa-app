@@ -22,7 +22,7 @@ export const DirectAffiliationSuccess = ({ afiliacionExitosa }) => {
 
   return (
     <div className="text-center py-4 space-y-5">
-      <div className="w-16 h-16 bg-brand-100 rounded-full flex items-center justify-center mx-auto text-brand-700 shadow-inner">
+      <div className="w-16 h-16 bg-brand-100 rounded-full flex items-center justify-center mx-auto text-brand-700">
         <CheckCircle2 className="w-10 h-10" />
       </div>
 
@@ -38,7 +38,7 @@ export const DirectAffiliationSuccess = ({ afiliacionExitosa }) => {
       {/* Resumen de Cuentas */}
       <div className="space-y-3 text-left">
         {/* Datos del Asociado */}
-        <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-2">
+        <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 space-y-2">
           <div className="flex justify-between items-center border-b border-slate-200 pb-2">
             <span className="text-xs text-slate-600 font-semibold">Usuario:</span>
             <span className="text-sm font-bold text-brand-700 font-mono bg-brand-50 px-2 py-0.5 rounded border border-brand-200">
@@ -54,7 +54,7 @@ export const DirectAffiliationSuccess = ({ afiliacionExitosa }) => {
         </div>
 
         {/* Tarjeta 1: NUEVA CUENTA EN LA COOPERATIVA */}
-        <div className="bg-brand-50/90 border-2 border-brand-400 rounded-2xl p-4 space-y-2">
+        <div className="bg-brand-50/90 border-2 border-brand-400 rounded-lg p-4 space-y-2">
           <div className="flex items-center space-x-2 text-brand-900 font-extrabold text-xs uppercase tracking-wider">
             <Building2 className="w-4 h-4 text-brand-700" />
             <span>Tu Nueva Cuenta en la Cooperativa</span>
@@ -74,7 +74,7 @@ export const DirectAffiliationSuccess = ({ afiliacionExitosa }) => {
         </div>
 
         {/* Tarjeta 2: CUENTA BANCARIA DEBITADA */}
-        <div className="bg-slate-50 border border-slate-300 rounded-2xl p-4 space-y-2">
+        <div className="bg-slate-50 border border-slate-300 rounded-lg p-4 space-y-2">
           <div className="flex items-center space-x-2 text-slate-700 font-bold text-xs uppercase tracking-wider">
             <Landmark className="w-4 h-4 text-slate-600" />
             <span>Cuenta Bancaria Debitada (Banco Corporativo)</span>
@@ -101,7 +101,7 @@ export const DirectAffiliationSuccess = ({ afiliacionExitosa }) => {
 
         {/* Tarjeta de Seguridad: Doble Factor de Autenticación (MFA / 2FA) */}
         {afiliacionExitosa.mfa?.qr_code_url && (
-          <div className="bg-slate-900 text-white rounded-2xl p-5 space-y-3.5 border border-slate-800 shadow-md">
+          <div className="bg-slate-900 text-white rounded-lg p-5 space-y-3.5 border border-slate-800">
             <div className="flex items-center space-x-2 text-brand-400 font-bold text-xs uppercase tracking-wider">
               <ShieldCheck className="w-4 h-4 text-brand-400 shrink-0" />
               <span>Seguridad Bancaria: Doble Factor de Autenticación (2FA)</span>
@@ -110,7 +110,7 @@ export const DirectAffiliationSuccess = ({ afiliacionExitosa }) => {
               Hemos enviado este código QR a tu correo electrónico registrado. Escanéalo ahora con <strong>Google Authenticator</strong> o <strong>Microsoft Authenticator</strong> para activar tu acceso:
             </p>
 
-            <div className="bg-white p-3 rounded-xl inline-block mx-auto shadow-inner text-center">
+            <div className="bg-white p-3 rounded-lg inline-block mx-auto text-center border border-line">
               <img
                 src={afiliacionExitosa.mfa.qr_code_url}
                 alt="Código QR de Verificación 2FA"
@@ -118,7 +118,7 @@ export const DirectAffiliationSuccess = ({ afiliacionExitosa }) => {
               />
             </div>
 
-            <div className="bg-slate-800/90 rounded-xl p-3 border border-slate-700/80 text-center space-y-1">
+            <div className="bg-slate-800/90 rounded-lg p-3 border border-slate-700/80 text-center space-y-1">
               <span className="text-xs uppercase font-mono tracking-wider text-slate-400 block">
                 Clave Secreta de Configuración Manual:
               </span>
@@ -130,7 +130,7 @@ export const DirectAffiliationSuccess = ({ afiliacionExitosa }) => {
         )}
 
         {/* Banner Aclaratorio */}
-        <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl text-xs text-blue-900 space-y-1">
+        <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-xs text-blue-900 space-y-1">
           <p className="font-bold flex items-center space-x-1.5">
             <Info className="w-4 h-4 text-blue-700 shrink-0" />
             <span>Primer Ingreso al Portal:</span>
@@ -144,7 +144,7 @@ export const DirectAffiliationSuccess = ({ afiliacionExitosa }) => {
       <div className="pt-2">
         <Link
           to="/login"
-          className="w-full py-3.5 px-6 rounded-xl bg-brand-700 hover:bg-brand-800 text-white font-bold text-sm shadow-md flex items-center justify-center space-x-2 transition-all cursor-pointer"
+          className="w-full py-3.5 px-6 rounded-lg bg-brand-700 hover:bg-brand-800 text-white font-bold text-sm flex items-center justify-center space-x-2 transition-all cursor-pointer"
         >
           <span>Iniciar Sesión Ahora</span>
           <ArrowRight className="w-4 h-4" />

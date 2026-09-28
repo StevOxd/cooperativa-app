@@ -169,12 +169,12 @@ export const ToastProvider = ({ children }) => {
           return (
             <div
               key={t.id}
-              className="pointer-events-auto bg-white/95 backdrop-blur-md rounded-2xl shadow-xl border border-slate-200/90 overflow-hidden animate-slide-in-right transition-all duration-300 transform hover:scale-[1.02]"
+              className="pointer-events-auto bg-white rounded-lg shadow-lg border border-slate-200/90 overflow-hidden animate-slide-in-right transition-all duration-300 transform hover:scale-[1.02]"
               role="alert"
             >
               <div className="p-4 flex items-start space-x-3">
                 <div
-                  className={`w-9 h-9 rounded-xl ${config.bg} ${config.color} flex items-center justify-center flex-shrink-0 shadow-xs mt-0.5`}
+                  className={`w-9 h-9 rounded-lg ${config.bg} ${config.color} flex items-center justify-center flex-shrink-0 mt-0.5`}
                 >
                   <IconComponent className="w-5 h-5" />
                 </div>
@@ -193,7 +193,7 @@ export const ToastProvider = ({ children }) => {
                 </div>
                 <button
                   onClick={() => removeToast(t.id)}
-                  className="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer flex-shrink-0"
+                  className="text-slate-400 hover:text-slate-600 p-1 rounded-md hover:bg-slate-100 transition-colors cursor-pointer flex-shrink-0"
                   title="Cerrar notificación"
                 >
                   <X className="w-4 h-4" />

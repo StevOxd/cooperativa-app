@@ -21,7 +21,7 @@ export const DashboardPage = () => {
     <div className="space-y-6">
       {/* Banner de Alerta por Permiso Denegado */}
       {deniedAlert && (
-        <div className="p-4 rounded-2xl bg-warning-50 border border-warning-200 text-warning-900 text-sm flex items-center justify-between shadow-sm animate-shake">
+        <div className="p-4 rounded-lg bg-warning-50 border border-warning-200 text-warning-900 text-sm flex items-center justify-between animate-shake">
           <div className="flex items-center space-x-3">
             <AlertOctagon className="w-5 h-5 text-warning-600 flex-shrink-0" />
             <div>
@@ -32,7 +32,7 @@ export const DashboardPage = () => {
           <button
             type="button"
             onClick={() => setDeniedAlert('')}
-            className="text-warning-600 hover:text-warning-900 p-1 rounded-lg hover:bg-warning-100 transition-colors cursor-pointer"
+            className="text-warning-600 hover:text-warning-900 p-1 rounded-md hover:bg-warning-100 transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
