@@ -7,12 +7,17 @@
 -- =============================================================================
 
 -- Limpieza previa en cascada para reejecución limpia en TablePlus / psql
+DROP TABLE IF EXISTS beneficiarios CASCADE;
 DROP TABLE IF EXISTS transacciones CASCADE;
 DROP TABLE IF EXISTS solicitudes_traslado_apertura CASCADE;
+DROP TABLE IF EXISTS aportaciones CASCADE;
 DROP TABLE IF EXISTS solicitudes_credito CASCADE;
 DROP TABLE IF EXISTS cuentas CASCADE;
 DROP TABLE IF EXISTS tipos_cuenta CASCADE;
 DROP TABLE IF EXISTS asociados CASCADE;
+DROP TABLE IF EXISTS movimientos_cuenta_bancaria CASCADE;
+DROP TABLE IF EXISTS cuenta_bancaria CASCADE;
+DROP TABLE IF EXISTS cuentas_bancarias_externas CASCADE;
 DROP TABLE IF EXISTS historial_estados_usuario CASCADE;
 DROP TABLE IF EXISTS usuarios CASCADE;
 DROP TABLE IF EXISTS personas CASCADE;
@@ -72,15 +77,19 @@ CREATE TABLE personas (
 CREATE TABLE usuarios (
     id_persona INT PRIMARY KEY REFERENCES personas(id_persona) ON DELETE CASCADE,
     id_rol INT NOT NULL REFERENCES roles(id_rol) ON DELETE RESTRICT,
-    codigo_corporativo VARCHAR(10) UNIQUE NOT NULL CHECK (codigo_corporativo ~ '^[0-9]{4}$'),
+    codigo_corporativo VARCHAR(30) UNIQUE NOT NULL CHECK (codigo_corporativo ~ '^[A-Za-z0-9_.-]{3,30}$'),
     email VARCHAR(150) UNIQUE NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
-    estado VARCHAR(20) NOT NULL DEFAULT 'ACTIVO' CHECK (estado IN ('ACTIVO', 'INACTIVO')),
+    estado VARCHAR(20) NOT NULL DEFAULT 'ACTIVO' CHECK (estado IN ('ACTIVO', 'INACTIVO', 'BLOQUEADO')),
     intentos_fallidos INT DEFAULT 0,
     bloqueado_hasta TIMESTAMP WITH TIME ZONE NULL,
     sesion_activa_id VARCHAR(255) NULL,
     ultimo_ping TIMESTAMP WITH TIME ZONE NULL,
     ultimo_acceso TIMESTAMP WITH TIME ZONE,
+    mfa_secret VARCHAR(64) NULL,
+    mfa_enabled BOOLEAN NOT NULL DEFAULT FALSE,
+    mfa_qr_url TEXT NULL,
+    debe_cambiar_password BOOLEAN NOT NULL DEFAULT FALSE,
     fecha_creacion TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -97,6 +106,8 @@ CREATE TABLE historial_estados_usuario (
     id_rol_nuevo INT REFERENCES roles(id_rol),
     id_modificado_por INT REFERENCES usuarios(id_persona),
     motivo TEXT,
+    ip_origen VARCHAR(45),
+    user_agent TEXT,
     fecha_cambio TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -109,7 +120,7 @@ CREATE TABLE asociados (
     id_asociado SERIAL PRIMARY KEY,
     id_persona INT UNIQUE NOT NULL REFERENCES personas(id_persona) ON DELETE RESTRICT,
     fecha_ingreso DATE DEFAULT CURRENT_DATE,
-    estado_asociado VARCHAR(20) NOT NULL DEFAULT 'ACTIVO' CHECK (estado_asociado IN ('ACTIVO', 'INACTIVO', 'SUSPENDIDO'))
+    estado_asociado VARCHAR(20) NOT NULL DEFAULT 'ACTIVO' CHECK (estado_asociado IN ('ACTIVO', 'INACTIVO', 'SUSPENDIDO', 'BLOQUEADO'))
 );
 
 CREATE TABLE tipos_cuenta (
@@ -132,6 +143,78 @@ CREATE TABLE cuentas (
     fecha_apertura TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Tabla beneficiarios: Registro y declaración porcentual por cuenta (Regla 100%)
+CREATE TABLE beneficiarios (
+    id_beneficiario SERIAL PRIMARY KEY,
+    id_cuenta INT NOT NULL REFERENCES cuentas(id_cuenta) ON DELETE CASCADE,
+    nombre_completo VARCHAR(150) NOT NULL,
+    parentesco VARCHAR(100) NOT NULL,
+    cui_dpi VARCHAR(50),
+    telefono VARCHAR(50),
+    porcentaje NUMERIC(5, 2) NOT NULL CHECK (porcentaje > 0 AND porcentaje <= 100),
+    fecha_creacion TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Tabla historial_cambios_beneficiarios: Auditoría de cambios de beneficiarios
+CREATE TABLE IF NOT EXISTS historial_cambios_beneficiarios (
+    id_historial SERIAL PRIMARY KEY,
+    id_cuenta INT NOT NULL REFERENCES cuentas(id_cuenta) ON DELETE CASCADE,
+    id_usuario INT REFERENCES usuarios(id_persona) ON DELETE SET NULL,
+    nombre_usuario VARCHAR(150),
+    rol_usuario VARCHAR(50),
+    beneficiarios_anteriores JSONB,
+    beneficiarios_nuevos JSONB,
+    motivo VARCHAR(255) DEFAULT 'Actualización de beneficiarios',
+    fecha_cambio TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_historial_beneficiarios_cuenta ON historial_cambios_beneficiarios(id_cuenta);
+
+
+
+-- Solicitudes de Afiliación en Agencia para personas sin cuenta bancaria previa
+CREATE TABLE solicitudes_afiliacion_agencia (
+    id_solicitud SERIAL PRIMARY KEY,
+    numero_caso VARCHAR(30) UNIQUE NOT NULL,
+    cui_dpi VARCHAR(20) NOT NULL,
+    primer_nombre VARCHAR(50) NOT NULL,
+    segundo_nombre VARCHAR(50),
+    primer_apellido VARCHAR(50) NOT NULL,
+    segundo_apellido VARCHAR(50),
+    telefono VARCHAR(20),
+    direccion TEXT,
+    fecha_nacimiento DATE NOT NULL,
+    email VARCHAR(150),
+    monto_estimado NUMERIC(14, 2) DEFAULT 100.00,
+    estado VARCHAR(25) NOT NULL DEFAULT 'PENDIENTE_AGENCIA' CHECK (estado IN ('PENDIENTE_AGENCIA', 'ATENDIDA', 'CANCELADA', 'EXPIRADA')),
+    observaciones TEXT,
+    id_operador_bloqueo INT REFERENCES usuarios(id_persona) ON DELETE SET NULL,
+    fecha_bloqueo TIMESTAMP WITH TIME ZONE,
+    id_operador_resuelve INT REFERENCES usuarios(id_persona) ON DELETE SET NULL,
+    fecha_resolucion TIMESTAMP WITH TIME ZONE,
+    numero_cuenta_bancaria VARCHAR(50),
+    fecha_solicitud TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Secuencia atómica y trigger para correlativo de casos de afiliación (Previene condiciones de carrera)
+CREATE SEQUENCE IF NOT EXISTS seq_numero_caso_afiliacion START WITH 1001;
+
+CREATE OR REPLACE FUNCTION trg_generar_numero_caso_afiliacion()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF NEW.numero_caso IS NULL OR NEW.numero_caso = '' THEN
+        NEW.numero_caso := 'CASO-AFIL-' || TO_CHAR(CURRENT_DATE, 'YYYY') || '-' || LPAD(nextval('seq_numero_caso_afiliacion')::text, 4, '0');
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_set_numero_caso_afiliacion ON solicitudes_afiliacion_agencia;
+CREATE TRIGGER trg_set_numero_caso_afiliacion
+    BEFORE INSERT ON solicitudes_afiliacion_agencia
+    FOR EACH ROW
+    EXECUTE FUNCTION trg_generar_numero_caso_afiliacion();
+
 CREATE TABLE solicitudes_credito (
     id_solicitud_credito SERIAL PRIMARY KEY,
     id_asociado INT NOT NULL REFERENCES asociados(id_asociado) ON DELETE RESTRICT,
@@ -139,8 +222,22 @@ CREATE TABLE solicitudes_credito (
     plazo_meses INT NOT NULL CHECK (plazo_meses > 0),
     tasa_interes NUMERIC(5, 2) NOT NULL CHECK (tasa_interes >= 0),
     cuota_mensual_estimada NUMERIC(14, 2) NOT NULL CHECK (cuota_mensual_estimada > 0),
-    estado VARCHAR(20) NOT NULL DEFAULT 'PENDIENTE' CHECK (estado IN ('PENDIENTE', 'EN_ANALISIS', 'APROBADA', 'RECHAZADA', 'DESEMBOLSADA')),
+    estado VARCHAR(50) NOT NULL DEFAULT 'PENDIENTE_FIRMA' CHECK (estado IN ('PENDIENTE_FIRMA', 'EN_REVISION_OPERADOR', 'EN_AUTORIZACION_EJECUTIVO', 'DEVUELTA_OPERADOR', 'APROBADA', 'APROBADO', 'DESEMBOLSADA', 'DENEGADA', 'RECHAZADA', 'RECHAZADO', 'PENDIENTE')),
     id_analista INT REFERENCES usuarios(id_persona),
+    id_cuenta_destino INT REFERENCES cuentas(id_cuenta),
+    id_cuenta_bancaria_destino INT,
+    cuenta_destino_info VARCHAR(120),
+    documento_firmado_url VARCHAR(500),
+    nombre_archivo_firmado VARCHAR(255),
+    peso_archivo_bytes BIGINT,
+    fecha_carga_archivo TIMESTAMP WITH TIME ZONE,
+    id_operador_revisa INT REFERENCES usuarios(id_persona),
+    fecha_revision_operador TIMESTAMP WITH TIME ZONE,
+    dictamen_operador TEXT,
+    id_ejecutivo_resuelve INT REFERENCES usuarios(id_persona),
+    fecha_resolucion_ejecutivo TIMESTAMP WITH TIME ZONE,
+    observaciones_ejecutivo TEXT,
+    fecha_resolucion TIMESTAMP WITH TIME ZONE,
     observaciones TEXT,
     fecha_solicitud TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
@@ -149,7 +246,8 @@ CREATE TABLE solicitudes_traslado_apertura (
     id_solicitud SERIAL PRIMARY KEY,
     numero_caso VARCHAR(20) UNIQUE NOT NULL,
     id_asociado INT NOT NULL REFERENCES asociados(id_asociado) ON DELETE RESTRICT,
-    id_cuenta_origen INT NOT NULL REFERENCES cuentas(id_cuenta) ON DELETE RESTRICT,
+    id_cuenta_origen INT REFERENCES cuentas(id_cuenta) ON DELETE RESTRICT,
+    id_cuenta_bancaria_origen INT,
     id_cuenta_destino INT REFERENCES cuentas(id_cuenta) ON DELETE RESTRICT,
     id_tipo_cuenta_destino INT NOT NULL REFERENCES tipos_cuenta(id_tipo_cuenta) ON DELETE RESTRICT,
     monto NUMERIC(14, 2) NOT NULL CHECK (monto > 0),
@@ -159,7 +257,8 @@ CREATE TABLE solicitudes_traslado_apertura (
     observaciones_operador TEXT,
     fecha_solicitud TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     fecha_resolucion TIMESTAMP WITH TIME ZONE,
-    CONSTRAINT chk_traslado_cuentas_diferentes CHECK (id_cuenta_destino IS NULL OR id_cuenta_origen <> id_cuenta_destino)
+    CONSTRAINT chk_traslado_origen_valido CHECK (id_cuenta_origen IS NOT NULL OR id_cuenta_bancaria_origen IS NOT NULL),
+    CONSTRAINT chk_traslado_cuentas_diferentes CHECK (id_cuenta_destino IS NULL OR id_cuenta_origen IS NULL OR id_cuenta_origen <> id_cuenta_destino)
 );
 
 -- Secuencia atómica y trigger para correlativo de casos (Previene condiciones de carrera)
@@ -214,10 +313,20 @@ CREATE INDEX idx_solicitudes_traslado_destino ON solicitudes_traslado_apertura(i
 CREATE INDEX idx_solicitudes_traslado_tipo_destino ON solicitudes_traslado_apertura(id_tipo_cuenta_destino);
 CREATE INDEX idx_solicitudes_traslado_operador ON solicitudes_traslado_apertura(id_operador_resuelve) WHERE id_operador_resuelve IS NOT NULL;
 CREATE INDEX idx_transacciones_usuario_registra ON transacciones(id_usuario_registra) WHERE id_usuario_registra IS NOT NULL;
+CREATE INDEX idx_roles_permisos_permiso ON roles_permisos(id_permiso);
+CREATE INDEX idx_beneficiarios_cuenta ON beneficiarios(id_cuenta);
+CREATE INDEX idx_solicitudes_credito_cuenta_destino ON solicitudes_credito(id_cuenta_destino) WHERE id_cuenta_destino IS NOT NULL;
+CREATE INDEX idx_solicitudes_credito_operador_revisa ON solicitudes_credito(id_operador_revisa) WHERE id_operador_revisa IS NOT NULL;
+CREATE INDEX idx_solicitudes_credito_ejecutivo_resuelve ON solicitudes_credito(id_ejecutivo_resuelve) WHERE id_ejecutivo_resuelve IS NOT NULL;
+CREATE INDEX idx_solicitudes_afiliacion_cui ON solicitudes_afiliacion_agencia(cui_dpi);
+CREATE INDEX idx_solicitudes_afiliacion_estado ON solicitudes_afiliacion_agencia(estado);
+CREATE INDEX idx_solicitudes_afiliacion_operador_bloqueo ON solicitudes_afiliacion_agencia(id_operador_bloqueo) WHERE id_operador_bloqueo IS NOT NULL;
+CREATE INDEX idx_solicitudes_afiliacion_operador_resuelve ON solicitudes_afiliacion_agencia(id_operador_resuelve) WHERE id_operador_resuelve IS NOT NULL;
 
 -- 5.2 Índices compuestos y parciales de alto rendimiento
 CREATE INDEX idx_transacciones_cuenta_fecha ON transacciones(id_cuenta, fecha_transaccion DESC);
 CREATE INDEX idx_solicitudes_traslado_pendientes ON solicitudes_traslado_apertura(fecha_solicitud ASC) WHERE estado = 'PENDIENTE';
+CREATE INDEX idx_solicitudes_afiliacion_pendientes ON solicitudes_afiliacion_agencia(fecha_solicitud ASC) WHERE estado = 'PENDIENTE_AGENCIA';
 CREATE INDEX idx_solicitudes_traslado_asociado_fecha ON solicitudes_traslado_apertura(id_asociado, fecha_solicitud DESC);
 CREATE INDEX idx_solicitudes_credito_asociado_fecha ON solicitudes_credito(id_asociado, fecha_solicitud DESC);
 
@@ -229,9 +338,10 @@ CREATE INDEX idx_solicitudes_credito_asociado_fecha ON solicitudes_credito(id_as
 INSERT INTO roles (id_rol, codigo, nombre, descripcion, estado) VALUES
 (1, 'ADMINISTRADOR', 'Administrador del Sistema', 'Acceso total y configuración global del sistema', 'ACTIVO'),
 (2, 'OPERADOR', 'Operador de Cooperativa', 'Gestión operativa, transacciones de caja y atención', 'ACTIVO'),
-(3, 'ASOCIADO', 'Asociado Cooperativista', 'Consultas de cuentas, préstamos y aportaciones', 'ACTIVO');
+(3, 'ASOCIADO', 'Asociado Cooperativista', 'Consultas de cuentas, préstamos y aportaciones', 'ACTIVO'),
+(4, 'EJECUTIVO', 'Ejecutivo de Créditos y Aprobaciones', 'Autorización final, devolución a operador y resolución definitiva de solicitudes crediticias', 'ACTIVO');
 
-SELECT setval('roles_id_rol_seq', 3, true);
+SELECT setval('roles_id_rol_seq', 4, true);
 
 -- 6.2 Insertar Permisos
 INSERT INTO permisos (id_permiso, codigo, modulo, descripcion) VALUES
@@ -248,9 +358,9 @@ INSERT INTO permisos (id_permiso, codigo, modulo, descripcion) VALUES
 SELECT setval('permisos_id_permiso_seq', 9, true);
 
 -- 6.3 Asignar Permisos a Roles
--- Administrador: Todos los permisos
+-- Administrador: Permisos exclusivos de gestión de usuarios y seguridad institucional
 INSERT INTO roles_permisos (id_rol, id_permiso)
-SELECT 1, id_permiso FROM permisos;
+SELECT 1, id_permiso FROM permisos WHERE modulo IN ('SEGURIDAD', 'USUARIOS');
 
 -- Operador: Permisos de lectura de usuarios y operaciones financieras
 INSERT INTO roles_permisos (id_rol, id_permiso)
@@ -260,9 +370,11 @@ SELECT 2, id_permiso FROM permisos WHERE modulo IN ('FINANZAS', 'CREDITOS') OR c
 INSERT INTO roles_permisos (id_rol, id_permiso)
 SELECT 3, id_permiso FROM permisos WHERE codigo IN ('FIN_CUENTAS_CONSULTAR', 'CRE_SOLICITUDES_CREAR');
 
--- 6.4 Insertar Personas (16 Registros)
--- Contraseña en texto plano para TODOS los usuarios: admin123
+-- 6.4 Insertar Personas (17 Registros)
+-- Contraseña en texto plano para usuarios estándar: admin123
 -- Hash bcrypt (salt rounds = 10): $2a$10$vNPUEupr.jaRBJ/2vUE4CurM.mZqeEc1PTGrA8Pds020v2tm0T1Ey
+-- Contraseña para steven08: steven
+-- Hash bcrypt para steven08: $2a$10$VzSM1tEzgyOc1ZNEa0/Cwu/dTV5wiX/XR97ZBIzeDuEhddRN6orsi
 
 INSERT INTO personas (id_persona, cui_dpi, primer_nombre, segundo_nombre, primer_apellido, segundo_apellido, telefono, direccion, fecha_nacimiento) VALUES
 -- Administradores (5)
@@ -285,37 +397,42 @@ INSERT INTO personas (id_persona, cui_dpi, primer_nombre, segundo_nombre, primer
 (13, '3000000000003', 'Mario', 'René', 'Estrada', 'Fuentes', '55330003', 'Zona 6, Ciudad de Guatemala', '1984-08-11'),
 (14, '3000000000004', 'Karen', 'Paola', 'Aguilar', 'Romero', '55330004', 'Zona 18, Ciudad de Guatemala', '1997-03-24'),
 (15, '3000000000005', 'Jorge', 'Luis', 'Guzmán', 'Cifuentes', '55330005', 'Zona 9, Ciudad de Guatemala', '1990-11-17'),
-(16, '3000000000000', 'Usuario', 'Asociado', 'Inactivo', 'Prueba', '55330000', 'Zona 1, Ciudad de Guatemala', '1995-12-10');
+(16, '3000000000000', 'Usuario', 'Asociado', 'Inactivo', 'Prueba', '55330000', 'Zona 1, Ciudad de Guatemala', '1995-12-10'),
 
-SELECT setval('personas_id_persona_seq', 16, true);
+-- Administradores (id_rol = 1)
+(17, '1000000000008', 'Steven', 'Administrador', 'Ortiz', 'García', '55000008', 'Sede Central Corporativa', '1990-01-01');
+
+SELECT setval('personas_id_persona_seq', 17, true);
 
 -- 6.5 Insertar Usuarios (id_persona como PK y FK)
-INSERT INTO usuarios (id_persona, id_rol, codigo_corporativo, email, password_hash, estado) VALUES
--- Administradores (id_rol = 1, Rango: 1001-1005)
-(1, 1, '1001', 'admin@cooperativa.com', '$2a$10$vNPUEupr.jaRBJ/2vUE4CurM.mZqeEc1PTGrA8Pds020v2tm0T1Ey', 'ACTIVO'),
-(2, 1, '1002', 'admin.lucia@cooperativa.com', '$2a$10$vNPUEupr.jaRBJ/2vUE4CurM.mZqeEc1PTGrA8Pds020v2tm0T1Ey', 'ACTIVO'),
-(3, 1, '1003', 'admin.fernando@cooperativa.com', '$2a$10$vNPUEupr.jaRBJ/2vUE4CurM.mZqeEc1PTGrA8Pds020v2tm0T1Ey', 'ACTIVO'),
-(4, 1, '1004', 'admin.valeria@cooperativa.com', '$2a$10$vNPUEupr.jaRBJ/2vUE4CurM.mZqeEc1PTGrA8Pds020v2tm0T1Ey', 'ACTIVO'),
-(5, 1, '1005', 'admin.rodrigo@cooperativa.com', '$2a$10$vNPUEupr.jaRBJ/2vUE4CurM.mZqeEc1PTGrA8Pds020v2tm0T1Ey', 'ACTIVO'),
+INSERT INTO usuarios (id_persona, id_rol, codigo_corporativo, email, password_hash, estado, mfa_enabled) VALUES
+-- Administradores (id_rol = 1, Prefijo: AD-X)
+(1, 1, 'AD-1', 'admin@cooperativa.com', '$2a$10$vNPUEupr.jaRBJ/2vUE4CurM.mZqeEc1PTGrA8Pds020v2tm0T1Ey', 'ACTIVO', false),
+(2, 1, 'AD-2', 'admin.lucia@cooperativa.com', '$2a$10$vNPUEupr.jaRBJ/2vUE4CurM.mZqeEc1PTGrA8Pds020v2tm0T1Ey', 'ACTIVO', false),
+(3, 1, 'AD-3', 'admin.fernando@cooperativa.com', '$2a$10$vNPUEupr.jaRBJ/2vUE4CurM.mZqeEc1PTGrA8Pds020v2tm0T1Ey', 'ACTIVO', false),
+(4, 1, 'AD-4', 'admin.valeria@cooperativa.com', '$2a$10$vNPUEupr.jaRBJ/2vUE4CurM.mZqeEc1PTGrA8Pds020v2tm0T1Ey', 'ACTIVO', false),
+(5, 1, 'AD-5', 'admin.rodrigo@cooperativa.com', '$2a$10$vNPUEupr.jaRBJ/2vUE4CurM.mZqeEc1PTGrA8Pds020v2tm0T1Ey', 'ACTIVO', false),
 
--- Operadores (id_rol = 2, Rango: 2001-2005)
-(6, 2, '2001', 'operador@cooperativa.com', '$2a$10$vNPUEupr.jaRBJ/2vUE4CurM.mZqeEc1PTGrA8Pds020v2tm0T1Ey', 'ACTIVO'),
-(7, 2, '2002', 'operador.maria@cooperativa.com', '$2a$10$vNPUEupr.jaRBJ/2vUE4CurM.mZqeEc1PTGrA8Pds020v2tm0T1Ey', 'ACTIVO'),
-(8, 2, '2003', 'operador.pedro@cooperativa.com', '$2a$10$vNPUEupr.jaRBJ/2vUE4CurM.mZqeEc1PTGrA8Pds020v2tm0T1Ey', 'ACTIVO'),
-(9, 2, '2004', 'operador.ana@cooperativa.com', '$2a$10$vNPUEupr.jaRBJ/2vUE4CurM.mZqeEc1PTGrA8Pds020v2tm0T1Ey', 'ACTIVO'),
-(10, 2, '2005', 'operador.diego@cooperativa.com', '$2a$10$vNPUEupr.jaRBJ/2vUE4CurM.mZqeEc1PTGrA8Pds020v2tm0T1Ey', 'ACTIVO'),
+-- Operadores (id_rol = 2, Prefijo: OP-X)
+(6, 2, 'OP-1', 'operador@cooperativa.com', '$2a$10$vNPUEupr.jaRBJ/2vUE4CurM.mZqeEc1PTGrA8Pds020v2tm0T1Ey', 'ACTIVO', false),
+(7, 2, 'OP-2', 'operador.maria@cooperativa.com', '$2a$10$vNPUEupr.jaRBJ/2vUE4CurM.mZqeEc1PTGrA8Pds020v2tm0T1Ey', 'ACTIVO', false),
+(8, 2, 'OP-3', 'operador.pedro@cooperativa.com', '$2a$10$vNPUEupr.jaRBJ/2vUE4CurM.mZqeEc1PTGrA8Pds020v2tm0T1Ey', 'ACTIVO', false),
+(9, 2, 'OP-4', 'operador.ana@cooperativa.com', '$2a$10$vNPUEupr.jaRBJ/2vUE4CurM.mZqeEc1PTGrA8Pds020v2tm0T1Ey', 'ACTIVO', false),
+(10, 2, 'OP-5', 'operador.diego@cooperativa.com', '$2a$10$vNPUEupr.jaRBJ/2vUE4CurM.mZqeEc1PTGrA8Pds020v2tm0T1Ey', 'ACTIVO', false),
 
--- Asociados (id_rol = 3, Rango: 3001-3005, 3000)
-(11, 3, '3001', 'asociado.carlos@cooperativa.com', '$2a$10$vNPUEupr.jaRBJ/2vUE4CurM.mZqeEc1PTGrA8Pds020v2tm0T1Ey', 'ACTIVO'),
-(12, 3, '3002', 'asociado.claudia@cooperativa.com', '$2a$10$vNPUEupr.jaRBJ/2vUE4CurM.mZqeEc1PTGrA8Pds020v2tm0T1Ey', 'ACTIVO'),
-(13, 3, '3003', 'asociado.mario@cooperativa.com', '$2a$10$vNPUEupr.jaRBJ/2vUE4CurM.mZqeEc1PTGrA8Pds020v2tm0T1Ey', 'ACTIVO'),
-(14, 3, '3004', 'asociado.karen@cooperativa.com', '$2a$10$vNPUEupr.jaRBJ/2vUE4CurM.mZqeEc1PTGrA8Pds020v2tm0T1Ey', 'ACTIVO'),
-(15, 3, '3005', 'asociado.jorge@cooperativa.com', '$2a$10$vNPUEupr.jaRBJ/2vUE4CurM.mZqeEc1PTGrA8Pds020v2tm0T1Ey', 'ACTIVO'),
-(16, 3, '3000', 'inactivo@cooperativa.com', '$2a$10$vNPUEupr.jaRBJ/2vUE4CurM.mZqeEc1PTGrA8Pds020v2tm0T1Ey', 'INACTIVO');
+-- Asociados: Empleados Bancarios (EB-X) y Ajenos/Externos (EX-X)
+(11, 3, 'EB-1', 'asociado.carlos@cooperativa.com', '$2a$10$vNPUEupr.jaRBJ/2vUE4CurM.mZqeEc1PTGrA8Pds020v2tm0T1Ey', 'ACTIVO', false),
+(12, 3, 'EX-1', 'asociado.claudia@cooperativa.com', '$2a$10$vNPUEupr.jaRBJ/2vUE4CurM.mZqeEc1PTGrA8Pds020v2tm0T1Ey', 'ACTIVO', false),
+(13, 3, 'EB-2', 'asociado.mario@cooperativa.com', '$2a$10$vNPUEupr.jaRBJ/2vUE4CurM.mZqeEc1PTGrA8Pds020v2tm0T1Ey', 'ACTIVO', false),
+(14, 3, 'EX-2', 'asociado.karen@cooperativa.com', '$2a$10$vNPUEupr.jaRBJ/2vUE4CurM.mZqeEc1PTGrA8Pds020v2tm0T1Ey', 'ACTIVO', false),
+(15, 3, 'EX-3', 'asociado.jorge@cooperativa.com', '$2a$10$vNPUEupr.jaRBJ/2vUE4CurM.mZqeEc1PTGrA8Pds020v2tm0T1Ey', 'ACTIVO', false),
+(16, 3, 'EX-4', 'inactivo@cooperativa.com', '$2a$10$vNPUEupr.jaRBJ/2vUE4CurM.mZqeEc1PTGrA8Pds020v2tm0T1Ey', 'INACTIVO', false),
 
--- 6.6 Insertar Tipos de Cuenta
+-- Administrador Institucional
+(17, 1, 'steven08', 'steven08@cooperativa.com', '$2a$10$VzSM1tEzgyOc1ZNEa0/Cwu/dTV5wiX/XR97ZBIzeDuEhddRN6orsi', 'ACTIVO', false);
+
+-- 6.6 Insertar Tipos de Cuenta (Ahorro Cooperativo)
 INSERT INTO tipos_cuenta (id_tipo_cuenta, nombre, tasa_interes_anual, monto_minimo_apertura, descripcion, beneficios) VALUES
-(1, 'Aportaciones Ordinarias', 6.50, 100.00, 'Cuenta de aportación obligatoria para membresía y derechos cooperativistas.', 'Derecho a voz y voto, dividendos anuales, acceso a cartera de créditos preferencial.'),
 (2, 'Ahorro a la Vista (Corriente)', 3.00, 50.00, 'Cuenta de ahorro libre con disponibilidad inmediata de sus fondos.', 'Retiros ilimitados, sin costo por manejo de cuenta, acceso a banca web.'),
 (3, 'Ahorro a Plazo Fijo (12 Meses)', 8.25, 1000.00, 'Inversión a plazo determinado de 12 meses con rendimiento de alta tasa fija.', 'Tasa preferencial de hasta 8.25%, capitalización al vencimiento, opción de renovación automática.'),
 (4, 'Cuenta de Planilla', 1.50, 0.00, 'Cuenta especial receptora del salario patronal mensual con beneficios de traslado.', 'Apertura sin monto mínimo, exenta de cobros operativos, traslado inmediato a subcuentas.'),
@@ -336,15 +453,17 @@ SELECT setval('asociados_id_asociado_seq', 6, true);
 
 -- 6.8 Insertar Cuentas
 INSERT INTO cuentas (numero_cuenta, id_asociado, id_tipo_cuenta, saldo_disponible, saldo_reserva, estado) VALUES
-('CTA-APORT-001', 1, 1, 3500.00, 500.00, 'ACTIVA'),
+('CTA-APORT-001', 1, 2, 3500.00, 500.00, 'ACTIVA'),
 ('CTA-AHORR-001', 1, 2, 12500.00, 0.00, 'ACTIVA'),
 ('CTA-PLAN-001', 1, 4, 15000.00, 0.00, 'ACTIVA'),
-('CTA-APORT-002', 2, 1, 2800.00, 500.00, 'ACTIVA'),
+('CTA-APORT-002', 2, 2, 2800.00, 500.00, 'ACTIVA'),
 ('CTA-PLAZO-002', 2, 3, 50000.00, 0.00, 'ACTIVA'),
 ('CTA-PLAN-002', 2, 4, 12000.00, 0.00, 'ACTIVA'),
-('CTA-APORT-003', 3, 1, 4100.00, 500.00, 'ACTIVA'),
+('CTA-APORT-003', 3, 2, 4100.00, 500.00, 'ACTIVA'),
 ('CTA-PLAN-003', 3, 4, 8500.00, 0.00, 'ACTIVA'),
-('CTA-APORT-004', 4, 1, 1500.00, 500.00, 'ACTIVA'),
+('CTA-APORT-004', 4, 2, 1500.00, 500.00, 'ACTIVA'),
 ('CTA-PLAN-004', 4, 4, 11000.00, 0.00, 'ACTIVA'),
-('CTA-APORT-005', 5, 1, 6200.00, 500.00, 'ACTIVA'),
+('CTA-APORT-005', 5, 2, 6200.00, 500.00, 'ACTIVA'),
 ('CTA-PLAN-005', 5, 4, 9500.00, 0.00, 'ACTIVA');
+
+

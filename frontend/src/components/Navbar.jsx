@@ -3,9 +3,11 @@ import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { UpdateProfileModal } from './profile/UpdateProfileModal';
 import { ChangePasswordModal } from './profile/ChangePasswordModal';
+import { AccountSettingsModal } from './profile/AccountSettingsModal';
 import {
   Building2,
   Users,
+  UserCheck,
   LayoutDashboard,
   LogOut,
   User,
@@ -14,6 +16,9 @@ import {
   KeyRound,
   Menu,
   X,
+  Database,
+  Settings,
+  ShieldCheck,
 } from 'lucide-react';
 
 export const Navbar = () => {
@@ -24,6 +29,8 @@ export const Navbar = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isUpdateProfileOpen, setIsUpdateProfileOpen] = useState(false);
   const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
+  const [isAccountSettingsOpen, setIsAccountSettingsOpen] = useState(false);
+  const [accountSettingsInitialTab, setAccountSettingsInitialTab] = useState('2fa');
 
   const dropdownRef = useRef(null);
 
@@ -64,17 +71,25 @@ export const Navbar = () => {
   const getRoleBadgeStyle = (rol) => {
     switch (rol) {
       case 'ADMINISTRADOR':
-        return 'bg-emerald-500/10 text-emerald-600 border-emerald-500/30';
+        return 'bg-sky-500/10 text-sky-800 border-sky-500/30';
+      case 'EJECUTIVO':
+        return 'bg-blue-500/10 text-blue-800 border-blue-500/30 font-bold';
       case 'OPERADOR':
-        return 'bg-blue-500/10 text-blue-600 border-blue-500/30';
+        return 'bg-indigo-500/10 text-indigo-800 border-indigo-500/30';
       default:
-        return 'bg-purple-500/10 text-purple-600 border-purple-500/30';
+        return 'bg-slate-500/10 text-slate-800 border-slate-500/30';
     }
   };
 
+  const isOperator = user?.rol === 'OPERADOR';
+  const isAdmin = user?.rol === 'ADMINISTRADOR';
+
   const navLinks = [
     { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    ...(user?.rol === 'ADMINISTRADOR'
+    ...(isOperator
+      ? [{ to: '/asociados', label: 'Gestión de Asociados', icon: UserCheck }]
+      : []),
+    ...(isAdmin
       ? [{ to: '/usuarios', label: 'Gestión de Usuarios', icon: Users }]
       : []),
     ...(user?.rol === 'ASOCIADO'
@@ -90,12 +105,12 @@ export const Navbar = () => {
             {/* Logo & Marca Institucional */}
             <div className="flex items-center space-x-8">
               <Link to="/dashboard" className="flex items-center space-x-3 group">
-                <div className="w-10 h-10 rounded-xl bg-emerald-600 flex items-center justify-center text-white shadow-md shadow-emerald-600/20 group-hover:scale-105 transition-transform">
+                <div className="w-10 h-10 rounded-xl bg-sky-700 flex items-center justify-center text-white shadow-md shadow-sky-700/20 group-hover:scale-105 transition-transform">
                   <Building2 className="w-6 h-6" />
                 </div>
                 <div>
                   <span className="font-bold text-slate-800 text-lg tracking-tight block">COOPERATIVA</span>
-                  <span className="text-[10px] text-emerald-600 font-semibold uppercase tracking-wider block">
+                  <span className="text-[10px] text-sky-700 font-semibold uppercase tracking-wider block">
                     Sistema Integral
                   </span>
                 </div>
@@ -112,11 +127,11 @@ export const Navbar = () => {
                       to={link.to}
                       className={`flex items-center space-x-2 px-3.5 py-2 rounded-lg text-sm font-medium transition-colors ${
                         isActive
-                          ? 'bg-emerald-50 text-emerald-700 font-semibold'
+                          ? 'bg-sky-50 text-sky-800 font-semibold'
                           : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
                       }`}
                     >
-                      <Icon className={`w-4 h-4 ${isActive ? 'text-emerald-600' : 'text-slate-400'}`} />
+                      <Icon className={`w-4 h-4 ${isActive ? 'text-sky-700' : 'text-slate-400'}`} />
                       <span>{link.label}</span>
                     </Link>
                   );
@@ -135,11 +150,11 @@ export const Navbar = () => {
                   aria-haspopup="true"
                   className={`flex items-center space-x-3 p-1.5 sm:px-3 sm:py-2 rounded-xl transition-all cursor-pointer border ${
                     isDropdownOpen
-                      ? 'bg-slate-100 border-slate-300 shadow-xs ring-2 ring-emerald-500/20'
+                      ? 'bg-slate-100 border-slate-300 shadow-xs ring-2 ring-sky-500/20'
                       : 'hover:bg-slate-50 border-transparent hover:border-slate-200'
                   }`}
                 >
-                  <div className="w-9 h-9 rounded-full bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-700 shadow-2xs">
+                  <div className="w-9 h-9 rounded-full bg-sky-50 border border-sky-200 flex items-center justify-center text-sky-700 shadow-2xs">
                     <User className="w-5 h-5" />
                   </div>
                   <div className="text-left hidden sm:block">
@@ -156,23 +171,23 @@ export const Navbar = () => {
                   </div>
                   <ChevronDown
                     className={`w-4 h-4 text-slate-400 transition-transform duration-200 hidden sm:block ${
-                      isDropdownOpen ? 'rotate-180 text-emerald-600' : ''
+                      isDropdownOpen ? 'rotate-180 text-sky-700' : ''
                     }`}
                   />
                 </button>
 
                 {/* Menú Flotante Institucional */}
                 {isDropdownOpen && (
-                  <div className="absolute right-0 mt-2 w-64 rounded-2xl bg-white shadow-xl border border-slate-200 py-1.5 z-50">
+                  <div className="absolute right-0 mt-2 w-68 rounded-2xl bg-white shadow-xl border border-slate-200 py-1.5 z-50">
                     {/* Encabezado del Perfil */}
                     <div className="px-4 py-3 border-b border-slate-100 bg-slate-50/60 rounded-t-2xl">
                       <p className="text-xs font-bold text-slate-900 truncate">
                         {user?.nombre_completo || user?.nombre || 'Usuario'}
                       </p>
                       <p className="text-[11px] text-slate-500 font-mono truncate mt-0.5">
-                        {user?.codigo_corporativo ? `Cód. ${user.codigo_corporativo}` : user?.email}
+                        {user?.codigo_corporativo ? `Usuario: ${user.codigo_corporativo}` : user?.email}
                       </p>
-                      <div className="mt-2">
+                      <div className="mt-2 flex items-center justify-between">
                         <span
                           className={`inline-block text-[10px] px-2 py-0.5 rounded-full border font-bold uppercase ${getRoleBadgeStyle(
                             user?.rol
@@ -180,6 +195,12 @@ export const Navbar = () => {
                         >
                           {user?.rol || 'USUARIO'}
                         </span>
+                        {user?.mfa_enabled && (
+                          <span className="inline-flex items-center space-x-1 text-[10px] font-bold text-sky-700 bg-sky-50 border border-sky-200 px-2 py-0.5 rounded-full">
+                            <ShieldCheck className="w-3 h-3" />
+                            <span>2FA Activo</span>
+                          </span>
+                        )}
                       </div>
                     </div>
 
@@ -189,24 +210,20 @@ export const Navbar = () => {
                         type="button"
                         onClick={() => {
                           setIsDropdownOpen(false);
-                          setIsUpdateProfileOpen(true);
+                          setAccountSettingsInitialTab('2fa');
+                          setIsAccountSettingsOpen(true);
                         }}
                         className="w-full flex items-center space-x-2.5 px-3 py-2 text-xs font-medium text-slate-700 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer text-left"
                       >
-                        <User className="w-4 h-4 text-emerald-600 flex-shrink-0" />
-                        <span>Actualizar Datos</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setIsDropdownOpen(false);
-                          setIsChangePasswordOpen(true);
-                        }}
-                        className="w-full flex items-center space-x-2.5 px-3 py-2 text-xs font-medium text-slate-700 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer text-left"
-                      >
-                        <KeyRound className="w-4 h-4 text-amber-600 flex-shrink-0" />
-                        <span>Cambiar Contraseña</span>
+                        <ShieldCheck className="w-4 h-4 text-sky-700 flex-shrink-0" />
+                        <div className="flex items-center justify-between w-full">
+                          <span>Seguridad & Doble Factor (2FA)</span>
+                          {user?.mfa_enabled ? (
+                            <span className="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-1.5 py-0.5 rounded">Activo</span>
+                          ) : (
+                            <span className="text-[10px] bg-slate-100 text-slate-600 font-bold px-1.5 py-0.5 rounded">Opcional</span>
+                          )}
+                        </div>
                       </button>
                     </div>
 
@@ -267,11 +284,11 @@ export const Navbar = () => {
                     onClick={() => setIsMobileMenuOpen(false)}
                     className={`flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-colors ${
                       isActive
-                        ? 'bg-emerald-50 text-emerald-700 font-bold border border-emerald-200'
+                        ? 'bg-sky-50 text-sky-800 font-bold border border-sky-200'
                         : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
                     }`}
                   >
-                    <Icon className={`w-5 h-5 ${isActive ? 'text-emerald-600' : 'text-slate-400'}`} />
+                    <Icon className={`w-5 h-5 ${isActive ? 'text-sky-700' : 'text-slate-400'}`} />
                     <span>{link.label}</span>
                   </Link>
                 );
@@ -281,7 +298,14 @@ export const Navbar = () => {
         </div>
       </header>
 
-      {/* Modales de Perfil y Contraseña */}
+      {/* Modal Integral de Configuración de la Cuenta (2FA, Contraseña, Perfil) */}
+      <AccountSettingsModal
+        isOpen={isAccountSettingsOpen}
+        onClose={() => setIsAccountSettingsOpen(false)}
+        initialTab={accountSettingsInitialTab}
+      />
+
+      {/* Modales de Perfil y Contraseña Legados (por compatibilidad) */}
       <UpdateProfileModal
         isOpen={isUpdateProfileOpen}
         onClose={() => setIsUpdateProfileOpen(false)}

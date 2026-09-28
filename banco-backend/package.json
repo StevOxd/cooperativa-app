@@ -1,0 +1,21 @@
+{
+  "name": "banco-backend",
+  "version": "1.0.0",
+  "description": "Microservicio Core Banking API para la Entidad Bancaria Corporativa",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "nodemon src/server.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "helmet": "^8.3.0",
+    "pg": "^8.13.3"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.9"
+  }
+}

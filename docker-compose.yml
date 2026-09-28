@@ -32,7 +32,39 @@ services:
       - cooperativa-net
 
   # ----------------------------------------------------------------------------
-  # 2. Servidor Backend API Express & WebSockets
+  # 2. Servidor Backend Core Bancario (Simulador API Entidad Bancaria)
+  # ----------------------------------------------------------------------------
+  banco-backend:
+    container_name: banco-backend
+    build:
+      context: ./banco-backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 5002
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_USER: ${DB_USER:-cooperativa_user}
+      DB_PASSWORD: ${DB_PASSWORD:-cooperativa_secure_password_2026}
+      DB_NAME: banco_db
+      BANCO_INTERNAL_API_KEY: ${BANCO_INTERNAL_API_KEY:-banco_internal_secret_key_2026}
+    ports:
+      - "5002:5002"
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"require('http').get('http://127.0.0.1:5002/api/banco/health', (r) => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))\""]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    networks:
+      - cooperativa-net
+
+  # ----------------------------------------------------------------------------
+  # 3. Servidor Backend API Express & WebSockets (Cooperativa)
   # ----------------------------------------------------------------------------
   backend:
     container_name: cooperativa-backend
@@ -43,6 +75,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      banco-backend:
+        condition: service_healthy
     environment:
       NODE_ENV: production
       PORT: 5000
@@ -51,9 +85,22 @@ services:
       DB_USER: ${DB_USER:-cooperativa_user}
       DB_PASSWORD: ${DB_PASSWORD:-cooperativa_secure_password_2026}
       DB_NAME: ${DB_NAME:-cooperativa_db}
+      BANCO_API_URL: http://banco-backend:5002
+      BANCO_INTERNAL_API_KEY: ${BANCO_INTERNAL_API_KEY:-banco_internal_secret_key_2026}
       JWT_SECRET: ${JWT_SECRET:-super_secret_jwt_key_cooperativa_2026}
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-8h}
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
+      MAIL_SERVICE: ${MAIL_SERVICE:-google}
+      GMAIL_USER: ${GMAIL_USER:-}
+      GMAIL_APP_PASSWORD: ${GMAIL_APP_PASSWORD:-}
+      EMAIL_FROM: ${EMAIL_FROM:-}
+      SMTP_HOST: ${SMTP_HOST:-smtp.gmail.com}
+      SMTP_PORT: ${SMTP_PORT:-465}
+      SMTP_SECURE: ${SMTP_SECURE:-true}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+    volumes:
+      - ./backend/uploads:/app/uploads
     ports:
       - "${BACKEND_PORT:-5001}:5000"
     healthcheck:

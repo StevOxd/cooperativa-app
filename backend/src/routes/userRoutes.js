@@ -23,6 +23,48 @@ router.get('/', userController.getUsers);
 router.get('/auditoria/eventos-recientes', userController.getRecentSecurityEvents);
 
 /**
+ * @route   GET /api/usuarios/roles/permisos
+ * @desc    Obtener lista de roles y permisos configurados en la plataforma
+ * @access  Privado (ADMINISTRADOR)
+ */
+router.get('/roles/permisos', userController.getRolesAndPermissions);
+
+/**
+ * @route   POST /api/usuarios/roles/:idRol/permisos
+ * @desc    Asignar permisos a un rol
+ * @access  Privado (ADMINISTRADOR)
+ */
+router.post('/roles/:idRol/permisos', userController.assignPermissionsToRole);
+
+/**
+ * @route   GET /api/usuarios/next-code
+ * @desc    Obtener el siguiente código correlativo de usuario según el rol solicitado (EJ-X, OP-X)
+ * @access  Privado (ADMINISTRADOR)
+ */
+router.get('/next-code', userController.getNextCode);
+
+/**
+ * @route   GET /api/usuarios/email/status
+ * @desc    Obtener estado del servicio de correo institucional (Google / SMTP / Demo)
+ * @access  Privado (ADMINISTRADOR)
+ */
+router.get('/email/status', userController.getEmailServiceStatus);
+
+/**
+ * @route   POST /api/usuarios/email/config
+ * @desc    Configurar y verificar credenciales de Google Mail (Gmail SMTP)
+ * @access  Privado (ADMINISTRADOR)
+ */
+router.post('/email/config', userController.updateEmailServiceConfig);
+
+/**
+ * @route   POST /api/usuarios/email/test
+ * @desc    Enviar correo de prueba institucional a través del servicio de Google
+ * @access  Privado (ADMINISTRADOR)
+ */
+router.post('/email/test', userController.sendTestEmail);
+
+/**
  * @route   GET /api/usuarios/:id
  * @desc    Obtener detalle de un usuario por ID
  * @access  Privado
@@ -56,5 +98,19 @@ router.delete('/:id', userController.deleteUser);
  * @access  Privado (ADMINISTRADOR)
  */
 router.patch('/:id/desbloquear', userController.desbloquearUsuario);
+
+/**
+ * @route   PATCH /api/usuarios/:id/estado
+ * @desc    Cambiar estado de usuario (ACTIVO/INACTIVO) con motivo obligatorio
+ * @access  Privado (ADMINISTRADOR)
+ */
+router.patch('/:id/estado', userController.cambiarEstadoUsuario);
+
+/**
+ * @route   POST /api/usuarios/:id/reset-password
+ * @desc    Reiniciar contraseña de usuario y generar clave temporal
+ * @access  Privado (ADMINISTRADOR)
+ */
+router.post('/:id/reset-password', userController.resetPasswordUsuario);
 
 module.exports = router;

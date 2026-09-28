@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import api from '../../services/api';
 import {
   KeyRound,
@@ -37,6 +38,16 @@ export const ChangePasswordModal = ({ isOpen, onClose }) => {
 
   useEffect(() => {
     if (isOpen) {
+      const prevOverflow = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+      return () => {
+        document.body.style.overflow = prevOverflow;
+      };
+    }
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (isOpen) {
       setPasswordActual('');
       setNuevaPassword('');
       setConfirmarPassword('');
@@ -71,13 +82,13 @@ export const ChangePasswordModal = ({ isOpen, onClose }) => {
       return;
     }
 
-    if (nuevaPassword.length < 6) {
-      setErrorMessage('La nueva contraseña debe tener como mínimo 6 caracteres.');
+    if (nuevaPassword.length < 8) {
+      setErrorMessage('La nueva contraseña debe tener como mínimo 8 caracteres.');
       return;
     }
 
-    if (!/[a-zA-Z]/.test(nuevaPassword) || !/[0-9]/.test(nuevaPassword)) {
-      setErrorMessage('La nueva contraseña debe contener al menos una letra y un número.');
+    if (!/[a-zA-Z]/.test(nuevaPassword) || !/[0-9]/.test(nuevaPassword) || !/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?~`]/.test(nuevaPassword)) {
+      setErrorMessage('La nueva contraseña debe ser fuerte: combinar letras, números y al menos un carácter especial (!@#$%^&*...).');
       return;
     }
 
@@ -120,9 +131,14 @@ export const ChangePasswordModal = ({ isOpen, onClose }) => {
     }
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs overflow-y-auto">
-      <div className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-8 shadow-2xl border border-slate-200 relative my-8">
+  return createPortal(
+    <div className="fixed inset-0 z-[999] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm overflow-y-auto">
+      <div
+        className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-8 shadow-2xl border border-slate-200 relative my-8"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="change-password-modal-title"
+      >
         {/* Encabezado del Modal */}
         <div className="flex justify-between items-center mb-6 border-b border-slate-100 pb-4">
           <div className="flex items-center space-x-3">
@@ -130,7 +146,7 @@ export const ChangePasswordModal = ({ isOpen, onClose }) => {
               <KeyRound className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-xl font-bold text-slate-900">Cambiar Contraseña</h2>
+              <h2 id="change-password-modal-title" className="text-xl font-bold text-slate-900">Cambiar Contraseña</h2>
               <p className="text-xs text-slate-500 mt-0.5">Seguridad y credenciales de acceso</p>
             </div>
           </div>
@@ -275,7 +291,8 @@ export const ChangePasswordModal = ({ isOpen, onClose }) => {
           </div>
         </form>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
 

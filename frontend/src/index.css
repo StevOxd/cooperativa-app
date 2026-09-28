@@ -27,3 +27,64 @@
 .transition-smooth {
   transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
+
+/* Animaciones para Notificaciones Tipo Socket con Auto-Dismiss de 4s */
+@keyframes slideInRight {
+  0% {
+    transform: translateX(120%) scale(0.95);
+    opacity: 0;
+  }
+  70% {
+    transform: translateX(-4px) scale(1.01);
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(0) scale(1);
+    opacity: 1;
+  }
+}
+
+.animate-slide-in-right {
+  animation: slideInRight 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes toastProgress {
+  from {
+    width: 100%;
+  }
+  to {
+    width: 0%;
+  }
+}
+
+.animate-toast-progress {
+  animation: toastProgress 4000ms linear forwards;
+}
+
+/* Reglas de Impresión Corporativa de Constancias y Documentos */
+@page {
+  size: letter portrait;
+  margin: 10mm 15mm;
+}
+
+@media print {
+  html, body, div, main, section, [style*="background-image"] {
+    background: #ffffff !important;
+    background-image: none !important;
+    color: #0f172a !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  .print\:hidden {
+    display: none !important;
+  }
+
+  .print-avoid-break {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+}
+

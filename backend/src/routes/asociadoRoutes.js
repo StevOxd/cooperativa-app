@@ -35,12 +35,28 @@ router.get('/cuentas/:id_cuenta/transacciones', asociadoController.getTransaccio
  */
 router.get('/creditos', asociadoController.getCreditos);
 
+router.post('/creditos', asociadoController.createCredito);
+
 /**
- * @route   POST /api/asociado/creditos
- * @desc    Crear una nueva solicitud de crédito
+ * @route   POST /api/asociado/creditos/iniciar
+ * @desc    Paso 1: Configurar y registrar solicitud de crédito en estado PENDIENTE_FIRMA
  * @access  Privado
  */
-router.post('/creditos', asociadoController.createCredito);
+router.post('/creditos/iniciar', asociadoController.iniciarCredito);
+
+/**
+ * @route   POST /api/asociado/creditos/:id/subir-expediente-firmado
+ * @desc    Paso 2: Subir PDF firmado para el Folio exacto y elevar a EN_REVISION_OPERADOR
+ * @access  Privado
+ */
+router.post('/creditos/:id/subir-expediente-firmado', asociadoController.subirExpedienteFirmado);
+
+/**
+ * @route   POST /api/asociado/creditos/:id/cancelar
+ * @desc    Cancelar voluntariamente una solicitud de crédito en trámite
+ * @access  Privado
+ */
+router.post('/creditos/:id/cancelar', asociadoController.cancelarCredito);
 
 /**
  * @route   GET /api/asociado/cuenta-planilla
@@ -70,4 +86,33 @@ router.post('/solicitudes-traslado', asociadoController.createSolicitudTraslado)
  */
 router.get('/mis-solicitudes', asociadoController.getMisSolicitudesTraslado);
 
+/**
+ * @route   GET /api/asociado/cuentas-acreditacion
+ * @desc    Obtener cuentas activas (Ahorro/Monetaria) donde se puede acreditar el desembolso
+ * @access  Privado
+ */
+router.get('/cuentas-acreditacion', asociadoController.getCuentasAcreditacionCredito);
+
+/**
+ * @route   GET /api/asociado/capacidad-crediticia
+ * @desc    Obtener capacidad crediticia, scoring y deudas activas del asociado
+ * @access  Privado
+ */
+router.get('/capacidad-crediticia', asociadoController.getCapacidadCrediticia);
+
+/**
+ * @route   GET /api/asociado/beneficiarios
+ * @desc    Consultar cuentas y beneficiarios asignados del asociado autenticado
+ * @access  Privado (ASOCIADO)
+ */
+router.get('/beneficiarios', asociadoController.getMisBeneficiarios);
+
+/**
+ * @route   POST /api/asociado/cuentas/:id_cuenta/beneficiarios
+ * @desc    Actualizar declaración de beneficiarios con validación estricta al 100.00%
+ * @access  Privado (ASOCIADO)
+ */
+router.post('/cuentas/:id_cuenta/beneficiarios', asociadoController.guardarMisBeneficiarios);
+
 module.exports = router;
+

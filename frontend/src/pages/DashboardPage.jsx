@@ -5,6 +5,7 @@ import { AlertOctagon, X } from 'lucide-react';
 
 import AssociateDashboard from './AssociateDashboard';
 import OperatorDashboard from './OperatorDashboard';
+import ExecutiveDashboard from './ExecutiveDashboard';
 import AdminDashboard from './AdminDashboard';
 
 export const DashboardPage = () => {
@@ -41,8 +42,9 @@ export const DashboardPage = () => {
       {/* Renderizado Condicional por Rol (RBAC) */}
       {user?.rol === 'ASOCIADO' && <AssociateDashboard />}
       {user?.rol === 'OPERADOR' && <OperatorDashboard />}
+      {user?.rol === 'EJECUTIVO' && <ExecutiveDashboard />}
       {user?.rol === 'ADMINISTRADOR' && <AdminDashboard />}
-      {!['ASOCIADO', 'OPERADOR', 'ADMINISTRADOR'].includes(user?.rol) && <AdminDashboard />}
+      {!['ASOCIADO', 'OPERADOR', 'EJECUTIVO', 'ADMINISTRADOR'].includes(user?.rol) && <AdminDashboard />}
     </div>
   );
 };

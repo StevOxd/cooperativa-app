@@ -22,8 +22,22 @@ const socketUser = new Map();
 const init = (httpServer) => {
   io = new Server(httpServer, {
     cors: {
-      origin: '*',
+      origin: (origin, callback) => {
+        if (!origin) return callback(null, true);
+
+        if (process.env.FRONTEND_URL && origin === process.env.FRONTEND_URL) {
+          return callback(null, true);
+        }
+
+        const isLocalOrLan = /^http:\/\/(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+)(:\d+)?$/.test(origin);
+        if (isLocalOrLan || process.env.NODE_ENV !== 'production') {
+          return callback(null, true);
+        }
+
+        return callback(new Error('[WS SECURITY ERROR] Conexión WebSocket rechazada por origen no autorizado.'));
+      },
       methods: ['GET', 'POST'],
+      credentials: true,
     },
     pingInterval: 25000,
     pingTimeout: 20000,
@@ -213,6 +227,48 @@ const disconnectUser = (userId) => {
  * @function getConnectedUserIds
  * @returns {Array<number>} Arreglo con los identificadores de persona con sesiones abiertas.
  */
+/**
+ * Emite un evento en tiempo real a todas las conexiones activas de un usuario
+ */
+const emitToUser = (userId, event, payload) => {
+  userId = Number(userId);
+  if (!io) return false;
+  const sockets = userSockets.get(userId);
+  if (sockets && sockets.size > 0) {
+    sockets.forEach((socketId) => {
+      io.to(socketId).emit(event, payload);
+    });
+    return true;
+  }
+  return false;
+};
+
+/**
+ * Emite un evento en tiempo real a todos los usuarios conectados con un rol específico
+ */
+const emitToRole = async (rolCodigo, event, payload) => {
+  if (!io) return false;
+  try {
+    const res = await db.query(
+      `SELECT u.id_persona FROM usuarios u JOIN roles r ON u.id_rol = r.id_rol WHERE r.codigo = $1 AND u.estado = 'ACTIVO'`,
+      [rolCodigo]
+    );
+    res.rows.forEach((row) => {
+      emitToUser(row.id_persona, event, payload);
+    });
+    return true;
+  } catch (err) {
+    console.error('Error en emitToRole:', err.message);
+    return false;
+  }
+};
+
+/**
+ * Retorna todos los IDs de usuarios conectados actualmente
+ *
+ * @function getConnectedUserIds
+ * @returns {Array<number>} Arreglo con los identificadores de persona con sesiones abiertas.
+ */
 const getConnectedUserIds = () => {
   return Array.from(userSockets.keys());
 };
@@ -234,4 +290,6 @@ module.exports = {
   broadcastPresence,
   getConnectedUserIds,
   registrarSocketUsuario,
+  emitToUser,
+  emitToRole,
 };

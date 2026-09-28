@@ -125,7 +125,7 @@ const server = app.listen(0, async () => {
       cui_dpi: '9999000011112',
       email: 'test.crud@cooperativa.com',
       password: 'mipassword123',
-      rol: 'ASOCIADO',
+      rol: 'OPERADOR',
       estado: 'ACTIVO',
     };
     const resCreate = await request('/api/usuarios', 'POST', newUserPayload, token);

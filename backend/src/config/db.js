@@ -6,6 +6,9 @@ const poolConfig = {
   port: parseInt(process.env.DB_PORT, 10) || 5432,
   user: process.env.DB_USER,
   database: process.env.DB_NAME,
+  max: 20,                          // Límite máximo de conexiones simultáneas
+  idleTimeoutMillis: 30000,         // Cerrar conexiones inactivas tras 30 segundos
+  connectionTimeoutMillis: 5000,    // Fail-fast tras 5 segundos si el pool está agotado
 };
 
 // Solo incluir password si está definida y no está vacía

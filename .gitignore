@@ -10,14 +10,23 @@ build/
 .env.*.local
 backend/.env
 frontend/.env
+banco-backend/.env
 docker.env
 !docker.env.example
+!backend/.env.example
+!frontend/.env.example
+!banco-backend/.env.example
 !.env.example
 
-# Reportes de auditoría
+# Reportes y artefactos internos de agentes
 auditoria/
 reportes/
 reports/
-
-# Herramientas locales de agente / IDE
+.agent/reportes/
+.agent/subagents/
 .agent/skills/
+
+# Almacenamiento persistente de archivos y PDFs de clientes (ARQ-01)
+backend/uploads/**
+!backend/uploads/**/
+!backend/uploads/**/.gitkeep

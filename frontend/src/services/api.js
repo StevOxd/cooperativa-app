@@ -27,6 +27,19 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   (error) => {
+    // Si el backend responde 403 por cambio obligatorio de contraseña
+    if (error.response && error.response.status === 403 && error.response.data?.debe_cambiar_password) {
+      const storedUser = localStorage.getItem('coop_user');
+      if (storedUser) {
+        try {
+          const parsed = JSON.parse(storedUser);
+          parsed.debe_cambiar_password = true;
+          localStorage.setItem('coop_user', JSON.stringify(parsed));
+          window.dispatchEvent(new CustomEvent('coop_force_password_change'));
+        } catch (_) {}
+      }
+    }
+
     // Si el backend responde 401 y no es la ruta de login, limpiar sesión
     if (
       error.response &&

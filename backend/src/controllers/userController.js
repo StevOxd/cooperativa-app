@@ -1,9 +1,15 @@
 const bcrypt = require('bcryptjs');
 const db = require('../config/db');
 const socketService = require('../services/socketService');
+const mfaService = require('../services/mfaService');
+const mailerService = require('../services/mailerService');
+const { getNextCorporateCode, resolvePrefix, generateSecureRandomPassword } = require('../utils/codeGenerator');
 
-const ROLES_PERMITIDOS = ['ADMINISTRADOR', 'OPERADOR', 'ASOCIADO'];
+const ROLES_PERMITIDOS = ['ADMINISTRADOR', 'OPERADOR', 'EJECUTIVO', 'ASOCIADO'];
 const ESTADOS_PERMITIDOS = ['ACTIVO', 'INACTIVO'];
+
+const getClientIp = (req) => req.headers['x-forwarded-for']?.split(',')[0].trim() || req.socket.remoteAddress || null;
+const getUserAgent = (req) => req.headers['user-agent'] || 'Desconocido';
 
 /**
  * Obtener la lista detallada de usuarios con id_persona y Código Corporativo
@@ -11,7 +17,7 @@ const ESTADOS_PERMITIDOS = ['ACTIVO', 'INACTIVO'];
  */
 const getUsers = async (req, res) => {
   try {
-    const { estado, search } = req.query;
+    const { estado, search, rol } = req.query;
     const conditions = [];
     const values = [];
 
@@ -28,17 +34,24 @@ const getUsers = async (req, res) => {
       conditions.push(`u.estado = $${values.length}`);
     }
 
-    // Filtro opcional por búsqueda de texto
+    // Filtro opcional por rol / tipo de usuario
+    if (rol && rol.trim() !== '') {
+      const rolUpper = rol.trim().toUpperCase();
+      if (!ROLES_PERMITIDOS.includes(rolUpper)) {
+        return res.status(400).json({
+          success: false,
+          message: `Rol inválido. Los valores permitidos son: ${ROLES_PERMITIDOS.join(', ')}`,
+        });
+      }
+      values.push(rolUpper);
+      conditions.push(`r.codigo = $${values.length}`);
+    }
+
+    // Filtro opcional por búsqueda de texto (exclusivamente por Código de Usuario)
     if (search && search.trim() !== '') {
       values.push(`%${search.trim()}%`);
       const paramIndex = values.length;
-      conditions.push(`(
-        u.codigo_corporativo ILIKE $${paramIndex} OR
-        p.cui_dpi ILIKE $${paramIndex} OR
-        p.primer_nombre ILIKE $${paramIndex} OR 
-        p.primer_apellido ILIKE $${paramIndex} OR 
-        u.email ILIKE $${paramIndex}
-      )`);
+      conditions.push(`u.codigo_corporativo ILIKE $${paramIndex}`);
     }
 
     const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
@@ -56,6 +69,7 @@ const getUsers = async (req, res) => {
         p.segundo_apellido,
         p.telefono,
         p.direccion,
+        p.fecha_nacimiento,
         u.email, 
         r.id_rol,
         r.codigo AS rol, 
@@ -66,6 +80,7 @@ const getUsers = async (req, res) => {
         u.sesion_activa_id,
         u.ultimo_ping,
         u.ultimo_acceso,
+        u.debe_cambiar_password,
         u.fecha_creacion
       FROM usuarios u
       JOIN personas p ON u.id_persona = p.id_persona
@@ -138,6 +153,7 @@ const getUserById = async (req, res) => {
         r.codigo AS rol, 
         r.nombre AS rol_nombre,
         u.estado, 
+        u.debe_cambiar_password,
         u.ultimo_acceso,
         u.fecha_creacion
       FROM usuarios u
@@ -169,28 +185,38 @@ const getUserById = async (req, res) => {
 };
 
 /**
- * Función auxiliar para generar un código corporativo de 4 dígitos disponible
+ * Función auxiliar para generar un código de usuario / corporativo según estándar:
+ * AD-X (Admin), OP-X (Operador), EB-X (Empleado Bancario), EX-X (Ajeno/Externo)
  */
-const generateNextCorporateCode = async (client, rolUpper) => {
-  let basePrefix = 3000;
-  if (rolUpper === 'ADMINISTRADOR') basePrefix = 1000;
-  if (rolUpper === 'OPERADOR') basePrefix = 2000;
+const generateNextCorporateCode = async (client, rolUpper, tipoAsociado = 'EX') => {
+  const prefix = resolvePrefix(rolUpper, tipoAsociado);
+  return await getNextCorporateCode(client, prefix);
+};
 
-  const existingCodesRes = await client.query(
-    `SELECT codigo_corporativo FROM usuarios 
-     WHERE codigo_corporativo ~ '^[0-9]{4}$' 
-     ORDER BY codigo_corporativo ASC`
-  );
+/**
+ * Obtener el siguiente código correlativo disponible para un rol específico (EJ-X, OP-X)
+ * GET /api/usuarios/next-code?rol=EJECUTIVO
+ */
+const getNextCode = async (req, res) => {
+  try {
+    const { rol, tipo_asociado } = req.query;
+    const rolUpper = (rol || 'EJECUTIVO').trim().toUpperCase();
+    const prefix = resolvePrefix(rolUpper, tipo_asociado);
+    const nextCode = await getNextCorporateCode(db, prefix);
 
-  const existingNums = new Set(
-    existingCodesRes.rows.map((r) => parseInt(r.codigo_corporativo, 10)).filter((n) => !isNaN(n))
-  );
-
-  let candidate = basePrefix + 1;
-  while (existingNums.has(candidate)) {
-    candidate++;
+    return res.status(200).json({
+      success: true,
+      rol: rolUpper,
+      prefix,
+      next_code: nextCode,
+    });
+  } catch (error) {
+    console.error('Error en userController.getNextCode:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Error al consultar el siguiente código correlativo.',
+    });
   }
-  return candidate.toString();
 };
 
 /**
@@ -215,14 +241,109 @@ const createUser = async (req, res) => {
       password,
       rol,
       estado,
+      tipo_asociado,
     } = req.body;
 
     // 1. Validar campos obligatorios
-    if (!email || !password || !rol || (!nombre && !primer_nombre)) {
+    if (!email || !rol || (!nombre && !primer_nombre)) {
       return res.status(400).json({
         success: false,
-        message: 'Todos los campos obligatorios deben ser proporcionados: nombre/primer_nombre, email, password, rol.',
+        message: 'Todos los campos obligatorios deben ser proporcionados: nombre/primer_nombre, email, rol.',
       });
+    }
+
+    // 1.05 Validaciones rigurosas de integridad y formato
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email.trim())) {
+      return res.status(400).json({
+        success: false,
+        message: 'El formato del correo electrónico ingresado no es válido.',
+      });
+    }
+
+    if (cui_dpi) {
+      const cleanCui = cui_dpi.trim().replace(/\s+/g, '');
+      if (!/^\d{13}$/.test(cleanCui)) {
+        return res.status(400).json({
+          success: false,
+          message: 'El DPI / CUI debe contener exactamente 13 dígitos numéricos.',
+        });
+      }
+    }
+
+    if (telefono) {
+      const cleanTel = telefono.trim().replace(/\D/g, '');
+      if (cleanTel.length !== 8) {
+        return res.status(400).json({
+          success: false,
+          message: 'El número de teléfono debe contener exactamente 8 dígitos numéricos.',
+        });
+      }
+    }
+
+    const nameRegex = /^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s]+$/;
+    if (primer_nombre && (!nameRegex.test(primer_nombre.trim()) || primer_nombre.trim().length < 2)) {
+      return res.status(400).json({
+        success: false,
+        message: 'El primer nombre es obligatorio (mínimo 2 letras, solo caracteres alfabéticos).',
+      });
+    }
+    if (segundo_nombre && !nameRegex.test(segundo_nombre.trim())) {
+      return res.status(400).json({
+        success: false,
+        message: 'El segundo nombre solo puede contener letras y espacios.',
+      });
+    }
+    if (primer_apellido && (!nameRegex.test(primer_apellido.trim()) || primer_apellido.trim().length < 2)) {
+      return res.status(400).json({
+        success: false,
+        message: 'El primer apellido es obligatorio (mínimo 2 letras, solo caracteres alfabéticos).',
+      });
+    }
+    if (segundo_apellido && !nameRegex.test(segundo_apellido.trim())) {
+      return res.status(400).json({
+        success: false,
+        message: 'El segundo apellido solo puede contener letras y espacios.',
+      });
+    }
+
+    if (fecha_nacimiento) {
+      const birth = new Date(fecha_nacimiento);
+      if (isNaN(birth.getTime())) {
+        return res.status(400).json({
+          success: false,
+          message: 'La fecha de nacimiento no tiene un formato válido.',
+        });
+      }
+      const today = new Date();
+      let age = today.getFullYear() - birth.getFullYear();
+      const m = today.getMonth() - birth.getMonth();
+      if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) {
+        age--;
+      }
+      if (age < 18) {
+        return res.status(400).json({
+          success: false,
+          message: `El usuario debe ser mayor de edad (18 años cumplidos). Edad calculada: ${age >= 0 ? age : 0} años.`,
+        });
+      }
+    }
+
+    // 1.1 Determinar contraseña: Por política de seguridad bancaria, se genera aleatoriamente
+    let rawPassword = (password && password.trim()) ? password.trim() : null;
+    let passwordFueAutogenerada = false;
+
+    if (!rawPassword) {
+      rawPassword = generateSecureRandomPassword(12);
+      passwordFueAutogenerada = true;
+    } else {
+      if (rawPassword.length < 6 || !/[a-zA-Z]/.test(rawPassword) || !/[0-9]/.test(rawPassword)) {
+        return res.status(400).json({
+          success: false,
+          message: 'La contraseña debe tener al menos 6 caracteres y combinar obligatoriamente letras y números por política de seguridad bancaria.',
+          error: 'PASSWORD_COMPLEXITY_REQUIRED',
+        });
+      }
     }
 
     // 2. Normalizar y validar rol
@@ -232,6 +353,18 @@ const createUser = async (req, res) => {
         success: false,
         message: `Rol no válido. Roles permitidos: ${ROLES_PERMITIDOS.join(', ')}`,
       });
+    }
+
+    // Regla de segregación de funciones y auditoría:
+    // El Administrador únicamente puede crear usuarios con rol EJECUTIVO u OPERADOR.
+    // Los asociados deben ser creados/afiliados mediante el Operador.
+    if (req.user && req.user.rol === 'ADMINISTRADOR') {
+      if (rolUpper !== 'EJECUTIVO' && rolUpper !== 'OPERADOR') {
+        return res.status(403).json({
+          success: false,
+          message: 'Por políticas de auditoría y segregación de funciones, el Administrador únicamente puede crear usuarios con rol EJECUTIVO u OPERADOR.',
+        });
+      }
     }
 
     const estadoUpper = estado ? estado.toUpperCase() : 'ACTIVO';
@@ -250,17 +383,16 @@ const createUser = async (req, res) => {
     const roleData = roleResult.rows[0];
     const rolId = roleData.id_rol;
 
-    // 4. Determinar y validar código corporativo (4 dígitos)
-    let finalCodigoCorp = codigo_corporativo ? codigo_corporativo.trim() : '';
-    if (!finalCodigoCorp) {
-      finalCodigoCorp = await generateNextCorporateCode(client, rolUpper);
+    // 4. Determinar código de usuario estrictamente según el correlativo del rol (EJ-X, OP-X)
+    let finalCodigoCorp = '';
+    if (rolUpper === 'EJECUTIVO' || rolUpper === 'OPERADOR' || rolUpper === 'ADMINISTRADOR') {
+      const prefix = resolvePrefix(rolUpper, tipo_asociado);
+      finalCodigoCorp = await getNextCorporateCode(client, prefix);
+    } else if (codigo_corporativo && /^[A-Za-z0-9_.-]{3,30}$/.test(codigo_corporativo.trim())) {
+      finalCodigoCorp = codigo_corporativo.trim();
     } else {
-      if (!/^[0-9]{4}$/.test(finalCodigoCorp)) {
-        return res.status(400).json({
-          success: false,
-          message: 'El código corporativo debe ser un número exacto de 4 dígitos (ej. 1006, 2006, 3006).',
-        });
-      }
+      const prefix = resolvePrefix(rolUpper, tipo_asociado);
+      finalCodigoCorp = await getNextCorporateCode(client, prefix);
     }
 
     // 5. Validar unicidad de email, código corporativo y DPI
@@ -339,13 +471,13 @@ const createUser = async (req, res) => {
     const personaId = personaResult.rows[0].id_persona;
 
     // 8. Encriptar contraseña con bcryptjs
-    const password_hash = await bcrypt.hash(password, 10);
+    const password_hash = await bcrypt.hash(rawPassword, 10);
 
     // 9. Insertar en tabla usuarios (id_persona como PK y FK)
     const usuarioInsert = `
-      INSERT INTO usuarios (id_persona, id_rol, codigo_corporativo, email, password_hash, estado)
-      VALUES ($1, $2, $3, $4, $5, $6)
-      RETURNING id_persona, codigo_corporativo, email, estado, fecha_creacion
+      INSERT INTO usuarios (id_persona, id_rol, codigo_corporativo, email, password_hash, estado, debe_cambiar_password)
+      VALUES ($1, $2, $3, $4, $5, $6, TRUE)
+      RETURNING id_persona, codigo_corporativo, email, estado, debe_cambiar_password, fecha_creacion
     `;
     const userResult = await client.query(usuarioInsert, [
       personaId,
@@ -366,25 +498,49 @@ const createUser = async (req, res) => {
     }
 
     // 11. Registrar en historial_estados_usuario para auditoría
+    const clientIp = getClientIp(req);
+    const userAgent = getUserAgent(req);
     const auditoriaInsert = `
-      INSERT INTO historial_estados_usuario (id_usuario_modificado, estado_anterior, estado_nuevo, id_rol_anterior, id_rol_nuevo, id_modificado_por, motivo)
-      VALUES ($1, NULL, $2, NULL, $3, $4, 'Creación de usuario con id_persona')
+      INSERT INTO historial_estados_usuario (id_usuario_modificado, estado_anterior, estado_nuevo, id_rol_anterior, id_rol_nuevo, id_modificado_por, motivo, ip_origen, user_agent)
+      VALUES ($1, NULL, $2, NULL, $3, $4, 'Creación de usuario con id_persona', $5, $6)
     `;
     await client.query(auditoriaInsert, [
       createdUser.id_persona,
       estadoUpper,
       rolId,
       req.user?.id_persona || req.user?.id || null,
+      clientIp,
+      userAgent,
     ]);
+
+    // Generar secreto y Código QR para Doble Factor de Autenticación
+    const fullName = TRIM_NAME(pNombre, sNombre, pApellido, sApellido);
+    const mfaData = await mfaService.generateMfaSecret(createdUser.codigo_corporativo);
+    await client.query(
+      `UPDATE usuarios 
+       SET mfa_secret = $1, mfa_enabled = FALSE, mfa_qr_url = $2 
+       WHERE id_persona = $3`,
+      [mfaData.base32, mfaData.qr_code_url, createdUser.id_persona]
+    );
+
+    // Despachar correo electrónico institucional con las credenciales de acceso (Usuario, Password) y Código QR
+    await mailerService.sendAccountCredentialsEmail({
+      to: createdUser.email,
+      nombre: fullName,
+      codigoCorporativo: createdUser.codigo_corporativo,
+      password: rawPassword,
+      rolNombre: roleData.nombre,
+      qrDataUrl: mfaData.qr_code_url,
+      secretBase32: mfaData.base32,
+    });
 
     // CONFIRMAR TRANSACCIÓN
     await client.query('COMMIT');
 
-    const fullName = TRIM_NAME(pNombre, sNombre, pApellido, sApellido);
-
     return res.status(201).json({
       success: true,
-      message: 'Usuario creado exitosamente con id_persona.',
+      message: `Usuario creado exitosamente con código ${createdUser.codigo_corporativo}. Las credenciales de acceso fueron enviadas al correo institucional ${createdUser.email}.`,
+      password_generada: passwordFueAutogenerada ? rawPassword : null,
       data: {
         id: createdUser.id_persona,
         id_persona: createdUser.id_persona,
@@ -404,6 +560,14 @@ const createUser = async (req, res) => {
         rol_nombre: roleData.nombre,
         estado: createdUser.estado,
         fecha_creacion: createdUser.fecha_creacion,
+        password_autogenerada: passwordFueAutogenerada,
+        password_generada: passwordFueAutogenerada ? rawPassword : null,
+        debe_cambiar_password: Boolean(createdUser.debe_cambiar_password),
+        mfa: {
+          qr_code_url: mfaData.qr_code_url,
+          secret: mfaData.base32,
+          enabled: false,
+        },
       },
     });
   } catch (error) {
@@ -436,6 +600,7 @@ const updateUser = async (req, res) => {
       cui_dpi,
       telefono,
       direccion,
+      fecha_nacimiento,
       email,
       password,
       rol,
@@ -494,10 +659,10 @@ const updateUser = async (req, res) => {
     const updatedEmail = email ? email.trim().toLowerCase() : currentUser.email;
     const updatedCodigoCorp = codigo_corporativo ? codigo_corporativo.trim() : currentUser.codigo_corporativo;
 
-    if (codigo_corporativo && !/^[0-9]{4}$/.test(updatedCodigoCorp)) {
+    if (codigo_corporativo && !/^(AD|OP|EJ|EX|EB)-[0-9]+$/i.test(updatedCodigoCorp) && !/^[0-9]{4}$/.test(updatedCodigoCorp)) {
       return res.status(400).json({
         success: false,
-        message: 'El código corporativo debe ser un número exacto de 4 dígitos (ej. 1006).',
+        message: 'El código corporativo debe ser un identificador institucional válido (ej. AD-1, EJ-1, OP-1, EX-1, EB-1).',
       });
     }
 
@@ -529,6 +694,13 @@ const updateUser = async (req, res) => {
     // 5. Manejo de contraseña (actualizar solo si se envía una nueva)
     let password_hash = currentUser.password_hash;
     if (password && password.trim() !== '') {
+      if (password.length < 6 || !/[a-zA-Z]/.test(password) || !/[0-9]/.test(password)) {
+        return res.status(400).json({
+          success: false,
+          message: 'La nueva contraseña debe tener al menos 6 caracteres y combinar obligatoriamente letras y números por política de seguridad bancaria.',
+          error: 'PASSWORD_COMPLEXITY_REQUIRED',
+        });
+      }
       password_hash = await bcrypt.hash(password, 10);
     }
 
@@ -536,7 +708,7 @@ const updateUser = async (req, res) => {
     await client.query('BEGIN');
 
     // 6. Actualizar datos en tabla personas
-    if (nombre || primer_nombre || cui_dpi || telefono || direccion) {
+    if (nombre || primer_nombre || cui_dpi || telefono || direccion || fecha_nacimiento) {
       let pNom = primer_nombre;
       let sNom = segundo_nombre || null;
       let pApe = primer_apellido;
@@ -575,9 +747,10 @@ const updateUser = async (req, res) => {
              segundo_apellido = $4,
              cui_dpi = COALESCE($5, cui_dpi),
              telefono = COALESCE($6, telefono),
-             direccion = COALESCE($7, direccion)
-         WHERE id_persona = $8`,
-        [pNom, sNom, pApe, sApe, cui_dpi || null, telefono || null, direccion || null, targetUserPersonaId]
+             direccion = COALESCE($7, direccion),
+             fecha_nacimiento = COALESCE($8, fecha_nacimiento)
+         WHERE id_persona = $9`,
+        [pNom, sNom, pApe, sApe, cui_dpi || null, telefono || null, direccion || null, fecha_nacimiento || null, targetUserPersonaId]
       );
     }
 
@@ -595,10 +768,12 @@ const updateUser = async (req, res) => {
 
     // 8. Registrar en historial de auditoría si cambió rol o estado
     if (currentUser.estado !== estadoUpper || currentUser.id_rol !== rolId) {
+      const clientIp = getClientIp(req);
+      const userAgent = getUserAgent(req);
       await client.query(
         `INSERT INTO historial_estados_usuario 
-          (id_usuario_modificado, estado_anterior, estado_nuevo, id_rol_anterior, id_rol_nuevo, id_modificado_por, motivo)
-         VALUES ($1, $2, $3, $4, $5, $6, 'Modificación de estado/rol de usuario')`,
+          (id_usuario_modificado, estado_anterior, estado_nuevo, id_rol_anterior, id_rol_nuevo, id_modificado_por, motivo, ip_origen, user_agent)
+         VALUES ($1, $2, $3, $4, $5, $6, 'Modificación de estado/rol de usuario', $7, $8)`,
         [
           targetUserPersonaId,
           currentUser.estado,
@@ -606,6 +781,8 @@ const updateUser = async (req, res) => {
           currentUser.id_rol,
           rolId,
           req.user?.id_persona || req.user?.id || null,
+          clientIp,
+          userAgent,
         ]
       );
     }
@@ -628,6 +805,7 @@ const updateUser = async (req, res) => {
         p.segundo_apellido,
         p.telefono,
         p.direccion,
+        p.fecha_nacimiento,
         u.email, 
         r.id_rol,
         r.codigo AS rol, 
@@ -694,18 +872,20 @@ const deleteUser = async (req, res) => {
     // INICIAR TRANSACCIÓN SQL
     await client.query('BEGIN');
 
-    // 1. Actualizar estado a 'INACTIVO'
+    // 1. Actualizar estado a 'INACTIVO' (Borrado Lógico)
     await client.query('UPDATE usuarios SET estado = $1 WHERE id_persona = $2', ['INACTIVO', targetUserPersonaId]);
 
     // 1b. Sincronizar ciclo de vida financiero en asociados (prevenir membresías activas para usuarios dados de baja)
     await client.query("UPDATE asociados SET estado_asociado = 'INACTIVO' WHERE id_persona = $1", [targetUserPersonaId]);
 
     // 2. Registrar en historial_estados_usuario con id_modificado_por
+    const clientIp = getClientIp(req);
+    const userAgent = getUserAgent(req);
     await client.query(
       `INSERT INTO historial_estados_usuario 
-        (id_usuario_modificado, estado_anterior, estado_nuevo, id_rol_anterior, id_rol_nuevo, id_modificado_por, motivo)
-       VALUES ($1, $2, 'INACTIVO', $3, $3, $4, 'Borrado lógico de usuario')`,
-      [targetUserPersonaId, current.estado, current.id_rol, req.user?.id_persona || req.user?.id || null]
+        (id_usuario_modificado, estado_anterior, estado_nuevo, id_rol_anterior, id_rol_nuevo, id_modificado_por, motivo, ip_origen, user_agent)
+       VALUES ($1, $2, 'INACTIVO', $3, $3, $4, 'Borrado lógico de usuario', $5, $6)`,
+      [targetUserPersonaId, current.estado, current.id_rol, req.user?.id_persona || req.user?.id || null, clientIp, userAgent]
     );
 
     // CONFIRMAR TRANSACCIÓN
@@ -781,11 +961,13 @@ const desbloquearUsuario = async (req, res) => {
     );
 
     // Registrar en historial_estados_usuario para auditoría
+    const clientIp = getClientIp(req);
+    const userAgent = getUserAgent(req);
     await db.query(
       `INSERT INTO historial_estados_usuario 
-       (id_usuario_modificado, estado_anterior, estado_nuevo, id_rol_anterior, id_rol_nuevo, id_modificado_por, motivo)
-       VALUES ($1, 'BLOQUEADO_TEMPORAL', $2, $3, $3, $4, 'Desbloqueo administrativo inmediato de cuenta por Administrador')`,
-      [targetUser.id_persona, targetUser.estado, targetUser.id_rol, adminId]
+       (id_usuario_modificado, estado_anterior, estado_nuevo, id_rol_anterior, id_rol_nuevo, id_modificado_por, motivo, ip_origen, user_agent)
+       VALUES ($1, 'BLOQUEADO_TEMPORAL', $2, $3, $3, $4, 'Desbloqueo administrativo inmediato de cuenta por Administrador', $5, $6)`,
+      [targetUser.id_persona, targetUser.estado, targetUser.id_rol, adminId, clientIp, userAgent]
     );
 
     return res.status(200).json({
@@ -819,6 +1001,8 @@ const getRecentSecurityEvents = async (req, res) => {
         h.estado_anterior,
         h.estado_nuevo,
         h.motivo,
+        h.ip_origen,
+        h.user_agent,
         h.fecha_cambio,
         u_mod.id_persona AS id_usuario_modificado,
         u_mod.codigo_corporativo AS usuario_codigo,
@@ -865,6 +1049,399 @@ const TRIM_NAME = (pNom, sNom, pApe, sApe) => {
   return [pNom, sNom, pApe, sApe].filter(Boolean).join(' ').trim();
 };
 
+/**
+ * Obtener todos los roles y el catálogo completo de permisos del sistema
+ * GET /api/usuarios/roles/permisos
+ */
+const getRolesAndPermissions = async (req, res) => {
+  try {
+    const rolesRes = await db.query(
+      `SELECT id_rol, codigo, nombre, descripcion, estado FROM roles ORDER BY id_rol ASC`
+    );
+    const permisosRes = await db.query(
+      `SELECT id_permiso, codigo, modulo, descripcion FROM permisos ORDER BY modulo, codigo ASC`
+    );
+    const asignacionesRes = await db.query(
+      `SELECT id_rol, id_permiso FROM roles_permisos`
+    );
+
+    const rolesConPermisos = rolesRes.rows.map((r) => ({
+      ...r,
+      permisos: asignacionesRes.rows
+        .filter((a) => a.id_rol === r.id_rol)
+        .map((a) => a.id_permiso),
+    }));
+
+    return res.status(200).json({
+      success: true,
+      roles: rolesConPermisos,
+      permisos: permisosRes.rows,
+    });
+  } catch (error) {
+    console.error('Error en getRolesAndPermissions:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Error al consultar roles y permisos.',
+    });
+  }
+};
+
+/**
+ * Asignar permisos a un rol específico (ADMINISTRADOR con permiso)
+ * POST /api/usuarios/roles/:idRol/permisos
+ */
+const assignPermissionsToRole = async (req, res) => {
+  const client = await db.pool.connect();
+  try {
+    const { idRol } = req.params;
+    const { permisosIds } = req.body;
+
+    if (!Array.isArray(permisosIds)) {
+      return res.status(400).json({
+        success: false,
+        message: 'permisosIds debe ser un arreglo de identificadores numéricos de permisos.',
+      });
+    }
+
+    await client.query('BEGIN');
+
+    // Limpiar permisos actuales del rol
+    await client.query('DELETE FROM roles_permisos WHERE id_rol = $1', [idRol]);
+
+    // Asignar los nuevos permisos
+    for (const pId of permisosIds) {
+      await client.query(
+        'INSERT INTO roles_permisos (id_rol, id_permiso) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+        [idRol, pId]
+      );
+    }
+
+    await client.query('COMMIT');
+
+    return res.status(200).json({
+      success: true,
+      message: 'Permisos del rol actualizados exitosamente.',
+    });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Error en assignPermissionsToRole:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Error al actualizar permisos del rol.',
+    });
+  } finally {
+    client.release();
+  }
+};
+
+
+
+/**
+ * Cambia el estado de un usuario (ACTIVO / INACTIVO) registrando obligatoriamente
+ * el motivo en historial_estados_usuario.
+ */
+const cambiarEstadoUsuario = async (req, res) => {
+  const client = await db.pool.connect();
+  try {
+    const { id } = req.params;
+    const { estado, motivo } = req.body;
+
+    if (!estado || !['ACTIVO', 'INACTIVO'].includes(estado.toUpperCase())) {
+      return res.status(400).json({
+        success: false,
+        message: 'Estado inválido. Debe ser ACTIVO o INACTIVO.',
+      });
+    }
+
+    const nuevoEstado = estado.toUpperCase();
+
+    // Si se pasa a INACTIVO, el motivo es obligatorio
+    if (nuevoEstado === 'INACTIVO' && (!motivo || motivo.trim().length === 0)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Es obligatorio indicar el motivo por el cual se cambia el estado a INACTIVO.',
+      });
+    }
+
+    const checkUser = await client.query(
+      'SELECT id_persona, estado, id_rol, codigo_corporativo FROM usuarios WHERE id_persona::text = $1 OR codigo_corporativo = $1',
+      [id]
+    );
+
+    if (checkUser.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Usuario no encontrado.',
+      });
+    }
+
+    const current = checkUser.rows[0];
+    const targetUserPersonaId = current.id_persona;
+
+    await client.query('BEGIN');
+
+    if (nuevoEstado === 'INACTIVO') {
+      await client.query(
+        'UPDATE usuarios SET estado = $1, sesion_activa_id = NULL WHERE id_persona = $2',
+        [nuevoEstado, targetUserPersonaId]
+      );
+      await client.query(
+        "UPDATE asociados SET estado_asociado = 'INACTIVO' WHERE id_persona = $1",
+        [targetUserPersonaId]
+      );
+    } else {
+      await client.query(
+        'UPDATE usuarios SET estado = $1, intentos_fallidos = 0, bloqueado_hasta = NULL WHERE id_persona = $2',
+        [nuevoEstado, targetUserPersonaId]
+      );
+      await client.query(
+        "UPDATE asociados SET estado_asociado = 'ACTIVO' WHERE id_persona = $1",
+        [targetUserPersonaId]
+      );
+    }
+
+    const clientIp = getClientIp(req);
+    const userAgent = getUserAgent(req);
+
+    await client.query(
+      `INSERT INTO historial_estados_usuario 
+        (id_usuario_modificado, estado_anterior, estado_nuevo, id_rol_anterior, id_rol_nuevo, id_modificado_por, motivo, ip_origen, user_agent)
+       VALUES ($1, $2, $3, $4, $4, $5, $6, $7, $8)`,
+      [
+        targetUserPersonaId,
+        current.estado,
+        nuevoEstado,
+        current.id_rol,
+        req.user?.id_persona || req.user?.id || null,
+        motivo ? motivo.trim() : `Cambio de estado administrativo a ${nuevoEstado}`,
+        clientIp,
+        userAgent,
+      ]
+    );
+
+    await client.query('COMMIT');
+
+    return res.status(200).json({
+      success: true,
+      message: `Estado del usuario actualizado a ${nuevoEstado} exitosamente.`,
+      data: {
+        id_persona: targetUserPersonaId,
+        estado: nuevoEstado,
+      },
+    });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Error en cambiarEstadoUsuario:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Error interno al actualizar el estado del usuario.',
+    });
+  } finally {
+    client.release();
+  }
+};
+
+/**
+ * Reinicia la contraseña de un usuario generando una clave temporal o asignando la proporcionada.
+ * Resetea bloqueos, intentos fallidos y cierra sesiones previas.
+ */
+const resetPasswordUsuario = async (req, res) => {
+  const client = await db.pool.connect();
+  try {
+    const { id } = req.params;
+    const { password, motivo } = req.body;
+
+    const checkUser = await client.query(
+      `SELECT u.id_persona, u.codigo_corporativo, u.email, u.estado, u.id_rol, r.nombre AS rol_nombre, p.primer_nombre, p.primer_apellido
+       FROM usuarios u
+       JOIN personas p ON u.id_persona = p.id_persona
+       LEFT JOIN roles r ON u.id_rol = r.id_rol
+       WHERE u.id_persona::text = $1 OR u.codigo_corporativo = $1`,
+      [id]
+    );
+
+    if (checkUser.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Usuario no encontrado.',
+      });
+    }
+
+    const current = checkUser.rows[0];
+    const targetUserPersonaId = current.id_persona;
+
+    // Generar contraseña temporal segura criptográficamente
+    const plainPassword = generateSecureRandomPassword(12);
+    const passwordHash = await bcrypt.hash(plainPassword, 10);
+
+    await client.query('BEGIN');
+
+    // Actualizar usuario forzando cambio de contraseña en su próximo inicio de sesión
+    await client.query(
+      `UPDATE usuarios 
+       SET password_hash = $1, 
+           debe_cambiar_password = TRUE,
+           intentos_fallidos = 0, 
+           bloqueado_hasta = NULL, 
+           sesion_activa_id = NULL 
+       WHERE id_persona = $2`,
+      [passwordHash, targetUserPersonaId]
+    );
+
+    const clientIp = getClientIp(req);
+    const userAgent = getUserAgent(req);
+
+    await client.query(
+      `INSERT INTO historial_estados_usuario 
+        (id_usuario_modificado, estado_anterior, estado_nuevo, id_rol_anterior, id_rol_nuevo, id_modificado_por, motivo, ip_origen, user_agent)
+       VALUES ($1, $2, $2, $3, $3, $4, $5, $6, $7)`,
+      [
+        targetUserPersonaId,
+        current.estado,
+        current.id_rol,
+        req.user?.id_persona || req.user?.id || null,
+        motivo ? motivo.trim() : `Reinicio de contraseña administrativa por ${req.user?.codigo_corporativo || 'Administrador'}`,
+        clientIp,
+        userAgent,
+      ]
+    );
+
+    // Despacho confidencial por correo electrónico institucional
+    let emailStatus = { sent: false, simulado: true, provider: 'demo' };
+    try {
+      const mailRes = await mailerService.sendPasswordResetEmail({
+        to: current.email,
+        nombre: `${current.primer_nombre} ${current.primer_apellido}`,
+        codigoCorporativo: current.codigo_corporativo,
+        password: plainPassword,
+        rolNombre: current.rol_nombre || 'USUARIO',
+      });
+      emailStatus = {
+        sent: !!mailRes.success,
+        simulado: !!mailRes.simulado,
+        provider: mailRes.provider || 'demo',
+      };
+    } catch (mailErr) {
+      console.warn('Aviso: No se pudo enviar el correo de reinicio:', mailErr.message);
+      emailStatus = { sent: false, error: mailErr.message, simulado: true, provider: 'demo' };
+    }
+
+    await client.query('COMMIT');
+
+    // Por protocolos de seguridad bancaria, la contraseña temporal NO se devuelve en la respuesta al Administrador
+    return res.status(200).json({
+      success: true,
+      message: `Contraseña reiniciada exitosamente. Se ha enviado una contraseña temporal segura al correo registrado (${current.email}).`,
+      data: {
+        id_persona: targetUserPersonaId,
+        codigo_corporativo: current.codigo_corporativo,
+        email: current.email,
+        email_status: emailStatus,
+      },
+    });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Error en resetPasswordUsuario:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Error interno al reiniciar la contraseña.',
+    });
+  } finally {
+    client.release();
+  }
+};
+
+/**
+ * Consulta el estado actual del servicio de correo institucional (Google / SMTP / Demo)
+ */
+const getEmailServiceStatus = async (req, res) => {
+  try {
+    const status = mailerService.getStatus();
+    return res.status(200).json({
+      success: true,
+      data: status,
+    });
+  } catch (error) {
+    console.error('Error en getEmailServiceStatus:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Error al consultar estado del servicio de correo.',
+    });
+  }
+};
+
+/**
+ * Configura y valida en tiempo real las credenciales de Google Mail (Gmail SMTP)
+ */
+const updateEmailServiceConfig = async (req, res) => {
+  try {
+    const { gmail_user, gmail_app_password, email_from } = req.body;
+
+    if (!gmail_user || !gmail_app_password) {
+      return res.status(400).json({
+        success: false,
+        message: 'Debe ingresar la cuenta de Google y la Contraseña de Aplicación de 16 caracteres.',
+      });
+    }
+
+    const result = await mailerService.configureGoogleService({
+      user: gmail_user.trim(),
+      appPassword: gmail_app_password.trim(),
+      from: email_from ? email_from.trim() : undefined,
+    });
+
+    if (!result.success) {
+      return res.status(400).json({
+        success: false,
+        message: result.message || 'No se pudo conectar con el servicio de Google Mail.',
+        error: result.error,
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: 'Servicio de Google Mail configurado y verificado exitosamente.',
+      data: result.status,
+    });
+  } catch (error) {
+    console.error('Error en updateEmailServiceConfig:', error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || 'Error al configurar el servicio de Google Mail.',
+    });
+  }
+};
+
+/**
+ * Envía un correo de prueba institucional a través del servicio activo
+ */
+const sendTestEmail = async (req, res) => {
+  try {
+    const { to } = req.body;
+    if (!to || !to.includes('@')) {
+      return res.status(400).json({
+        success: false,
+        message: 'Debe ingresar una dirección de correo válida.',
+      });
+    }
+
+    const result = await mailerService.sendTestEmail({ to: to.trim() });
+    return res.status(200).json({
+      success: true,
+      message: result.simulado
+        ? 'Correo despachado en Modo Demostrativo (Servicio de Google no verificado aún).'
+        : `Correo de prueba enviado exitosamente a ${to.trim()} a través del servicio de Google.`,
+      data: result,
+    });
+  } catch (error) {
+    console.error('Error en sendTestEmail:', error);
+    return res.status(500).json({
+      success: false,
+      message: `Error al enviar correo de prueba: ${error.message}`,
+    });
+  }
+};
+
 module.exports = {
   getUsers,
   getUserById,
@@ -872,5 +1449,13 @@ module.exports = {
   updateUser,
   deleteUser,
   desbloquearUsuario,
+  cambiarEstadoUsuario,
+  resetPasswordUsuario,
   getRecentSecurityEvents,
+  getRolesAndPermissions,
+  assignPermissionsToRole,
+  getNextCode,
+  getEmailServiceStatus,
+  updateEmailServiceConfig,
+  sendTestEmail,
 };

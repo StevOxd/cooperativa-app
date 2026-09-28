@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { ShieldAlert, AlertTriangle, LogOut, Check } from 'lucide-react';
 
 /**
@@ -13,17 +14,32 @@ import { ShieldAlert, AlertTriangle, LogOut, Check } from 'lucide-react';
  * @returns {JSX.Element|null} The rendered security alert modal or null.
  */
 export const SecurityAlertModal = ({ alert, onClose, onLogout }) => {
+  useEffect(() => {
+    if (alert) {
+      const prevOverflow = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+      return () => {
+        document.body.style.overflow = prevOverflow;
+      };
+    }
+  }, [alert]);
+
   if (!alert) return null;
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-      <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-red-100 overflow-hidden">
+  return createPortal(
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-950/70 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+      <div
+        className="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-red-100 overflow-hidden"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="security-alert-title"
+      >
         {/* Encabezado con gradiente de alerta bancaria */}
         <div className="bg-gradient-to-r from-red-600 to-rose-700 p-6 text-white text-center relative">
           <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-3 shadow-inner">
             <ShieldAlert className="w-9 h-9 text-white animate-pulse" />
           </div>
-          <h3 className="text-xl font-bold tracking-tight">Alerta de Seguridad</h3>
+          <h3 id="security-alert-title" className="text-xl font-bold tracking-tight">Alerta de Seguridad</h3>
           <p className="text-red-100 text-xs mt-1 uppercase tracking-widest font-semibold">
             Protocolo Bancario de Sesión Única
           </p>
@@ -72,6 +88,7 @@ export const SecurityAlertModal = ({ alert, onClose, onLogout }) => {
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };

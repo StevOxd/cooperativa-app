@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import api from '../services/api';
 import { initSocket, disconnectSocket, getSocket } from '../services/socket';
 import { SecurityAlertModal } from '../components/common/SecurityAlertModal';
+import ForcedPasswordChangeModal from '../components/auth/ForcedPasswordChangeModal';
 
 const AuthContext = createContext(null);
 
@@ -55,6 +56,17 @@ export const AuthProvider = ({ children }) => {
     };
 
     initializeAuth();
+  }, []);
+
+  // Escuchar evento de cambio forzado de contraseña desde interceptores
+  useEffect(() => {
+    const handleForceEvent = () => {
+      setUser((prev) => (prev ? { ...prev, debe_cambiar_password: true } : prev));
+    };
+    window.addEventListener('coop_force_password_change', handleForceEvent);
+    return () => {
+      window.removeEventListener('coop_force_password_change', handleForceEvent);
+    };
   }, []);
 
   // Temporizador de inactividad: 10 minutos (600,000 ms) sin actividad del usuario
@@ -125,6 +137,17 @@ export const AuthProvider = ({ children }) => {
       });
 
       if (response.data?.success) {
+        // Interceptar si el usuario requiere Doble Factor de Autenticación
+        if (response.data.mfa_required) {
+          return {
+            success: true,
+            mfa_required: true,
+            temp_token: response.data.temp_token,
+            user: response.data.user,
+            message: response.data.message,
+          };
+        }
+
         const { token: receivedToken, user: receivedUser } = response.data;
         
         // Guardar en localStorage
@@ -154,6 +177,42 @@ export const AuthProvider = ({ children }) => {
         message: errorMessage,
         bloqueado: error.response?.data?.bloqueado || false,
         sesion_concurrente: error.response?.data?.sesion_concurrente || false,
+      };
+    }
+  };
+
+  /**
+   * Valida el código TOTP de 6 dígitos para completar el inicio de sesión MFA
+   */
+  const verifyMfa = async (tempToken, totpCode) => {
+    try {
+      const response = await api.post('/auth/verify-mfa', {
+        temp_token: tempToken,
+        totp_code: totpCode,
+      });
+
+      if (response.data?.success) {
+        const { token: receivedToken, user: receivedUser } = response.data;
+
+        localStorage.setItem('coop_token', receivedToken);
+        localStorage.setItem('coop_user', JSON.stringify(receivedUser));
+
+        setToken(receivedToken);
+        setUser(receivedUser);
+
+        setupSocketListeners(receivedToken);
+
+        return { success: true, user: receivedUser };
+      }
+
+      return {
+        success: false,
+        message: response.data?.message || 'Código de seguridad inválido.',
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: error.response?.data?.message || 'Error al validar el código de dos factores.',
       };
     }
   };
@@ -208,6 +267,7 @@ export const AuthProvider = ({ children }) => {
     isAuthenticated: !!token && !!user,
     isLoading,
     login,
+    verifyMfa,
     logout,
     updateUserData,
     securityAlert,
@@ -221,6 +281,14 @@ export const AuthProvider = ({ children }) => {
         onClose={() => setSecurityAlert(null)}
         onLogout={logout}
       />
+      {user?.debe_cambiar_password && (
+        <ForcedPasswordChangeModal
+          isOpen={true}
+          user={user}
+          onSuccess={logout}
+          onLogout={logout}
+        />
+      )}
     </AuthContext.Provider>
   );
 };

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
 import {
@@ -30,6 +31,16 @@ export const UpdateProfileModal = ({ isOpen, onClose }) => {
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
+
+  useEffect(() => {
+    if (isOpen) {
+      const prevOverflow = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+      return () => {
+        document.body.style.overflow = prevOverflow;
+      };
+    }
+  }, [isOpen]);
 
   useEffect(() => {
     if (isOpen && user) {
@@ -80,9 +91,14 @@ export const UpdateProfileModal = ({ isOpen, onClose }) => {
     }
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs overflow-y-auto">
-      <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl border border-slate-200 relative my-8">
+  return createPortal(
+    <div className="fixed inset-0 z-[999] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm overflow-y-auto">
+      <div
+        className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl border border-slate-200 relative my-8"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="update-profile-modal-title"
+      >
         {/* Encabezado del Modal */}
         <div className="flex justify-between items-center mb-6 border-b border-slate-100 pb-4">
           <div className="flex items-center space-x-3">
@@ -90,7 +106,7 @@ export const UpdateProfileModal = ({ isOpen, onClose }) => {
               <User className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-xl font-bold text-slate-900">Actualizar Datos de Perfil</h2>
+              <h2 id="update-profile-modal-title" className="text-xl font-bold text-slate-900">Actualizar Datos de Perfil</h2>
               <p className="text-xs text-slate-500 mt-0.5">Información institucional y datos de contacto</p>
             </div>
           </div>
@@ -127,7 +143,7 @@ export const UpdateProfileModal = ({ isOpen, onClose }) => {
 
             <div className="grid grid-cols-2 gap-3 text-xs">
               <div>
-                <span className="text-slate-400 block text-[11px]">Código Corporativo</span>
+                <span className="text-slate-400 block text-[11px]">Usuario</span>
                 <span className="font-mono font-bold text-emerald-800 flex items-center space-x-1 mt-0.5">
                   <KeyRound className="w-3.5 h-3.5 text-emerald-600" />
                   <span>{user?.codigo_corporativo || '-'}</span>
@@ -202,7 +218,8 @@ export const UpdateProfileModal = ({ isOpen, onClose }) => {
           </div>
         </form>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
 

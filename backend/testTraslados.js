@@ -1,186 +1,224 @@
-const http = require('http');
-const { app } = require('./src/server');
+/**
+ * @file testTraslados.js
+ * @description Suite automatizada de pruebas de traslados y apertura de subcuentas (3FN y ACID).
+ * Implementa idempotencia estricta con restauración de saldos en bloque finally y helper DRY.
+ */
+
+const { server } = require('./src/server');
 const db = require('./src/config/db');
+const { makeRequest, createTestReporter } = require('./testHelper');
 
-const server = app.listen(0, async () => {
-  const testPort = server.address().port;
-  console.log('\n=========================================');
-  console.log('[SUITE] INICIANDO PRUEBAS DE TRASLADO Y APERTURA DE PLANILLA (3FN)');
-  console.log(`[INFO] Puerto de prueba: ${testPort}`);
-  console.log('=========================================\n');
+const testServer = server.listen(0, async () => {
+  const testPort = testServer.address().port;
+  console.log('\n=============================================================');
+  console.log('[SUITE] PRUEBAS DE TRASLADO Y APERTURA DE CUENTAS (ACID)');
+  console.log(`[INFO] Servidor de pruebas ejecutándose en puerto efímero: ${testPort}`);
+  console.log('=============================================================\n');
 
-  const request = (path, method, data, token) => {
-    return new Promise((resolve, reject) => {
-      const payload = data ? JSON.stringify(data) : '';
-      const headers = {
-        'Content-Type': 'application/json',
-      };
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
-      }
-      if (data) {
-        headers['Content-Length'] = Buffer.byteLength(payload);
-      }
+  const reporter = createTestReporter();
+  const request = (path, method = 'GET', data = null, token = null) =>
+    makeRequest(testPort, path, method, data, token);
 
-      const req = http.request(
-        {
-          hostname: 'localhost',
-          port: testPort,
-          path,
-          method,
-          headers,
-        },
-        (res) => {
-          let body = '';
-          res.on('data', (chunk) => (body += chunk));
-          res.on('end', () => {
-            try {
-              resolve({ status: res.statusCode, body: JSON.parse(body) });
-            } catch (e) {
-              resolve({ status: res.statusCode, body });
-            }
-          });
-        }
-      );
+  // Variables de ámbito para restauración e idempotencia en finally
+  let idCuentaOrigen = null;
+  let saldoInicialOrigen = null;
+  let idSolicitudGenerada = null;
+  let idCuentaDestinoCreada = null;
+  let numeroCasoGenerado = null;
+  let isTempPlanilla = false;
 
-      req.on('error', reject);
-      if (payload) req.write(payload);
-      req.end();
-    });
-  };
+  let tempAssocPersonaId = null;
 
   try {
-    // 1. Obtener JWT de Asociado (3001) y de Operador (2001)
+    // 0. Asegurar que exista un socio de prueba temporal si la base de datos está limpia
+    const checkEx1 = await db.query("SELECT id_persona FROM usuarios WHERE codigo_corporativo = 'EX-1'");
+    if (checkEx1.rows.length === 0) {
+      const pRes = await db.query(`
+        INSERT INTO personas (cui_dpi, primer_nombre, primer_apellido, telefono, direccion, fecha_nacimiento)
+        VALUES ('9999000011112', 'Asociado', 'Prueba', '55119999', 'Guatemala', '1995-01-01')
+        RETURNING id_persona
+      `);
+      tempAssocPersonaId = pRes.rows[0].id_persona;
+      await db.query(`
+        INSERT INTO usuarios (id_persona, id_rol, codigo_corporativo, email, password_hash, estado)
+        VALUES ($1, (SELECT id_rol FROM roles WHERE codigo = 'ASOCIADO'), 'EX-1', 'test.traslado@cooperativa.com', '$2a$10$vNPUEupr.jaRBJ/2vUE4CurM.mZqeEc1PTGrA8Pds020v2tm0T1Ey', 'ACTIVO')
+      `, [tempAssocPersonaId]);
+      await db.query(`
+        INSERT INTO asociados (id_persona, estado_asociado)
+        VALUES ($1, 'ACTIVO')
+      `, [tempAssocPersonaId]);
+    }
+
+    // 1. Autenticación de Operador (OP-1) y Asociado (EX-1)
     console.log('1. Autenticando usuarios de prueba...');
-    const assocLogin = await request('/api/auth/login', 'POST', { email: '3001', password: 'admin123' });
+    const assocLogin = await request('/api/auth/login', 'POST', { identifier: 'EX-1', password: 'admin123' });
     const assocToken = assocLogin.body.token;
 
-    const opLogin = await request('/api/auth/login', 'POST', { email: '2001', password: 'admin123' });
+    const opLogin = await request('/api/auth/login', 'POST', { identifier: 'OP-1', password: 'admin123' });
     const opToken = opLogin.body.token;
 
+    reporter.assert(!!assocToken, 'Token JWT de Asociado (EX-1) obtenido exitosamente');
+    reporter.assert(!!opToken, 'Token JWT de Operador (OP-1) obtenido exitosamente');
+
     if (!assocToken || !opToken) {
-      throw new Error('Fallo de autenticación en login de pruebas.');
+      throw new Error('Fallo de autenticación en suite de traslados.');
     }
-    console.log('   [PASS] Autenticación exitosa.');
 
-    // 2. GET /api/asociado/cuenta-planilla
-    console.log('\n2. Obteniendo cuenta de planilla de Carlos López (3001)...');
-    const resPlanilla = await request('/api/asociado/cuenta-planilla', 'GET', null, assocToken);
-    console.log('   Status:', resPlanilla.status);
-    console.log('   Nro Cuenta:', resPlanilla.body.data?.numero_cuenta);
-    console.log('   Saldo Disponible:', resPlanilla.body.data?.saldo_disponible);
-    const idCuentaOrigen = resPlanilla.body.data?.id_cuenta;
-    const saldoInicialOrigen = parseFloat(resPlanilla.body.data?.saldo_disponible);
+    // 2. Asegurar que EX-1 tenga una Cuenta de Planilla activa con saldo para la prueba
+    console.log('\n2. Obteniendo cuenta de planilla para traslado...');
+    const userRes = await db.query(`
+      SELECT a.id_asociado, a.id_persona 
+      FROM asociados a 
+      JOIN usuarios u ON a.id_persona = u.id_persona 
+      WHERE u.codigo_corporativo = 'EX-1'
+    `);
+    const idAsociado = userRes.rows[0].id_asociado;
 
-    if (resPlanilla.status !== 200 || !idCuentaOrigen) {
-      throw new Error('No se pudo cargar la cuenta de planilla.');
-    }
-    console.log('   [PASS] Cuenta planilla leída correctamente.');
+    // Buscar si ya tiene cuenta de planilla
+    const planRes = await db.query(`
+      SELECT c.id_cuenta, c.numero_cuenta, c.saldo_disponible 
+      FROM cuentas c 
+      JOIN tipos_cuenta tc ON c.id_tipo_cuenta = tc.id_tipo_cuenta 
+      WHERE c.id_asociado = $1 AND tc.nombre = 'Cuenta de Planilla' AND c.estado = 'ACTIVA'
+    `, [idAsociado]);
 
-    // 3. GET /api/asociado/mis-cuentas-destino
-    console.log('\n3. Obteniendo opciones de destino para traslados...');
-    const resDestinos = await request('/api/asociado/mis-cuentas-destino', 'GET', null, assocToken);
-    console.log('   Status:', resDestinos.status);
-    console.log('   Cuentas existentes:', resDestinos.body.data?.cuentasExistentes?.length);
-    console.log('   Tipos disponibles para nueva apertura:', resDestinos.body.data?.tiposDisponibles?.length);
-    if (resDestinos.status === 200 && Array.isArray(resDestinos.body.data?.tiposDisponibles)) {
-      console.log('   [PASS] Catálogo de destinos consultado.');
+    if (planRes.rows.length > 0) {
+      idCuentaOrigen = planRes.rows[0].id_cuenta;
+      saldoInicialOrigen = parseFloat(planRes.rows[0].saldo_disponible);
     } else {
-      throw new Error('Fallo al obtener destinos.');
+      // Crear cuenta temporal de planilla para la prueba
+      const newPlan = await db.query(`
+        INSERT INTO cuentas (numero_cuenta, id_asociado, id_tipo_cuenta, saldo_disponible, saldo_reserva, estado)
+        VALUES ('CTA-PLAN-TEST-' || FLOOR(RANDOM() * 89999 + 10000)::text, $1, 4, 15000.00, 0.00, 'ACTIVA')
+        RETURNING id_cuenta, saldo_disponible;
+      `, [idAsociado]);
+      idCuentaOrigen = newPlan.rows[0].id_cuenta;
+      saldoInicialOrigen = parseFloat(newPlan.rows[0].saldo_disponible);
+      isTempPlanilla = true;
     }
 
-    // 4. POST /api/asociado/solicitudes-traslado (Apertura de Ahorro Programado ID 5 con Q1,500.00)
-    console.log('\n4. Solicitando nueva apertura de Ahorro Programado con traslado de Q1,500.00...');
+    // Consultar vía API GET /api/asociado/cuenta-planilla
+    const resPlanillaApi = await request('/api/asociado/cuenta-planilla', 'GET', null, assocToken);
+    reporter.assert(resPlanillaApi.status === 200, 'Endpoint GET /api/asociado/cuenta-planilla retornó status 200');
+    reporter.assert(parseFloat(resPlanillaApi.body.data?.saldo_disponible) >= 1500.00, `Cuenta planilla con saldo disponible suficiente (Q${saldoInicialOrigen.toFixed(2)})`);
+
+    // 3. Consultar opciones de destino para el asociado
+    console.log('\n3. Consultando catálogo de destinos para el asociado...');
+    const resDestinos = await request('/api/asociado/mis-cuentas-destino', 'GET', null, assocToken);
+    reporter.assert(resDestinos.status === 200, 'Endpoint mis-cuentas-destino retornó status 200');
+    reporter.assert(Array.isArray(resDestinos.body.data?.tiposDisponibles), 'Catálogo de tipos de cuenta disponibles retornado');
+
+    // 4. Solicitar nueva apertura de subcuenta con traslado (Q1,500.00)
+    console.log('\n4. Registrando solicitud de apertura de subcuenta con traslado (Q1,500.00)...');
     const payloadSolicitud = {
       id_cuenta_origen: idCuentaOrigen,
-      id_tipo_cuenta_destino: 5, // Ahorro Programado
+      id_tipo_cuenta_destino: 5, // Ahorro Programado / Metas
       monto: 1500.00,
       tipo_operacion: 'APERTURA_Y_TRASLADO',
-      observaciones: 'Prueba traslado automatizada'
+      observaciones: 'Prueba de integración automatizada (Idempotente)',
     };
-    const resSolicitar = await request('/api/asociado/solicitudes-traslado', 'POST', payloadSolicitud, assocToken);
-    console.log('   Status:', resSolicitar.status, '(Esperado: 201)');
-    console.log('   Caso Generado:', resSolicitar.body.data?.numero_caso);
-    console.log('   Estado:', resSolicitar.body.data?.estado);
-    const idSolicitud = resSolicitar.body.data?.id_solicitud;
 
-    if (resSolicitar.status === 201 && idSolicitud) {
-      console.log('   [PASS] Solicitud registrada en estado PENDIENTE.');
-    } else {
-      throw new Error('Fallo al registrar traslado.');
-    }
+    const resSolicitud = await request('/api/asociado/solicitudes-traslado', 'POST', payloadSolicitud, assocToken);
+    reporter.assert(resSolicitud.status === 201, 'Solicitud de traslado registrada con status 201 Created');
+    
+    idSolicitudGenerada = resSolicitud.body.data?.id_solicitud;
+    numeroCasoGenerado = resSolicitud.body.data?.numero_caso;
+    reporter.assert(!!idSolicitudGenerada, `ID de solicitud generado: ${idSolicitudGenerada}`);
+    reporter.assert(numeroCasoGenerado && numeroCasoGenerado.startsWith('CASO-'), `Correlativo generado correctamente: ${numeroCasoGenerado}`);
 
-    // 5. GET /api/operador/bandeja-solicitudes (Validar presencia del caso)
-    console.log('\n5. Consultando bandeja del operador para validar caso...');
+    // 5. Verificar presencia del caso en la bandeja del operador
+    console.log('\n5. Verificando caso en la bandeja operativa del operador...');
     const resBandeja = await request('/api/operador/bandeja-solicitudes', 'GET', null, opToken);
-    const casoEnBandeja = resBandeja.body.data?.find(s => s.id_solicitud === idSolicitud);
-    console.log('   Status:', resBandeja.status);
-    console.log('   ¿Caso encontrado en bandeja?:', !!casoEnBandeja);
-    if (resBandeja.status === 200 && casoEnBandeja) {
-      console.log('   [PASS] Caso pendiente visible para el operador.');
-    } else {
-      throw new Error('El caso no se listó en la bandeja de entrada del operador.');
-    }
+    reporter.assert(resBandeja.status === 200, 'Bandeja de operador consultada exitosamente');
+    const casoEnBandeja = resBandeja.body.data?.find((s) => s.id_solicitud === idSolicitudGenerada);
+    reporter.assert(!!casoEnBandeja, `Caso ${numeroCasoGenerado} visible en la bandeja de pendientes`);
 
-    // 6. POST /api/operador/solicitudes/:id/resolver (Aprobar y ejecutar transacción)
-    console.log(`\n6. Resolviendo caso ${casoEnBandeja.numero_caso} (APROBAR)...`);
-    const resResolver = await request(`/api/operador/solicitudes/${idSolicitud}/resolver`, 'POST', {
+    // 6. Operador aprueba y ejecuta el traslado
+    console.log(`\n6. Resolviendo caso ${numeroCasoGenerado} (APROBAR)...`);
+    const resResolver = await request(`/api/operador/solicitudes/${idSolicitudGenerada}/resolver`, 'POST', {
       accion: 'APROBAR',
-      observaciones: 'Caso aprobado en prueba de integración.'
+      observaciones: 'Aprobado en suite automatizada de pruebas.',
     }, opToken);
-    console.log('   Status:', resResolver.status, '(Esperado: 200)');
-    console.log('   Estado Final:', resResolver.body.data?.estado);
-    if (resResolver.status === 200 && resResolver.body.data?.estado === 'APROBADO') {
-      console.log('   [PASS] Caso resuelto y transacción de base de datos exitosa.');
-    } else {
-      throw new Error('No se pudo resolver el caso.');
-    }
 
-    // 7. Verificar impacto financiero en base de datos
-    console.log('\n7. Verificando saldos y transacciones post-aprobación...');
-    
-    // Consultar saldo de origen
+    reporter.assert(resResolver.status === 200, 'Resolución de caso retornó status 200');
+    reporter.assert(resResolver.body.data?.estado === 'APROBADO', 'Estado final del caso actualizado a APROBADO');
+
+    // 7. Verificar consistencia financiera en base de datos
+    console.log('\n7. Verificando consistencia contable post-aprobación...');
     const checkOrigen = await db.query('SELECT saldo_disponible FROM cuentas WHERE id_cuenta = $1', [idCuentaOrigen]);
-    const saldoFinalOrigen = parseFloat(checkOrigen.rows[0].saldo_disponible);
-    console.log(`   Saldo inicial planilla: Q${saldoInicialOrigen.toFixed(2)} | Saldo final: Q${saldoFinalOrigen.toFixed(2)}`);
-    
-    // Consultar cuenta de destino creada
-    const checkDest = await db.query('SELECT id_cuenta, numero_cuenta, id_tipo_cuenta, saldo_disponible FROM cuentas WHERE id_asociado = 1 AND id_tipo_cuenta = 5 LIMIT 1');
-    const cuentaDestino = checkDest.rows[0];
-    console.log('   Nueva Cuenta Creada:', cuentaDestino?.numero_cuenta);
-    console.log('   Saldo Cuenta Destino: Q' + parseFloat(cuentaDestino?.saldo_disponible).toFixed(2));
+    const saldoPostDebito = parseFloat(checkOrigen.rows[0].saldo_disponible);
+    reporter.assert(
+      Math.abs(saldoPostDebito - (saldoInicialOrigen - 1500.00)) < 0.01,
+      `Saldo de origen debitado exactamente en Q1,500.00 (Antes: Q${saldoInicialOrigen.toFixed(2)}, Ahora: Q${saldoPostDebito.toFixed(2)})`
+    );
 
-    // Consultar transacciones
-    const checkTxs = await db.query('SELECT tipo_transaccion, monto, referencia FROM transacciones WHERE referencia LIKE $1', [`%${casoEnBandeja.numero_caso}`]);
-    console.log('   Transacciones registradas en auditoría:');
-    checkTxs.rows.forEach(t => {
-      console.log(`   - Tipo: ${t.tipo_transaccion} | Monto: Q${t.monto} | Ref: ${t.referencia}`);
-    });
-
-    const debitoOk = saldoFinalOrigen === (saldoInicialOrigen - 1500.00);
-    const creditoOk = parseFloat(cuentaDestino?.saldo_disponible) === 1500.00;
-    const txCountOk = checkTxs.rows.length === 2;
-
-    if (debitoOk && creditoOk && txCountOk) {
-      console.log('   [PASS] Saldo de planilla debitado, nueva cuenta acreditada y transacciones registradas de forma atómica (ACID).');
-    } else {
-      throw new Error('Fallo de consistencia en el estado de cuentas o transacciones.');
+    // Identificar cuenta destino creada
+    const checkDestino = await db.query(
+      `SELECT c.id_cuenta, c.numero_cuenta, c.saldo_disponible 
+       FROM cuentas c 
+       JOIN transacciones t ON c.id_cuenta = t.id_cuenta 
+       WHERE t.referencia LIKE $1 AND t.tipo_transaccion = 'DEPOSITO'`,
+      [`%${numeroCasoGenerado}%`]
+    );
+    if (checkDestino.rows.length > 0) {
+      idCuentaDestinoCreada = checkDestino.rows[0].id_cuenta;
+      const saldoDestino = parseFloat(checkDestino.rows[0].saldo_disponible);
+      reporter.assert(saldoDestino === 1500.00, `Nueva cuenta acreditada exactamente con Q1,500.00 (${checkDestino.rows[0].numero_cuenta})`);
     }
 
-    // 8. Limpiar datos de prueba
-    console.log('\n8. Iniciando limpieza de registros de prueba...');
-    await db.query('DELETE FROM transacciones WHERE id_cuenta = $1 OR id_cuenta = $2', [idCuentaOrigen, cuentaDestino.id_cuenta]);
-    await db.query('DELETE FROM solicitudes_traslado_apertura WHERE id_solicitud = $1', [idSolicitud]);
-    await db.query('DELETE FROM cuentas WHERE id_cuenta = $1', [cuentaDestino.id_cuenta]);
-    console.log('   [PASS] Limpieza completada.');
+    const checkTxs = await db.query('SELECT id_transaccion, tipo_transaccion, monto FROM transacciones WHERE referencia LIKE $1', [`%${numeroCasoGenerado}%`]);
+    reporter.assert(checkTxs.rows.length === 2, 'Se registraron exactamente 2 transacciones en el libro mayor (Débito y Crédito)');
 
-    console.log('\n=========================================');
-    console.log('[SUCCESS] TODAS LAS PRUEBAS DE TRASLADO COMPLETADAS CON ÉXITO');
-    console.log('=========================================\n');
-  } catch (error) {
-    console.error('Error durante la prueba de traslados:', error);
+  } catch (suiteError) {
+    console.error('\n[ERROR] Fallo inesperado en testTraslados:', suiteError.stack || suiteError);
   } finally {
-    server.close();
-    process.exit(0);
+    // 8. Limpieza defensiva e idempotente (RESTAURACIÓN OBLIGATORIA DE FONDOS)
+    console.log('\n[CLEANUP] Ejecutando limpieza defensiva e idempotente de la prueba...');
+    try {
+      if (numeroCasoGenerado) {
+        await db.query('DELETE FROM transacciones WHERE referencia LIKE $1', [`%${numeroCasoGenerado}%`]);
+      }
+      if (idSolicitudGenerada) {
+        await db.query('DELETE FROM solicitudes_traslado_apertura WHERE id_solicitud = $1', [idSolicitudGenerada]);
+      }
+      if (idCuentaDestinoCreada) {
+        await db.query('DELETE FROM transacciones WHERE id_cuenta = $1', [idCuentaDestinoCreada]);
+        await db.query('DELETE FROM cuentas WHERE id_cuenta = $1', [idCuentaDestinoCreada]);
+      }
+      if (idCuentaOrigen) {
+        if (isTempPlanilla) {
+          await db.query('DELETE FROM transacciones WHERE id_cuenta = $1', [idCuentaOrigen]);
+          await db.query('DELETE FROM cuentas WHERE id_cuenta = $1', [idCuentaOrigen]);
+          console.log('  [CLEANUP] Cuenta temporal de planilla eliminada.');
+        } else if (saldoInicialOrigen !== null) {
+          await db.query('UPDATE cuentas SET saldo_disponible = $1 WHERE id_cuenta = $2', [saldoInicialOrigen, idCuentaOrigen]);
+          console.log(`  [CLEANUP] Saldo original de la cuenta de prueba restaurado a Q${saldoInicialOrigen.toFixed(2)}.`);
+        }
+      }
+      if (tempAssocPersonaId) {
+        await db.query('DELETE FROM transacciones WHERE id_cuenta IN (SELECT id_cuenta FROM cuentas WHERE id_asociado IN (SELECT id_asociado FROM asociados WHERE id_persona = $1))', [tempAssocPersonaId]);
+        await db.query('DELETE FROM cuentas WHERE id_asociado IN (SELECT id_asociado FROM asociados WHERE id_persona = $1)', [tempAssocPersonaId]);
+        await db.query('DELETE FROM asociados WHERE id_persona = $1', [tempAssocPersonaId]);
+        await db.query('DELETE FROM usuarios WHERE id_persona = $1', [tempAssocPersonaId]);
+        await db.query('DELETE FROM personas WHERE id_persona = $1', [tempAssocPersonaId]);
+        console.log('  [CLEANUP] Asociado temporal EX-1 y registros vinculados eliminados.');
+      }
+      console.log('  [CLEANUP] Todos los registros temporales eliminados con éxito.');
+    } catch (cleanErr) {
+      console.error('  [ERROR] Fallo durante cleanup:', cleanErr.message);
+    } finally {
+      const stats = reporter.getStats();
+      console.log('\n=============================================================');
+      console.log(`[RESULTADO] PRUEBAS SUPERADAS: ${stats.passed} / ${stats.total}`);
+      if (stats.failed === 0) {
+        console.log('[SUCCESS] TODAS LAS PRUEBAS DE TRASLADO COMPLETADAS CON ÉXITO');
+      } else {
+        console.log('[FAIL] Algunas aserciones de la suite fallaron.');
+      }
+      console.log('=============================================================\n');
+
+      testServer.close();
+      process.exit(stats.failed === 0 ? 0 : 1);
+    }
   }
 });

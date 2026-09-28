@@ -22,6 +22,10 @@ const userRoutes = require('./routes/userRoutes');
 const asociadoRoutes = require('./routes/asociadoRoutes');
 const operadorRoutes = require('./routes/operadorRoutes');
 const catalogoRoutes = require('./routes/catalogoRoutes');
+const bancoExternoRoutes = require('./routes/bancoExternoRoutes');
+const afiliacionOnlineRoutes = require('./routes/afiliacionOnlineRoutes');
+const asociadosAdminRoutes = require('./routes/asociadosAdminRoutes');
+const ejecutivoRoutes = require('./routes/ejecutivoRoutes');
 
 const app = express();
 const server = http.createServer(app);
@@ -61,8 +65,14 @@ const corsOptions = {
 };
 app.use(cors(corsOptions));
 
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+// Soporte para carga de archivos y firmas PDF escalables en base64 (límite 15MB)
+app.use(express.json({ limit: '15mb' }));
+app.use(express.urlencoded({ extended: true, limit: '15mb' }));
+
+// Servir archivos estáticos protegidos con autenticación y RBAC (SEC-02)
+const { secureUploadsHandler } = require('./middlewares/secureUploads');
+app.get('/api/uploads/:subfolder/:filename', secureUploadsHandler);
+app.get('/api/uploads/:filename', secureUploadsHandler);
 
 /**
  * Endpoint de verificación de salud (Health Check)
@@ -81,7 +91,11 @@ app.use('/api/auth', authRoutes);
 app.use('/api/usuarios', userRoutes);
 app.use('/api/asociado', asociadoRoutes);
 app.use('/api/operador', operadorRoutes);
+app.use('/api/ejecutivo', ejecutivoRoutes);
 app.use('/api/catalogo', catalogoRoutes);
+app.use('/api/banco-externo', bancoExternoRoutes);
+app.use('/api/afiliacion', afiliacionOnlineRoutes);
+app.use('/api/admin/asociados', asociadosAdminRoutes);
 
 // Manejo de rutas no encontradas (404)
 app.use((req, res) => {

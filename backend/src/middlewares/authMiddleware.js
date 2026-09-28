@@ -14,7 +14,9 @@ const JWT_SECRET = process.env.JWT_SECRET;
  * @param {import('express').NextFunction} next - Función para continuar al siguiente middleware.
  * @returns {void|import('express').Response} Retorna 401 si falta o expiró el token, 403 si es inválido.
  */
-const verifyToken = (req, res, next) => {
+const db = require('../config/db');
+
+const verifyToken = async (req, res, next) => {
   const authHeader = req.headers['authorization'] || req.headers['Authorization'];
 
   if (!authHeader) {
@@ -37,7 +39,61 @@ const verifyToken = (req, res, next) => {
 
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
-    // Asignar los datos del usuario decodificado (id, rol, nombre) a la request
+
+    // Validación de Revocación de Sesión y Estado Activo en BD (SEC-08)
+    const userId = decoded.id_persona || decoded.id;
+    if (userId) {
+      const userCheck = await db.query(
+        'SELECT estado, sesion_activa_id, bloqueado_hasta, debe_cambiar_password FROM usuarios WHERE id_persona = $1',
+        [userId]
+      );
+
+      if (userCheck.rows.length === 0) {
+        return res.status(401).json({
+          success: false,
+          message: '[SECURITY ERROR] El usuario asociado a la sesión no existe en el sistema.',
+        });
+      }
+
+      const dbUser = userCheck.rows[0];
+      if (dbUser.estado !== 'ACTIVO') {
+        return res.status(403).json({
+          success: false,
+          message: '[SECURITY ERROR] La cuenta se encuentra inactiva. Contacte al Administrador.',
+        });
+      }
+
+      // Si el token incluye sesion_activa_id, verificar que la sesión siga activa y no haya sido revocada (ej. por logout)
+      if (decoded.sesion_activa_id && (!dbUser.sesion_activa_id || dbUser.sesion_activa_id !== decoded.sesion_activa_id)) {
+        return res.status(401).json({
+          success: false,
+          message: '[SECURITY ERROR] La sesión bancaria ha expirado o fue revocada en otro dispositivo.',
+          sesion_revocada: true,
+        });
+      }
+
+      // Restricción por cambio de contraseña obligatorio en primer inicio de sesión
+      if (dbUser.debe_cambiar_password) {
+        const currentPath = req.originalUrl || req.url || '';
+        const isPermittedPath =
+          currentPath.includes('/auth/cambiar-password') ||
+          currentPath.includes('/auth/me') ||
+          currentPath.includes('/auth/logout');
+
+        if (!isPermittedPath) {
+          return res.status(403).json({
+            success: false,
+            debe_cambiar_password: true,
+            error: 'CAMBIO_PASSWORD_OBLIGATORIO',
+            message: 'Por motivos de seguridad institucional, debe cambiar su contraseña temporal antes de continuar realizando operaciones.',
+          });
+        }
+      }
+
+      decoded.debe_cambiar_password = Boolean(dbUser.debe_cambiar_password);
+    }
+
+    // Asignar los datos del usuario decodificado a la request
     req.user = decoded;
     next();
   } catch (error) {
@@ -72,19 +128,19 @@ const checkRole = (...allowedRoles) => {
       });
     }
 
-    if (!allowedRoles.includes(req.user.rol)) {
-      const message =
-        allowedRoles.length === 1 && allowedRoles[0] === 'ADMINISTRADOR'
-          ? 'Acceso denegado: Se requieren permisos de Administrador'
-          : `Acceso denegado: Se requieren permisos de ${allowedRoles.join(', ')}`;
-
-      return res.status(403).json({
-        success: false,
-        message,
-      });
+    if (allowedRoles.includes(req.user.rol)) {
+      return next();
     }
 
-    next();
+    const message =
+      allowedRoles.length === 1 && allowedRoles[0] === 'ADMINISTRADOR'
+        ? 'Acceso denegado: Se requieren permisos de Administrador'
+        : `Acceso denegado: Se requieren permisos de ${allowedRoles.join(', ')}`;
+
+    return res.status(403).json({
+      success: false,
+      message,
+    });
   };
 };
 

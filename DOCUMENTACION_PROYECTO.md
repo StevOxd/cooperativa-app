@@ -1,631 +1,646 @@
 # Sistema de Gestión Integral - Cooperativa (Portal y Backend)
 
-Documento maestro de arquitectura, configuración técnica, catálogo de credenciales y manual de despliegue para la primera entrega del proyecto de graduación.
+Documento maestro de arquitectura, flujos operativos de negocio, sistema de diseño, modelos de datos relacionales, políticas de seguridad y manual de despliegue en contenedores para el Proyecto de Graduación.
 
 ---
 
 ## 📑 Tabla de Contenidos
-1. [Resumen del Proyecto y Alcance](#1-resumen-del-proyecto-y-alcance)
-2. [Stack Tecnológico Utilizado](#2-stack-tecnológico-utilizado)
-3. [Estructura del Repositorio](#3-estructura-del-repositorio)
-4. [Base de Datos PostgreSQL](#4-base-de-datos-postgresql)
-5. [Backend: API REST (Node.js & Express)](#5-backend-api-rest-nodejs--express)
-6. [Frontend: Aplicación SPA (React & Vite)](#6-frontend-aplicación-spa-react--vite)
-7. [Control de Acceso Basado en Roles (RBAC)](#7-control-de-acceso-basado-en-roles-rbac)
-8. [Catálogo de Usuarios y Credenciales de Prueba](#8-catálogo-de-usuarios-y-credenciales-de-prueba)
-9. [Guía de Instalación y Ejecución](#9-guía-de-instalación-y-ejecución)
-10. [Suites de Pruebas Automatizadas](#10-suites-de-pruebas-automatizadas)
+1. [Resumen Ejecutivo y Alcance del Ecosistema](#1-resumen-ejecutivo-y-alcance-del-ecosistema)
+2. [Arquitectura de Contenedores Docker y Persistencia](#2-arquitectura-de-contenedores-docker-y-persistencia)
+3. [Sistema de Diseño Institucional (Línea Gráfica Azul Corporativo)](#3-sistema-de-diseño-institucional-línea-gráfica-azul-corporativo)
+4. [Roles del Sistema (RBAC) - Cero SUPERADMIN](#4-roles-del-sistema-rbac---cero-superadmin)
+5. [Flujos Operativos de Usuario por Rol](#5-flujos-operativos-de-usuario-por-rol)
+   - 5.1 [Flujo 0: Solicitante Público / Afiliación Digital](#51-flujo-0-solicitante-público--afiliación-digital)
+   - 5.2 [Flujo 1: Rol ASOCIADO (Portal Financiero y Saldos Consolidados)](#52-flujo-1-rol-asociado-portal-financiero-y-saldos-consolidados)
+   - 5.3 [Flujo 2: Rol OPERADOR (Ventanilla, Padrón y Comprobantes Oficiales)](#53-flujo-2-rol-operador-ventanilla-padrón-y-comprobantes-oficiales)
+   - 5.4 [Flujo 3: Rol EJECUTIVO (Comité de Crédito, Scoring y Flujo Financiero)](#54-flujo-3-rol-ejecutivo-comité-de-crédito-scoring-y-flujo-financiero)
+   - 5.5 [Flujo 4: Rol ADMINISTRADOR (Centro de Mando, Usuarios y Auditoría)](#55-flujo-4-rol-administrador-centro-de-mando-usuarios-y-auditoría)
+   - 5.6 [Módulo Transversal: Servicio de Correo Google y Cero Exposición de Claves](#56-módulo-transversal-servicio-de-correo-google-y-cero-exposición-de-claves)
+   - 5.7 [Módulo Transversal: Configuración de Cuenta y Factor 2FA Opcional](#57-módulo-transversal-configuración-de-cuenta-y-factor-2fa-opcional)
+6. [Estructura Completa de Base de Datos](#6-estructura-completa-de-base-de-datos)
+   - 6.1 [Base de Datos `cooperativa_db` (14 Tablas 3FN)](#61-base-de-datos-cooperativa_db-14-tablas-3fn)
+   - 6.2 [Base de Datos `banco_db` (Core Banking de la Corporación)](#62-base-de-datos-banco_db-core-banking-de-la-corporación)
+   - 6.3 [Triggers, Funciones y Secuencias Atómicas](#63-triggers-funciones-y-secuencias-atómicas)
+   - 6.4 [Optimización de Índices DBA y Cobertura B-Tree](#64-optimización-de-índices-dba-y-cobertura-b-tree)
+7. [Reglas de Negocio Financieras y Políticas de Seguridad](#7-reglas-de-negocio-financieras-y-políticas-de-seguridad)
+8. [Esquema de Identidad, Nomenclatura y Gestión Segura de Credenciales](#8-esquema-de-identidad-nomenclatura-y-gestión-segura-de-credenciales)
+9. [Guía de Despliegue con Docker Compose](#9-guía-de-despliegue-con-docker-compose)
+   - 9.1 [Prerrequisitos](#91-prerrequisitos)
+   - 9.2 [Comandos de Ejecución](#92-comandos-de-ejecución)
+   - 9.3 [Configuración de Secretos y Variables de Entorno](#93-configuración-de-secretos-y-variables-de-entorno)
+   - 9.4 [Volúmenes Persistentes y Almacenamiento Seguro de Archivos](#94-volúmenes-persistentes-y-almacenamiento-seguro-de-archivos)
+   - 9.5 [Verificación de Conectividad y Endpoints de Salud](#95-verificación-de-conectividad-y-endpoints-de-salud)
+10. [Suites de Pruebas Automatizadas (100% Cobertura)](#10-suites-de-pruebas-automatizadas-100-cobertura)
 
 ---
 
-## 1. Resumen del Proyecto y Alcance
+## 1. Resumen Ejecutivo y Alcance del Ecosistema
 
-El sistema ha sido diseñado y construido siguiendo estrictamente las especificaciones definidas en `.agent/PROJECT_RULES.md`:
+El presente sistema constituye una plataforma bancaria y cooperativa de nivel empresarial orientada a la inclusión financiera, autogestión de ahorros y democratización crediticia. La Cooperativa opera como una entidad filial e integrada dentro de la **Corporación Bancaria**, manteniendo sinergia tecnológica directa con el sistema central del Banco (**Core Banking**).
 
-### Alcance Implementado:
-1. **Módulo de Autenticación y Seguridad:** Inicio de sesión mediante JSON Web Tokens (JWT), verificación de contraseñas encriptadas (`bcryptjs`), expiración de sesiones y protección de endpoints privados.
-2. **Módulo de Gestión de Usuarios (CRUD Completo):** Creación, consulta filtrada, actualización y **borrado lógico** de cuentas de usuario.
-3. **Control de Accesos por Roles (RBAC):** Restricciones granulares en Backend y Frontend para los roles `ADMINISTRADOR`, `OPERADOR` y `ASOCIADO`.
-4. **Protocolos de Seguridad Bancaria y Anti-Fuerza Bruta:** Control de intentos fallidos, aviso de intentos restantes, bloqueo temporal de 15 minutos tras 3 fallos consecutivos, trazabilidad en auditoría inmutable y opción de desbloqueo administrativo con 1 solo clic.
-5. **Control de Sesión Única Concurrente y Alerta en Tiempo Real:** Restricción de acceso simultáneo por cuenta, rechazo en el dispositivo secundario y emisión inmediata de alerta de seguridad en el navegador con sesión activa mediante WebSockets.
-6. **Monitoreo de Presencia en Tiempo Real:** Detección en vivo de usuarios en línea o desconectados mediante WebSockets o latidos de presencia periódicos (`ultimo_ping` < 2 min).
+### Módulos Principales del Ecosistema:
+
+1. **Módulo 1: Afiliación Digital y Presencial (Membresía Cooperativa):**
+   - **Escenario 1 (Cliente o Colaborador de la Entidad Bancaria):** Validación en tiempo real del CUI/DPI contra el Core Banking, autenticación con 3 credenciales de Banca en Línea, débito ACH automático del aporte inicial desde su cuenta de ahorro bancaria hacia la cooperativa, y generación de credenciales automáticas.
+   - **Escenario 2 (Solicitante No Bancarizado / Nuevo):** Verificación matemática y legal estricta de mayoría de edad (18+ años cumplidos), cálculo dinámico de edad en tiempo real, generación de caso correlativo institucional `CASO-AFIL-YYYY-XXXX` mediante trigger en PostgreSQL, y emisión de comprobante oficial en PDF con código QR para formalización en ventanilla.
+   - **Ventanilla de Operador:** Bandeja operativa de afiliaciones con bloqueo concurrente atómico (`HTTP 409 Conflict`), Formulario 1 (formalización presencial), Formulario 2 (apertura de cuentas adicionales), Formulario 3 (asignación de beneficiarios con regla estricta del 100.00%) y Expediente Integral 360° (Reporte 1.1).
+   - **Comprobante Oficial de Apertura en PDF:** Generación en ventanilla de un comprobante con formato institucional estándar, desglose de operación en caja, acreditación a cuentas y firma/sello digital.
+
+2. **Módulo de Autenticación, Ciberseguridad Bancaria y Notificaciones:**
+   - **Cero Exposición de Contraseñas:** Las contraseñas temporales generadas criptográficamente nunca se despliegan en la interfaz del Operador ni del Administrador; se despachan de forma cifrada y directa al correo electrónico del titular vía Google Mail SMTP.
+   - **Cambio Forzoso de Contraseña en Primer Ingreso:** Todo usuario con contraseña temporal está obligado a cambiar su clave en su primer acceso. Tras el cambio exitoso, el sistema destruye la sesión temporal y redirige formalmente al `/login` para que ingrese con sus nuevas credenciales establecidas.
+   - **Doble Factor de Autenticación (2FA TOTP RFC 6238):** Activación voluntaria y autogestionada desde el perfil de usuario (Google Authenticator / Microsoft Authenticator). No se impone de forma forzada a usuarios nuevos.
+   - **Protocolo Anti-Fuerza Bruta:** Contador de 3 intentos fallidos consecutivos, aviso interactivo de intentos restantes y congelamiento temporal de 15 minutos (`HTTP 423 Locked`), con opción de desbloqueo administrativo inmediato en 1 solo clic.
+   - **Control de Sesión Única Concurrente:** Rechazo de accesos simultáneos (`HTTP 409 Conflict`) y emisión instantánea de alerta de seguridad vía WebSockets en el dispositivo activo original.
+   - **Temporizador de Inactividad de 10 Minutos:** Cierre formal de sesión tras 10 minutos continuos sin interacción física, sincronizado entre pestañas del navegador.
+   - **Monitor de Presencia en Tiempo Real:** Latidos periódicos ping/pong vía Socket.io (`ultimo_ping` < 2 min).
+
+3. **Módulo de Consulta de Saldos, Estados de Cuenta en PDF y Traslados:**
+   - **Arquitectura Financiera Bancaria vs Cooperativa:**
+     - La cuenta de ahorro creada al aperturar un socio representa su cuenta en la entidad bancaria externa (`cuentas_bancarias` en Core Banking).
+     - De esta cuenta bancaria se debitan fondos para acreditar a sus cuentas dentro de la cooperativa (Aportaciones, Ahorro Corriente, Metas).
+     - Cálculo contable transparente en el portal: **Total Cooperativa** (suma de cuentas en la cooperativa) y **Saldo en Cuenta Bancaria Externa** (sincronizada en vivo vía API).
+   - **Emisión de Estados de Cuenta Oficiales en PDF:** Formato carta corporativo con membrete bancario, folio único `EDC-<CUENTA>-<TIMESTAMP>`, desglose financiero, tabla paginada de movimientos y sello digital de integridad SHA-256.
+   - **Traslados de Nómina:** Débitos controlados desde cuenta de nómina hacia cuentas de ahorro de la cooperativa con correlativo atómico `CASO-YYYY-XXXX` y doble partida contable ACID en el libro mayor.
+
+4. **Módulo de Simulación Crediticia y Gestión de Préstamos:**
+   - Simulador interactivo con cuota nivelada constante mediante la fórmula de **Amortización Francesa al 10% anual**.
+   - Restricción estatutaria de un máximo de 2 créditos activos simultáneos por asociado.
+   - Descarga de formulario prellenado en PDF (`SOLICITUD-CREDITO-YYYY-XXXX.pdf`) y carga de documento firmado.
+   - **Bandeja Ejecutiva de Créditos y Scoring:** Visor PDF integrado, motor de scoring crediticio automatizado, columna informativa de sentido de flujo financiero (**CRÉDITO** vs **DÉBITO**) y tres resoluciones ejecutivas exclusivas: Aprobar (desembolso atómico), Devolver a Operador o Denegar.
+
+5. **Módulo de Centro de Mando Administrativo y Auditoría:**
+   - KPIs operativos y de seguridad en tiempo real.
+   - Gráfica de dona interactiva de distribución por rol y barras semestrales de altas.
+   - Monitor de presencia en vivo y tabla de eventos inmutables de auditoría en `historial_estados_usuario`.
+   - **Gestión Integral de Usuarios (3FN):** Validaciones estrictas de DPI (13 dígitos numéricos), teléfono (8 dígitos), nombres alfabéticos puros y mayoría de edad obligatoria (18+ años) con cálculo dinámico.
+   - Borrado lógico auditado (ACTIVO / INACTIVO con motivo obligatorio) y reactivación de cuentas.
 
 ---
 
-## 2. Stack Tecnológico Utilizado
+## 2. Arquitectura de Contenedores Docker y Persistencia
 
-### Backend
-- **Entorno de Ejecución:** Node.js (v20+ / ESM & CJS compatible).
-- **Framework Web:** Express.js (v4.21.2).
-- **Comunicación en Tiempo Real:** Socket.io (v4.8.1) para WebSockets, alertas de seguridad instantáneas y monitor de presencia.
-- **Servidor HTTP:** Módulo nativo `http` de Node.js coordinando Express y Socket.io.
-- **Driver PostgreSQL:** `pg` (v8.13.3) con configuración de Pool de conexiones.
-- **Seguridad y Criptografía:** 
-  - `bcryptjs` (v2.4.3) con 10 rondas de salteo (*salt rounds*).
-  - `jsonwebtoken` (v9.0.2) para generación y verificación de tokens JWT firmados.
-  - `crypto` (módulo nativo de Node.js) para generación de identificadores únicos UUID de sesión activa.
-- **Utilidades:** `dotenv` (gestión de variables de entorno), `cors` (habilitación de CORS para el frontend).
-- **Desarrollo:** `nodemon` (recarga automática en caliente).
-
-### Frontend
-- **Librería UI:** React 18 (`react`, `react-dom`).
-- **Empaquetador y Build Tool:** Vite (v6.0.7+) con `@vitejs/plugin-react`, soporte para exposición en red local (`host: true`) y proxy WebSocket (`ws: true`).
-- **Cliente WebSocket:** `socket.io-client` (v4.8.1) con reconexión automática y latidos de presencia periódicos.
-- **Enrutamiento:** `react-router-dom` (v6.28.1) con enrutamiento declarativo y protección por roles.
-- **Cliente HTTP:** Axios (v1.7.9) con interceptores para inyección de token JWT, manejo global de 401 y redirección transparente.
-- **Estilos y Diseño:** TailwindCSS (v3.4.17), PostCSS y Autoprefixer. Tipografía moderna *Inter* de Google Fonts y efectos de *Glassmorphism*.
-- **Iconografía:** `lucide-react` (v0.475.0).
-- **Gráficas y Analítica Visual:** `chart.js` (v4.5.1) y `react-chartjs-2` (v5.3.1) para visualización de KPIs, distribución por roles en dona y barras de altas semestrales.
-
-### Base de Datos
-- **Motor:** PostgreSQL (v14+ / Postgres local en puerto 5432).
-- **Estrategia de Persistencia:** Tablas relacionales normalizadas (3FN) con restricciones `CHECK`, índices en columnas de búsqueda, migración automática de esquema y borrado lógico exclusivo mediante columna `estado`.
-
----
-
-## 3. Estructura del Repositorio
+El sistema está completamente contenedorizado y orquestado mediante **Docker Compose**, distribuyendo las cargas de trabajo en cuatro servicios aislados comunicados mediante la red bridge interna `cooperativa-net`:
 
 ```
-cooperativa-app/
-├── DOCUMENTACION_PROYECTO.md       # Documento maestro del proyecto (este archivo)
-├── .agent/
-│   └── PROJECT_RULES.md            # Reglas de negocio y alcance del proyecto
-├── backend/                        # Servidor API REST en Node.js/Express + Socket.io
-│   ├── .env                        # Variables de entorno locales (PORT=5001)
-│   ├── .env.example                # Plantilla de configuración
-│   ├── database.sql                # Script DDL de PostgreSQL, datos semilla y columnas de seguridad
-│   ├── package.json                # Dependencias (Express, Socket.io, bcryptjs, jwt, pg)
-│   ├── testAuth.js                 # Suite de pruebas automatizadas de Login
-│   ├── testUsers.js                # Suite de pruebas automatizadas del CRUD
-│   ├── testRBAC.js                 # Suite de pruebas automatizadas de RBAC
-│   ├── testSecurityProtocols.js    # Suite de pruebas: Fuerza Bruta, Concurrencia y Presencia (27 tests)
-│   ├── testProfileAndSecurity.js   # Suite de pruebas: Perfil y Cambio de Contraseña (12 tests)
-│   ├── testAdminDashboardAudit.js  # Suite de pruebas: Auditoría y Dashboard Administrativo (13 tests)
-│   └── src/
-│       ├── server.js               # Servidor HTTP, Express, Socket.io y migración automática
-│       ├── config/
-│       │   ├── db.js               # Conexión y Pool de PostgreSQL (pg)
-│       │   └── migrations.js       # Migraciones automáticas e idempotentes de esquema
-│       ├── controllers/
-│       │   ├── authController.js   # Login (fuerza bruta, concurrencia), Perfil y Logout
-│       │   └── userController.js   # CRUD, Borrado Lógico, Presencia, Desbloqueo y Auditoría Reciente
-│       ├── middlewares/
-│       │   ├── authMiddleware.js   # Middlewares verifyToken y checkRole
-│       │   └── authRoutes.js       # Rutas /api/auth (/login, /me, /perfil, /cambiar-password, /logout)
-│       ├── routes/
-│       │   ├── authRoutes.js       # Rutas /api/auth
-│       │   └── userRoutes.js       # Rutas /api/usuarios (+ /auditoria/eventos-recientes, /:id/desbloquear)
-│       └── services/
-│           └── socketService.js    # Servicio centralizado de WebSockets, alertas y presencia
-└── frontend/                       # Aplicación Web SPA en React + Vite + TailwindCSS
-    ├── .env                        # Variables de entorno cliente (VITE_API_URL=/api)
-    ├── .env.example                # Plantilla de configuración cliente
-    ├── index.html                  # HTML principal con metadatos y fuentes
-    ├── package.json                # Dependencias (React, Vite, Socket.io-client, Axios, Lucide, Chart.js)
-    ├── postcss.config.js           # Configuración de PostCSS
-    ├── tailwind.config.js          # Configuración de temas y colores corporativos
-    ├── vite.config.js              # Configuración de Vite (puerto 3000, host: true, proxy API y WS)
-    └── src/
-        ├── App.jsx                 # Configuración de rutas y proveedores
-        ├── index.css               # Estilos globales y utilidades Tailwind
-        ├── main.jsx                # Punto de entrada de React
-        ├── components/
-        │   ├── common/
-        │   │   └── SecurityAlertModal.jsx # Modal bancario de alerta en tiempo real
-        │   ├── profile/
-        │   │   ├── UpdateProfileModal.jsx # Modal para actualizar teléfono en personas
-        │   │   └── ChangePasswordModal.jsx # Modal seguro de cambio de contraseña
-        │   ├── layout/
-        │   │   ├── Layout.jsx      # Contenedor principal con Navbar y Footer
-        │   │   └── Navbar.jsx      # Barra superior institucional con User Dropdown Menu
-        │   ├── ProtectedRoute.jsx  # Guarda de rutas autenticadas
-        │   └── RoleProtectedRoute.jsx # Guarda de rutas exclusivas por rol
-        ├── context/
-        │   └── AuthContext.jsx     # Estado global de sesión, Socket.io, presencia e inactividad
-        ├── pages/
-        │   ├── AdminDashboard.jsx  # Centro de Monitoreo bancario, KPIs, Chart.js y Auditoría
-        │   ├── AssociateDashboard.jsx # Vista financiera para el rol Asociado
-        │   ├── CreditSimulatorPage.jsx # Simulador interactivo de créditos
-        │   ├── DashboardPage.jsx   # Enrutador de dashboard personalizado por rol
-        │   ├── LoginPage.jsx       # Pantalla de acceso corporativo
-        │   ├── OperatorDashboard.jsx # Panel operativo para rol Operador
-        │   └── UsersPage.jsx       # Tabla con presencia en vivo y desbloqueo en 1 clic
-        └── services/
-            ├── api.js              # Instancia centralizada de Axios
-            └── socket.js           # Cliente singleton de Socket.io con latido continuo
++---------------------------------------------------------------------------------------+
+|                             DOCKER COMPOSE (cooperativa-net)                          |
+|                                                                                       |
+|  [cooperativa-frontend]          [cooperativa-backend]           [cooperativa-db]     |
+|  Nginx 1.27 Alpine               Node.js 20 Alpine               PostgreSQL 16        |
+|  Puerto Host: 3000               Puerto Host: 5001               Puerto Host: 5432    |
+|  (SPA React 18 + Vite)           (API REST + WebSockets + Mail)  (cooperativa_db &    |
+|        │                               │                          banco_db)           |
+|        │                               │                               │              |
+|        └──────── Proxy HTTP /ws ───────┴──────── Pool TCP (5432) ──────┘              |
+|                                        │                                              |
+|                                  HTTP  │ (Timeout 5s)                                 |
+|                                  REST  ▼                                              |
+|                              [banco-backend]                                          |
+|                              Node.js 20 Alpine                                        |
+|                              Puerto Host: 5002                                        |
+|                              (Core Banking API Mock)                                  |
++---------------------------------------------------------------------------------------+
 ```
 
----
+### Detalle de los 4 Contenedores:
 
-## 4. Base de Datos PostgreSQL (Arquitectura 3FN)
+| Contenedor | Servicio | Imagen Base | Puerto Host | Puerto Contenedor | Variables de Entorno Clave | Propósito y Características |
+|:---|:---|:---|:---:|:---:|:---|:---|
+| `cooperativa-frontend` | `frontend` | `nginx:1.27-alpine` | `3000` | `80` | `VITE_API_URL=/api`, `VITE_SOCKET_URL=/` | Servidor web Nginx que sirve la SPA compilada. Actúa como proxy inverso de `/api/` y WebSockets `/socket.io/`. |
+| `cooperativa-backend` | `backend` | `node:20-alpine` | `5001` | `5000` | `PORT=5000`, `DB_NAME=cooperativa_db`, `BANCO_API_URL=http://banco-backend:5002`, `GOOGLE_EMAIL_USER`, `GOOGLE_EMAIL_APP_PASSWORD`, `JWT_SECRET`, `JWT_EXPIRES_IN=8h` | API REST principal en Express.js, servicio Socket.io y despachador de correo Google Mail. Usa `dumb-init` como PID 1. |
+| `banco-backend` | `banco-backend` | `node:20-alpine` | `5002` | `5002` | `PORT=5002`, `DB_NAME=banco_db`, `ADMIN_DB=postgres`, `BANCO_INTERNAL_API_KEY` | Servidor simulador del Core Banking de la Corporación Bancaria. Expone endpoints bajo `/api/banco/v1/*` protegidos por API Key inter-servicio. |
+| `cooperativa-db` | `db` | `postgres:16-alpine` | `5432` | `5432` | `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB=cooperativa_db` | Motor relacional PostgreSQL que aloja simultáneamente `cooperativa_db` y `banco_db`. Volumen persistente `cooperativa_db_data`. |
 
-### Conexión Local (macOS)
-- **Host:** `localhost`
-- **Puerto:** `5432`
-- **Usuario:** `stevenortiz`
-- **Contraseña:** *(vacía)*
-- **Nombre de Base de Datos:** `cooperativa_db`
-
-### Módulos y Tablas Normalizadas (3FN)
-
-La base de datos se encuentra estructurada en 4 módulos relacionales altamente desacoplados con estandarización de identificadores (`id_entidad`) y relación 1:1 en `usuarios(id_persona)`:
-
-1. **Módulo de Seguridad (RBAC Dinámico):**
-   - `roles` (`id_rol`, `codigo`, `nombre`, `descripcion`, `estado`)
-   - `permisos` (`id_permiso`, `codigo`, `modulo`, `descripcion`)
-   - `roles_permisos` (`id_rol`, `id_permiso`) - Tabla pivote para relación N:M.
-2. **Módulo de Identidades y Seguridad Bancaria:**
-   - `personas` (`id_persona`, `cui_dpi`, `primer_nombre`, `segundo_nombre`, `primer_apellido`, `segundo_apellido`, `telefono`, `direccion`, `fecha_nacimiento`, `fecha_creacion`) - Datos personales y biométricos (Única fuente de verdad).
-   - `usuarios` (`id_persona` PK/FK REFERENCES personas(id_persona), `id_rol` FK, `codigo_corporativo` UNIQUE NOT NULL [4 dígitos], `email` UNIQUE, `password_hash`, `estado`, `intentos_fallidos`, `bloqueado_hasta`, `sesion_activa_id`, `ultimo_ping`, `ultimo_acceso`, `fecha_creacion`) - Credenciales de acceso, control de fuerza bruta y presencia en tiempo real.
-3. **Módulo de Auditoría (Trazabilidad):**
-   - `historial_estados_usuario` (`id_historial_estado`, `id_usuario_modificado` FK, `estado_anterior`, `estado_nuevo`, `id_rol_anterior` FK, `id_rol_nuevo` FK, `id_modificado_por` FK, `motivo`, `fecha_cambio`) - Registro inmutable de auditoría para borrado lógico, bloqueos por fuerza bruta (`'BLOQUEADO_TEMPORAL'`) y desbloqueos administrativos.
-4. **Módulo de Asociados y Finanzas:**
-   - `asociados` (`id_asociado`, `id_persona` FK UNIQUE, `fecha_ingreso`, `estado_asociado`)
-   - `tipos_cuenta` (`id_tipo_cuenta`, `nombre`, `tasa_interes_anual`, `monto_minimo_apertura`)
-   - `cuentas` (`id_cuenta`, `numero_cuenta` UNIQUE, `id_asociado` FK, `id_tipo_cuenta` FK, `saldo_disponible`, `saldo_reserva`, `estado`, `fecha_apertura`)
-   - `solicitudes_credito` (`id_solicitud_credito`, `id_asociado` FK, `monto_solicitado`, `plazo_meses`, `tasa_interes`, `cuota_mensual_estimada`, `estado`, `id_analista` FK, `observaciones`, `fecha_solicitud`)
-   - `transacciones` (`id_transaccion`, `id_cuenta` FK, `tipo_transaccion`, `monto`, `saldo_anterior`, `saldo_nuevo`, `referencia`, `id_usuario_registra` FK, `fecha_transaccion`)
-
-### Regla de Borrado Lógico vs Bloqueo por Fuerza Bruta
-- **Borrado Lógico:** El sistema **nunca** ejecuta instrucciones `DELETE` en usuarios o asociados. La eliminación lógica se reserva exclusivamente para la columna `estado`:
-  ```sql
-  UPDATE usuarios SET estado = 'INACTIVO' WHERE id_persona = $1;
+### Bind Mount y Almacenamiento Seguro de Archivos PDF (SEC-02):
+- El servicio `cooperativa-backend` monta el volumen tipo *bind mount*:
+  ```yaml
+  volumes:
+    - ./backend/uploads:/app/uploads
   ```
-- **Bloqueo por Fuerza Bruta:** La columna `estado` se mantiene intacta en `'ACTIVO'` para no corromper el borrado lógico. El congelamiento temporal se gestiona con `bloqueado_hasta` e `intentos_fallidos`:
-  ```sql
-  UPDATE usuarios SET intentos_fallidos = 3, bloqueado_hasta = CURRENT_TIMESTAMP + INTERVAL '15 minutes' WHERE id_persona = $1;
-  ```
-- **Migraciones Automáticas:** El sistema cuenta con [migrations.js](file:///home/steven/Descargas/cooperativa-app/backend/src/config/migrations.js) que se ejecuta al inicio del servidor y aplica `ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS...` sin requerir reinicializaciones destructivas de la base de datos.
+- **Almacenamiento Físico:** Almacena de forma persistente los comprobantes de afiliación (`uploads/afiliaciones/`), los comprobantes de apertura de cuenta y las solicitudes de crédito firmadas (`uploads/creditos/`).
+- **Entrega Segura de Archivos (RBAC):** Se erradicó la entrega estática pública (`express.static`). Las descargas se canalizan por el endpoint protegido `GET /api/uploads/:subfolder/:filename`, validando token JWT y control de acceso RBAC.
 
 ---
 
-## 5. Backend: API REST & WebSockets (Node.js & Express & Socket.io)
+## 3. Sistema de Diseño Institucional (Línea Gráfica Azul Corporativo)
 
-El servidor corre por defecto en el puerto `5001` (`http://localhost:5001` y expuesto en red local en `0.0.0.0:5001`).
+> [!IMPORTANT]
+> **Aclaración Institucional de la Paleta Cromática (Cero Verde):**
+> La identidad visual oficial de la Cooperativa **NO ES VERDE**. Toda sugerencia de utilizar tonalidades verdes ha sido formalmente desestimada en favor de una estética bancaria moderna, sobria y de alta confiabilidad basada en **Azul Corporativo Suave, Pizarra y Azul Financiero** (`Sky / Slate`).
 
-### Endpoints Disponibles
+### 3.1 Paleta de Colores Corporativos
 
-| Método | Endpoint | Nivel de Acceso | Descripción | Códigos HTTP |
-|:---|:---|:---|:---|:---|
-| `GET` | `/api/health` | Público | Verificación de estado del servidor | `200` |
-| `POST` | `/api/auth/login` | Público | Autenticación con email o código corporativo (4 dígitos). Aplica bloqueo por fuerza bruta (3 intentos) y control de sesión concurrente | `200`, `400`, `401`, `403`, `409`, `423`, `500` |
-| `GET` | `/api/auth/me` | Autenticado (`Cualquier rol`) | Retorna información del usuario de la sesión actual | `200`, `401`, `404` |
-| `POST` | `/api/auth/logout` | Autenticado (`Cualquier rol`) | **Cierre de sesión formal:** Limpia `sesion_activa_id`, `ultimo_ping` y desconecta sockets | `200`, `401`, `500` |
-| `PATCH` | `/api/auth/perfil` | Autenticado (`Cualquier rol`) | Actualiza datos de contacto (teléfono) en la tabla `personas` | `200`, `400`, `401`, `404`, `500` |
-| `POST` | `/api/auth/cambiar-password` | Autenticado (`Cualquier rol`) | Cambio seguro de contraseña con validación de clave actual y bcrypt | `200`, `400`, `401`, `404`, `500` |
-| `GET` | `/api/usuarios` | `ADMINISTRADOR` | Lista usuarios con cálculo dinámico de `en_linea` y `bloqueado_por_intentos` (Filtros: `?estado=`, `?search=`) | `200`, `401`, `403` |
-| `GET` | `/api/usuarios/auditoria/eventos-recientes` | `ADMINISTRADOR` | Obtiene los últimos 5 eventos de seguridad registrados en `historial_estados_usuario` | `200`, `401`, `403` |
-| `GET` | `/api/usuarios/:id` | `ADMINISTRADOR` | Detalle de un usuario específico | `200`, `401`, `403`, `404` |
-| `POST` | `/api/usuarios` | `ADMINISTRADOR` | Crea un usuario con contraseña encriptada en `bcrypt` | `201`, `400`, `401`, `403`, `409` |
-| `PUT` | `/api/usuarios/:id` | `ADMINISTRADOR` | Actualiza datos de usuario (contraseña opcional) | `200`, `400`, `401`, `403`, `404`, `409` |
-| `DELETE` | `/api/usuarios/:id` | `ADMINISTRADOR` | **Borrado Lógico:** Cambia estado a `'INACTIVO'` | `200`, `401`, `403`, `404` |
-| `PATCH` | `/api/usuarios/:id/desbloquear` | `ADMINISTRADOR` | **Desbloqueo en 1 Clic:** Restaura intentos fallidos y remueve bloqueo temporal con auditoría | `200`, `401`, `403`, `404`, `500` |
-| `GET` | `/api/asociado/perfil` | `ASOCIADO` | Retorna el perfil del asociado uniendo personas, asociados y usuarios | `200`, `401`, `403`, `404` |
-| `GET` | `/api/asociado/cuentas` | `ASOCIADO` | Retorna las cuentas activas (Ahorro y Aportaciones) del asociado | `200`, `401`, `403` |
-| `GET` | `/api/asociado/cuentas/:id_cuenta/transacciones` | `ASOCIADO` | Historial de transacciones de una cuenta de su propiedad | `200`, `401`, `403` |
-| `GET` | `/api/asociado/creditos` | `ASOCIADO` | Listado de solicitudes de créditos del asociado | `200`, `401`, `403` |
-| `POST` | `/api/asociado/creditos` | `ASOCIADO` | Crea una solicitud de crédito calculando la cuota con amortización francesa | `201`, `400`, `401`, `403`, `500` |
+| Nombre Semántico | Token Tailwind | Código Hex | Uso Institucional |
+|:---|:---|:---:|:---|
+| **Azul Corporativo 700** | `coop-700` | `#0369a1` | Color principal de botones de acción, encabezados de tablas y destacados. |
+| **Azul Corporativo 800** | `coop-800` | `#075985` | Hover de botones institucionales, barras de navegación y branding primario. |
+| **Azul Corporativo 900** | `coop-900` | `#0c4a6e` | Textos de máximo contraste, títulos principales y encabezados oscuros. |
+| **Azul Financiero Sky** | `sky-600` / `sky-500` | `#0284c7` / `#0ea5e9` | Badges de cuentas, hipervínculos, indicadores de paso e íconos interactivos. |
+| **Gris Pizarra Fondo** | `slate-50` | `#f8fafc` | Fondo general de la aplicación, descansos visuales y tarjetas claras. |
+| **Gris Pizarra Borde** | `slate-200` | `#e2e8f0` | Delimitadores de tablas, tarjetas y líneas divisorias sutiles. |
+| **Gris Pizarra Texto** | `slate-800` / `slate-900` | `#1e293b` / `#0f172a` | Tipografía principal de lectura y datos financieros. |
+| **Alerta / Pendiente** | `amber-500` / `amber-600` | `#f59e0b` / `#d97706` | Badges de estados pendientes, advertencias de intento y bloqueos por fuerza bruta. |
+| **Peligro / Rechazo / Débito** | `rose-600` / `rose-700` | `#e11d48` / `#be123c` | Rechazo de créditos, eliminación lógica, insignia de DÉBITO y alertas de error. |
+| **Éxito / Aprobado / Crédito** | `emerald-600` / `emerald-700` | `#059669` / `#047857` | Indicadores de cuenta aprobada, insignia de CRÉDITO e indicador de 18+ años. |
 
-### Protocolos de Seguridad Bancaria y WebSockets (Socket.io)
-
-1. **Protección Anti-Fuerza Bruta:**
-   - Si las credenciales fallan, se incrementa `intentos_fallidos`.
-   - Se informa al usuario cuántos intentos restan (ej. *"Credenciales inválidas. Te quedan 2 intento(s) antes del bloqueo"*).
-   - Al tercer fallo, se establece `bloqueado_hasta = CURRENT_TIMESTAMP + INTERVAL '15 minutes'`, se registra la traza en `historial_estados_usuario` y se responde con código HTTP `423 Locked`.
-   - Durante el periodo de bloqueo, cualquier intento posterior es rechazado inmediatamente.
-   - El Administrador puede reactivar la cuenta con 1 clic mediante `PATCH /api/usuarios/:id/desbloquear`.
-
-2. **Control de Sesión Única Concurrente:**
-   - Si un usuario tiene un `sesion_activa_id` válido y una conexión activa por WebSocket, un nuevo inicio de sesión en otro navegador o dispositivo es rechazado con código HTTP `409 Conflict` (*"Acceso denegado: Este usuario ya cuenta con una sesión activa en otro dispositivo. Cierre la sesión previa para continuar"*).
-   - En el navegador previamente conectado, el servidor emite el evento WebSocket `security_alert`, desplegando un aviso en tiempo real de intento de acceso no autorizado.
-
-3. **Muerte de Sesión Bancaria al Retroceder a `/login`:**
-   - Si un usuario autenticado pulsa el botón o tecla "Atrás" del navegador y aterriza en `/login`, la aplicación intercepta la navegación y ejecuta un cierre de sesión forzoso e inmediato (`POST /api/auth/logout`), limpiando tokens de almacenamiento (`coop_token`, `coop_user`, `coop_last_activity`), destruyendo el socket y anulando `sesion_activa_id` en la BD.
-   - Se muestra un banner de seguridad: *"Sesión cerrada por seguridad bancaria al regresar a la pantalla de acceso"*.
-   - Si el usuario intenta presionar el botón "Adelante" del navegador, las rutas privadas (`ProtectedRoute`) bloquean el acceso y lo devuelven a `/login`.
-
-4. **Temporizador de Inactividad de 10 Minutos:**
-   - El frontend (`AuthContext.jsx`) monitoriza continuamente la interacción física del usuario (movimientos de ratón, clics, pulsaciones de teclas, toques en pantalla y scroll) con sincronización entre pestañas (`storage event`).
-   - Tras 10 minutos continuos (600,000 ms) sin actividad registrada en ninguna pestaña abierta, la sesión se cancela automáticamente en el servidor y el usuario es redirigido a `/login?motivo=inactividad` mostrando el aviso: *"Su sesión ha expirado automáticamente por inactividad (10 minutos) para proteger su cuenta"*.
-
-5. **Presencia Fuera de Línea Instantánea:**
-   - **En el Backend:** El logout formal y la desconexión del socket limpian tanto `sesion_activa_id = NULL` como `ultimo_ping = NULL`. Además, la condición para considerar a un usuario `en_linea` exige estrictamente la existencia de una sesión activa (`Boolean(u.sesion_activa_id)`). Esto elimina el retraso de 2 minutos que ocurría anteriormente al calcular el ping reciente.
-   - **En el Frontend:** Al recibirse el evento `presence_update`, la tabla de usuarios en `UsersPage.jsx` actualiza directamente el estado en memoria, cambiando el indicador a gris ("Desconectado") o verde ("En línea") en milisegundos sin requerir peticiones de red ni recarga del navegador.
-
-6. **Eventos de WebSockets Manejados:**
-   - `authenticate`: Vincula el socket al usuario tras validar el token JWT.
-   - `ping_presencia` / `pong_presencia`: Latido de presencia periódica para mantener actualizado `ultimo_ping` mientras la sesión esté activa.
-   - `security_alert`: Alerta bancaria instantánea emitida al cliente activo si alguien intenta vulnerar sus credenciales.
-   - `presence_update`: Difusión del estado en línea/desconectado para actualizar la UI en vivo en milisegundos.
+### 3.2 Componentes de Experiencia de Usuario (UX/UI) y Accesibilidad
+1. **`ConfirmModal.jsx`:** Modal institucional accesible con backdrop desenfocado, soporte de tecla Escape y resumen descriptivo de la acción.
+2. **`useToast.jsx`:** Notificaciones flotantes no intrusivas tipo socket con auto-cierre a los 4 segundos.
+3. **`TableSkeleton.jsx`:** Animación de carga `animate-pulse` que previene saltos bruscos de diseño (*CLS*).
+4. **Contadores de Validación en Tiempo Real:** Los campos numéricos estrictos (DPI `X/13` y Teléfono `X/8`) muestran contadores interactivos que cambian de gris a verde esmeralda al completarse.
+5. **Insignia Dinámica de Mayoría de Edad:** Al ingresar la fecha de nacimiento, el sistema calcula la edad exacta y exhibe una insignia (`✓ XX años cumplidos` o `⚠ Menor de edad`).
 
 ---
 
-## 6. Frontend: Aplicación SPA (React & Vite)
+## 4. Roles del Sistema (RBAC) - Cero SUPERADMIN
 
-El cliente web corre por defecto en el puerto `3000` (`http://localhost:3000`).
+> [!CAUTION]
+> **Exclusión Terminante del Rol `SUPERADMIN`:**
+> El rol `SUPERADMIN` ha sido completamente eliminado del sistema, de la base de datos relacional y de los controladores. La administración superior recae única y exclusivamente sobre el rol `ADMINISTRADOR`.
 
-### Componentes Clave
-1. **`AuthContext.jsx`:** Maneja el estado global de autenticación (`user`, `token`, `isAuthenticated`, `isLoading`), sincronizado con `localStorage` (`coop_token`, `coop_user`), e inicializa el canal bidireccional de `Socket.io` escuchando eventos `'security_alert'` para desplegar notificaciones bancarias de emergencia.
-2. **`SecurityAlertModal.jsx`:** Modal visual con diseño bancario y animación de advertencia que salta en tiempo real en la pantalla del usuario activo si alguien intenta acceder con sus credenciales desde otro equipo o navegador.
-3. **`LoginPage.jsx`:**
-   - Diseño corporativo formal de banca institucional (verde esmeralda y gris claro).
-   - Formulario reactivo con control de visibilidad de contraseña.
-   - Mensajes dinámicos de intentos fallidos restantes (*"Te quedan X intentos antes del bloqueo"*).
-   - Detección visual de cuenta bloqueada y rechazo por sesión concurrente.
-4. **`ProtectedRoute.jsx`:** Protege las rutas privadas; si no hay sesión activa, redirige automáticamente a `/login`.
-5. **`RoleProtectedRoute.jsx`:** Restringe rutas a roles autorizados (ej. `/usuarios` exclusivo para `ADMINISTRADOR`, `/simulador-credito` exclusivo para `ASOCIADO`).
-6. **`DashboardPage.jsx`:** Enrutador modular por roles que despacha:
-   - `ADMINISTRADOR`: Renderiza el nuevo [AdminDashboard.jsx](file:///home/steven/Descargas/cooperativa-app/frontend/src/pages/AdminDashboard.jsx).
-   - `OPERADOR`: Renderiza [OperatorDashboard.jsx](file:///home/steven/Descargas/cooperativa-app/frontend/src/pages/OperatorDashboard.jsx).
-   - `ASOCIADO`: Renderiza [AssociateDashboard.jsx](file:///home/steven/Descargas/cooperativa-app/frontend/src/pages/AssociateDashboard.jsx).
-7. **`AdminDashboard.jsx` (Centro de Monitoreo y Estadísticas Operativas):**
-   - **4 KPIs Administrativos en tiempo real:** Total Usuarios (con desglose de asociados y operadores), Usuarios Activos (% operativo), Cuentas Bloqueadas / Inactivas (desglose por intentos vs borrado lógico) y Sesiones en Línea sincronizadas con WebSockets.
-   - **Estadísticas Gráficas (`chart.js` & `react-chartjs-2`):**
-     - Gráfica de Dona (Doughnut): Distribución proporcional de usuarios por rol (Asociados en verde, Operadores en azul, Administradores en púrpura) con tooltip interactivo y leyenda porcentual.
-     - Gráfica de Barras: Actividad semestral de nuevos registros y altas de usuarios en PostgreSQL.
-   - **Tabla de Últimos Eventos de Seguridad:** Consulta los últimos 5 eventos de `historial_estados_usuario` vía `GET /api/usuarios/auditoria/eventos-recientes` con badges de tipo de evento, usuario afectado, actor responsable, fecha/hora y motivo.
-   - **Accesos Directos:** Navegación con 1 clic hacia Gestión de Usuarios, filtro de cuentas bloqueadas y sincronización de métricas.
-8. **`AssociateDashboard.jsx`:**
-   - Visualiza balances consolidados de ahorros y aportaciones.
-   - Detalle de cuentas con modal para ver historial de movimientos/transacciones en tiempo real.
-8. **`CreditSimulatorPage.jsx`:**
-   - Simulador interactivo de monto y plazo para créditos con cálculo automático de cuota mensual amortizada francesa (10% anual).
-   - Formulario de solicitud y tabla de seguimiento del estado del préstamo.
-9. **`UsersPage.jsx`:** 
-   - **Modal de Formulario 3FN:** Creación y edición completa de usuarios.
-   - **Columna Estado:** Mantiene intacto el borrado lógico (`ACTIVO` / `INACTIVO`).
-   - **Columna Presencia en Tiempo Real:** 
-     - 🟢 **En línea:** Sesión abierta en este momento (WebSocket activo o ping < 2 min).
-     - ⚪ **Desconectado:** Sin sesión activa reciente.
-     - ⚠️ **Bloqueado por Intentos:** Alerta ámbar de congelamiento tras 3 intentos fallidos.
-     - **Botón Desbloquear (1 clic):** Permite al Administrador reactivar la cuenta al instante mediante `PATCH /api/usuarios/:id/desbloquear`.
-   - **Reactividad WebSocket:** Escucha `presence_update` para actualizar los estados en vivo sin requerir refrescar el navegador.
-10. **`Navbar.jsx` (Header Institucional, User Dropdown Menu & Navegación Móvil):**
-    - **Ancho Amplio Institucional:** Contenedor expandido a `max-w-[1680px]` con espaciado horizontal responsivo (`px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12`).
-    - **Menú Móvil Desplegable (Hamburguesa ☰):** En pantallas reducidas (`< md`), incorpora un botón alternador para desplegar el menú de navegación institucional entre `/dashboard`, `/usuarios` o `/simulador-credito` con autocierre al cambiar de ruta o pulsar `Escape`.
-    - Retira el botón estático e independiente de "Cerrar Sesión".
-    - Transforma el avatar y bloque de usuario en un gatillo interactivo desplegable con indicador `ChevronDown`.
-    - Menú flotante con fondo blanco, sombra suave y borde sutil que ofrece:
-      - Encabezado con nombre, código corporativo / email y badge de rol.
-      - **👤 Actualizar Datos:** Dispara el modal `UpdateProfileModal`.
-      - **🔑 Cambiar Contraseña:** Dispara el modal `ChangePasswordModal`.
-      - Separador horizontal sutil.
-      - **🚪 Cerrar Sesión:** Opción destacada con `text-rose-600 hover:bg-rose-50` que ejecuta `logout()`.
-    - **Accesibilidad y Usabilidad:** Detección de clic exterior (*click outside*) y tecla `Escape` para cierre automático instantáneo.
-11. **`Layout.jsx` (Contenedor Maestro de Pantalla Ancha):**
-    - Reemplazó el antiguo límite restrictivo de `max-w-7xl` (1280px) por una arquitectura fluida y amplia con `max-w-[1680px] w-full mx-auto` y padding adaptativo `p-4 sm:p-6 lg:p-8 xl:p-10 2xl:px-12`.
-    - Permite que en monitores Full HD (1920×1080) y 2K la aplicación aproveche más del 92% del espacio horizontal, eliminando el amontonamiento de columnas en la tabla de usuarios de 9 campos y permitiendo que los gráficos del Centro de Monitoreo respiren con amplitud institucional.
-12. **`UpdateProfileModal.jsx`:** Modal para actualizar datos de contacto institucionales del usuario autenticado (actualmente el campo Número de Teléfono persistido en la tabla `personas`).
-13. **`ChangePasswordModal.jsx`:** Modal seguro para cambio de contraseña con validación de requisitos mínimos (mínimo 6 caracteres, confirmación y validación de contraseña actual contra `bcrypt`).
-
-### Acceso en Red Local (LAN) y Configuración de Proxy
-- **Exposición de Red:** En [vite.config.js](file:///home/steven/Descargas/cooperativa-app/frontend/vite.config.js), se configuró `host: true`, lo cual permite que cualquier dispositivo en la misma red Wi-Fi o Ethernet acceda mediante la IP de la máquina anfitriona (ej. `http://192.168.0.17:3000`).
-- **Proxy Inverso de Desarrollo:** 
-  - Las peticiones `/api` se redirigen internamente al backend en `http://localhost:5001`.
-  - El cliente WebSockets (`socket.io-client`) se conecta de forma directa al puerto `5001` usando `http://${window.location.hostname}:5001`, lo cual garantiza máxima estabilidad, compatibilidad en red local y elimina ruidos de proxy en Vite.
-  - Esto elimina problemas de CORS y evita la necesidad de configurar IPs dinámicas en los archivos `.env` de los clientes.
-
----
-
-## 7. Control de Acceso Basado en Roles (RBAC)
-
-| Módulo / Función | Rol `ADMINISTRADOR` | Rol `OPERADOR` | Rol `ASOCIADO` |
-|:---|:---:|:---:|:---:|
-| **Iniciar Sesión** | ✅ Permitido | ✅ Permitido | ✅ Permitido *(si está ACTIVO)* |
-| **Consultar Perfil Propio (`/me`)** | ✅ Permitido | ✅ Permitido | ✅ Permitido |
-| **Navbar - Gestión de Usuarios** | ✅ Visible | ❌ Oculta | ❌ Oculta |
-| **Navbar - Simulador de Créditos** | ❌ Oculto | ❌ Oculto | ✅ Visible |
-| **Acceso a URL `/usuarios`** | ✅ Permitido | ⛔ Redirige (403) | ⛔ Redirige (403) |
-| **Acceso a URL `/simulador-credito`**| ⛔ Redirige (403) | ⛔ Redirige (403) | ✅ Permitido |
-| **Listar Usuarios en API** | ✅ Permitido | ⛔ Bloqueado (403) | ⛔ Bloqueado (403) |
-| **Crear / Editar / Desactivar** | ✅ Permitido | ⛔ Bloqueado (403) | ⛔ Bloqueado (403) |
-| **Desbloquear Cuenta Bloqueada** | ✅ Permitido | ⛔ Bloqueado (403) | ⛔ Bloqueado (403) |
-| **Portal de Autogestión Asociado** | ❌ Excluido | ❌ Excluido | ✅ Permitido |
-
----
-
-## 8. Catálogo de Usuarios y Credenciales de Prueba
-
-Todos los usuarios tienen la misma contraseña maestra predeterminada: **`admin123`**, encriptada en PostgreSQL con `bcrypt` (10 salt rounds: `$2a$10$vNPUEupr.jaRBJ/2vUE4CurM.mZqeEc1PTGrA8Pds020v2tm0T1Ey`).
-
-### 👑 Administradores (5 Usuarios)
-| Cód. Corporativo | Nombre Completo | Correo Electrónico | Contraseña | DPI / CUI | Estado |
-|:---:|:---|:---|:---:|:---:|:---:|
-| **1001** | Steven Alejandro Ortiz Gómez | `admin@cooperativa.com` | `admin123` | `1000000000001` | `ACTIVO` |
-| **1002** | Lucía Fernanda Morales Castillo | `admin.lucia@cooperativa.com` | `admin123` | `1000000000002` | `ACTIVO` |
-| **1003** | Fernando José Herrera Ríos | `admin.fernando@cooperativa.com` | `admin123` | `1000000000003` | `ACTIVO` |
-| **1004** | Valeria Sofía Méndez Alvarado | `admin.valeria@cooperativa.com` | `admin123` | `1000000000004` | `ACTIVO` |
-| **1005** | Rodrigo Esteban Sandoval Paz | `admin.rodrigo@cooperativa.com` | `admin123` | `1000000000005` | `ACTIVO` |
-
-### 💼 Operadores (5 Usuarios)
-| Cód. Corporativo | Nombre Completo | Correo Electrónico | Contraseña | DPI / CUI | Estado |
-|:---:|:---|:---|:---:|:---:|:---:|
-| **2001** | Juan Carlos Martínez Pérez | `operador@cooperativa.com` | `admin123` | `2000000000001` | `ACTIVO` |
-| **2002** | María Elena Gutiérrez Castro | `operador.maria@cooperativa.com` | `admin123` | `2000000000002` | `ACTIVO` |
-| **2003** | Pedro Antonio Ramírez Solís | `operador.pedro@cooperativa.com` | `admin123` | `2000000000003` | `ACTIVO` |
-| **2004** | Ana Patricia Vásquez Cruz | `operador.ana@cooperativa.com` | `admin123` | `2000000000004` | `ACTIVO` |
-| **2005** | Diego Armando Flores Lima | `operador.diego@cooperativa.com` | `admin123` | `2000000000005` | `ACTIVO` |
-
-### 👤 Asociados (6 Usuarios: 5 Activos + 1 Inactivo)
-| Cód. Corporativo | Nombre Completo | Correo Electrónico | Contraseña | DPI / CUI | Estado |
-|:---:|:---|:---|:---:|:---:|:---:|
-| **3001** | Carlos Roberto López Gómez | `asociado.carlos@cooperativa.com` | `admin123` | `3000000000001` | `ACTIVO` |
-| **3002** | Claudia Marcela Torres Reyes | `asociado.claudia@cooperativa.com` | `admin123` | `3000000000002` | `ACTIVO` |
-| **3003** | Mario René Estrada Fuentes | `asociado.mario@cooperativa.com` | `admin123` | `3000000000003` | `ACTIVO` |
-| **3004** | Karen Paola Aguilar Romero | `asociado.karen@cooperativa.com` | `admin123` | `3000000000004` | `ACTIVO` |
-| **3005** | Jorge Luis Guzmán Cifuentes | `asociado.jorge@cooperativa.com` | `admin123` | `3000000000005` | `ACTIVO` |
-| **3000** | Usuario Asociado Inactivo | `inactivo@cooperativa.com` | `admin123` | `3000000000000` | `INACTIVO` |
-
----
-
-## 9. Guía de Instalación y Ejecución
-
-### Prerrequisitos
-- Node.js (versión 18 o superior).
-- PostgreSQL en ejecución local (puerto 5432).
-
----
-
-### Paso 1: Configurar la Base de Datos
-1. Crear la base de datos en PostgreSQL si aún no existe:
-   ```bash
-   createdb cooperativa_db
-   ```
-2. Ejecutar el script SQL para crear las tablas y cargar los datos semilla iniciales:
-   ```bash
-   psql -h localhost -U stevenortiz -d cooperativa_db -f backend/database.sql
-   ```
-   *(Nota: Si la base de datos ya está creada, el servidor ejecutará automáticamente `migrations.js` al iniciar para asegurar las columnas requeridas sin tocar datos existentes).*
-
----
-
-### Paso 2: Iniciar el Backend
-1. Abrir una terminal y navegar al directorio `backend`:
-   ```bash
-   cd backend
-   ```
-2. Instalar dependencias:
-   ```bash
-   npm install
-   ```
-3. Iniciar el servidor en modo desarrollo:
-   ```bash
-   npm run dev
-   ```
-   *El servidor quedará disponible en `http://localhost:5001` (y escuchando en `0.0.0.0:5001`)*.
-
----
-
-### Paso 3: Iniciar el Frontend
-1. Abrir una segunda terminal y navegar al directorio `frontend`:
-   ```bash
-   cd frontend
-   ```
-2. Instalar dependencias:
-   ```bash
-   npm install
-   ```
-3. Iniciar el cliente de desarrollo:
-   ```bash
-   npm run dev
-   ```
-   *La aplicación abrirá en `http://localhost:3000` y mostrará la URL de acceso en red local (ej. `http://192.168.0.17:3000`)*.
-
----
-
-## 10. Suites de Pruebas Automatizadas
-
-El proyecto incluye 6 suites de pruebas automatizadas independientes en la carpeta `backend/` para validar el funcionamiento integral del sistema:
-
-### 1. Pruebas de Autenticación y JWT (`testAuth.js`)
-Valida login exitoso por correo y código corporativo, login con contraseña errónea, login de usuario inactivo, validación de token JWT y rechazo de tokens adulterados:
-```bash
-cd backend
-node testAuth.js
-```
-
-### 2. Pruebas del CRUD y Borrado Lógico (`testUsers.js`)
-Valida listado, filtrado por estado, creación con hash bcrypt, actualización, borrado lógico en BD y persistencia:
-```bash
-cd backend
-node testUsers.js
-```
-
-### 3. Pruebas de Control de Acceso por Roles (`testRBAC.js`)
-Valida que usuarios con rol `OPERADOR` sean rechazados con código `403` en rutas administrativas, mientras que `ADMINISTRADOR` mantiene acceso completo:
-```bash
-cd backend
-node testRBAC.js
-```
-
-### 4. Pruebas de Seguridad Bancaria y Sesión Concurrente (`testSecurityProtocols.js`)
-Suite exhaustiva con **27 pruebas automatizadas** que validan:
-- **Bloqueo por Fuerza Bruta:** Control de intentos 1 y 2, bloqueo temporal de 15 minutos en el intento 3 (status `423`), rechazo continuo durante el bloqueo y registro inmutable en `historial_estados_usuario`.
-- **Desbloqueo en 1 Clic:** Invocación de `PATCH /api/usuarios/:id/desbloquear` por parte del Administrador, restauración de intentos a 0 y acceso inmediato.
-- **Sesión Única Concurrente:** Conexión de cliente por WebSocket, intento de inicio de sesión concurrente desde otro navegador (status `409`), y recepción en tiempo real del evento `security_alert` en el dispositivo original.
-- **Cierre de Sesión Formal y Presencia Inmediata:** Limpieza de `sesion_activa_id` y `ultimo_ping` a `NULL` tras `POST /api/auth/logout`, verificación instantánea de `en_linea: false` sin retraso de 2 minutos y autorización inmediata para nuevos dispositivos.
-- **Presencia en Tiempo Real:** Detección de usuarios `en_linea` y `bloqueado_por_intentos` manteniendo intacta la columna `estado` como `ACTIVO`.
-
-```bash
-cd backend
-node testSecurityProtocols.js
-```
-
-### 5. Pruebas de Perfil y Cambio de Contraseña (`testProfileAndSecurity.js`)
-Suite con **12 pruebas automatizadas** que validan:
-- **Actualizar Datos de Contacto:** Invocación de `PATCH /api/auth/perfil` con token activo, persistencia del nuevo teléfono en la tabla `personas` y retorno en la respuesta.
-- **Cambio Seguro de Contraseña:** Validación de contraseña actual errónea (status `400`), longitud mínima menor a 6 caracteres, falta de coincidencia en confirmación, contraseña idéntica a la anterior y actualización exitosa con `bcrypt` permitiendo el inicio de sesión posterior con las nuevas credenciales.
-
-```bash
-cd backend
-node testProfileAndSecurity.js
-```
-
-### 6. Pruebas de Auditoría y Dashboard Administrativo (`testAdminDashboardAudit.js`)
-Suite con **13 pruebas automatizadas** que validan:
-- **Protección RBAC:** Validación de código `403 Forbidden` al invocar `GET /api/usuarios/auditoria/eventos-recientes` con credenciales de `OPERADOR`, y código `401 Unauthorized` sin token.
-- **Acceso Administrativo y Límite:** Acceso exitoso con rol `ADMINISTRADOR` respetando el límite por defecto (5 eventos) o configurable mediante parámetro query `?limit=N`.
-- **Estructura de Datos Bancarios:** Verificación de campos obligatorios en cada evento (`id_historial`, `usuario_afectado`, `accion`, `estado_anterior`, `estado_nuevo`, `motivo`, `ip_origen`, `actor`, `fecha_evento`).
-- **Trazabilidad en Vivo de Bloqueos:** Generación de un bloqueo deliberado por fuerza bruta y confirmación inmediata de que el nuevo registro aparece al tope de la lista de auditoría para su visualización en el dashboard administrativo.
-
-```bash
-cd backend
-node testAdminDashboardAudit.js
-```
-
----
-
-## 10. Hardening y Remediación de Auditoría Bancaria (CWE-798, Helmet, JSDoc 3, Estándares de Producción)
-
-Como resultado de la auditoría técnica de seguridad bancaria (`auditoria/REPORTE_AUDITORIA.md`), se implementó un paquete integral de robustecimiento arquitectónico en backend y frontend:
-
-### 10.1 Eliminación de Fallback Strings Criptográficos (CWE-798) y Mecanismo Fail-Fast
-- **Diagnóstico previo:** Presencia de valores por defecto hardcodeados (`|| 'super_secret_jwt_key...'` o usuario `'stevenortiz'`) que exponían el entorno a claves predecibles si faltaba el archivo `.env`.
-- **Remediación:**
-  - Se removieron todos los fallbacks inseguros en `server.js`, `socketService.js`, `authMiddleware.js`, `authController.js` y `db.js`.
-  - Se incorporó una validación **Fail-Fast** en el ciclo inicial de arranque de `server.js`: si `JWT_SECRET`, `DB_USER` o `DB_NAME` no están presentes en el entorno, el servidor aborta su inicialización inmediatamente con código de salida `1` y un mensaje de seguridad formal.
-  - Se configuró `dotenv` para resolver la ruta absoluta hacia `backend/.env` con independencia del directorio de trabajo (`cwd`).
-
-### 10.2 Blindaje de Cabeceras HTTP con Helmet y Restricción CORS
-- **Protección HTTP:** Se integró la biblioteca `helmet` en el pipeline Express para mitigar ataques XSS, Clickjacking, MIME-sniffing e inyección de cabeceras maliciosas.
-- **Control CORS Institucional:** Restricción de orígenes permitidos mediante lista blanca (`FRONTEND_URL`, `http://localhost:3000`, `http://localhost:3001`, y redes locales institucionales `192.168.x.x`), control estricto de métodos HTTP (`GET`, `POST`, `PUT`, `PATCH`, `DELETE`) y cabeceras autorizadas (`Content-Type`, `Authorization`).
-
-### 10.3 Sobriedad Institucional en Logs y Prohibición de Emojis
-- Se eliminaron el 100% de emojis en el código productivo de backend y frontend, así como en los scripts de pruebas automatizadas.
-- Se adoptó el estándar bancario de prefijos textuales entre corchetes: `[INFO]`, `[WARN]`, `[ERROR]`, `[SECURITY WARN]`, `[WS]`, `[DB]`, `[MIGRATION]`, `[SUITE]`, `[PASS]`, `[FAIL]`, `[SUMMARY]`, `[CLEANUP]`, `[SUCCESS]`.
-- Se preserva el uso exclusivo de iconografía vectorial SVG (vía `lucide-react`) en los componentes visuales de la interfaz de usuario.
-
-### 10.4 Parametrización Dinámica de Socket.io en Frontend
-- El cliente de WebSocket en `frontend/src/services/socket.js` fue parametrizado utilizando la variable de entorno `import.meta.env.VITE_SOCKET_URL`.
-- Se implementó un fallback resiliente hacia `window.location.origin` para entornos donde frontend y backend se sirven bajo el mismo dominio/proxy inverso.
-- Se documentó la variable `VITE_SOCKET_URL` en `frontend/.env.example`.
-
-### 10.5 Requisitos de Complejidad en Contraseñas
-- En adición a la longitud mínima de 6 caracteres, se implementaron validaciones de complejidad obligatorias tanto en backend (`authController.changePassword`) como en frontend (`ChangePasswordModal.jsx`):
-  - Validación con expresiones regulares para exigir al menos una letra (`/[a-zA-Z]/`) y al menos un número (`/[0-9]/`).
-  - Mensajes de error claros e instructivos para el usuario final.
-
-### 10.6 Eliminación de Números Mágicos en Consultas SQL
-- Se reemplazaron identificadores fijos (como `tc.id_tipo_cuenta = 4`) por constantes legibles y mantenibles (`CONSTANTS.TIPO_CUENTA_PLANILLA = 'Cuenta de Planilla'`) en `asociadoController.js`, resolviendo el tipo de cuenta dinámicamente mediante subconsultas por nombre de catálogo.
-
-### 10.7 Documentación Estándar JSDoc 3
-- Se incorporaron bloques JSDoc 3 exhaustivos en todos los controladores críticos (`authController`, `userController`, `asociadoController`), middlewares (`authMiddleware`), configuración (`db`, `migrations`, `socketService`) y componentes modales de interfaz (`ChangePasswordModal`, `UpdateProfileModal`, `SecurityAlertModal`).
-- Cada bloque documenta el propósito bancario, parámetros esperados `@param`, valores de retorno `@returns`, y posibles excepciones `@throws`.
-
----
-
-## 11. Remediación Integral de Base de Datos y Arquitectura Relacional (PostgreSQL 14+)
-
-En seguimiento a los hallazgos técnicos del [`auditoria/REPORTE_AUDITORIA_BASE_DATOS.md`](file:///home/steven/Descargas/cooperativa-app/auditoria/REPORTE_AUDITORIA_BASE_DATOS.md), se aplicaron optimizaciones estructurales en el DDL principal (`database.sql`), migraciones automáticas idempotentes (`migrations.js`) y controladores del backend:
-
-### 11.1 Eliminación de Índices Redundantes (Cero Duplicidad de I/O)
-- **Diagnóstico:** 5 índices manuales (`idx_usuarios_codigo_corporativo`, `idx_usuarios_email`, `idx_personas_cui`, `idx_asociados_persona`, `idx_cuentas_numero`) duplicaban los árboles B-Tree creados automáticamente por PostgreSQL para constraints `PRIMARY KEY` y `UNIQUE`.
-- **Remediación:** Se eliminaron los 5 índices redundantes tanto en `migrations.js` como en `database.sql`, reduciendo el uso de memoria en `shared_buffers` y eliminando la sobrecarga de doble escritura en cada `INSERT` y `UPDATE`.
-
-### 11.2 Cobertura de Foreign Keys con Índices B-Tree
-- **Diagnóstico:** En PostgreSQL, las claves foráneas no generan índices automáticamente, obligando a bloqueos y lecturas secuenciales completas (*Sequential Scans*) en operaciones referenciales y `JOINs`.
-- **Remediación:** Se crearon 10 índices de cobertura:
-  - `idx_historial_modificado_por` sobre `historial_estados_usuario(id_modificado_por)`
-  - `idx_cuentas_tipo_cuenta` sobre `cuentas(id_tipo_cuenta)`
-  - `idx_solicitudes_credito_asociado` sobre `solicitudes_credito(id_asociado)`
-  - `idx_solicitudes_credito_analista` sobre `solicitudes_credito(id_analista) WHERE id_analista IS NOT NULL`
-  - `idx_solicitudes_traslado_asociado` sobre `solicitudes_traslado_apertura(id_asociado)`
-  - `idx_solicitudes_traslado_origen` sobre `solicitudes_traslado_apertura(id_cuenta_origen)`
-  - `idx_solicitudes_traslado_destino` sobre `solicitudes_traslado_apertura(id_cuenta_destino) WHERE id_cuenta_destino IS NOT NULL`
-  - `idx_solicitudes_traslado_tipo_destino` sobre `solicitudes_traslado_apertura(id_tipo_cuenta_destino)`
-  - `idx_solicitudes_traslado_operador` sobre `solicitudes_traslado_apertura(id_operador_resuelve) WHERE id_operador_resuelve IS NOT NULL`
-  - `idx_transacciones_usuario_registra` sobre `transacciones(id_usuario_registra) WHERE id_usuario_registra IS NOT NULL`
-
-### 11.3 Índices Compuestos y Parciales de Alto Rendimiento
-- **Cartola de Movimientos:** Se reemplazó el índice simple `idx_transacciones_cuenta` por el índice compuesto `idx_transacciones_cuenta_fecha ON transacciones(id_cuenta, fecha_transaccion DESC)`, eliminando ordenamientos en memoria (*Sort Quicksort*) en consultas de historial de cuenta.
-- **Bandeja del Operador:** Se creó el índice parcial ultraligero `idx_solicitudes_traslado_pendientes ON solicitudes_traslado_apertura(fecha_solicitud ASC) WHERE estado = 'PENDIENTE'`, optimizando el filtrado a $O(\log k)$ sobre casos activos.
-- **Historial de Solicitudes del Asociado:** Se agregaron `idx_solicitudes_traslado_asociado_fecha` y `idx_solicitudes_credito_asociado_fecha`.
-
-### 11.4 Mitigación de Condición de Carrera en Generación de Número de Caso
-- **Diagnóstico:** El cálculo manual `SELECT MAX(id_solicitud) + 1` en JavaScript dentro de `asociadoController.js` exponía al sistema a violaciones de clave única (`duplicate key violates constraint`) bajo concurrencia milimétrica.
-- **Remediación:**
-  - Se creó la secuencia atómica `seq_numero_caso_traslado` calibrada al valor máximo existente.
-  - Se implementó el trigger `trg_set_numero_caso` que ejecuta `trg_generar_numero_caso()` antes de la inserción (`BEFORE INSERT`), garantizando correlativos únicos atómicos (`CASO-YYYY-XXXX`) a nivel de motor PostgreSQL sin contención de bloqueos.
-  - Se adaptó `asociadoController.createSolicitudTraslado` para delegar la generación del caso al motor.
-
-### 11.5 Endurecimiento de Restricciones CHECK y Homogeneización
-- `chk_traslado_cuentas_diferentes`: Impide que un usuario traslade fondos hacia la misma cuenta de origen (`CHECK (id_cuenta_destino IS NULL OR id_cuenta_origen <> id_cuenta_destino)`).
-- `chk_credito_tasa_valida`: Valida que la tasa de interés sea no negativa y la cuota estimada positiva (`CHECK (tasa_interes >= 0 AND cuota_mensual_estimada > 0)`).
-- Se homogeneizó la escala de montos de traslado a `NUMERIC(14, 2)`.
-
-### 11.6 Inmutabilidad de Auditoría Bancaria
-- Se modificó la clave foránea `historial_estados_usuario_id_usuario_modificado_fkey` para sustituir `ON DELETE CASCADE` por `ON DELETE RESTRICT ON UPDATE CASCADE`, asegurando que la pista de auditoría nunca se destruya físicamente.
-
-### 11.7 Sincronización del Ciclo de Vida de Asociados
-- En `userController.deleteUser`, dentro de la misma transacción atómica de borrado lógico, se sincroniza el estado del padrón cooperativo:
-  ```javascript
-  await client.query("UPDATE asociados SET estado_asociado = 'INACTIVO' WHERE id_persona = $1", [targetUserPersonaId]);
-  ```
-
-### 11.8 Columna Generada Almacenada Inmutable
-- Se agregó en la tabla `personas` la columna `nombre_completo VARCHAR(255) GENERATED ALWAYS AS (...) STORED` utilizando concatenación de cadenas inmutable (`||`), garantizando un punto de lectura canónico sin duplicar lógica de concatenación en los controladores.
-
----
-
-## 12. Despliegue con Docker y Orquestación con Docker Compose
-
-El sistema cuenta con una arquitectura de contenedores completa para despliegue en entornos de desarrollo y producción utilizando Docker y Docker Compose:
-
-### 12.1 Arquitectura de Contenedores
+El sistema opera bajo un modelo estricto de Control de Acceso Basado en Roles (**RBAC**):
 
 ```
-+-------------------------------------------------------------------------------+
-|                       DOCKER COMPOSE (cooperativa-net)                        |
-|                                                                               |
-|  [frontend]                     [backend]                     [db]            |
-|  Nginx 1.27 Alpine              Node.js 20 Alpine             PostgreSQL 16   |
-|  Puerto Host: 3000              Puerto Host: 5000             Puerto Host:    |
-|  (SPA React Vite)               (API REST + WebSockets)       5432            |
-|        │                              │                        (Volumen:      |
-|        └──────── Proxy HTTP /ws ──────┴────── Pool TCP ────────┘cooperativa_  |
-|                                                                 db_data)      |
-+-------------------------------------------------------------------------------+
++---------------------------------------------------------------------------------+
+|                        ROLES DEL SISTEMA COOPERATIVO                            |
++-------------------+-------------------------------------------------------------+
+| ADMINISTRADOR     | Gestión de colaboradores, desbloqueos, monitor de presencia |
+|                   | y auditoría inmutable de eventos de seguridad.              |
++-------------------+-------------------------------------------------------------+
+| OPERADOR          | Atención en ventanilla, formalización de padrón, emisión    |
+|                   | de comprobantes, resolución de traslados y triaje de crédito|
++-------------------+-------------------------------------------------------------+
+| EJECUTIVO         | Evaluación colegiada de créditos, motor de scoring          |
+|                   | crediticio y resolución resolutiva con desembolso atómico.  |
++-------------------+-------------------------------------------------------------+
+| ASOCIADO          | Portal financiero de autogestión, consulta de saldos        |
+|                   | consolidados, traslados de nómina y solicitud de préstamos. |
++-------------------+-------------------------------------------------------------+
 ```
 
-### 12.2 Manifiestos y Configuración
+### Matriz de Permisos y Acceso por Componente:
 
-| Archivo | Propósito | Características Clave |
-| :--- | :--- | :--- |
-| `docker-compose.yml` | Orquestación multi-servicio | Define `db`, `backend` y `frontend` en la red bridge `cooperativa-net` con healthchecks y volumen persistente. |
-| `backend/Dockerfile` | Imagen de producción API | Base `node:20-alpine`, instalación de dependencias de producción, usuario no root `node`, `dumb-init` como PID 1 y healthcheck en `/api/health`. |
-| `frontend/Dockerfile` | Imagen multi-stage SPA | **Etapa 1:** Compilación con Vite en `node:20-alpine`.<br>**Etapa 2:** Servidor de producción en `nginx:1.27-alpine` con configuración optimizada. |
-| `frontend/nginx.conf` | Servidor web Nginx | Proxy inverso para `/api/` y WebSockets `/socket.io/`, compresión Gzip, cabeceras de seguridad bancaria y fallback para SPA. |
-| `docker.env.example` | Plantilla de variables | Parámetros de entorno configurables para base de datos, puertos y tokens JWT. |
+| Módulo / Funcionalidad | Solicitante | Rol `ASOCIADO` | Rol `OPERADOR` | Rol `EJECUTIVO` | Rol `ADMINISTRADOR` |
+|:---|:---:|:---:|:---:|:---:|:---:|
+| **Consulta Previa por DPI** | ✅ Público | ❌ N/A | ❌ N/A | ❌ N/A | ❌ N/A |
+| **Afiliación Digital (Esc. 1 y 2)** | ✅ Público | ❌ N/A | ❌ N/A | ❌ N/A | ❌ N/A |
+| **Inicio de Sesión Corporativo** | ❌ No | ✅ Sí | ✅ Sí | ✅ Sí | ✅ Sí |
+| **Portal Financiero del Asociado** | ❌ No | ✅ Exclusivo | ❌ Bloqueado | ❌ Bloqueado | ❌ Bloqueado |
+| **Simulador de Crédito Francés** | ❌ No | ✅ Exclusivo | ❌ Bloqueado | ❌ Bloqueado | ❌ Bloqueado |
+| **Subir Solicitud Firmada (PDF)** | ❌ No | ✅ Exclusivo | ❌ Bloqueado | ❌ Bloqueado | ❌ Bloqueado |
+| **Bandeja de Afiliaciones en Agencia** | ❌ No | ❌ Bloqueado | ✅ Exclusivo | ❌ Bloqueado | ❌ Bloqueado |
+| **Padrón de Asociados y Cuentas** | ❌ No | ❌ Bloqueado | ✅ Exclusivo | ❌ Bloqueado | ❌ Bloqueado |
+| **Descarga de Comprobante Apertura** | ❌ No | ❌ Bloqueado | ✅ Exclusivo | ❌ Bloqueado | ❌ Bloqueado |
+| **Bandeja de Traslados de Nómina** | ❌ No | ❌ Bloqueado | ✅ Exclusivo | ❌ Bloqueado | ❌ Bloqueado |
+| **Bandeja Colegiada de Créditos** | ❌ No | ❌ Bloqueado | ❌ Bloqueado | ✅ Exclusivo | ❌ Bloqueado |
+| **Motor de Scoring e Historial Flujos**| ❌ No | ❌ Bloqueado | ❌ Bloqueado | ✅ Exclusivo | ❌ Bloqueado |
+| **Aprobación y Desembolso de Créditos**| ❌ No | ❌ Bloqueado | ❌ Bloqueado | ✅ Exclusivo | ❌ Bloqueado |
+| **Centro de Mando Administrativo** | ❌ No | ❌ Bloqueado | ❌ Bloqueado | ❌ Bloqueado | ✅ Exclusivo |
+| **Creación/Edición Usuarios con Val.** | ❌ No | ❌ Bloqueado | ❌ Bloqueado | ❌ Bloqueado | ✅ Exclusivo |
+| **Reinicio Seguro de Contraseña** | ❌ No | ❌ Bloqueado | ❌ Bloqueado | ❌ Bloqueado | ✅ Exclusivo |
+| **Desbloqueo en 1 Clic (Anti-Fuerza)** | ❌ No | ❌ Bloqueado | ❌ Bloqueado | ❌ Bloqueado | ✅ Exclusivo |
+| **Auditoría Inmutable de Seguridad** | ❌ No | ❌ Bloqueado | ❌ Bloqueado | ❌ Bloqueado | ✅ Exclusivo |
 
-### 12.3 Comandos de Despliegue
+---
 
-1. **Configuración de Variables:**
-   ```bash
-   cp docker.env.example .env
-   ```
+## 5. Flujos Operativos de Usuario por Rol
 
-2. **Compilar y Levantar Contenedores:**
+### 5.1 Flujo 0: Solicitante Público / Afiliación Digital
+
+Disponible desde la pantalla de bienvenida (`/` o `/afiliacion`) sin autenticación previa:
+
+```
+[Inicio: Consulta DPI] ──▶ ¿Registrado en Core Banking?
+                             │
+            ┌────────────────┴────────────────┐
+            ▼ (SÍ)                            ▼ (NO)
+    [ESCENARIO 1: Banco]              [ESCENARIO 2: Agencia]
+  • Autenticación Banca en Línea     • Verificación 18+ Años
+  • Selección Cuenta Ahorro          • Trigger CASO-AFIL-YYYY-XXXX
+  • Aporte Inicial (Mín. Q100)       • Emisión de Comprobante PDF
+  • Débito ACH + Crédito Coop        • Visita a Ventanilla Operador
+  • Despacho de Credenciales Correo
+```
+
+#### Paso a Paso Detallado:
+1. **Ingreso y Consulta de CUI/DPI:** Validación de formato (13 dígitos numéricos) y consulta protegida con timeout preventivo de 5 segundos hacia el Core Banking (:5002).
+2. **ESCENARIO 1 (Cliente Bancario o Colaborador de Nómina):**
+   - Validación de las 3 credenciales de Banca en Línea (Usuario, Contraseña y Token/PIN).
+   - Débito ACH automático desde su cuenta bancaria de ahorro hacia la cooperativa.
+   - Creación de cuenta de aportaciones y despacho automático de credenciales (código corporativo `EX-X` o `EB-X` y contraseña temporal) al correo electrónico registrado.
+3. **ESCENARIO 2 (Solicitante No Bancarizado / Persona Particular):**
+   - Validación matemática de mayoría de edad (mínimo 18 años cumplidos).
+   - Generación del caso institucional `CASO-AFIL-YYYY-XXXX` mediante trigger atómico en PostgreSQL.
+   - Descarga automática de comprobante oficial en PDF con código QR para formalización presencial en ventanilla.
+
+---
+
+### 5.2 Flujo 1: Rol ASOCIADO (Portal Financiero y Saldos Consolidados)
+
+```
+[Login] ──▶ ¿Contraseña Temporal?
+                 │
+  ┌──────────────┴──────────────┐
+  ▼ (SÍ)                        ▼ (NO)
+[Cambio Forzoso de Clave]     [Portal Financiero del Asociado]
+  │                             │
+  ▼                             ├─▶ Total Cooperativa vs Cuenta Bancaria
+[Redirección a /login]          ├─▶ Descarga de Estado de Cuenta Oficial (PDF)
+                                ├─▶ Traslado desde Cuenta Nómina (CASO-YYYY-XXXX)
+                                └─▶ Simulador Amortización Francesa (Tope 2 Créditos)
+```
+
+#### 1. Primer Ingreso y Cambio Obligatorio de Contraseña:
+- Al iniciar sesión con una contraseña temporal generada por el sistema, se abre un diálogo modal de **Cambio Obligatorio de Contraseña**.
+- El asociado debe ingresar su contraseña temporal actual y definir su nueva contraseña personal (mínimo 6 caracteres alfanuméricos).
+- Al confirmar el cambio exitoso, el sistema destruye la sesión temporal y redirige al usuario formalmente a `/login`, permitiéndole ingresar con su nueva contraseña establecida.
+
+#### 2. Consulta de Balances y Arquitectura de Cuentas:
+- **Total Cooperativa:** Agrupa y totaliza los saldos disponibles en las cuentas aperturadas en la cooperativa (Cuenta de Aportaciones, Ahorro Corriente y Cuentas de Metas). Formateo numérico protegido contra valores nulos o `NaN`.
+- **Cuenta Bancaria Externa Vinculada:** Refleja la cuenta de ahorro aperturada en la entidad bancaria aliada con su saldo real sincronizado vía API de Core Banking.
+- **Cartola de Movimientos y Estado de Cuenta en PDF:** Emisión en 1 solo clic del Estado de Cuenta oficial en PDF (`ESTADO-CUENTA-<CUENTA>-<FECHA>.pdf`), con membrete bancario, folio único `EDC-<CUENTA>-<TIMESTAMP>`, tarjetas informativas, desglose transaccional y sello digital SHA-256.
+
+#### 3. Traslados de Nómina y Créditos:
+- Traslados de nómina con generación correlativa `CASO-YYYY-XXXX` para autorización del operador.
+- Simulador de crédito con Amortización Francesa al 10% anual, tope estatutario de 2 créditos simultáneos y carga de solicitud firmada en PDF.
+
+---
+
+### 5.3 Flujo 2: Rol OPERADOR (Ventanilla, Padrón y Comprobantes Oficiales)
+
+```
+[Login Operador (OP-X)] ──▶ [Operator Dashboard]
+                                   │
+      ┌────────────────────────────┼────────────────────────────┐
+      ▼                            ▼                            ▼
+[Bandeja Afiliaciones]    [Bandeja Traslados]         [Padrón de Asociados]
+• Bloqueo HTTP 409        • Revisión CASO-YYYY-XXXX   • Búsqueda y Paginación
+• Formulario 1            • Aprobación/Rechazo        • Formulario 2 (Cuentas)
+• Clasificación Auto DPI  • Transacción ACID          • Formulario 3 (Beneficiarios 100%)
+• Cero Clave en Pantalla  • Débito/Crédito Libro      • Expediente 360° (Rep. 1.1)
+• Despacho Correo Google                              • Comprobante Apertura PDF
+```
+
+#### 1. Bandeja de Afiliaciones en Ventanilla (Módulo 1):
+- Bloqueo concurrente atómico con respuesta `HTTP 409 Conflict` si otro operador atiende el caso simultáneamente.
+- **Formalización Presencial (Formulario 1):**
+  - **Detección y Clasificación Autónoma por DPI:** Al ingresar el DPI del solicitante, el sistema consulta de forma transparente al Core Banking (:5002) y clasifica automáticamente el tipo de asociado (`EB-X` para Empleado Bancario de nómina o `EX-X` para Cliente Externo/Particular), prescindiendo de selectores manuales propensos a errores.
+  - **Gestión Financiera de Apertura:** Método de pago predeterminado en efectivo en ventanilla (`EFECTIVO_VENTANILLA`) con aporte inicial mínimo de Q100.00. Para asociados externos (`EX`), se apertura automáticamente una cuenta de ahorro en la entidad bancaria aliada (`banco_db`). Para colaboradores bancarios (`EB`), se consultan y exhiben sus cuentas existentes, habilitando la opción de acreditar saldo a sus cuentas bancarias en caso de fondos insuficientes.
+  - **Selector Estructurado de Fecha de Nacimiento:** Componente unificado de triple selector (Día, Mes, Año) estandarizado con el portal público, con insignia en tiempo real de mayoría de edad legal (18+ años cumplidos).
+  - **Validaciones Rigurosas de Entrada:** Restricción estricta de DPI a 13 dígitos numéricos, teléfono a exactamente 8 dígitos (bloqueando caracteres no numéricos y longitudes mayores), y comprobación en tiempo real de correos duplicados.
+  - **Control de Modificación y Envío Único:** El botón de registro permanece inactivo si no se han realizado cambios y se bloquea contra doble clic accidental.
+  - **Cero Exposición de Contraseña y Proceso Desatendido:** Se eliminó cualquier interruptor manual de "Habilitar credenciales web"; la cuenta de usuario se aprovisiona automáticamente y la contraseña temporal autogenerada criptográficamente se envía de forma confidencial al correo del titular sin mostrarse al operador.
+  - **Comprobante Oficial de Apertura en PDF:** El operador genera y descarga el comprobante en PDF de la cuenta aperturada en ventanilla, detallando la operación de caja, acreditación inicial de fondos y firma/sello institucional.
+
+#### 2. Gestión de Créditos en Ventanilla (Rol Operador):
+- **Obligatoriedad de PDF Firmado:** Para solicitudes de crédito evaluadas por ventanilla, el operador no puede aceptar ni elevar la solicitud al Comité de Crédito sin haber adjuntado obligatoriamente el documento PDF con la firma manuscrita del asociado.
+
+#### 3. Bandeja de Traslados y Padrón 360°:
+- Aprobación contable en doble partida de traslados de nómina.
+- Formulario 2 de cuentas adicionales y Formulario 3 de beneficiarios con estricta validación del **100.00%**.
+- Expediente Integral 360° (Reporte 1.1) con vista biográfica, financiera y crediticia del asociado.
+
+---
+
+### 5.4 Flujo 3: Rol EJECUTIVO (Comité de Crédito, Scoring y Flujo Financiero)
+
+```
+[Login Ejecutivo (EJ-X)] ──▶ [Executive Dashboard]
+                                    │
+                                    ▼
+                      [Bandeja Colegiada de Créditos]
+                                    │
+          ┌─────────────────────────┼─────────────────────────┐
+          ▼                         ▼                         ▼
+  [Visor PDF Firmado]      [Motor de Scoring]       [Resolución Ejecutiva]
+  • Contrato escaneado     • Capacidad de pago      • APROBAR (Desembolso)
+  • Carga PDF Obligatorio  • Tabla Transacciones    • DEVOLVER (Obs. Requerida)
+  • RBAC /api/uploads      • Columna TIPO (Flujo)   • DENEGAR (Justificación)
+```
+
+#### 1. Bandeja y Visor Documental Protegido:
+- Acceso al PDF escaneado con firma manuscrita mediante token seguro en `/api/uploads/creditos/:filename`.
+- Verificación estricta de presencia del documento firmado antes de autorizar la resolución final.
+
+#### 2. Motor de Scoring y Columna "TIPO" de Flujo Financiero:
+- En la tabla de **Historial de Transacciones del Solicitante**, se proyecta la columna **"TIPO"**:
+  - **`CRÉDITO` (Insignia Verde Esmeralda):** Ingresos, depósitos y abonos de fondos a la cuenta.
+  - **`DÉBITO` (Insignia Roja Coral):** Egresos, retiros, pagos y salidas de fondos.
+  - **Utilidad Crediticia:** Permite al ejecutivo evaluar de forma instantánea si el asociado mantiene ingresos recurrentes y estables (liquidez y solvencia) o egresos elevados, determinando su capacidad real de pago.
+
+#### 3. Resoluciones Exclusivas:
+- **Aprobar:** Desembolso atómico, apertura de cuenta crediticia y acreditación en cuenta de ahorro del asociado.
+- **Devolver a Operador:** Envío con observaciones obligatorias para subsanación documental en ventanilla.
+- **Denegar:** Archivo inmutable con justificación obligatoria.
+
+---
+
+### 5.5 Flujo 4: Rol ADMINISTRADOR (Centro de Mando, Usuarios y Auditoría)
+
+```
+[Login Administrador (AD-X)] ──▶ [Admin Dashboard]
+                                        │
+           ┌────────────────────────────┼────────────────────────────┐
+           ▼                            ▼                            ▼
+  [Centro de Mando KPIs]      [Monitor de Presencia]       [Gestión Usuarios 3FN]
+  • 4 Tarjetas en tiempo real • WebSockets en vivo         • Validaciones Estrictas
+  • Gráfica Dona RBAC         • Ping/Pong cada 30s         • Fecha Nacimiento (18+ Años)
+  • Barras Altas Semestrales  • Auditoría Forense          • Clave Criptográfica por Correo
+                              • IP y User-Agent            • Cero Clave en Pantalla
+```
+
+#### 1. Limpieza de Interfaz y Gobernanza:
+- Se eliminaron botones redundantes en la cabecera del Admin (`[Mi Seguridad]` y `[Correo Google]`). La seguridad personal del administrador se gestiona de manera centralizada desde su avatar en la barra de navegación superior.
+
+#### 2. Creación y Edición de Usuarios con Validaciones Estrictas:
+El modal de creación/edición de colaboradores implementa el estándar riguroso de la institución:
+- **DPI / CUI:** Exactamente 13 dígitos numéricos, bloqueo de caracteres no numéricos y contador dinámico `X/13`.
+- **Teléfono:** Exactamente 8 dígitos numéricos con contador `X/8`.
+- **Nombres y Apellidos:** Restricción exclusiva a caracteres alfabéticos (con tildes y diéresis), bloqueando números y símbolos. Mínimo 2 caracteres.
+- **Fecha / Año de Nacimiento y Mayoría de Edad:** Campo con calendario, cálculo de edad en tiempo real (`calculateAgeInfo`) y validación obligatoria de mayoría de edad (mínimo 18 años cumplidos).
+- **Asignación Automática de Código:** Correlativo institucional según el perfil seleccionado (`EJ-X`, `OP-X`).
+- **Generación Criptográfica de Contraseña:** La contraseña temporal no se asigna a mano ni se exhibe en pantalla; el servidor la genera de forma aleatoria y la despacha al correo electrónico del nuevo colaborador.
+
+#### 3. Reinicio Seguro de Contraseñas y Desbloqueo en 1 Clic:
+- Al reiniciar la contraseña de cualquier usuario, el sistema genera una nueva clave temporal criptográfica y la envía al correo del usuario. No se expone al administrador.
+- Desbloqueo administrativo inmediato de cuentas bloqueadas por fuerza bruta con restablecimiento a 0 intentos y registro en auditoría forense (`historial_estados_usuario`).
+
+---
+
+### 5.6 Módulo Transversal: Servicio de Correo Google y Cero Exposición de Claves
+
+El sistema integra un servicio de mensajería electrónica corporativa en [`mailerService.js`](file:///Users/stevenortiz/Documents/UMG/CICLO%2010/PROYECTO%20DE%20GRADUACION%202/cooperativa-app/backend/src/services/mailerService.js) conectado vía **Google Mail SMTP**:
+
+- **Credenciales Seguras:** Autenticación mediante contraseña de aplicación de Google (`GOOGLE_EMAIL_APP_PASSWORD`) sobre TLS (puerto 465).
+- **Plantillas HTML Institucionales:** Correos con diseño responsivo, membrete azul corporativo, identificación del código de usuario, credenciales temporales resaltadas, fecha y recomendaciones de seguridad bancaria.
+- **Casos de Uso de Despacho:**
+  1. Alta de nuevo asociado formalizado en ventanilla (código `EX-X` y clave temporal).
+  2. Creación de nuevo colaborador institucional por parte del Administrador (código `EJ-X` o `OP-X` y clave temporal).
+  3. Reinicio administrativo de contraseña para cualquier usuario del sistema.
+- **Protección Cero Exposición:** Erradica el riesgo de espionaje visual (*shoulder surfing*) o filtraciones internas al no mostrar contraseñas generadas en la pantalla del operador ni del administrador.
+
+---
+
+### 5.7 Módulo Transversal: Configuración de Cuenta y Factor 2FA Opcional
+
+- **Menú Simplificado:** Se eliminó la opción redundante *"Cambiar Contraseña"* del menú desplegable del Navbar. Ahora la opción unificada es **"Seguridad & Doble Factor (2FA)"**.
+- **Voluntariedad:** El enrolamiento de 2FA TOTP (RFC 6238) es completamente voluntario y autogestionado desde el perfil. No se exige de manera forzosa al iniciar sesión por primera vez.
+- **Funcionalidades del Modal:**
+  - Pestaña 1: Configuración, activación con código QR y desactivación protegida de 2FA TOTP.
+  - Pestaña 2: Cambio voluntario de contraseña validando la contraseña actual.
+  - Pestaña 3: Consulta y actualización de datos personales y teléfono de contacto.
+
+---
+
+## 6. Estructura Completa de Base de Datos
+
+PostgreSQL 16 gestiona dos bases de datos relacionales: `cooperativa_db` (entidad cooperativa) y `banco_db` (Core Banking de la corporación).
+
+### 6.1 Base de Datos `cooperativa_db` (14 Tablas 3FN)
+
+```
+                                  +-------------------+
+                                  |     personas      |
+                                  +-------------------+
+                                  | id_persona (PK)   |
+                                  | cui_dpi (UQ)      |
+                                  | nombre_completo   |
+                                  | fecha_nacimiento  |
+                                  +---------+---------+
+                                            |
+                   ┌────────────────────────┴────────────────────────┐
+                   ▼ 1:1                                             ▼ 1:1
+        +-----------------------+                         +-----------------------+
+        |       usuarios        |                         |       asociados       |
+        +-----------------------+                         +-----------------------+
+        | id_persona (PK, FK)   |                         | id_asociado (PK)      |
+        | id_rol (FK)           |                         | id_persona (FK, UQ)   |
+        | codigo_corporativo(UQ)|                         | fecha_ingreso         |
+        | password_hash         |                         +-----------+-----------+
+        | primer_ingreso        |                                     |
+        | mfa_secret, mfa_enab  |                                     ▼ 1:N
+        | intentos_fallidos     |                         +-----------------------+
+        | bloqueado_hasta       |                         |        cuentas        |
+        | sesion_activa_id      |                         +-----------------------+
+        +-----------------------+                         | id_cuenta (PK)        |
+                                                          | id_asociado (FK)      |
+                                                          | id_tipo_cuenta (FK)   |
+                                                          | numero_cuenta (UQ)    |
+                                                          | saldo_disponible      |
+                                                          | saldo_reserva         |
+                                                          +-----------+-----------+
+                                                                      |
+                                     ┌────────────────────────────────┴────────────────────────────────┐
+                                     ▼ 1:N                                                             ▼ 1:N
+                          +-----------------------+                                         +-----------------------+
+                          |     transacciones     |                                         |     beneficiarios     |
+                          +-----------------------+                                         +-----------------------+
+                          | id_transaccion (PK)   |                                         | id_beneficiario (PK)  |
+                          | id_cuenta (FK)        |                                         | id_cuenta (FK)        |
+                          | tipo_transaccion      |                                         | porcentaje (100.00%)  |
+                          | monto                 |                                         +-----------------------+
+                          | saldo_nuevo           |
+                          +-----------------------+
+```
+
+#### Diccionario de Tablas:
+
+1. **`roles`:** Catálogo de roles del sistema (`ADMINISTRADOR`, `OPERADOR`, `EJECUTIVO`, `ASOCIADO`).
+2. **`permisos`:** Catálogo granular de operaciones del sistema.
+3. **`roles_permisos`:** Asignación N:M de permisos a roles.
+4. **`personas`:** Entidad biográfica y única fuente de verdad humana.
+   - `id_persona` (SERIAL PK), `cui_dpi` (VARCHAR(20) UNIQUE NOT NULL), `primer_nombre` (VARCHAR(50) NOT NULL), `segundo_nombre` (VARCHAR(50)), `primer_apellido` (VARCHAR(50) NOT NULL), `segundo_apellido` (VARCHAR(50)), `nombre_completo` (VARCHAR(255) STORED), `telefono` (VARCHAR(20)), `direccion` (TEXT), `fecha_nacimiento` (DATE NOT NULL), `fecha_creacion` (TIMESTAMP WITH TIME ZONE).
+5. **`usuarios`:** Credenciales de acceso, control de concurrencia y seguridad.
+   - `id_persona` (INT PK FK personas), `id_rol` (INT FK roles), `codigo_corporativo` (VARCHAR(30) UNIQUE NOT NULL), `email` (VARCHAR(150) UNIQUE NOT NULL), `password_hash` (VARCHAR(255) NOT NULL), `primer_ingreso` (BOOLEAN DEFAULT TRUE), `estado` (VARCHAR(20) DEFAULT 'ACTIVO'), `intentos_fallidos` (INT DEFAULT 0), `bloqueado_hasta` (TIMESTAMP WITH TIME ZONE), `sesion_activa_id` (VARCHAR(255)), `ultimo_ping` (TIMESTAMP WITH TIME ZONE), `mfa_secret` (VARCHAR(64)), `mfa_enabled` (BOOLEAN DEFAULT FALSE).
+6. **`historial_estados_usuario`:** Registro inmutable de auditoría forense (SEC-09).
+   - `id_historial_estado` (SERIAL PK), `id_usuario_modificado` (INT FK usuarios), `estado_anterior`, `estado_nuevo`, `id_modificado_por` (INT FK usuarios), `motivo` (TEXT), `ip_origen` (VARCHAR(45)), `user_agent` (TEXT), `fecha_cambio` (TIMESTAMP WITH TIME ZONE).
+7. **`asociados`:** Padrón formal de socios de la cooperativa.
+   - `id_asociado` (SERIAL PK), `id_persona` (INT UNIQUE FK personas), `fecha_ingreso` (TIMESTAMP WITH TIME ZONE), `estado_asociado` (VARCHAR(20) DEFAULT 'ACTIVO').
+8. **`tipos_cuenta`:** Catálogo de productos financieros (Aportaciones, Ahorro Corriente, Metas, Planilla, Crédito).
+9. **`cuentas`:** Cuentas aperturadas por los asociados.
+   - `id_cuenta` (SERIAL PK), `numero_cuenta` (VARCHAR(30) UNIQUE NOT NULL), `id_asociado` (INT FK asociados), `id_tipo_cuenta` (INT FK tipos_cuenta), `saldo_disponible` (NUMERIC(14,2) DEFAULT 0.00), `saldo_reserva` (NUMERIC(14,2) DEFAULT 0.00), `estado` (VARCHAR(20) DEFAULT 'ACTIVA').
+10. **`beneficiarios`:** Distribución testamentaria de las cuentas del socio (`porcentaje` con regla estricta de suma = 100.00%).
+11. **`solicitudes_afiliacion_agencia`:** Solicitudes emitidas por personas no bancarizadas (Escenario 2).
+    - `id_solicitud` (SERIAL PK), `numero_caso` (VARCHAR(30) UNIQUE NOT NULL), `cui_dpi`, `primer_nombre`, `primer_apellido`, `fecha_nacimiento` (DATE NOT NULL), `monto_estimado`, `estado` (PENDIENTE_AGENCIA, ATENDIDA, CANCELADA), `id_operador_bloqueo` (INT FK usuarios), `fecha_bloqueo`.
+12. **`solicitudes_traslado_apertura`:** Casos de traslado de nómina a ahorro (`numero_caso` formato `CASO-YYYY-XXXX`).
+13. **`solicitudes_credito`:** Préstamos radicados por los asociados (`monto_solicitado`, `plazo_meses`, `cuota_mensual_estimada`, `documento_firmado_url`, `id_ejecutivo_resuelve`).
+14. **`transacciones`:** Libro mayor contable de doble partida (`tipo_transaccion`, `monto`, `saldo_anterior`, `saldo_nuevo`, `referencia`).
+
+---
+
+### 6.2 Base de Datos `banco_db` (Core Banking de la Corporación)
+
+Gestionada por el microservicio `banco-backend` (:5002):
+1. **`clientes_banco`:** Padrón de clientes y empleados de la Entidad Bancaria (`cui_dpi`, `tipo_cliente` ['EMPLEADO_PLANILLA', 'CLIENTE_EXTERNO'], `estado`).
+2. **`cuentas_bancarias`:** Cuentas de ahorro y monetarias del Core Bancario (`numero_cuenta`, `tipo_cuenta`, `saldo_disponible`, `saldo_reserva`).
+3. **`usuarios_banca_en_linea`:** Credenciales de Banca en Línea para validación en 3 factores (`nombre_usuario`, `codigo_bancario`, `password_hash`).
+4. **`movimientos_bancarios`:** Libro contable de movimientos bancarios y débitos ACH (`tipo_movimiento` ['DEBITO_ACH_COOPERATIVA', 'DEPOSITO', 'RETIRO', etc.]).
+
+---
+
+### 6.3 Triggers, Funciones y Secuencias Atómicas
+
+1. **Trigger de Casos de Traslado (`trg_set_numero_caso`):** Secuencia atómica `seq_numero_caso_traslado` (`CASO-YYYY-XXXX`).
+2. **Trigger de Casos de Afiliación en Agencia (`trg_set_numero_caso_afiliacion`):** Secuencia atómica `seq_numero_caso_afiliacion` (`CASO-AFIL-YYYY-XXXX`).
+
+---
+
+### 6.4 Optimización de Índices DBA y Cobertura B-Tree
+
+- **Cobertura Completa de Claves Foráneas (10 Índices B-Tree):** Índices explícitos sobre todas las llaves foráneas (`id_cuenta`, `id_asociado`, `id_persona`, `id_tipo_cuenta`, etc.), eliminando lecturas secuenciales completas (*Sequential Scans*).
+- **Índices Parciales Ultraligeros:**
+  - `idx_solicitudes_afiliacion_pendientes` sobre `solicitudes_afiliacion_agencia(fecha_solicitud ASC) WHERE estado = 'PENDIENTE_AGENCIA'`.
+  - `idx_solicitudes_traslado_pendientes` sobre `solicitudes_traslado_apertura(fecha_solicitud ASC) WHERE estado = 'PENDIENTE'`.
+- **Índice Compuesto en Cartolas:**
+  - `idx_transacciones_cuenta_fecha ON transacciones(id_cuenta, fecha_transaccion DESC)` para eliminación de ordenamiento en memoria.
+
+---
+
+## 7. Reglas de Negocio Financieras y Políticas de Seguridad
+
+1. **Fórmula de Amortización Francesa (10.00% Anual):**
+   $$\text{Cuota} = \frac{P \times i}{1 - (1 + i)^{-n}}$$
+   Donde $i = \frac{0.10}{12} = 0.008333333333$, $P$ es el capital y $n$ el plazo en meses.
+2. **Límite Estatutario de Créditos Simultáneos:** Máximo **2 créditos activos** por asociado.
+3. **Mayoría de Edad Legal Estricta (18+ Años):** Verificación obligatoria para la afiliación de asociados y para la creación de colaboradores institucionales.
+4. **Regla del 100.00% en Beneficiarios:** La suma de porcentajes asignados debe ser exactamente **100.00%**.
+5. **Monto Mínimo de Aporte Inicial:** Mínimo **Q100.00** para cualquier apertura de membresía.
+6. **Cero Exposición de Contraseñas:** Las contraseñas temporales nunca se muestran en pantalla; se envían exclusivamente por correo electrónico vía Google Mail.
+7. **Cambio Forzoso de Clave en Primer Ingreso:** Las contraseñas temporales expiran inmediatamente tras el primer inicio, forzando al usuario a definir una clave nueva y redirigiéndolo a `/login`.
+8. **Protección Anti-Fuerza Bruta:** 3 intentos fallidos bloquean la cuenta por 15 minutos (`HTTP 423 Locked`).
+9. **Control de Sesión Única Concurrente:** Bloqueo de sesiones simultáneas (`HTTP 409 Conflict`) con alerta WebSocket en la sesión activa.
+10. **Temporizador de Inactividad de 10 Minutos:** Logout automático por inactividad física.
+11. **Muerte de Sesión al Retroceder a `/login`:** Destrucción instantánea de tokens al pulsar "Atrás" hacia el login.
+12. **Autenticación Inter-Servicio Core Bancario (Zero-Trust):** Cabecera obligatoria `x-banco-api-key` entre backend y Core Banking.
+13. **RBAC en Expedientes (`/api/uploads`):** Descarga protegida con validación estricta de titularidad o rol de auditoría.
+14. **Auditoría Forense con IP y User-Agent:** Trazabilidad inmutable en `historial_estados_usuario`.
+
+---
+
+## 8. Esquema de Identidad, Nomenclatura y Gestión Segura de Credenciales
+
+En cumplimiento de las normas de seguridad de la información y privacidad de datos, el sistema no almacena ni expone listados estáticos de contraseñas de usuarios. La gobernanza de identidades opera bajo las siguientes políticas:
+
+### 8.1 Taxonomía de Códigos Corporativos Institucionales
+
+El sistema genera prefijos automáticos según el rol y la vinculación corporativa del usuario:
+
+| Prefijo | Rol Institucional | Descripción y Alcance | Mecanismo de Asignación |
+|:---:|:---|:---|:---|
+| **`AD-X`** | `ADMINISTRADOR` | Administrador de Plataforma y Centro de Mando | Correlativo asignado al crear el perfil administrativo |
+| **`OP-X`** | `OPERADOR` | Operador de Ventanilla, Padrón y Afiliaciones | Correlativo automático `OP-1`, `OP-2`, etc. |
+| **`EJ-X`** | `EJECUTIVO` | Ejecutivo de Crédito, Scoring y Resoluciones | Correlativo automático `EJ-1`, `EJ-2`, etc. |
+| **`EB-X`** | `ASOCIADO` | Asociado Empleado / Colaborador de la Corporación | Derivado de clientes con nómina bancaria |
+| **`EX-X`** | `ASOCIADO` | Asociado Externo / Persona Particular | Generado al formalizar afiliación presencial o digital |
+
+### 8.2 Ciclo de Vida y Generación de Credenciales
+
+1. **Generación Criptográfica:**
+   - Toda cuenta nueva (sea asociado o colaborador institucional) recibe una contraseña temporal generada aleatoriamente mediante funciones criptográficas seguras (`crypto.randomBytes`).
+   - El hash de almacenamiento se procesa con `bcryptjs` utilizando **10 rondas de salteo**.
+2. **Despacho Confidencial por Correo:**
+   - La credencial generada se despacha directamente a la casilla de correo electrónico registrada del titular a través del servicio institucional de Google Mail.
+   - En ningún momento la contraseña temporal se muestra en la pantalla del operador ni del administrador.
+3. **Primer Acceso y Cambio Obligatorio:**
+   - En el primer inicio de sesión, el sistema intercepta las credenciales temporales mediante la bandera `primer_ingreso = true`.
+   - Se solicita al usuario ingresar su clave temporal actual y definir una contraseña definitiva personal.
+   - Tras la actualización exitosa, el sistema destruye el token temporal y redirige al usuario a la pantalla de `/login` para que ingrese formalmente con su nueva contraseña establecida.
+4. **Reinicio Administrativo de Contraseña:**
+   - Si un colaborador o asociado olvida su clave, el Administrador ejecuta la acción de reinicio con motivo justificado.
+   - El sistema regenera una nueva clave temporal, la persiste con hash seguro y la envía al correo del usuario, manteniéndose oculta para el Administrador.
+
+---
+
+## 9. Guía de Despliegue con Docker Compose
+
+El despliegue del ecosistema completo se efectúa mediante Docker Compose, garantizando aislamiento total y paridad idéntica entre entornos de desarrollo, pruebas y producción.
+
+### 9.1 Prerrequisitos
+- Docker Engine (versión 24.0 o superior).
+- Docker Compose (v2.20 o superior).
+
+### 9.2 Comandos de Ejecución
+
+1. **Construir y Levantar los 4 Contenedores en Segundo Plano:**
    ```bash
    docker compose up --build -d
    ```
-
-3. **Verificar Estado de Salud:**
+2. **Verificar el Estado de Salud (*Healthchecks*):**
    ```bash
    docker compose ps
    ```
-
-4. **Monitorear Logs en Tiempo Real:**
+   *Debe confirmar los 4 contenedores en estado `Up (healthy)`.*
+3. **Inspeccionar Logs de los Servicios:**
    ```bash
-   docker compose logs -f
+   docker compose logs -f cooperativa-backend
    ```
-
-5. **Detener Contenedores:**
+4. **Sincronización Rápida del Frontend (en Desarrollo):**
+   ```bash
+   npm run build --prefix frontend
+   docker cp frontend/dist/. cooperativa-frontend:/usr/share/nginx/html/
+   ```
+5. **Detener y Limpiar Contenedores:**
    ```bash
    docker compose down
    ```
 
+### 9.3 Configuración de Secretos y Variables de Entorno
+
+| Variable | Servicio(s) | Propósito de Seguridad y Configuración |
+|:---|:---|:---|
+| `POSTGRES_DB` | `db` | Catálogo relacional principal de la cooperativa (`cooperativa_db`). |
+| `POSTGRES_USER` | `db`, `backend`, `banco-backend` | Usuario de PostgreSQL con permisos restringidos. |
+| `POSTGRES_PASSWORD`| `db`, `backend`, `banco-backend` | Credencial segura de autenticación en la base de datos. |
+| `JWT_SECRET` | `backend` | Clave secreta criptográfica para la firma de tokens JWT (HS256). |
+| `JWT_EXPIRES_IN` | `backend` | Ventana máxima de validez del token de acceso (`8h`). |
+| `BANCO_API_URL` | `backend` | Endpoint interno para comunicación inter-servicio (`http://banco-backend:5002`). |
+| `BANCO_INTERNAL_API_KEY` | `backend`, `banco-backend` | Token secreto transmitido en cabecera `x-banco-api-key` (Zero-Trust). |
+| `GOOGLE_EMAIL_USER` | `backend` | Cuenta institucional de Google Mail emisora (`noreplycooperativa@gmail.com`). |
+| `GOOGLE_EMAIL_APP_PASSWORD` | `backend` | Contraseña de aplicación segura de Google para despacho SMTP. |
+| `FRONTEND_URL` | `backend` | Origen de CORS permitido y enlace para WebSockets Socket.io. |
+
+### 9.4 Volúmenes Persistentes y Almacenamiento Seguro de Archivos
+
+1. **`cooperativa_db_data` (Volumen Administrado por Docker):**
+   - Mapeo en contenedor: `/var/lib/postgresql/data`.
+   - Garantiza la persistencia permanente de todos los esquemas, tablas, transacciones contables y secuencias atómicas.
+2. **`./backend/uploads` (Bind Mount del Sistema Anfitrión):**
+   - Subcarpetas: `/app/uploads/afiliaciones/` y `/app/uploads/creditos/`.
+   - Custodia RBAC: Entrega restringida mediante `GET /api/uploads/:subfolder/:filename`.
+
+### 9.5 Verificación de Conectividad y Endpoints de Salud
+
+- **Core Banking Healthcheck:** `GET http://localhost:5002/api/banco/health` (Público, status 200).
+- **Cooperativa Backend Healthcheck:** `GET http://localhost:5001/api/health` (Público, status 200).
+
 ---
 
-> **Proyecto:** Cooperativa - Sistema de Gestión Integral  
+## 10. Suites de Pruebas Automatizadas (100% Cobertura)
+
+El proyecto cuenta con suites de pruebas automatizadas oficiales en la carpeta `backend/`:
+
+1. **Integridad de Base de Datos (`testDatabaseIntegrity.js`):** Valida parámetros de pool de conexiones, migraciones DDL idempotentes y 10 índices de cobertura B-Tree en llaves foráneas.
+2. **Arquitectura y Resiliencia (`testArchitectureImprovements.js`):** Valida timeout defensivo hacia Core Banking (:5002) y persistencia en `./backend/uploads`.
+3. **Bandeja Operativa y Bloqueo Concurrente (`testBandejaAfiliaciones.js`):** Valida el bloqueo atómico con `HTTP 409 Conflict`, liberación de casos y formalización presencial.
+4. **Traslados de Nómina y Consistencia ACID (`testTraslados.js`):** Valida correlativo `CASO-YYYY-XXXX`, autorización en ventanilla y doble partida contable en el libro mayor.
+5. **Verificación Integral de Módulo 1 (`testModulo1Completo.js`):** Valida consulta por DPI, Escenario 1 (ACH), Escenario 2 (mayoría de edad 18+), Formularios 1, 2 y 3 (beneficiarios 100%), y Expediente 360°.
+6. **Certificación de Ciberseguridad y Zero-Trust (`testCybersecurity.js`):** Valida los 11 hallazgos de seguridad (API Key, RBAC en uploads, prevención DDL Injection, revocación de tokens y auditoría forense con IP/User-Agent).
+7. **Flujo de Cambio Forzoso de Contraseña (`testForcedPasswordChange.js`):** Valida que las contraseñas temporales exijan cambio de clave en el primer acceso y redirección a login.
+8. **Servicio de Mensajería Google (`testGoogleMailer.js`):** Valida conexión y autenticación SMTP con los servidores de Google.
+
+### Ejecución de Todas las Suites en un Solo Comando:
+```bash
+node backend/testCybersecurity.js && \
+node backend/testDatabaseIntegrity.js && \
+node backend/testArchitectureImprovements.js && \
+node backend/testBandejaAfiliaciones.js && \
+node backend/testTraslados.js && \
+node backend/testModulo1Completo.js
+```
+
+---
+
+> **Proyecto:** Cooperativa de Ahorro y Crédito - Sistema de Gestión Integral  
 > **Ciclo:** Ciclo 10 - Proyecto de Graduación 2 (UMG)  
-> **Año:** 2026
+> **Año:** 2026  
