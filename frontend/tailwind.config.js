@@ -40,6 +40,8 @@ export default {
         line: {
           DEFAULT: '#e2e8f0',
           strong: '#cbd5e1',
+          // Contorno de inputs y selects: 3:1 sobre blanco y sobre surface-muted (WCAG 1.4.11).
+          input: '#8491a3',
         },
         // Estados.
         success: {
