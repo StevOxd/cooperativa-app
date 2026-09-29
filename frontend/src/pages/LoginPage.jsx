@@ -4,8 +4,11 @@ import { useAuth } from '../context/AuthContext';
 import { Eye, EyeOff, ShieldAlert } from 'lucide-react';
 import { Alert, Button, Field, Input } from '../components/ui';
 import { Wordmark } from '../components/layout/Wordmark';
+import { ParticleField } from '../components/login/ParticleField';
 
 export const LoginPage = () => {
+  // Tarjeta de inicio de sesión: el fondo animado no actúa dentro de ella.
+  const cardRef = useRef(null);
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -149,9 +152,11 @@ export const LoginPage = () => {
   const year = new Date().getFullYear();
 
   return (
-    <div className="min-h-screen flex flex-col bg-surface-muted">
-      <main className="flex-1 flex items-center justify-center px-4 py-10 sm:px-6">
-        <div className="w-full max-w-4xl grid lg:grid-cols-2 bg-white border border-line rounded-lg overflow-hidden">
+    <div className="relative isolate min-h-screen flex flex-col bg-surface-muted">
+      {/* Fondo animado decorativo: solo en escritorio y fuera de la tarjeta */}
+      <ParticleField excludeRef={cardRef} />
+      <main className="relative z-10 flex-1 flex items-center justify-center px-4 py-10 sm:px-6">
+        <div ref={cardRef} className="w-full max-w-4xl grid lg:grid-cols-2 bg-white border border-line rounded-lg overflow-hidden">
           {/* Panel institucional: solo en pantallas grandes */}
           <aside className="hidden lg:flex flex-col justify-between gap-10 bg-brand-900 p-10 text-white">
             <Wordmark inverse />
@@ -303,7 +308,7 @@ export const LoginPage = () => {
         </div>
       </main>
 
-      <footer className="lg:hidden pb-6 text-center text-xs text-ink-subtle">© {year} Cooperativa</footer>
+      <footer className="relative z-10 lg:hidden pb-6 text-center text-xs text-ink-subtle">© {year} Cooperativa</footer>
     </div>
   );
 };
