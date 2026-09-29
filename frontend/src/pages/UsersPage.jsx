@@ -1,42 +1,105 @@
 import React, { useState, useEffect } from 'react';
-import { createPortal } from 'react-dom';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { getSocket } from '../services/socket';
-import {
-  Users,
-  UserPlus,
-  Search,
-  Filter,
-  Edit2,
-  CheckCircle,
-  XCircle,
-  Loader2,
-  AlertCircle,
-  AlertTriangle,
-  Unlock,
-  X,
-  Lock,
-  Mail,
-  User,
-  CreditCard,
-  Phone,
-  MapPin,
-  Shield,
-  KeyRound,
-  Sparkles,
-  Ban,
-  Copy,
-  Check,
-  RotateCcw,
-  ShieldCheck,
-  CheckCircle2,
-  ShieldAlert,
-  Calendar,
-} from 'lucide-react';
+import { Ban, Mail, Pencil, KeyRound, Unlock, UserCheck, UserPlus, Users } from 'lucide-react';
 import { useToast } from '../context/ToastContext';
-import TableSkeleton from '../components/common/TableSkeleton';
 import GoogleEmailConfigModal from '../components/admin/GoogleEmailConfigModal';
+import {
+  Alert,
+  Badge,
+  Button,
+  Card,
+  EmptyState,
+  Field,
+  Input,
+  LoadingState,
+  Modal,
+  PageHeader,
+  PasswordInput,
+  SearchInput,
+  Select,
+  Table,
+  TBody,
+  TD,
+  TH,
+  THead,
+  TR,
+  Textarea,
+  cn,
+} from '../components/ui';
+import { ROLE_LABELS } from '../components/layout/navigation';
+import { formatDate, humanize } from '../utils/format';
+
+const ROLE_FILTERS = [
+  { value: '', label: 'Todos' },
+  { value: 'ASOCIADO', label: 'Asociados' },
+  { value: 'EJECUTIVO', label: 'Ejecutivos' },
+  { value: 'OPERADOR', label: 'Operadores' },
+];
+
+const STATUS_FILTERS = [
+  { value: '', label: 'Todos' },
+  { value: 'ACTIVO', label: 'Activos' },
+  { value: 'INACTIVO', label: 'Inactivos' },
+];
+
+const roleLabel = (rol) => ROLE_LABELS[rol] || humanize(rol);
+const estadoLabel = (estado) => (estado === 'ACTIVO' ? 'Activo' : estado === 'INACTIVO' ? 'Inactivo' : humanize(estado));
+
+/** Solo letras (con tildes y ñ) y espacios en nombres y apellidos. */
+const onlyLetters = (value) => value.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s]/g, '');
+
+/** Grupo de botones de filtro (uno activo a la vez). */
+const FilterGroup = ({ label, options, value, onChange }) => (
+  <div className="flex flex-wrap items-center gap-2">
+    <span className="text-sm text-ink-muted">{label}</span>
+    <div className="flex flex-wrap gap-1.5" role="group" aria-label={`Filtrar por ${label.toLowerCase()}`}>
+      {options.map((o) => {
+        const active = value === o.value;
+        return (
+          <button
+            key={o.value || 'todos'}
+            type="button"
+            onClick={() => onChange(o.value)}
+            aria-pressed={active}
+            className={cn(
+              'rounded-md border px-3 py-1.5 text-sm transition-colors cursor-pointer',
+              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600',
+              active
+                ? 'border-brand-700 bg-brand-50 font-medium text-brand-800'
+                : 'border-line-strong bg-white text-ink-soft hover:bg-surface-muted'
+            )}
+          >
+            {o.label}
+          </button>
+        );
+      })}
+    </div>
+  </div>
+);
+
+/** Ficha breve del usuario sobre el que se actúa en un modal. */
+const UserSummary = ({ u, extra }) => (
+  <dl className="divide-y divide-line rounded-md border border-line text-sm">
+    <div className="flex flex-wrap justify-between gap-x-4 px-4 py-2">
+      <dt className="text-ink-muted">Nombre</dt>
+      <dd className="text-ink">{u.nombre_completo || u.nombre}</dd>
+    </div>
+    <div className="flex flex-wrap justify-between gap-x-4 px-4 py-2">
+      <dt className="text-ink-muted">Usuario</dt>
+      <dd className="font-mono text-ink">{u.codigo_corporativo}</dd>
+    </div>
+    {extra}
+  </dl>
+);
+
+/** Botón de ícono de la columna de acciones: el texto va en `title` y `aria-label`. */
+const RowAction = ({ icon: Icon, label, onClick, className }) => (
+  <Button size="icon" variant="ghost" onClick={onClick} title={label} aria-label={label} className={className}>
+    <Icon className="w-4 h-4" aria-hidden="true" />
+  </Button>
+);
 
 export const UsersPage = () => {
   const { user } = useAuth();
@@ -485,999 +548,449 @@ export const UsersPage = () => {
 
   const canManageUsers = user?.rol === 'ADMINISTRADOR';
 
+  const hasFilters = Boolean(searchTerm || filterRol || filterEstado);
+  const desactivando = statusNewValue === 'INACTIVO';
+
   return (
-    <div className="space-y-6">
-      {/* Encabezado y Botón Crear */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900 tracking-tight flex items-center space-x-2">
-            <Users className="w-7 h-7 text-blue-600" />
-            <span>Gestión de Usuarios</span>
-          </h1>
-          <p className="text-sm text-slate-500 mt-1">
-            Administración institucional por Código de Usuario
-          </p>
-        </div>
-        {canManageUsers && (
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={openCreateModal}
-              className="inline-flex items-center space-x-2 px-4 py-2.5 rounded-md bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm transition-all cursor-pointer"
-            >
-              <UserPlus className="w-4 h-4" />
-              <span>Nuevo Usuario</span>
-            </button>
-          </div>
-        )}
-      </div>
+    <div>
+      <PageHeader
+        title="Usuarios"
+        description="Cuentas de acceso de asociados, operadores, ejecutivos y administradores."
+        actions={
+          canManageUsers && (
+            <Button icon={UserPlus} onClick={openCreateModal}>
+              Nuevo usuario
+            </Button>
+          )
+        }
+      />
 
-      {/* Barra de Filtros y Búsqueda */}
-      <div className="bg-white p-4 rounded-lg border border-slate-200 flex flex-col xl:flex-row gap-4 justify-between items-stretch xl:items-center">
-        {/* Buscador exclusivo por usuario */}
-        <form onSubmit={handleSearchSubmit} className="w-full xl:w-72 relative">
-          <input
-            type="text"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Buscar por usuario..."
-            className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-md text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono"
+      <Card>
+        <div className="space-y-4 border-b border-line px-5 py-4">
+          <form onSubmit={handleSearchSubmit} role="search" className="w-full sm:max-w-xs">
+            <SearchInput
+              value={searchTerm}
+              onChange={setSearchTerm}
+              label="Buscar por código de usuario"
+              placeholder="Código de usuario, p. ej. OP-3"
+              className="[&_input]:font-mono"
+            />
+          </form>
+          <div className="flex flex-wrap gap-x-8 gap-y-3">
+            <FilterGroup label="Rol" options={ROLE_FILTERS} value={filterRol} onChange={setFilterRol} />
+            <FilterGroup label="Estado" options={STATUS_FILTERS} value={filterEstado} onChange={setFilterEstado} />
+          </div>
+        </div>
+
+        {loading ? (
+          <LoadingState label="Cargando usuarios…" />
+        ) : users.length === 0 ? (
+          <EmptyState
+            icon={Users}
+            title={hasFilters ? 'Sin resultados' : 'Aún no hay usuarios'}
+            description={hasFilters ? 'Revise el código de usuario o cambie los filtros.' : undefined}
           />
-          <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
-        </form>
-
-        {/* Área de Filtros: Rol y Estado */}
-        <div className="flex flex-wrap items-center gap-3 w-full xl:w-auto justify-start xl:justify-end">
-          {/* Filtro por Tipo de Usuario / Rol */}
-          <div className="flex items-center space-x-2">
-            <Filter className="w-4 h-4 text-slate-400" />
-            <span className="text-xs font-semibold text-slate-500 uppercase">Rol:</span>
-            <div className="flex flex-wrap rounded-lg bg-slate-100 p-1 border border-slate-200 text-xs font-medium">
-              <button
-                type="button"
-                onClick={() => setFilterRol('')}
-                className={`px-3 py-1 rounded-md transition-colors cursor-pointer border border-line ${
-                  filterRol === '' ? 'bg-white text-slate-900 font-bold' : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                Todos
-              </button>
-              <button
-                type="button"
-                onClick={() => setFilterRol('ASOCIADO')}
-                className={`px-3 py-1 rounded-md transition-colors cursor-pointer ${
-                  filterRol === 'ASOCIADO' ? 'bg-blue-600 text-white font-bold' : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                Asociados
-              </button>
-              <button
-                type="button"
-                onClick={() => setFilterRol('EJECUTIVO')}
-                className={`px-3 py-1 rounded-md transition-colors cursor-pointer ${
-                  filterRol === 'EJECUTIVO' ? 'bg-blue-600 text-white font-bold' : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                Ejecutivos
-              </button>
-              <button
-                type="button"
-                onClick={() => setFilterRol('OPERADOR')}
-                className={`px-3 py-1 rounded-md transition-colors cursor-pointer ${
-                  filterRol === 'OPERADOR' ? 'bg-blue-600 text-white font-bold' : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                Operadores
-              </button>
-            </div>
-          </div>
-
-          {/* Filtro por Estado */}
-          <div className="flex items-center space-x-2">
-            <span className="text-xs font-semibold text-slate-500 uppercase">Estado:</span>
-            <div className="flex rounded-lg bg-slate-100 p-1 border border-slate-200 text-xs font-medium">
-              <button
-                type="button"
-                onClick={() => setFilterEstado('')}
-                className={`px-3 py-1 rounded-md transition-colors cursor-pointer border border-line ${
-                  filterEstado === '' ? 'bg-white text-slate-900 font-bold' : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                Todos
-              </button>
-              <button
-                type="button"
-                onClick={() => setFilterEstado('ACTIVO')}
-                className={`px-3 py-1 rounded-md transition-colors cursor-pointer ${
-                  filterEstado === 'ACTIVO' ? 'bg-brand-600 text-white font-bold' : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                Activos
-              </button>
-              <button
-                type="button"
-                onClick={() => setFilterEstado('INACTIVO')}
-                className={`px-3 py-1 rounded-md transition-colors cursor-pointer ${
-                  filterEstado === 'INACTIVO' ? 'bg-warning-600 text-white font-bold' : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                Inactivos
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Tabla de Usuarios 3FN con Código Corporativo e id_persona */}
-      <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
-            <thead className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wider border-b border-slate-200">
-              <tr>
-                <th className="pl-4 pr-2 py-3 font-semibold text-blue-800 whitespace-nowrap">Usuario</th>
-                <th className="px-3 py-3 font-semibold whitespace-nowrap">DPI / CUI</th>
-                <th className="px-3 py-3 font-semibold">Nombre Completo / Correo</th>
-                <th className="px-2.5 py-3 font-semibold whitespace-nowrap">Teléfono</th>
-                <th className="px-2.5 py-3 font-semibold whitespace-nowrap">Rol</th>
-                <th className="px-2.5 py-3 font-semibold whitespace-nowrap">Estado</th>
-                <th className="px-2.5 py-3 font-semibold whitespace-nowrap">Presencia</th>
-                <th className="px-2.5 py-3 font-semibold whitespace-nowrap">Fecha Registro</th>
-                {canManageUsers && (
-                  <th className="pl-2 pr-4 py-3 font-semibold text-right whitespace-nowrap">Acciones</th>
-                )}
-              </tr>
-            </thead>
-            {loading ? (
-              <TableSkeleton rows={6} columns={canManageUsers ? 9 : 8} />
-            ) : users.length === 0 ? (
-              <tbody>
-                <tr>
-                  <td colSpan={canManageUsers ? 9 : 8} className="py-16 text-center text-slate-500">
-                    <Users className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-                    <p className="font-semibold text-base">No se encontraron usuarios</p>
-                    <p className="text-xs text-slate-400 mt-1">Ajusta los filtros de búsqueda</p>
-                  </td>
-                </tr>
-              </tbody>
-            ) : (
-              <tbody className="divide-y divide-slate-100">
-                {users.map((u) => (
-                  <tr key={u.id_persona || u.id} className="hover:bg-slate-50/80 transition-colors">
-                    <td className="pl-4 pr-2 py-3 whitespace-nowrap">
-                      <span className="inline-flex items-center px-2.5 py-1 rounded-lg bg-blue-50 text-blue-800 font-mono font-extrabold text-xs border border-blue-200">
-                        {u.codigo_corporativo}
-                      </span>
-                    </td>
-                    <td className="px-3 py-3 font-mono text-slate-600 text-xs whitespace-nowrap">
-                      {u.cui_dpi || '-'}
-                    </td>
-                    <td className="px-3 py-3 max-w-[190px] xl:max-w-[240px]">
-                      <div className="font-semibold text-slate-900 truncate" title={u.nombre_completo || u.nombre}>
-                        {u.nombre_completo || u.nombre}
-                      </div>
-                      <div className="text-slate-400 text-xs font-mono truncate" title={u.email}>
-                        {u.email}
-                      </div>
-                    </td>
-                    <td className="px-2.5 py-3 text-slate-600 text-xs whitespace-nowrap">
-                      {u.telefono || '-'}
-                    </td>
-                    <td className="px-2.5 py-3 whitespace-nowrap">
-                      <span
-                        className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold ${
-                          u.rol === 'ADMINISTRADOR'
-                            ? 'bg-blue-100 text-blue-800 border border-blue-200'
-                            : u.rol === 'EJECUTIVO'
-                            ? 'bg-indigo-50 text-indigo-700 border border-indigo-200'
-                            : u.rol === 'OPERADOR'
-                            ? 'bg-brand-100 text-brand-800 border border-brand-200'
-                            : 'bg-slate-100 text-slate-800 border border-slate-200'
-                        }`}
-                      >
-                        {u.rol}
-                      </span>
-                    </td>
-                    {/* Columna Estado (Intacta con borrado lógico ACTIVO / INACTIVO) */}
-                    <td className="px-2.5 py-3 whitespace-nowrap">
-                      <span
-                        className={`inline-flex items-center space-x-1.5 px-2 py-0.5 rounded-full text-xs font-semibold ${
-                          u.estado === 'ACTIVO'
-                            ? 'bg-brand-50 text-brand-700 border border-brand-200'
-                            : 'bg-slate-100 text-slate-600 border border-slate-300'
-                        }`}
-                      >
-                        <span
-                          className={`w-1.5 h-1.5 rounded-full ${
-                            u.estado === 'ACTIVO' ? 'bg-brand-500' : 'bg-slate-400'
-                          }`}
-                        />
-                        <span>{u.estado}</span>
-                      </span>
-                    </td>
-                    {/* Columna Presencia y Control de Bloqueo por Fuerza Bruta */}
-                    <td className="px-2.5 py-3 whitespace-nowrap">
+        ) : (
+          <Table bordered={false} caption="Usuarios del sistema">
+            <THead>
+              <TR>
+                <TH>Usuario</TH>
+                <TH>Código</TH>
+                <TH>DPI y teléfono</TH>
+                <TH>Rol</TH>
+                <TH>Estado</TH>
+                <TH>Conexión</TH>
+                <TH>Registro</TH>
+                {canManageUsers && <TH sticky><span className="sr-only">Acciones</span></TH>}
+              </TR>
+            </THead>
+            <TBody>
+              {users.map((u) => {
+                const nombre = u.nombre_completo || u.nombre;
+                const activo = u.estado === 'ACTIVO';
+                return (
+                  <TR key={u.id_persona || u.id} interactive>
+                    <TD className="min-w-[13rem] max-w-[16rem]">
+                      <div className="truncate font-medium text-ink" title={nombre}>{nombre}</div>
+                      <div className="truncate text-xs text-ink-subtle" title={u.email}>{u.email}</div>
+                    </TD>
+                    <TD className="whitespace-nowrap font-mono text-ink">{u.codigo_corporativo}</TD>
+                    <TD className="whitespace-nowrap">
+                      <div className="font-mono text-ink">{u.cui_dpi || '—'}</div>
+                      <div className="text-xs text-ink-subtle tabular-nums">{u.telefono || 'Sin teléfono'}</div>
+                    </TD>
+                    <TD className="whitespace-nowrap">
+                      <Badge tone={u.rol === 'ADMINISTRADOR' ? 'brand' : 'neutral'}>{roleLabel(u.rol)}</Badge>
+                    </TD>
+                    <TD className="whitespace-nowrap">
+                      <Badge tone={activo ? 'success' : 'neutral'}>{estadoLabel(u.estado)}</Badge>
+                    </TD>
+                    <TD className="whitespace-nowrap">
                       {u.bloqueado_por_intentos ? (
-                        <div className="flex items-center gap-1.5">
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-warning-100 text-warning-800 border border-warning-300">
-                            <AlertTriangle className="w-3 h-3 mr-1 text-warning-600" />
-                            Bloqueado
-                          </span>
+                        <div className="flex flex-col items-start gap-1">
+                          <Badge tone="warning" title="Bloqueado por intentos fallidos de inicio de sesión">Bloqueado</Badge>
                           {canManageUsers && (
                             <button
                               type="button"
                               onClick={() => handleDesbloquear(u.id_persona || u.id)}
-                              title="Desbloquear cuenta de usuario con un solo clic"
-                              className="inline-flex items-center px-1.5 py-0.5 text-xs font-semibold text-warning-900 bg-warning-200/80 hover:bg-warning-300 border border-warning-400/60 rounded-md transition-colors cursor-pointer"
+                              aria-label={`Desbloquear a ${u.codigo_corporativo}`}
+                              className="inline-flex items-center gap-1 rounded-sm text-xs font-medium text-brand-700 hover:text-brand-800 hover:underline cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600"
                             >
-                              <Unlock className="w-3 h-3 mr-1" />
+                              <Unlock className="w-3.5 h-3.5" aria-hidden="true" />
                               Desbloquear
                             </button>
                           )}
                         </div>
                       ) : u.en_linea ? (
-                        <span className="inline-flex items-center space-x-1.5 px-2 py-0.5 rounded-full text-xs font-semibold bg-brand-50 text-brand-700 border border-brand-200">
-                          <span className="w-2 h-2 rounded-full bg-brand-500 animate-pulse" />
-                          <span>En línea</span>
-                        </span>
+                        <Badge tone="success" dot>En línea</Badge>
                       ) : (
-                        <span className="inline-flex items-center space-x-1.5 px-2 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-500 border border-slate-200">
-                          <span className="w-2 h-2 rounded-full bg-slate-400" />
-                          <span>Desconectado</span>
-                        </span>
+                        <span className="text-sm text-ink-subtle">Desconectado</span>
                       )}
-                    </td>
-                    <td className="px-2.5 py-3 text-slate-500 text-xs whitespace-nowrap">
-                      {new Date(u.fecha_creacion).toLocaleDateString('es-GT', {
-                        year: 'numeric',
-                        month: 'short',
-                        day: 'numeric',
-                      })}
-                    </td>
+                    </TD>
+                    <TD className="whitespace-nowrap tabular-nums">{formatDate(u.fecha_creacion)}</TD>
                     {canManageUsers && (
-                      <td className="pl-2 pr-4 py-3 text-right space-x-1 whitespace-nowrap">
-                        {/* Botón de Reiniciar Contraseña */}
-                        <button
-                          onClick={() => openResetPasswordModal(u)}
-                          title="Reiniciar Contraseña y generar clave temporal"
-                          className="p-1.5 text-blue-600 hover:text-white hover:bg-blue-600 rounded-md transition-colors cursor-pointer"
-                        >
-                          <KeyRound className="w-4 h-4" />
-                        </button>
-                        {/* Botón de Editar */}
-                        <button
-                          onClick={() => openEditModal(u)}
-                          title="Editar datos del usuario"
-                          className="p-1.5 text-slate-600 hover:text-brand-700 hover:bg-brand-50 rounded-md transition-colors cursor-pointer"
-                        >
-                          <Edit2 className="w-4 h-4" />
-                        </button>
-                        {/* Botón de Cambiar Estado a INACTIVO / ACTIVO con ventana de motivo */}
-                        <button
-                          onClick={() => openChangeStatusModal(u, u.estado === 'ACTIVO' ? 'INACTIVO' : 'ACTIVO')}
-                          title={u.estado === 'ACTIVO' ? 'Cambiar a INACTIVO (Requiere motivo)' : 'Reactivar usuario a ACTIVO'}
-                          className={`p-1.5 rounded-md transition-colors cursor-pointer ${
-                            u.estado === 'ACTIVO'
-                              ? 'text-warning-600 hover:text-white hover:bg-warning-600'
-                              : 'text-brand-600 hover:text-white hover:bg-brand-600'
-                          }`}
-                        >
-                          {u.estado === 'ACTIVO' ? <Ban className="w-4 h-4" /> : <CheckCircle className="w-4 h-4" />}
-                        </button>
-                      </td>
+                      <TD sticky className="whitespace-nowrap text-center">
+                        <div className="flex items-center justify-center gap-0.5">
+                          <RowAction
+                            icon={KeyRound}
+                            label={`Reiniciar la contraseña de ${u.codigo_corporativo}`}
+                            onClick={() => openResetPasswordModal(u)}
+                          />
+                          <RowAction
+                            icon={Pencil}
+                            label={`Editar a ${u.codigo_corporativo}`}
+                            onClick={() => openEditModal(u)}
+                          />
+                          <RowAction
+                            icon={activo ? Ban : UserCheck}
+                            label={activo ? `Desactivar a ${u.codigo_corporativo}` : `Reactivar a ${u.codigo_corporativo}`}
+                            onClick={() => openChangeStatusModal(u, activo ? 'INACTIVO' : 'ACTIVO')}
+                            className={activo ? 'text-danger-700 hover:bg-danger-50' : 'text-success-700 hover:bg-success-50'}
+                          />
+                        </div>
+                      </TD>
                     )}
-                  </tr>
-                ))}
-              </tbody>
-            )}
-          </table>
-        </div>
-      </div>
+                  </TR>
+                );
+              })}
+            </TBody>
+          </Table>
+        )}
+      </Card>
 
-      {/* Modal de Crear / Editar Usuario con Código Corporativo e id_persona */}
-      {isModalOpen && createPortal(
-        <div className="fixed inset-0 z-[999] flex items-center justify-center p-3 sm:p-4 bg-slate-950/60">
-          <div
-            className="bg-white rounded-lg max-w-2xl w-full shadow-lg border border-slate-200 relative my-auto max-h-[90vh] flex flex-col animate-scaleUp overflow-hidden"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="user-form-modal-title"
-          >
-            {/* Cabecera Fija */}
-            <div className="flex justify-between items-center px-6 py-4 sm:px-7 sm:py-5 border-b border-slate-100 flex-shrink-0 bg-white">
-              <div>
-                <h2 id="user-form-modal-title" className="text-xl font-bold text-slate-900">
-                  {isEditing ? 'Editar Usuario' : 'Crear Nuevo Usuario'}
-                </h2>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Identificador de Negocio: Usuario según perfil (EJ-X, OP-X).
-                </p>
-              </div>
-              <button
-                onClick={() => setIsModalOpen(false)}
-                className="text-slate-400 hover:text-slate-600 p-1.5 rounded-md hover:bg-slate-100 transition-colors cursor-pointer"
+      {/* Crear / editar usuario */}
+      <Modal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        dismissible={!modalSubmitting}
+        closeOnOverlay={false}
+        lockScroll={false}
+        size="lg"
+        title={isEditing ? 'Editar usuario' : 'Nuevo usuario'}
+        description={
+          isEditing
+            ? <>Usuario <span className="font-mono">{formData.codigo_corporativo}</span></>
+            : 'Para operadores y ejecutivos. Los asociados se registran desde Asociados.'
+        }
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setIsModalOpen(false)} disabled={modalSubmitting}>
+              Cancelar
+            </Button>
+            <Button form="user-edit-form" type="submit" loading={modalSubmitting} loadingText="Guardando…">
+              {isEditing ? 'Guardar cambios' : 'Crear usuario'}
+            </Button>
+          </>
+        }
+      >
+        <form id="user-edit-form" onSubmit={handleFormSubmit} className="space-y-6">
+          {modalError && <Alert tone="danger">{modalError}</Alert>}
+
+          <fieldset className="space-y-4">
+            <legend className="mb-3 text-sm font-semibold text-ink">Acceso</legend>
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <Field
+                label="Código de usuario"
+                hint={!isEditing ? `Se asigna solo, según el rol (${formData.rol === 'EJECUTIVO' ? 'EJ' : 'OP'}-…).` : undefined}
               >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {/* Cuerpo Desplazable */}
-            <div className="p-6 sm:p-7 overflow-y-auto flex-1 space-y-4">
-              {modalError && (
-                <div className="mb-4 p-3 rounded-lg bg-danger-50 border border-danger-200 text-danger-700 text-xs flex items-center space-x-2">
-                  <AlertCircle className="w-4 h-4 flex-shrink-0" />
-                  <span>{modalError}</span>
-                </div>
-              )}
-
-              <form id="user-edit-form" onSubmit={handleFormSubmit} className="space-y-4">
-              {/* Sección 1: Identificación y Credenciales */}
-              <div className="bg-slate-50 p-4 rounded-lg border border-slate-200/80 space-y-3">
-                <span className="text-xs font-bold uppercase text-blue-800 tracking-wider block">
-                  1. Credenciales y Código de Usuario
-                </span>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <label className="block text-xs font-semibold text-slate-700">
-                        Usuario / Código
-                      </label>
-                      {!isEditing && (
-                        <span className="text-xs font-bold text-brand-700 bg-brand-50 border border-brand-200 px-2 py-0.5 rounded-full">
-                          Asignación Automática
-                        </span>
-                      )}
-                    </div>
-                    <div className="relative">
-                      <KeyRound className="w-4 h-4 text-brand-600 absolute left-3 top-3" />
-                      <input
-                        type="text"
-                        value={isEditing ? formData.codigo_corporativo : (loadingCode ? 'Consultando...' : (previewCode || 'Autogenerado según rol'))}
-                        disabled
-                        readOnly
-                        className="w-full pl-9 pr-3 py-2 bg-slate-100 border border-slate-200 rounded-md text-sm font-mono font-bold text-slate-700 cursor-not-allowed select-none focus:outline-none"
-                      />
-                    </div>
-                    {!isEditing && (
-                      <p className="text-xs text-slate-500 mt-1">
-                        Correlativo asignado según perfil ({formData.rol === 'EJECUTIVO' ? 'EJ' : 'OP'}).
-                      </p>
-                    )}
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">Correo Electrónico *</label>
-                    <div className="relative">
-                      <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
-                      <input
-                        type="email"
-                        value={formData.email}
-                        onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                        placeholder="usuario@cooperativa.com"
-                        required
-                        className="w-full pl-9 pr-3 py-2 bg-white border border-slate-200 rounded-md text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">Rol Asignado *</label>
-                    <select
-                      value={formData.rol}
-                      onChange={(e) => setFormData({ ...formData, rol: e.target.value })}
-                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-md text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500 font-semibold"
-                    >
-                      <option value="EJECUTIVO">EJECUTIVO (EJ-X)</option>
-                      <option value="OPERADOR">OPERADOR (OP-X)</option>
-                      {isEditing && formData.rol === 'ASOCIADO' && (
-                        <option value="ASOCIADO" disabled>ASOCIADO (Gestionado por Operador)</option>
-                      )}
-                      {isEditing && formData.rol === 'ADMINISTRADOR' && user?.rol === 'ADMINISTRADOR' && (
-                        <option value="ADMINISTRADOR">ADMINISTRADOR (AD-X)</option>
-                      )}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">Estado de Cuenta *</label>
-                    <select
-                      value={formData.estado}
-                      onChange={(e) => setFormData({ ...formData, estado: e.target.value })}
-                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-md text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500 font-semibold"
-                    >
-                      <option value="ACTIVO">ACTIVO</option>
-                      <option value="INACTIVO">INACTIVO</option>
-                    </select>
-                  </div>
-                </div>
-
-                {formData.rol === 'ASOCIADO' && (
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">Tipo de Asociado *</label>
-                    <select
-                      value={formData.tipo_asociado || 'EX'}
-                      onChange={(e) => setFormData({ ...formData, tipo_asociado: e.target.value })}
-                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-md text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500 font-semibold"
-                    >
-                      <option value="EX">Ajeno / Externo (EX-X)</option>
-                      <option value="EB">Empleado Bancario (EB-X)</option>
-                    </select>
-                  </div>
-                )}
-
-                {!isEditing ? (
-                  <div className="p-3.5 bg-brand-50/70 border border-brand-200 rounded-lg flex items-start space-x-3 text-xs text-brand-950">
-                    <ShieldCheck className="w-5 h-5 text-brand-700 flex-shrink-0 mt-0.5" />
-                    <div>
-                      <span className="font-bold text-brand-900 block">Generación Criptográfica de Contraseña</span>
-                      <span className="text-slate-600 mt-0.5 block leading-relaxed">
-                        Por políticas de ciberseguridad bancaria, la contraseña temporal no se asigna manualmente. Se generará de forma aleatoria por el servidor y se enviará automáticamente al correo electrónico registrado.
-                      </span>
-                    </div>
-                  </div>
-                ) : (
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">
-                      Nueva Contraseña <span className="text-slate-400 font-normal">(Dejar en blanco para conservar actual)</span>
-                    </label>
-                    <div className="relative">
-                      <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
-                      <input
-                        type="password"
-                        value={formData.password}
-                        onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                        placeholder="Sin cambios"
-                        className="w-full pl-9 pr-3 py-2 bg-white border border-slate-200 rounded-md text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500"
-                      />
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Sección 2: Datos Personales */}
-              <div className="bg-slate-50 p-4 rounded-lg border border-slate-200/80 space-y-3">
-                <span className="text-xs font-bold uppercase text-brand-800 tracking-wider block">
-                  2. Datos Personales (Persona)
-                </span>
-
-                {/* DPI / CUI */}
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="block text-xs font-semibold text-slate-700">DPI / CUI *</label>
-                    <span
-                      className={`text-xs font-mono font-semibold ${
-                        formData.cui_dpi?.length === 13 ? 'text-brand-600' : 'text-slate-400'
-                      }`}
-                    >
-                      {formData.cui_dpi?.length || 0}/13 dígitos
-                    </span>
-                  </div>
-                  <div className="relative">
-                    <CreditCard className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      maxLength={13}
-                      value={formData.cui_dpi}
-                      onChange={(e) => {
-                        const val = e.target.value.replace(/\D/g, '').slice(0, 13);
-                        setFormData({ ...formData, cui_dpi: val });
-                      }}
-                      placeholder="Ej. 2999123450101 (13 dígitos)"
-                      required
-                      className={`w-full pl-9 pr-3 py-2 bg-white border rounded-md text-sm font-mono text-slate-900 focus:outline-none focus:ring-2 ${
-                        formData.cui_dpi?.length === 13
-                          ? 'border-brand-300 focus:ring-brand-500'
-                          : 'border-slate-200 focus:ring-brand-500'
-                      }`}
-                    />
-                  </div>
-                  <p className="text-xs text-slate-500 mt-1">
-                    Documento Personal de Identificación sin espacios ni guiones.
-                  </p>
-                </div>
-
-                {/* Nombres */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">Primer Nombre *</label>
-                    <input
-                      type="text"
-                      value={formData.primer_nombre}
-                      onChange={(e) => {
-                        const val = e.target.value.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s]/g, '');
-                        setFormData({ ...formData, primer_nombre: val });
-                      }}
-                      placeholder="Ej. Carlos"
-                      required
-                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-md text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">Segundo Nombre</label>
-                    <input
-                      type="text"
-                      value={formData.segundo_nombre}
-                      onChange={(e) => {
-                        const val = e.target.value.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s]/g, '');
-                        setFormData({ ...formData, segundo_nombre: val });
-                      }}
-                      placeholder="Ej. Roberto"
-                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-md text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500"
-                    />
-                  </div>
-                </div>
-
-                {/* Apellidos */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">Primer Apellido *</label>
-                    <input
-                      type="text"
-                      value={formData.primer_apellido}
-                      onChange={(e) => {
-                        const val = e.target.value.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s]/g, '');
-                        setFormData({ ...formData, primer_apellido: val });
-                      }}
-                      placeholder="Ej. López"
-                      required
-                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-md text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">Segundo Apellido</label>
-                    <input
-                      type="text"
-                      value={formData.segundo_apellido}
-                      onChange={(e) => {
-                        const val = e.target.value.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s]/g, '');
-                        setFormData({ ...formData, segundo_apellido: val });
-                      }}
-                      placeholder="Ej. Gómez"
-                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-md text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500"
-                    />
-                  </div>
-                </div>
-
-                {/* Teléfono y Fecha de Nacimiento */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <label className="block text-xs font-semibold text-slate-700">Teléfono *</label>
-                      <span
-                        className={`text-xs font-mono font-semibold ${
-                          formData.telefono?.length === 8 ? 'text-brand-600' : 'text-slate-400'
-                        }`}
-                      >
-                        {formData.telefono?.length || 0}/8 dígitos
-                      </span>
-                    </div>
-                    <div className="relative">
-                      <Phone className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
-                      <input
-                        type="text"
-                        inputMode="numeric"
-                        maxLength={8}
-                        value={formData.telefono}
-                        onChange={(e) => {
-                          const val = e.target.value.replace(/\D/g, '').slice(0, 8);
-                          setFormData({ ...formData, telefono: val });
-                        }}
-                        placeholder="Ej. 55551234"
-                        required
-                        className={`w-full pl-9 pr-3 py-2 bg-white border rounded-md text-sm font-mono text-slate-900 focus:outline-none focus:ring-2 ${
-                          formData.telefono?.length === 8
-                            ? 'border-brand-300 focus:ring-brand-500'
-                            : 'border-slate-200 focus:ring-brand-500'
-                        }`}
-                      />
-                    </div>
-                    <p className="text-xs text-slate-500 mt-1">
-                      8 dígitos sin guiones ni espacios.
-                    </p>
-                  </div>
-
-                  <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <label className="block text-xs font-semibold text-slate-700">
-                        Fecha / Año de Nacimiento *
-                      </label>
-                      {ageInfo && (
-                        <span
-                          className={`text-xs font-bold px-2 py-0.5 rounded-full ${
-                            ageInfo.valid
-                              ? 'bg-brand-50 text-brand-700 border border-brand-200'
-                              : 'bg-danger-50 text-danger-700 border border-danger-200'
-                          }`}
-                        >
-                          {ageInfo.valid ? `✓ ${ageInfo.age} años` : 'Menor de edad'}
-                        </span>
-                      )}
-                    </div>
-                    <div className="relative">
-                      <Calendar className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
-                      <input
-                        type="date"
-                        value={formData.fecha_nacimiento}
-                        max={new Date().toISOString().split('T')[0]}
-                        onChange={(e) => setFormData({ ...formData, fecha_nacimiento: e.target.value })}
-                        required
-                        className={`w-full pl-9 pr-3 py-2 bg-white border rounded-md text-sm text-slate-900 focus:outline-none focus:ring-2 ${
-                          ageInfo
-                            ? ageInfo.valid
-                              ? 'border-brand-300 focus:ring-brand-500'
-                              : 'border-danger-300 focus:ring-danger-500 bg-danger-50/20'
-                            : 'border-slate-200 focus:ring-brand-500'
-                        }`}
-                      />
-                    </div>
-                    <div className="mt-1">
-                      {ageInfo ? (
-                        <p
-                          className={`text-xs ${
-                            ageInfo.valid ? 'text-brand-700 font-medium' : 'text-danger-600 font-medium'
-                          }`}
-                        >
-                          {ageInfo.message}
-                        </p>
-                      ) : (
-                        <p className="text-xs text-slate-500">
-                          Mayoría de edad requerida (18+ años).
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Dirección */}
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Dirección Domiciliar</label>
-                  <div className="relative">
-                    <MapPin className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
-                    <input
-                      type="text"
-                      value={formData.direccion}
-                      onChange={(e) => setFormData({ ...formData, direccion: e.target.value })}
-                      placeholder="Ej. 5ta Avenida 12-34, Zona 1, Ciudad de Guatemala"
-                      className="w-full pl-9 pr-3 py-2 bg-white border border-slate-200 rounded-md text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              </form>
-            </div>
-
-            {/* Pie Fijo con Botones de Acción */}
-            <div className="flex justify-end space-x-3 px-6 py-4 border-t border-slate-100 flex-shrink-0 bg-slate-50/90 rounded-b-lg">
-              <button
-                type="button"
-                onClick={() => setIsModalOpen(false)}
-                className="px-4 py-2 rounded-md text-sm font-medium text-slate-600 hover:bg-slate-200/70 transition-colors cursor-pointer"
-              >
-                Cancelar
-              </button>
-              <button
-                form="user-edit-form"
-                type="submit"
-                disabled={modalSubmitting}
-                className="px-5 py-2 rounded-md bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm transition-all flex items-center space-x-2 disabled:opacity-50 cursor-pointer"
-              >
-                {modalSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
-                <span>{isEditing ? 'Actualizar Usuario' : 'Guardar Usuario'}</span>
-              </button>
-            </div>
-          </div>
-        </div>,
-        document.body
-      )}
-
-      {/* Modal / Ventana de Cambio de Estado (INACTIVO / ACTIVO con Motivo Obligatorio) */}
-      {statusModalOpen && statusTargetUser && createPortal(
-        <div className="fixed inset-0 z-[999] flex items-center justify-center p-4 bg-slate-950/60">
-          <div
-            className="bg-white rounded-lg max-w-md w-full p-6 sm:p-7 shadow-lg border border-slate-200 relative animate-scaleUp"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="status-change-modal-title"
-          >
-            <div className="flex justify-between items-center mb-5 border-b border-slate-100 pb-3">
-              <div className="flex items-center space-x-2.5">
-                <div
-                  className={`w-9 h-9 rounded-lg flex items-center justify-center ${
-                    statusNewValue === 'INACTIVO'
-                      ? 'bg-warning-100 text-warning-700'
-                      : 'bg-brand-100 text-brand-700'
-                  }`}
-                >
-                  {statusNewValue === 'INACTIVO' ? (
-                    <AlertTriangle className="w-5 h-5" />
-                  ) : (
-                    <CheckCircle className="w-5 h-5" />
-                  )}
-                </div>
-                <div>
-                  <h2 id="status-change-modal-title" className="text-lg font-bold text-slate-900">
-                    {statusNewValue === 'INACTIVO' ? 'Desactivar Cuenta' : 'Reactivar Cuenta'}
-                  </h2>
-                  <p className="text-xs text-slate-500">
-                    Cambio institucional de estado de usuario
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={() => setStatusModalOpen(false)}
-                className="text-slate-400 hover:text-slate-600 p-1 rounded-md hover:bg-slate-100 transition-colors cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {/* Ficha del usuario afectado */}
-            <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg mb-4 space-y-1 text-xs">
-              <div className="flex justify-between">
-                <span className="text-slate-500 font-medium">Nombre:</span>
-                <span className="text-slate-800 font-bold">
-                  {statusTargetUser.nombre_completo || statusTargetUser.nombre}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500 font-medium">Usuario:</span>
-                <span className="font-mono font-bold text-brand-700">
-                  {statusTargetUser.codigo_corporativo}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500 font-medium">Rol:</span>
-                <span className="text-slate-700 font-semibold">
-                  {statusTargetUser.rol_nombre || statusTargetUser.rol}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500 font-medium">Estado actual:</span>
-                <span
-                  className={`px-2 py-0.5 rounded-full text-xs font-bold ${
-                    statusTargetUser.estado === 'ACTIVO'
-                      ? 'bg-brand-100 text-brand-800'
-                      : 'bg-slate-200 text-slate-700'
-                  }`}
-                >
-                  {statusTargetUser.estado}
-                </span>
-              </div>
-            </div>
-
-            {statusError && (
-              <div className="mb-4 p-3 rounded-lg bg-danger-50 border border-danger-200 text-danger-700 text-xs flex items-center space-x-2">
-                <AlertCircle className="w-4 h-4 flex-shrink-0" />
-                <span>{statusError}</span>
-              </div>
-            )}
-
-            <form onSubmit={handleChangeStatusSubmit} className="space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  {statusNewValue === 'INACTIVO' ? (
-                    <span>
-                      Motivo del cambio a <strong className="text-warning-700">INACTIVO</strong>{' '}
-                      <span className="text-danger-500">* (Obligatorio)</span>
-                    </span>
-                  ) : (
-                    <span>Motivo de la reactivación</span>
-                  )}
-                </label>
-                <textarea
-                  rows={3}
-                  value={statusMotivo}
-                  onChange={(e) => setStatusMotivo(e.target.value)}
-                  placeholder={
-                    statusNewValue === 'INACTIVO'
-                      ? 'Indica detalladamente por qué se cambia el estado a inactivo...'
-                      : 'Indica la justificación de reactivación (opcional)...'
-                  }
-                  required={statusNewValue === 'INACTIVO'}
-                  className="w-full px-3 py-2 bg-white border border-slate-200 rounded-md text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-warning-500 resize-none"
+                <Input
+                  type="text"
+                  value={isEditing ? formData.codigo_corporativo : (loadingCode ? 'Consultando…' : (previewCode || 'Se asigna al elegir el rol'))}
+                  readOnly
+                  className="font-mono"
                 />
-                <p className="text-xs text-slate-400 mt-1">
-                  Este motivo quedará inmutablemente registrado en la auditoría del sistema.
+              </Field>
+              <Field label="Correo electrónico" required>
+                <Input
+                  type="email"
+                  autoComplete="off"
+                  value={formData.email}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  required
+                />
+              </Field>
+              <Field label="Rol" required>
+                <Select value={formData.rol} onChange={(e) => setFormData({ ...formData, rol: e.target.value })}>
+                  <option value="EJECUTIVO">Ejecutivo (EJ-…)</option>
+                  <option value="OPERADOR">Operador (OP-…)</option>
+                  {isEditing && formData.rol === 'ASOCIADO' && (
+                    <option value="ASOCIADO" disabled>Asociado (lo gestiona el operador)</option>
+                  )}
+                  {isEditing && formData.rol === 'ADMINISTRADOR' && user?.rol === 'ADMINISTRADOR' && (
+                    <option value="ADMINISTRADOR">Administrador (AD-…)</option>
+                  )}
+                </Select>
+              </Field>
+              <Field label="Estado" required>
+                <Select value={formData.estado} onChange={(e) => setFormData({ ...formData, estado: e.target.value })}>
+                  <option value="ACTIVO">Activo</option>
+                  <option value="INACTIVO">Inactivo</option>
+                </Select>
+              </Field>
+
+              {formData.rol === 'ASOCIADO' && (
+                <Field label="Tipo de asociado" required>
+                  <Select
+                    value={formData.tipo_asociado || 'EX'}
+                    onChange={(e) => setFormData({ ...formData, tipo_asociado: e.target.value })}
+                  >
+                    <option value="EX">Externo (EX-…)</option>
+                    <option value="EB">Empleado del banco (EB-…)</option>
+                  </Select>
+                </Field>
+              )}
+            </div>
+
+            {!isEditing ? (
+              <Alert tone="info">
+                El sistema genera una contraseña temporal y la envía al correo. La persona deberá cambiarla al entrar
+                por primera vez. Nadie más la ve.
+              </Alert>
+            ) : (
+              <Field label="Contraseña nueva" hint="Déjela vacía para no cambiarla. Al menos 6 caracteres, con letras y números.">
+                <PasswordInput
+                  autoComplete="new-password"
+                  value={formData.password}
+                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                  className="sm:max-w-sm"
+                />
+              </Field>
+            )}
+          </fieldset>
+
+          <fieldset className="space-y-4 border-t border-line pt-5">
+            <legend className="sr-only">Datos personales</legend>
+            <p className="!mt-0 text-sm font-semibold text-ink" aria-hidden="true">Datos personales</p>
+
+            <Field label="DPI" hint={`13 dígitos · ${formData.cui_dpi?.length || 0}/13`} required>
+              <Input
+                type="text"
+                inputMode="numeric"
+                maxLength={13}
+                value={formData.cui_dpi}
+                onChange={(e) => {
+                  const val = e.target.value.replace(/\D/g, '').slice(0, 13);
+                  setFormData({ ...formData, cui_dpi: val });
+                }}
+                required
+                className="font-mono sm:max-w-xs"
+              />
+            </Field>
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <Field label="Primer nombre" required>
+                <Input
+                  type="text"
+                  value={formData.primer_nombre}
+                  onChange={(e) => setFormData({ ...formData, primer_nombre: onlyLetters(e.target.value) })}
+                  required
+                />
+              </Field>
+              <Field label="Segundo nombre">
+                <Input
+                  type="text"
+                  value={formData.segundo_nombre}
+                  onChange={(e) => setFormData({ ...formData, segundo_nombre: onlyLetters(e.target.value) })}
+                />
+              </Field>
+              <Field label="Primer apellido" required>
+                <Input
+                  type="text"
+                  value={formData.primer_apellido}
+                  onChange={(e) => setFormData({ ...formData, primer_apellido: onlyLetters(e.target.value) })}
+                  required
+                />
+              </Field>
+              <Field label="Segundo apellido">
+                <Input
+                  type="text"
+                  value={formData.segundo_apellido}
+                  onChange={(e) => setFormData({ ...formData, segundo_apellido: onlyLetters(e.target.value) })}
+                />
+              </Field>
+              <Field label="Teléfono" hint={`8 dígitos · ${formData.telefono?.length || 0}/8`} required>
+                <Input
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={8}
+                  value={formData.telefono}
+                  onChange={(e) => {
+                    const val = e.target.value.replace(/\D/g, '').slice(0, 8);
+                    setFormData({ ...formData, telefono: val });
+                  }}
+                  required
+                  className="font-mono"
+                />
+              </Field>
+              <div className="space-y-1.5">
+                <Field label="Fecha de nacimiento" required>
+                  <Input
+                    type="date"
+                    value={formData.fecha_nacimiento}
+                    max={new Date().toISOString().split('T')[0]}
+                    onChange={(e) => setFormData({ ...formData, fecha_nacimiento: e.target.value })}
+                    invalid={Boolean(ageInfo && !ageInfo.valid)}
+                    required
+                  />
+                </Field>
+                <p
+                  role="status"
+                  className={cn('text-xs', ageInfo ? (ageInfo.valid ? 'text-success-700' : 'text-danger-700') : 'text-ink-subtle')}
+                >
+                  {ageInfo ? ageInfo.message : 'Debe tener 18 años cumplidos.'}
                 </p>
               </div>
-
-              <div className="flex justify-end space-x-3 pt-3 border-t border-slate-100">
-                <button
-                  type="button"
-                  onClick={() => setStatusModalOpen(false)}
-                  className="px-4 py-2 rounded-md text-xs font-medium text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  disabled={statusSubmitting}
-                  className={`px-4 py-2 rounded-md text-white font-bold text-xs transition-all flex items-center space-x-2 disabled:opacity-50 cursor-pointer ${
-                    statusNewValue === 'INACTIVO'
-                      ? 'bg-warning-600 hover:bg-warning-500'
-                      : 'bg-brand-600 hover:bg-brand-500'
-                  }`}
-                >
-                  {statusSubmitting && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                  <span>
-                    {statusNewValue === 'INACTIVO'
-                      ? 'Confirmar Desactivación'
-                      : 'Confirmar Reactivación'}
-                  </span>
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>,
-        document.body
-      )}
-
-      {/* Modal de Reinicio de Contraseña */}
-      {resetModalOpen && resetTargetUser && createPortal(
-        <div className="fixed inset-0 z-[999] flex items-center justify-center p-4 bg-slate-950/60">
-          <div
-            className="bg-white rounded-lg max-w-md w-full p-6 sm:p-7 shadow-lg border border-slate-200 relative animate-scaleUp"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="password-reset-modal-title"
-          >
-            <div className="flex justify-between items-center mb-5 border-b border-slate-100 pb-3">
-              <div className="flex items-center space-x-2.5">
-                <div className="w-9 h-9 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center">
-                  <KeyRound className="w-5 h-5" />
-                </div>
-                <div>
-                  <h2 id="password-reset-modal-title" className="text-lg font-bold text-slate-900">
-                    Reiniciar Contraseña
-                  </h2>
-                  <p className="text-xs text-slate-500">
-                    Credenciales institucionales
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={() => setResetModalOpen(false)}
-                className="text-slate-400 hover:text-slate-600 p-1 rounded-md hover:bg-slate-100 transition-colors cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
             </div>
 
-            {/* Ficha del usuario */}
-            <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg mb-4 space-y-1 text-xs">
-              <div className="flex justify-between">
-                <span className="text-slate-500 font-medium">Nombre:</span>
-                <span className="text-slate-800 font-bold">
-                  {resetTargetUser.nombre_completo || resetTargetUser.nombre}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500 font-medium">Usuario:</span>
-                <span className="font-mono font-bold text-brand-700">
-                  {resetTargetUser.codigo_corporativo}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500 font-medium">Correo Electrónico:</span>
-                <span className="text-slate-700">{resetTargetUser.email}</span>
-              </div>
-            </div>
+            <Field label="Dirección">
+              <Input
+                type="text"
+                value={formData.direccion}
+                onChange={(e) => setFormData({ ...formData, direccion: e.target.value })}
+              />
+            </Field>
+          </fieldset>
+        </form>
+      </Modal>
 
-            {resetError && (
-              <div className="mb-4 p-3 rounded-lg bg-danger-50 border border-danger-200 text-danger-700 text-xs flex items-center space-x-2">
-                <AlertCircle className="w-4 h-4 flex-shrink-0" />
-                <span>{resetError}</span>
-              </div>
-            )}
+      {/* Desactivar / reactivar */}
+      <Modal
+        isOpen={statusModalOpen && !!statusTargetUser}
+        onClose={() => setStatusModalOpen(false)}
+        dismissible={!statusSubmitting}
+        closeOnOverlay={false}
+        lockScroll={false}
+        size="sm"
+        title={desactivando ? '¿Desactivar al usuario?' : '¿Reactivar al usuario?'}
+        description={
+          desactivando
+            ? 'No podrá iniciar sesión hasta que se reactive.'
+            : 'Podrá volver a iniciar sesión con su contraseña actual.'
+        }
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setStatusModalOpen(false)} disabled={statusSubmitting}>
+              Cancelar
+            </Button>
+            <Button
+              form="user-status-form"
+              type="submit"
+              variant={desactivando ? 'danger' : 'primary'}
+              loading={statusSubmitting}
+              loadingText="Guardando…"
+            >
+              {desactivando ? 'Desactivar' : 'Reactivar'}
+            </Button>
+          </>
+        }
+      >
+        {statusTargetUser && (
+          <form id="user-status-form" onSubmit={handleChangeStatusSubmit} className="space-y-4">
+            <UserSummary
+              u={statusTargetUser}
+              extra={
+                <div className="flex flex-wrap justify-between gap-x-4 px-4 py-2">
+                  <dt className="text-ink-muted">Rol</dt>
+                  <dd className="text-ink">{roleLabel(statusTargetUser.rol_nombre || statusTargetUser.rol)}</dd>
+                </div>
+              }
+            />
+            {statusError && <Alert tone="danger">{statusError}</Alert>}
+            <Field
+              label={desactivando ? 'Motivo' : 'Motivo de la reactivación'}
+              hint={desactivando ? 'Queda registrado en la bitácora de auditoría.' : 'Opcional. Queda registrado en la bitácora de auditoría.'}
+              required={desactivando}
+            >
+              <Textarea
+                rows={3}
+                value={statusMotivo}
+                onChange={(e) => setStatusMotivo(e.target.value)}
+                required={desactivando}
+              />
+            </Field>
+          </form>
+        )}
+      </Modal>
+
+      {/* Reinicio de contraseña: la contraseña temporal nunca se muestra en pantalla */}
+      <Modal
+        isOpen={resetModalOpen && !!resetTargetUser}
+        onClose={() => setResetModalOpen(false)}
+        dismissible={!resetSubmitting}
+        lockScroll={false}
+        size="sm"
+        title={resetSuccess ? 'Contraseña reiniciada' : '¿Reiniciar la contraseña?'}
+        footer={
+          resetSuccess ? (
+            <Button onClick={() => setResetModalOpen(false)}>Cerrar</Button>
+          ) : (
+            <>
+              <Button variant="secondary" onClick={() => setResetModalOpen(false)} disabled={resetSubmitting}>
+                Cancelar
+              </Button>
+              <Button form="user-reset-form" type="submit" loading={resetSubmitting} loadingText="Enviando…">
+                Reiniciar y enviar
+              </Button>
+            </>
+          )
+        }
+      >
+        {resetTargetUser && (
+          <div className="space-y-4">
+            <UserSummary
+              u={resetTargetUser}
+              extra={
+                <div className="flex flex-wrap justify-between gap-x-4 px-4 py-2">
+                  <dt className="text-ink-muted">Correo</dt>
+                  <dd className="break-all text-ink">{resetTargetUser.email}</dd>
+                </div>
+              }
+            />
+
+            {resetError && <Alert tone="danger">{resetError}</Alert>}
 
             {resetSuccess ? (
-              <div className="space-y-4">
-                <div className="p-5 bg-brand-50 border border-brand-200 rounded-lg text-center space-y-3">
-                  <div className="w-12 h-12 mx-auto rounded-full bg-brand-100 text-brand-600 flex items-center justify-center">
-                    <CheckCircle2 className="w-7 h-7" />
-                  </div>
-                  <h4 className="text-base font-bold text-brand-900">
-                    ¡Contraseña Reiniciada Exitosamente!
-                  </h4>
-                  <div className="p-3.5 bg-white border border-brand-200 rounded-lg text-left space-y-2 text-xs text-slate-700">
-                    <p className="flex items-center text-slate-800">
-                      <Mail className="w-4 h-4 text-brand-600 mr-2 flex-shrink-0" />
-                      <span>
-                        Correo de destino: <strong>{resetTargetUser.email}</strong>
-                      </span>
-                    </p>
-                    <p className="text-slate-600">
-                      Por estrictos protocolos de confidencialidad institucional, la contraseña temporal generada <strong>no es visible para el administrador</strong>. Ha sido despachada automáticamente al correo del usuario.
-                    </p>
-                    <p className="text-slate-600">
-                      El usuario deberá iniciar sesión con dicha credencial y el sistema le solicitará cambiarla obligatoriamente en su primer acceso.
-                    </p>
-                  </div>
-                </div>
-                <div className="flex justify-end">
-                  <button
-                    type="button"
-                    onClick={() => setResetModalOpen(false)}
-                    className="w-full py-2.5 rounded-md bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs transition-colors cursor-pointer"
-                  >
-                    Entendido / Cerrar
-                  </button>
-                </div>
-              </div>
+              <Alert tone="success" icon={Mail} title={`Enviamos una contraseña temporal a ${resetTargetUser.email}`}>
+                No se muestra en pantalla. Al entrar, el sistema le pedirá a la persona crear una nueva.
+              </Alert>
             ) : (
-              <form onSubmit={handleResetPasswordSubmit} className="space-y-4">
-                <div className="p-4 bg-brand-50 border border-brand-200 rounded-lg space-y-2 text-xs text-brand-900">
-                  <div className="flex items-center font-bold text-brand-950">
-                    <ShieldAlert className="w-4 h-4 text-brand-700 mr-1.5 flex-shrink-0" />
-                    <span>Envío Confidencial de Credencial Temporal</span>
-                  </div>
-                  <p>
-                    Al confirmar, el sistema generará una <strong>contraseña temporal aleatoria y segura</strong> de 12 caracteres y la despachará de forma confidencial al correo registrado del usuario:
-                  </p>
-                  <div className="font-semibold text-slate-800 bg-white/80 p-2 rounded-lg border border-brand-200 flex items-center">
-                    <Mail className="w-3.5 h-3.5 text-brand-600 mr-1.5 flex-shrink-0" />
-                    <span>{resetTargetUser.email}</span>
-                  </div>
-                  <ul className="text-xs text-brand-800 space-y-0.5 mt-1 list-disc pl-4">
-                    <li>La contraseña <strong>no se mostrará en pantalla</strong> para proteger la privacidad del usuario.</li>
-                    <li>La cuenta requerirá obligatoriamente el <strong>cambio de contraseña</strong> al primer inicio de sesión.</li>
-                    <li>Se restablecerán los intentos fallidos a 0 y se revocarán sesiones activas.</li>
-                  </ul>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Motivo / Observación Administrativa (Opcional)
-                  </label>
-                  <input
-                    type="text"
-                    value={resetMotivo}
-                    onChange={(e) => setResetMotivo(e.target.value)}
-                    placeholder="Ej. Solicitud voluntaria del usuario / Olvido de clave"
-                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-md text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-500"
-                  />
-                </div>
-
-                <div className="flex justify-end space-x-3 pt-3 border-t border-slate-100">
-                  <button
-                    type="button"
-                    onClick={() => setResetModalOpen(false)}
-                    className="px-4 py-2 rounded-md text-xs font-medium text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={resetSubmitting}
-                    className="px-4 py-2 rounded-md bg-brand-700 hover:bg-brand-800 text-white font-bold text-xs transition-colors flex items-center space-x-2 disabled:opacity-50 cursor-pointer"
-                  >
-                    {resetSubmitting ? (
-                      <>
-                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                        <span>Generando y Enviando...</span>
-                      </>
-                    ) : (
-                      <>
-                        <KeyRound className="w-3.5 h-3.5" />
-                        <span>Confirmar Reinicio y Enviar Correo</span>
-                      </>
-                    )}
-                  </button>
-                </div>
+              <form id="user-reset-form" onSubmit={handleResetPasswordSubmit} className="space-y-4">
+                <ul className="list-disc space-y-1 pl-5 text-sm text-ink-soft">
+                  <li>Se genera una contraseña temporal de 12 caracteres y se envía al correo del usuario.</li>
+                  <li>No se muestra en pantalla, ni siquiera a usted.</li>
+                  <li>Se cierran sus sesiones abiertas y se reinician sus intentos fallidos.</li>
+                  <li>Al entrar, deberá crear una contraseña nueva.</li>
+                </ul>
+                <Field label="Motivo" hint="Opcional. Por ejemplo: la persona olvidó su contraseña.">
+                  <Input type="text" value={resetMotivo} onChange={(e) => setResetMotivo(e.target.value)} />
+                </Field>
               </form>
             )}
           </div>
-        </div>,
-        document.body
-      )}
+        )}
+      </Modal>
 
-      {/* Modal de Configuración y Prueba de Google Mail */}
       <GoogleEmailConfigModal
         isOpen={emailConfigModalOpen}
         onClose={() => setEmailConfigModalOpen(false)}
