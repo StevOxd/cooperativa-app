@@ -237,9 +237,9 @@ export const Navbar = () => {
                             setIsDropdownOpen(false);
                             setIsEmailConfigOpen(true);
                           }}
-                          className="w-full flex items-center space-x-2.5 px-3 py-2 text-xs font-medium text-slate-700 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer text-left"
+                          className="w-full flex items-center space-x-2.5 px-3 py-2 text-xs font-medium text-slate-700 hover:text-slate-900 hover:bg-slate-100 rounded-md transition-colors cursor-pointer text-left"
                         >
-                          <Mail className="w-4 h-4 text-sky-700 flex-shrink-0" />
+                          <Mail className="w-4 h-4 text-brand-700 flex-shrink-0" />
                           <span>Servicio de Correo (Google SMTP)</span>
                         </button>
                       )}
