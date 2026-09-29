@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
-import { Loader2, RefreshCw, Send, Compass, Users2 } from 'lucide-react';
+import { RefreshCw, Send, Compass } from 'lucide-react';
+import { Button, LoadingState, PageHeader, TabPanel, Tabs } from '../components/ui';
+import { formatDate } from '../utils/format';
 import AssociateOnboardingTour from '../components/associate/AssociateOnboardingTour';
 import { useToast } from '../context/ToastContext';
 import { generateAccountStatementPdf } from '../utils/accountStatementPdf';
@@ -13,6 +15,8 @@ import { AssociateBeneficiariesTab } from '../components/associate/dashboard/Ass
 import { AccountMovementsModal } from '../components/associate/dashboard/AccountMovementsModal';
 import { TransferRequestModal } from '../components/associate/dashboard/TransferRequestModal';
 import { EditBeneficiariesModal } from '../components/associate/dashboard/EditBeneficiariesModal';
+
+const TABS_ID = 'portal';
 
 export const AssociateDashboard = () => {
   const { user } = useAuth();
@@ -592,130 +596,54 @@ export const AssociateDashboard = () => {
   );
   const pagePagadoAmortizado = pageCapitalAmortizado + pageInteresAmortizado;
 
-  const getStatusBadge = (estado) => {
-    switch (estado) {
-      case 'APROBADO':
-      case 'APROBADA':
-      case 'DESEMBOLSADA':
-        return 'bg-brand-50 text-brand-700 border-brand-200';
-      case 'RECHAZADO':
-      case 'RECHAZADA':
-        return 'bg-danger-50 text-danger-700 border-danger-200';
-      default:
-        return 'bg-warning-50 text-warning-700 border-warning-200';
-    }
-  };
-
   if (loading) {
-    return (
-      <div className="py-24 flex flex-col items-center justify-center text-slate-500">
-        <Loader2 className="w-10 h-10 text-brand-700 animate-spin mb-3" />
-        <p className="text-sm font-semibold">Cargando Portal de Autogestión...</p>
-      </div>
-    );
+    return <LoadingState label="Cargando su información…" className="py-24" />;
   }
 
   return (
     <div className="space-y-6">
-      {/* Encabezado del Portal */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-white p-6 rounded-lg border border-slate-200">
-        <div>
-          <span className="text-xs font-bold text-brand-700 uppercase tracking-widest block mb-1">
-            Portal de Autogestión del Asociado
-          </span>
-          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
-            Bienvenido, {profile?.primer_nombre ? `${profile.primer_nombre} ${profile.primer_apellido || ''}` : (user?.nombre || user?.nombre_completo || 'Asociado')}
-          </h1>
-          <p className="text-sm text-slate-500 mt-0.5">
-            Usuario: <span className="font-mono font-bold text-slate-800">{profile?.codigo_corporativo || user?.codigo_corporativo}</span> | Ingreso: {profile?.fecha_ingreso ? new Date(profile.fecha_ingreso).toLocaleDateString() : 'Activo'}
-          </p>
-        </div>
-        <div className="flex items-center space-x-2">
-          <button
-            onClick={() => setShowTour(true)}
-            className="inline-flex items-center space-x-1.5 px-3.5 py-2 rounded-md border border-brand-300 bg-brand-50 hover:bg-brand-100 text-brand-800 text-xs font-bold transition-colors cursor-pointer"
-            title="Ver recorrido guiado por las funciones del portal"
-          >
-            <Compass className="w-3.5 h-3.5 text-brand-700" />
-            <span>Recorrido Guiado</span>
-          </button>
-          <button
-            onClick={openTrasladoModal}
-            className="inline-flex items-center space-x-1.5 px-4 py-2 rounded-md bg-brand-700 hover:bg-brand-800 text-white text-xs font-bold transition-colors cursor-pointer"
-          >
-            <Send className="w-3.5 h-3.5" />
-            <span>Solicitar Traslado</span>
-          </button>
-          <button
-            onClick={fetchData}
-            className="inline-flex items-center space-x-1.5 px-3.5 py-2 rounded-md border border-slate-200 hover:bg-slate-50 text-slate-600 text-xs font-semibold transition-colors cursor-pointer"
-            title="Actualizar datos"
-          >
-            <RefreshCw className="w-3.5 h-3.5" />
-          </button>
-        </div>
-      </div>
+      <PageHeader
+        title={`Hola, ${profile?.primer_nombre ? `${profile.primer_nombre} ${profile.primer_apellido || ''}`.trim() : (user?.nombre || user?.nombre_completo || 'Asociado')}`}
+        description={
+          <>
+            Código <span className="font-mono">{profile?.codigo_corporativo || user?.codigo_corporativo}</span>
+            {profile?.fecha_ingreso && <> · Asociado desde {formatDate(profile.fecha_ingreso)}</>}
+          </>
+        }
+        actions={
+          <>
+            <Button variant="ghost" icon={Compass} onClick={() => setShowTour(true)} title="Ver un recorrido por las funciones del portal">
+              Recorrido
+            </Button>
+            <Button variant="secondary" size="icon" onClick={fetchData} aria-label="Actualizar" title="Actualizar">
+              <RefreshCw className="w-4 h-4" aria-hidden="true" />
+            </Button>
+            <Button icon={Send} onClick={openTrasladoModal}>
+              Solicitar traslado
+            </Button>
+          </>
+        }
+      />
 
-      {/* Tabs Navegación */}
-      <div className="flex border-b border-slate-200 overflow-x-auto">
-        <button
-          onClick={() => setActiveTab('resumen')}
-          className={`px-5 py-3 text-sm font-semibold border-b-2 transition-all cursor-pointer whitespace-nowrap ${
-            activeTab === 'resumen'
-              ? 'border-brand-700 text-brand-700'
-              : 'border-transparent text-slate-500 hover:text-slate-800'
-          }`}
-        >
-          Resumen Financiero
-        </button>
-        <button
-          onClick={() => setActiveTab('planilla')}
-          className={`px-5 py-3 text-sm font-semibold border-b-2 transition-all cursor-pointer whitespace-nowrap ${
-            activeTab === 'planilla'
-              ? 'border-brand-700 text-brand-700'
-              : 'border-transparent text-slate-500 hover:text-slate-800'
-          }`}
-        >
-          Cuenta Origen y Traslados
-        </button>
-        <button
-          onClick={() => setActiveTab('creditos')}
-          className={`px-5 py-3 text-sm font-semibold border-b-2 transition-all cursor-pointer whitespace-nowrap flex items-center space-x-1.5 ${
-            activeTab === 'creditos'
-              ? 'border-brand-700 text-brand-700'
-              : 'border-transparent text-slate-500 hover:text-slate-800'
-          }`}
-        >
-          <span>Plan de Pagos y Créditos</span>
-          {creditosAprobados.length > 0 && (
-            <span className="px-1.5 py-0.2 rounded-full text-xs font-bold bg-brand-100 text-brand-800">
-              {creditosAprobados.length}
-            </span>
-          )}
-        </button>
-        <button
-          onClick={() => setActiveTab('productos')}
-          className={`px-5 py-3 text-sm font-semibold border-b-2 transition-all cursor-pointer whitespace-nowrap ${
-            activeTab === 'productos'
-              ? 'border-brand-700 text-brand-700'
-              : 'border-transparent text-slate-500 hover:text-slate-800'
-          }`}
-        >
-          Productos y Beneficios
-        </button>
-        <button
-          onClick={() => setActiveTab('beneficiarios')}
-          className={`px-5 py-3 text-sm font-semibold border-b-2 transition-all cursor-pointer whitespace-nowrap flex items-center space-x-1.5 ${
-            activeTab === 'beneficiarios'
-              ? 'border-brand-700 text-brand-700'
-              : 'border-transparent text-slate-500 hover:text-slate-800'
-          }`}
-        >
-          <Users2 className="w-4 h-4" />
-          <span>Mis Beneficiarios</span>
-        </button>
-      </div>
+      <Tabs
+        label="Secciones del portal"
+        idPrefix={TABS_ID}
+        value={activeTab}
+        onChange={setActiveTab}
+        items={[
+          { id: 'resumen', label: 'Resumen' },
+          { id: 'planilla', label: 'Traslados' },
+          {
+            id: 'creditos',
+            label: 'Plan de pagos',
+            ...(creditosAprobados.length > 0 && { count: creditosAprobados.length }),
+          },
+          { id: 'productos', label: 'Productos' },
+          { id: 'beneficiarios', label: 'Beneficiarios' },
+        ]}
+      />
 
+      <TabPanel id={activeTab} idPrefix={TABS_ID}>
       {/* ==================== TAB: RESUMEN FINANCIERO ==================== */}
       {activeTab === 'resumen' && (
         <AssociateSummaryTab
@@ -739,7 +667,6 @@ export const AssociateDashboard = () => {
           filterTrasladoEstado={filterTrasladoEstado}
           filterTrasladoTipo={filterTrasladoTipo}
           filteredSolicitudesTraslado={filteredSolicitudesTraslado}
-          getStatusBadge={getStatusBadge}
           openTrasladoModal={openTrasladoModal}
           searchTrasladoQuery={searchTrasladoQuery}
           setFilterTrasladoEstado={setFilterTrasladoEstado}
@@ -786,6 +713,8 @@ export const AssociateDashboard = () => {
           openEditarBeneficiariosModal={openEditarBeneficiariosModal}
         />
       )}
+
+      </TabPanel>
 
       {/* Modal de Movimientos de Cuenta */}
       <AccountMovementsModal
