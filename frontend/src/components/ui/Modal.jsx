@@ -33,6 +33,7 @@ const stack = [];
  * @param {'sm'|'md'|'lg'|'xl'} [props.size='md']
  * @param {boolean} [props.dismissible=true]
  * @param {React.RefObject} [props.initialFocusRef] - Elemento que recibe el foco al abrir.
+ * @param {boolean} [props.closeOnOverlay=true] - En `false`, un clic fuera no cierra (formularios con trabajo sin guardar).
  * @param {boolean} [props.lockScroll=true] - En `false`, no bloquea el scroll (para modales que ya lo hacen por su cuenta).
  * @param {boolean} [props.critical=false] - Capa superior a cualquier otro modal (alertas de seguridad).
  */
@@ -47,6 +48,7 @@ export const Modal = ({
   initialFocusRef,
   critical = false,
   lockScroll = true,
+  closeOnOverlay = true,
   className,
   children,
 }) => {
@@ -118,7 +120,7 @@ export const Modal = ({
         'items-start justify-center overflow-y-auto bg-surface-inverse/60 p-4 sm:items-center print:static print:block print:bg-white print:p-0'
       )}
       onMouseDown={(e) => {
-        if (dismissible && e.target === e.currentTarget) onClose?.();
+        if (dismissible && closeOnOverlay && e.target === e.currentTarget) onClose?.();
       }}
     >
       <div

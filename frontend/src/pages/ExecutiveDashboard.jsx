@@ -320,7 +320,6 @@ export const ExecutiveDashboard = () => {
 
       <ExecutiveResolutionModal
         selectedCredito={selectedCredito}
-        getStatusBadge={getStatusBadge}
         closeResolverModal={closeResolverModal}
         activeModalTab={activeModalTab}
         setActiveModalTab={setActiveModalTab}

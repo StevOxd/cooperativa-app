@@ -17,7 +17,8 @@ const STATES = {
   PENDIENTE: { label: 'Con el operador', tone: 'brand' },
 };
 
-const status = (estado) => STATES[estado] || { label: humanize(estado), tone: 'neutral' };
+export const executiveCreditStatus = (estado) => STATES[estado] || { label: humanize(estado), tone: 'neutral' };
+const status = executiveCreditStatus;
 
 /**
  * Tabla de solicitudes de crédito para el ejecutivo.
@@ -113,7 +114,7 @@ export const ExecutiveCreditsTable = ({ creditos, loading, hasFilters, onOpen })
                   <span className="text-ink-subtle">—</span>
                 )}
               </TD>
-              <TD sticky className="whitespace-nowrap text-right">
+              <TD sticky className="whitespace-nowrap text-center">
                 {isPendiente ? (
                   <Button size="sm" onClick={() => onOpen(c)}>Resolver</Button>
                 ) : (

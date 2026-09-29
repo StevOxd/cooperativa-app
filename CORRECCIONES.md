@@ -25,6 +25,8 @@ Registro de errores y mejoras encontrados durante el rediseño del frontend (ram
 | C-12 | Los KPI del administrador no cuentan a los ejecutivos | Frontend · admin | Baja | Pendiente |
 | C-13 | Variables sin uso tras separar los dashboards | Frontend | Baja | Pendiente |
 | C-14 | Mismo texto de error de credenciales en el backend para todos los casos | Backend · contenido | Baja | Pendiente (Fase 3.5) |
+| C-15 | Si el correo falla, la afiliación se completa igual y el asociado no recibe su contraseña | Backend · correo | Alta | Pendiente |
+| C-16 | Contraseñas temporales y secretos 2FA en los registros y en memoria | Backend · seguridad | Alta | Pendiente |
 
 ---
 
@@ -101,6 +103,8 @@ No son dos ventanas: es la misma, que se reabre.
 2. O actualizar el README para usar siempre `docker compose --env-file docker.env …`.
 
 Revisar también qué otras variables de `docker.env` se están perdiendo.
+
+**Relación con C-15:** esta es la causa más probable de que, en Docker, el correo quede en "modo de prueba" aunque `docker.env` tenga las credenciales. Con las variables vacías, el servicio de correo no encuentra `GMAIL_USER` ni `GMAIL_APP_PASSWORD` y pasa al modo demo sin avisar.
 
 ---
 
@@ -195,7 +199,7 @@ No es un riesgo hoy, pero es confuso y podría usarse por error en el futuro.
 **Qué pasa:** al mover el JSX a subcomponentes quedaron sin usar, dentro de bloques de lógica que no se tocaron a propósito:
 - `formatDateOnly` en `OperatorDashboard.jsx`.
 - `user` en `ExecutiveDashboard.jsx`.
-- `getStatusBadge` en `ExecutiveDashboard.jsx`, que solo la usa el modal de resolución y se irá al rediseñarlo.
+- `getStatusBadge` en `ExecutiveDashboard.jsx`: desde la Fase 3.4 el modal de resolución ya no la usa y la página tampoco.
 
 **Propuesta:** limpiarlas en un commit de refactor cuando el rediseño termine.
 
@@ -207,6 +211,53 @@ No es un riesgo hoy, pero es confuso y podría usarse por error en el futuro.
 **Qué pasa:** el login responde *"Credenciales inválidas. Verifique su código corporativo/correo o contraseña."* Es correcto no decir cuál de los dos falló, por seguridad, pero el texto usa "código corporativo", un término que el asociado no conoce. En pantalla se le llama "código de usuario".
 
 **Propuesta:** *"El usuario o la contraseña no son correctos."*
+
+---
+
+### C-15 · Si el correo falla, la afiliación se completa igual y el asociado no recibe su contraseña
+**Prioridad:** Alta
+
+**Qué pasa:** al formalizar una afiliación, el sistema genera la contraseña temporal y la envía por correo. Por la regla de seguridad, esa contraseña nunca se muestra en pantalla. Pero si el correo no sale, el backend responde como si todo estuviera bien:
+- **Sin credenciales** (o no verificadas): [mailerService.js:562](backend/src/services/mailerService.js#L562) devuelve `{ success: true, simulado: true, provider: 'demo' }`.
+- **El envío falla** (Gmail rechaza, sin red, etc.): [mailerService.js:558](backend/src/services/mailerService.js#L558) devuelve `{ success: true, simulado: true, error }`.
+
+La afiliación queda formalizada y el asociado no tiene cómo entrar. El operador solo ve el aviso "El correo está en modo de prueba" en el resumen, y si lo cierra no queda registro en pantalla.
+
+**Causas más probables del modo de prueba:**
+1. En Docker, las variables de `docker.env` no se leen (**C-04**).
+2. La configuración guardada desde "Correo de notificaciones" (tabla `configuracion_sistema`) no existe o falla la verificación con Google.
+
+**Propuesta:**
+- Que `success` refleje si el correo realmente salió (`success: false` cuando `simulado` es verdadero fuera del entorno de desarrollo), o que la respuesta de formalizar incluya un campo claro como `correo_enviado: false`.
+- En el resumen de la afiliación, si el correo no salió, mostrar un aviso que no se pueda pasar por alto y dar una salida: reenviar las credenciales o generar una nueva contraseña temporal. Ya existe un flujo de reinicio de contraseña (línea 673) que se puede reutilizar.
+- Mostrar al administrador el estado del servicio de correo (`getStatus()` ya devuelve `verified` y `lastError`).
+
+**Cómo verificar el correo, paso a paso:**
+1. Levantar con `docker compose --env-file docker.env up -d` (mientras C-04 siga pendiente).
+2. En los registros del backend (`docker compose logs backend | grep MAILER`) debe aparecer `[MAILER] Conectado y verificado exitosamente con Google Mail (...)`. Si dice `Credenciales de Google cargadas pero no verificadas`, revisar la contraseña de aplicación de 16 caracteres.
+3. Como administrador, abrir "Correo de notificaciones" y usar la prueba de envío.
+4. Formalizar una afiliación de prueba con un correo propio: debe llegar el mensaje y el resumen **no** debe mostrar "modo de prueba".
+
+---
+
+### C-16 · Contraseñas temporales y secretos 2FA en los registros y en memoria
+**Prioridad:** Alta · **Seguridad**
+
+**Qué pasa:** en modo de prueba, el servicio de correo escribe la contraseña temporal **en texto plano** en la consola del servidor:
+- [mailerService.js:561](backend/src/services/mailerService.js#L561): `... (Usuario: ${codigoCorporativo}, Pass: ${password})` (credenciales de afiliación).
+- [mailerService.js:673](backend/src/services/mailerService.js#L673): igual, para el reinicio de contraseña.
+
+Además, el historial en memoria `lastEmails` guarda `passwordGenerada` ([línea 543](backend/src/services/mailerService.js#L543)) y el secreto del 2FA `secretBase32` ([línea 424](backend/src/services/mailerService.js#L424)) de los últimos 20 correos.
+
+Cualquiera con acceso a los registros (`docker compose logs`, un servicio de logs, una captura de pantalla de la terminal) puede leer contraseñas temporales válidas. Con el secreto 2FA se puede generar el código de verificación de otra persona.
+
+**Lo que se revisó:** el historial **no** se expone por ningún endpoint. `getLastSentEmails()` no la llama ningún controlador, y `getStatus()` no incluye el historial. El riesgo está en los registros y en la memoria del proceso.
+
+**Propuesta:**
+- Quitar `password` y cualquier secreto de todos los `console.log` / `console.warn`. Registrar solo destinatario, asunto y resultado.
+- Quitar `passwordGenerada` y `secretBase32` del objeto `record`, o eliminar `lastEmails` si no tiene uso.
+- Si se necesita probar sin correo real en desarrollo, usar un transporte de pruebas (por ejemplo Ethereal de Nodemailer), que da un enlace para ver el correo sin escribir secretos en consola.
+- Tras corregirlo, revisar si en registros viejos quedaron contraseñas de usuarios que todavía no las han cambiado.
 
 ---
 
@@ -231,4 +282,6 @@ Errores visuales o de contenido que se corrigieron dentro de los commits del red
 | `ConfirmModal` mostraba siempre "Podrá iniciar una nueva simulación", también al cambiar el estado de un asociado. Ahora el aviso es la prop opcional `note` y solo lo pasa el simulador | ConfirmModal, CreditSimulatorPage | 3.4 |
 | El botón de confirmar de `ConfirmModal` llevaba siempre un ícono ✕, incluso en acciones positivas | ConfirmModal | 3.4 |
 | El modal de traslado mostraba el tipo de operación en código (`APERTURA_Y_TRASLADO`) | OperatorTrasladoModal | 3.4 |
+| El botón "Subir PDF firmado" (evaluación del operador y resolución del ejecutivo) usaba un `<input type="file">` con `hidden`, que no se puede alcanzar con el teclado. Ahora es `sr-only` y muestra el anillo de foco | SignedPdfPanel | 3.4 |
+| Degradados en el dictamen automático de la evaluación de crédito y encabezado oscuro del modal | OperatorCreditEvaluationModal | 3.4 |
 | La tabla de créditos del operador ponía "Devuelta:" ante cualquier comentario del ejecutivo, incluso en créditos aprobados. Ahora dice "Devuelta:" solo si el estado es `DEVUELTA_OPERADOR` y "Ejecutivo:" en los demás casos | CreditsPanel | 3.4 |
