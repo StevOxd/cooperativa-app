@@ -4,6 +4,7 @@ import api from '../../services/api';
 import { toast } from '../../context/ToastContext';
 import { Alert, Button, Field, Modal, PasswordInput, cn } from '../ui';
 import { PasswordRequirement } from './PasswordRequirement';
+import { checkPassword } from '../../utils/passwordPolicy';
 
 const FORM_ID = 'cambio-obligatorio-password';
 
@@ -25,10 +26,7 @@ const ForcedPasswordChangeModal = ({ isOpen, user, onSuccess, onLogout }) => {
   if (!isOpen) return null;
 
   // Criterios de validación en tiempo real (Contraseña Fuerte)
-  const hasMinLength = nuevaPassword.length >= 8;
-  const hasLetters = /[a-zA-Z]/.test(nuevaPassword);
-  const hasNumbers = /[0-9]/.test(nuevaPassword);
-  const hasSpecial = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?~`]/.test(nuevaPassword);
+  const { hasMinLength, hasLetters, hasNumbers, hasSpecial } = checkPassword(nuevaPassword);
   const passwordsMatch = nuevaPassword.length > 0 && nuevaPassword === confirmarPassword;
   const isFormValid = hasMinLength && hasLetters && hasNumbers && hasSpecial && passwordsMatch && passwordActual.trim().length > 0;
 

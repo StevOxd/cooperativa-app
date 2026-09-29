@@ -11,9 +11,9 @@ Registro de errores y mejoras encontrados durante el rediseño del frontend (ram
 
 | ID | Problema | Área | Prioridad | Estado |
 |---|---|---|---|---|
-| C-01 | La app se muestra detrás del cambio obligatorio de contraseña | Frontend · sesión | Alta | Pendiente |
-| C-02 | "Mi cuenta" pide 6 caracteres, pero el backend exige 8 y un símbolo | Frontend · validación | Alta | Pendiente |
-| C-03 | El recorrido guiado hay que cerrarlo dos veces | Frontend · asociado | Media | Pendiente |
+| C-01 | La app se muestra detrás del cambio obligatorio de contraseña | Frontend · sesión | Alta | **Corregido** |
+| C-02 | "Mi cuenta" pide 6 caracteres, pero el backend exige 8 y un símbolo | Frontend · validación | Alta | **Corregido** |
+| C-03 | El recorrido guiado hay que cerrarlo dos veces | Frontend · asociado | Media | **Corregido** |
 | C-04 | Docker Compose no lee `docker.env` con el comando del README | Infraestructura | Media | Pendiente |
 | C-05 | El recorrido guiado promete funciones que no existen | Contenido | Media | **Corregido** (Fase 3.4, grupo 3a) |
 | C-06 | Mensajes del backend y de los handlers con jerga técnica | Contenido | Media | Pendiente (Fase 3.5) |
@@ -34,7 +34,7 @@ Registro de errores y mejoras encontrados durante el rediseño del frontend (ram
 ## Pendientes
 
 ### C-01 · La app se muestra detrás del cambio obligatorio de contraseña
-**Prioridad:** Alta
+**Prioridad:** Alta · **Corregido:** `Layout` no monta la aplicación mientras `debe_cambiar_password` sea verdadero; muestra un fondo neutro con la marca y encima el modal. Probado: no se ve el portal, no se abre el recorrido y no sale ninguna petición además de `/auth/me`.
 
 **Qué pasa:** cuando un asociado nuevo entra por primera vez con su contraseña temporal, aparece el modal "Cambie su contraseña", pero detrás ya se ve el portal (dashboard, pestañas, menú), como si la sesión estuviera completa. Además, el recorrido guiado de bienvenida se abre detrás del modal.
 
@@ -55,7 +55,7 @@ La opción 1 es más segura: cubre también el caso en que el usuario recarga la
 ---
 
 ### C-02 · "Mi cuenta" pide 6 caracteres, pero el backend exige 8 y un símbolo
-**Prioridad:** Alta
+**Prioridad:** Alta · **Corregido:** las reglas viven en [utils/passwordPolicy.js](frontend/src/utils/passwordPolicy.js), con la misma expresión que el backend, y las usan el cambio obligatorio y "Mi cuenta". Probado: `abc123` y `abc12345` se bloquean con su mensaje; `Abc#1234` se envía.
 
 **Qué pasa:** las reglas de contraseña no coinciden entre pantallas:
 
@@ -75,7 +75,7 @@ En "Mi cuenta", el usuario escribe una contraseña de 6 caracteres, la lista de 
 ---
 
 ### C-03 · El recorrido guiado hay que cerrarlo dos veces
-**Prioridad:** Media
+**Prioridad:** Media · **Corregido:** el efecto se separó en dos: la apertura automática depende solo del usuario (`storageKey`) y la manual solo de `forceOpen` al pasar a `true`. Probado: se cierra con un clic y con Escape.
 
 **Qué pasa:** en el portal del asociado, al pulsar "Recorrido" y luego cerrar la ventana, se vuelve a abrir. Hay que cerrarla una segunda vez.
 

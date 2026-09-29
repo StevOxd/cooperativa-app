@@ -7,6 +7,7 @@ import {
   Alert, Badge, Button, Field, Input, Modal, PasswordInput, TabPanel, Tabs,
 } from '../ui';
 import { PasswordRequirement } from '../auth/PasswordRequirement';
+import { PASSWORD_MIN_LENGTH, checkPassword } from '../../utils/passwordPolicy';
 import { ROLE_LABELS } from '../layout/navigation';
 
 const TABS_ID = 'cuenta';
@@ -236,8 +237,9 @@ export const AccountSettingsModal = ({ isOpen, onClose, initialTab = '2fa' }) =>
       return;
     }
 
-    if (nuevaPassword.length < 6) {
-      setErrorMsg('La nueva contraseña debe tener al menos 6 caracteres.');
+    const reglas = checkPassword(nuevaPassword);
+    if (!reglas.hasMinLength) {
+      setErrorMsg(`La nueva contraseña debe tener al menos ${PASSWORD_MIN_LENGTH} caracteres.`);
       return;
     }
 
@@ -246,10 +248,13 @@ export const AccountSettingsModal = ({ isOpen, onClose, initialTab = '2fa' }) =>
       return;
     }
 
-    const hasLetters = /[a-zA-Z]/.test(nuevaPassword);
-    const hasNumbers = /[0-9]/.test(nuevaPassword);
-    if (!hasLetters || !hasNumbers) {
+    if (!reglas.hasLetters || !reglas.hasNumbers) {
       setErrorMsg('La nueva contraseña debe contener al menos una letra y un número.');
+      return;
+    }
+
+    if (!reglas.hasSpecial) {
+      setErrorMsg('La nueva contraseña debe contener al menos un carácter especial (!@#$%^&*...).');
       return;
     }
 
@@ -547,10 +552,13 @@ export const AccountSettingsModal = ({ isOpen, onClose, initialTab = '2fa' }) =>
               </div>
 
               <ul id="requisitos-cambio-password" className="space-y-1 text-xs" aria-label="Requisitos de la contraseña">
-                <PasswordRequirement met={nuevaPassword.length >= 6}>Al menos 6 caracteres</PasswordRequirement>
-                <PasswordRequirement met={/[a-zA-Z]/.test(nuevaPassword) && /[0-9]/.test(nuevaPassword)}>
+                <PasswordRequirement met={checkPassword(nuevaPassword).hasMinLength}>
+                  Al menos {PASSWORD_MIN_LENGTH} caracteres
+                </PasswordRequirement>
+                <PasswordRequirement met={checkPassword(nuevaPassword).hasLetters && checkPassword(nuevaPassword).hasNumbers}>
                   Letras y números
                 </PasswordRequirement>
+                <PasswordRequirement met={checkPassword(nuevaPassword).hasSpecial}>Un símbolo (!@#$…)</PasswordRequirement>
                 <PasswordRequirement met={Boolean(nuevaPassword) && nuevaPassword === confirmarPassword}>
                   Las dos contraseñas coinciden
                 </PasswordRequirement>
