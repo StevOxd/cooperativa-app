@@ -28,7 +28,7 @@ const secureUploadsHandler = async (req, res) => {
   if (!token) {
     return res.status(401).json({
       success: false,
-      message: '[SECURITY ERROR] Acceso denegado: Se requiere autenticación para consultar expedientes y documentos.',
+      message: 'Inicie sesión para ver este documento.',
     });
   }
 
@@ -39,7 +39,7 @@ const secureUploadsHandler = async (req, res) => {
   } catch (err) {
     return res.status(401).json({
       success: false,
-      message: '[SECURITY ERROR] Token de autenticación inválido o expirado.',
+      message: 'Su sesión venció. Inicie sesión de nuevo.',
     });
   }
 
@@ -51,7 +51,7 @@ const secureUploadsHandler = async (req, res) => {
   if (!fs.existsSync(filePath)) {
     return res.status(404).json({
       success: false,
-      message: 'El documento bancario solicitado no existe.',
+      message: 'El documento no existe.',
     });
   }
 
@@ -87,7 +87,7 @@ const secureUploadsHandler = async (req, res) => {
 
   return res.status(403).json({
     success: false,
-    message: '[SECURITY ERROR] Acceso no autorizado: No tiene privilegios para visualizar este expediente bancario.',
+    message: 'No tiene permiso para ver este documento.',
   });
 };
 

@@ -17,7 +17,7 @@ const validarDpi = async (req, res) => {
     if (!cui_dpi) {
       return res.status(400).json({
         success: false,
-        message: 'Debe ingresar el CUI / DPI para verificar su identidad en la entidad bancaria.',
+        message: 'Escriba su número de DPI.',
       });
     }
 
@@ -25,7 +25,7 @@ const validarDpi = async (req, res) => {
     if (!/^\d{13}$/.test(cuiLimpio)) {
       return res.status(400).json({
         success: false,
-        message: 'El CUI / DPI debe contener exactamente 13 dígitos numéricos.',
+        message: 'El DPI debe tener 13 dígitos, sin espacios ni guiones.',
       });
     }
 
@@ -33,7 +33,7 @@ const validarDpi = async (req, res) => {
     if (cuiLimpio === '1000000000008') {
       return res.status(400).json({
         success: false,
-        message: 'El usuario Administrador (steven08) es una cuenta de administración central del sistema y no participa en el flujo de afiliación ni requiere cuenta bancaria de nómina.',
+        message: 'No es posible afiliar este DPI en línea. Comuníquese con la cooperativa.',
       });
     }
 
@@ -50,7 +50,7 @@ const validarDpi = async (req, res) => {
       return res.status(400).json({
         success: false,
         ya_es_asociado: true,
-        message: 'Usted ya se encuentra registrado como asociado activo de la cooperativa. Inicie sesión en el portal con sus credenciales.',
+        message: 'Usted ya es asociado de la cooperativa. Inicie sesión en el portal.',
       });
     }
 
@@ -63,7 +63,7 @@ const validarDpi = async (req, res) => {
         success: true,
         pertenece_banco: false,
         cui_dpi: cuiLimpio,
-        message: 'DPI no registrado en la Entidad Bancaria. La Cooperativa forma parte de la Corporación Bancaria, emitiremos tu solicitud para apertura de cuenta de ahorro y membresía.',
+        message: 'No encontramos una cuenta del banco con este DPI. Complete sus datos y le daremos un número de caso para terminar la afiliación en una agencia.',
       });
     }
 
@@ -73,7 +73,7 @@ const validarDpi = async (req, res) => {
         success: false,
         pertenece_banco: true,
         falta_requisitos: true,
-        message: 'El solicitante no posee una cuenta bancaria (monetaria o de ahorro) activa registrada en la entidad bancaria.',
+        message: 'Su DPI está registrado en el banco, pero no tiene una cuenta monetaria o de ahorro activa. Acérquese a una agencia del banco.',
       });
     }
 
@@ -84,13 +84,13 @@ const validarDpi = async (req, res) => {
       requiere_autenticacion_banco: true,
       cui_dpi: cuiLimpio,
       cliente: bancoRes.cliente,
-      message: 'Cliente de la Corporación Bancaria verificado. Por seguridad bancaria, ingresa con tus credenciales de la Banca en Línea para vincular tus cuentas.',
+      message: 'Es cliente del banco. Para continuar, confirme sus datos de la Banca en Línea.',
     });
   } catch (error) {
     console.error('[VALIDAR DPI ERROR]:', error);
     return res.status(500).json({
       success: false,
-      message: 'Error interno al consultar identidad bancaria.',
+      message: 'No pudimos consultar su DPI. Intente de nuevo en unos minutos.',
       error: process.env.NODE_ENV === 'development' ? error.message : undefined,
     });
   } finally {
@@ -109,7 +109,7 @@ const validarCredencialesBanco = async (req, res) => {
     if (!cui_dpi || !nombre_usuario || !codigo || !password) {
       return res.status(400).json({
         success: false,
-        message: 'Debe ingresar CUI/DPI, Nombre de Usuario, Código de Cliente y Contraseña bancaria.',
+        message: 'Escriba su usuario, su código de cliente y su contraseña de la Banca en Línea.',
       });
     }
 
@@ -124,7 +124,7 @@ const validarCredencialesBanco = async (req, res) => {
       return res.status(400).json({
         success: false,
         ya_es_asociado: true,
-        message: 'Usted ya se encuentra registrado como asociado activo de la cooperativa.',
+        message: 'Usted ya es asociado de la cooperativa. Inicie sesión en el portal.',
       });
     }
 
@@ -177,7 +177,7 @@ const validarCredencialesBanco = async (req, res) => {
     console.error('[VALIDAR CREDENCIALES BANCO ERROR]:', error);
     return res.status(500).json({
       success: false,
-      message: 'Error al validar credenciales con la Entidad Bancaria.',
+      message: 'No pudimos comunicarnos con el banco. Intente de nuevo en unos minutos.',
       error: process.env.NODE_ENV === 'development' ? error.message : undefined,
     });
   } finally {
@@ -204,7 +204,7 @@ const procesarAfiliacionExistente = async (req, res) => {
     if (!cui_dpi || (!id_cuenta_bancaria && !numero_cuenta_bancaria) || !monto_aportacion) {
       return res.status(400).json({
         success: false,
-        message: 'DPI, cuenta bancaria de origen y monto de aportación son requeridos.',
+        message: 'Faltan datos: DPI, cuenta del banco o monto del aporte.',
       });
     }
 
@@ -212,7 +212,7 @@ const procesarAfiliacionExistente = async (req, res) => {
     if (isNaN(monto) || monto < 100.00) {
       return res.status(400).json({
         success: false,
-        message: 'La aportación inicial de membresía no puede ser inferior a Q100.00.',
+        message: 'El aporte inicial mínimo es de Q100.00.',
       });
     }
 
@@ -233,7 +233,7 @@ const procesarAfiliacionExistente = async (req, res) => {
         await client.query('ROLLBACK');
         return res.status(404).json({
           success: false,
-          message: 'No se encontró el registro de la persona en la Entidad Bancaria.',
+          message: 'No encontramos este DPI en el banco.',
         });
       }
 
@@ -265,7 +265,7 @@ const procesarAfiliacionExistente = async (req, res) => {
       await client.query('ROLLBACK');
       return res.status(409).json({
         success: false,
-        message: 'La persona ya es un asociado registrado en la cooperativa.',
+        message: 'Usted ya es asociado de la cooperativa. Inicie sesión en el portal.',
       });
     }
 
@@ -280,7 +280,7 @@ const procesarAfiliacionExistente = async (req, res) => {
         await client.query('ROLLBACK');
         return res.status(400).json({
           success: false,
-          message: 'El correo electrónico ya se encuentra registrado por otro usuario en la cooperativa.',
+          message: 'Ese correo ya lo usa otra persona. Escriba otro.',
         });
       }
     }
@@ -391,7 +391,7 @@ const procesarAfiliacionExistente = async (req, res) => {
 
     return res.status(201).json({
       success: true,
-      message: '¡Afiliación completada con éxito! Su cuenta de ahorro cooperativo ha sido creada y fondeada.',
+      message: 'Afiliación completada. Su cuenta de ahorro ya está abierta y con su aporte inicial.',
       data: {
         asociado: {
           id_asociado: idAsociado,
@@ -430,7 +430,7 @@ const procesarAfiliacionExistente = async (req, res) => {
     console.error('[AFILIACION EXISTENTE ERROR]:', error);
     return res.status(500).json({
       success: false,
-      message: 'Error al procesar afiliación con cuenta bancaria.',
+      message: 'No se pudo completar la afiliación. Intente de nuevo.',
       error: process.env.NODE_ENV === 'development' ? error.message : undefined,
     });
   } finally {
@@ -461,7 +461,7 @@ const registrarSolicitudAgencia = async (req, res) => {
     if (!cui_dpi || !primer_nombre || !primer_apellido || !fecha_nacimiento) {
       return res.status(400).json({
         success: false,
-        message: 'DPI, nombres, apellidos y fecha de nacimiento son campos obligatorios.',
+        message: 'Faltan datos: DPI, primer nombre, primer apellido o fecha de nacimiento.',
       });
     }
 
@@ -470,25 +470,25 @@ const registrarSolicitudAgencia = async (req, res) => {
     if (!nameRegex.test(primer_nombre.trim())) {
       return res.status(400).json({
         success: false,
-        message: 'El primer nombre únicamente puede contener letras, sin números ni caracteres especiales.',
+        message: 'El primer nombre solo puede llevar letras.',
       });
     }
     if (!nameRegex.test(primer_apellido.trim())) {
       return res.status(400).json({
         success: false,
-        message: 'El primer apellido únicamente puede contener letras, sin números ni caracteres especiales.',
+        message: 'El primer apellido solo puede llevar letras.',
       });
     }
     if (segundo_nombre && segundo_nombre.trim() && !nameRegex.test(segundo_nombre.trim())) {
       return res.status(400).json({
         success: false,
-        message: 'El segundo nombre únicamente puede contener letras, sin números ni caracteres especiales.',
+        message: 'El segundo nombre solo puede llevar letras.',
       });
     }
     if (segundo_apellido && segundo_apellido.trim() && !nameRegex.test(segundo_apellido.trim())) {
       return res.status(400).json({
         success: false,
-        message: 'El segundo apellido únicamente puede contener letras, sin números ni caracteres especiales.',
+        message: 'El segundo apellido solo puede llevar letras.',
       });
     }
 
@@ -496,14 +496,14 @@ const registrarSolicitudAgencia = async (req, res) => {
     if (!telefono || !telefono.trim()) {
       return res.status(400).json({
         success: false,
-        message: 'El número de teléfono móvil es obligatorio.',
+        message: 'Escriba su número de teléfono.',
       });
     }
     const telLimpio = telefono.trim().replace(/\D/g, '');
     if (telLimpio.length !== 8) {
       return res.status(400).json({
         success: false,
-        message: `El número de teléfono debe contener exactamente 8 dígitos numéricos (ingresó ${telLimpio.length} dígitos).`,
+        message: `El teléfono debe tener 8 dígitos (tiene ${telLimpio.length}).`,
       });
     }
 
@@ -511,7 +511,7 @@ const registrarSolicitudAgencia = async (req, res) => {
     if (!/^\d{13}$/.test(cuiLimpio)) {
       return res.status(400).json({
         success: false,
-        message: 'El CUI / DPI debe contener exactamente 13 dígitos numéricos.',
+        message: 'El DPI debe tener 13 dígitos, sin espacios ni guiones.',
       });
     }
 
@@ -520,7 +520,7 @@ const registrarSolicitudAgencia = async (req, res) => {
     if (birthParts.length !== 3 || birthParts.some(isNaN)) {
       return res.status(400).json({
         success: false,
-        message: 'Formato de fecha de nacimiento inválido (debe seleccionarse una fecha válida en formato AAAA-MM-DD).',
+        message: 'La fecha de nacimiento no es válida.',
       });
     }
 
@@ -530,7 +530,7 @@ const registrarSolicitudAgencia = async (req, res) => {
     if (birthDate > today) {
       return res.status(400).json({
         success: false,
-        message: 'La fecha de nacimiento no puede ser una fecha futura.',
+        message: 'La fecha de nacimiento no puede ser futura.',
       });
     }
 
@@ -543,14 +543,14 @@ const registrarSolicitudAgencia = async (req, res) => {
     if (isNaN(age) || age < 18) {
       return res.status(400).json({
         success: false,
-        message: `Edad calculada: ${age >= 0 ? age : 0} años. La afiliación bancaria requiere ser mayor de edad (mínimo 18 años cumplidos).`,
+        message: `Tiene ${age >= 0 ? age : 0} años. Para afiliarse debe ser mayor de edad (18 años cumplidos).`,
       });
     }
 
     if (age > 105) {
       return res.status(400).json({
         success: false,
-        message: `Edad calculada: ${age} años. La fecha ingresada excede el rango máximo de edad permitido (105 años).`,
+        message: `La fecha da ${age} años. Revise el año de nacimiento.`,
       });
     }
 
@@ -561,7 +561,7 @@ const registrarSolicitudAgencia = async (req, res) => {
       if (!emailRegex.test(emailLimpio)) {
         return res.status(400).json({
           success: false,
-          message: 'El formato del correo electrónico ingresado no es válido.',
+          message: 'Revise el correo. Debe verse así: nombre@correo.com.',
         });
       }
 
@@ -572,7 +572,7 @@ const registrarSolicitudAgencia = async (req, res) => {
       if (checkUserEmail.rows.length > 0) {
         return res.status(400).json({
           success: false,
-          message: 'El correo electrónico ya se encuentra registrado por otro usuario en la cooperativa. Por favor ingrese un correo diferente.',
+          message: 'Ese correo ya lo usa otra persona. Escriba otro.',
         });
       }
 
@@ -583,7 +583,7 @@ const registrarSolicitudAgencia = async (req, res) => {
       if (checkSolEmail.rows.length > 0) {
         return res.status(400).json({
           success: false,
-          message: `Ya existe una solicitud de afiliación en trámite con este correo electrónico (${checkSolEmail.rows[0].numero_caso}).`,
+          message: `Ya hay una solicitud en trámite con este correo (caso ${checkSolEmail.rows[0].numero_caso}).`,
         });
       }
     }
@@ -604,7 +604,7 @@ const registrarSolicitudAgencia = async (req, res) => {
         reincidente: true,
         numero_caso: caso.numero_caso,
         fecha_solicitud: caso.fecha_solicitud,
-        message: `Usted ya cuenta con una solicitud activa registrada (${caso.numero_caso}). Puede acudir a cualquier agencia con este número.`,
+        message: `Ya tiene una solicitud en trámite (caso ${caso.numero_caso}). Preséntese en cualquier agencia con ese número.`,
         data: {
           numero_caso: caso.numero_caso,
           cui_dpi: cuiLimpio,
@@ -648,7 +648,7 @@ const registrarSolicitudAgencia = async (req, res) => {
 
     return res.status(201).json({
       success: true,
-      message: 'Solicitud registrada exitosamente. Preséntese a una agencia bancaria para completar el proceso.',
+      message: 'Solicitud registrada. Preséntese en una agencia del banco para terminar la afiliación.',
       data: {
         id_solicitud: solicitud.id_solicitud,
         numero_caso: solicitud.numero_caso,
@@ -697,7 +697,7 @@ const verificarEmail = async (req, res) => {
       return res.status(400).json({
         success: false,
         disponible: false,
-        message: 'Debe proporcionar un correo electrónico.',
+        message: 'Escriba su correo electrónico.',
       });
     }
 
@@ -708,7 +708,7 @@ const verificarEmail = async (req, res) => {
         success: true,
         disponible: false,
         formato_invalido: true,
-        message: 'El formato de correo electrónico es inválido.',
+        message: 'Revise el formato del correo.',
       });
     }
 
@@ -726,7 +726,7 @@ const verificarEmail = async (req, res) => {
         success: true,
         disponible: false,
         motivo: 'USUARIO_EXISTENTE',
-        message: 'Este correo electrónico ya está registrado por otro usuario en la cooperativa.',
+        message: 'Ese correo ya está registrado.',
       });
     }
 
@@ -748,7 +748,7 @@ const verificarEmail = async (req, res) => {
         success: true,
         disponible: false,
         motivo: 'SOLICITUD_PENDIENTE',
-        message: `Ya existe una solicitud de afiliación en trámite con este correo (${solCheck.rows[0].numero_caso}).`,
+        message: `Ya hay una solicitud en trámite con este correo (caso ${solCheck.rows[0].numero_caso}).`,
       });
     }
 
@@ -762,7 +762,7 @@ const verificarEmail = async (req, res) => {
     return res.status(500).json({
       success: false,
       disponible: false,
-      message: 'Error al verificar disponibilidad del correo electrónico.',
+      message: 'No se pudo revisar el correo. Intente de nuevo.',
       error: process.env.NODE_ENV === 'development' ? error.message : undefined,
     });
   } finally {

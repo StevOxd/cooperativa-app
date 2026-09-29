@@ -116,7 +116,7 @@ const listarAsociados = async (req, res) => {
     console.error('Error en asociadosAdminController.listarAsociados:', error);
     return res.status(500).json({
       success: false,
-      message: 'Error al listar los asociados de la cooperativa.',
+      message: 'No se pudo cargar la lista de asociados. Intente de nuevo.',
     });
   }
 };
@@ -235,7 +235,7 @@ const getExpedienteAsociado = async (req, res) => {
     console.error('Error en asociadosAdminController.getExpedienteAsociado:', error);
     return res.status(500).json({
       success: false,
-      message: 'Error al obtener el expediente del asociado.',
+      message: 'No se pudo cargar el expediente. Intente de nuevo.',
     });
   }
 };
@@ -259,7 +259,7 @@ const crearAfiliacionPresencial = async (req, res) => {
 
     return res.status(201).json({
       success: true,
-      message: 'Afiliación registrada exitosamente con apertura de Cuenta de Ahorro.',
+      message: 'Asociado registrado y cuenta de ahorro abierta.',
       data: {
         id_asociado: data.id_asociado,
         id_persona: data.id_persona,
@@ -306,14 +306,14 @@ const aperturarCuenta = async (req, res) => {
     if (!idAsociado) {
       return res.status(400).json({
         success: false,
-        message: 'Debe especificar el ID del asociado para aperturar la cuenta.',
+        message: 'Falta indicar el asociado.',
       });
     }
 
     if (!id_tipo_cuenta) {
       return res.status(400).json({
         success: false,
-        message: 'Debe seleccionar el tipo de producto o cuenta financiera.',
+        message: 'Elija el tipo de cuenta.',
       });
     }
 
@@ -323,7 +323,7 @@ const aperturarCuenta = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Asociado no encontrado.' });
     }
     if (asociadoRes.rows[0].estado_asociado !== 'ACTIVO') {
-      return res.status(403).json({ success: false, message: 'El asociado se encuentra inactivo o suspendido.' });
+      return res.status(403).json({ success: false, message: 'El asociado está inactivo o suspendido.' });
     }
 
     // 2. Validar tipo de cuenta y monto mínimo
@@ -338,7 +338,7 @@ const aperturarCuenta = async (req, res) => {
     if (montoInicial < montoMinimo) {
       return res.status(400).json({
         success: false,
-        message: `El monto ingresado (Q${montoInicial.toFixed(2)}) es menor al monto mínimo de apertura para ${tipoCuenta.nombre} (Q${montoMinimo.toFixed(2)}).`,
+        message: `Q${montoInicial.toFixed(2)} es menor al monto mínimo de apertura de ${tipoCuenta.nombre} (Q${montoMinimo.toFixed(2)}).`,
       });
     }
 
@@ -349,7 +349,7 @@ const aperturarCuenta = async (req, res) => {
 
     if (origen_fondos === 'CUENTA_INTERNA' && montoInicial > 0) {
       if (!id_cuenta_origen) {
-        return res.status(400).json({ success: false, message: 'Debe seleccionar la cuenta interna de origen.' });
+        return res.status(400).json({ success: false, message: 'Elija la cuenta del asociado de la que saldrá el dinero.' });
       }
 
       const ctaOrigenRes = await client.query(
@@ -358,7 +358,7 @@ const aperturarCuenta = async (req, res) => {
       );
       if (ctaOrigenRes.rows.length === 0) {
         await client.query('ROLLBACK');
-        return res.status(404).json({ success: false, message: 'Cuenta interna de origen no encontrada.' });
+        return res.status(404).json({ success: false, message: 'No encontramos la cuenta de origen.' });
       }
 
       const ctaOrigen = ctaOrigenRes.rows[0];
@@ -366,7 +366,7 @@ const aperturarCuenta = async (req, res) => {
         await client.query('ROLLBACK');
         return res.status(400).json({
           success: false,
-          message: `Saldo disponible insuficiente en cuenta ${ctaOrigen.numero_cuenta}.`,
+          message: `La cuenta ${ctaOrigen.numero_cuenta} no tiene saldo suficiente.`,
         });
       }
 
@@ -397,18 +397,18 @@ const aperturarCuenta = async (req, res) => {
         bcoRes = await bancoApiService.consultarCuenta(numero_cuenta_bancaria);
       } catch (err) {
         await client.query('ROLLBACK');
-        return res.status(404).json({ success: false, message: 'Cuenta bancaria no encontrada en la entidad bancaria.' });
+        return res.status(404).json({ success: false, message: 'No encontramos esa cuenta en el banco.' });
       }
 
       if (!bcoRes || !bcoRes.success || !bcoRes.data) {
         await client.query('ROLLBACK');
-        return res.status(404).json({ success: false, message: 'Cuenta bancaria corporativa no encontrada.' });
+        return res.status(404).json({ success: false, message: 'No encontramos esa cuenta en el banco.' });
       }
 
       const ctaBco = bcoRes.data;
       if (parseFloat(ctaBco.saldo_disponible) < montoInicial) {
         await client.query('ROLLBACK');
-        return res.status(400).json({ success: false, message: 'Saldo insuficiente en cuenta bancaria corporativa.' });
+        return res.status(400).json({ success: false, message: 'La cuenta del banco no tiene saldo suficiente.' });
       }
 
       // Débito en Core Banking API (banco_db)
@@ -469,7 +469,7 @@ const aperturarCuenta = async (req, res) => {
 
     return res.status(201).json({
       success: true,
-      message: `¡Cuenta ${nuevaCuenta.numero_cuenta} aperturada exitosamente!`,
+      message: `Cuenta ${nuevaCuenta.numero_cuenta} abierta.`,
       data: {
         id_cuenta: nuevaCuenta.id_cuenta,
         numero_cuenta: nuevaCuenta.numero_cuenta,
@@ -483,7 +483,7 @@ const aperturarCuenta = async (req, res) => {
     console.error('[ERROR] Fallo en asociadosAdminController.aperturarCuenta:', error.message);
     return res.status(500).json({
       success: false,
-      message: 'Error al aperturar la cuenta financiera.',
+      message: 'No se pudo abrir la cuenta. Intente de nuevo.',
     });
   } finally {
     client.release();
@@ -522,7 +522,7 @@ const getBeneficiarios = async (req, res) => {
     console.error('[ERROR] Fallo en asociadosAdminController.getBeneficiarios:', error.message);
     return res.status(500).json({
       success: false,
-      message: 'Error al obtener beneficiarios de la cuenta.',
+      message: 'No se pudieron cargar los beneficiarios. Intente de nuevo.',
     });
   }
 };
@@ -546,14 +546,14 @@ const guardarBeneficiarios = async (req, res) => {
     if (!Array.isArray(beneficiarios) || beneficiarios.length === 0) {
       return res.status(400).json({
         success: false,
-        message: 'Debe ingresar al menos un beneficiario para la cuenta.',
+        message: 'Agregue al menos un beneficiario.',
       });
     }
 
     // 1. Validar que la cuenta exista
     const ctaCheck = await client.query('SELECT id_cuenta, numero_cuenta FROM cuentas WHERE id_cuenta = $1', [id_cuenta]);
     if (ctaCheck.rows.length === 0) {
-      return res.status(404).json({ success: false, message: 'Cuenta bancaria no encontrada.' });
+      return res.status(404).json({ success: false, message: 'No encontramos esa cuenta.' });
     }
 
     // 2. Validación matemática estricta del 100.00%
@@ -562,14 +562,14 @@ const guardarBeneficiarios = async (req, res) => {
       if (!ben.nombre_completo || !ben.parentesco || ben.porcentaje === undefined) {
         return res.status(400).json({
           success: false,
-          message: 'Cada beneficiario debe contener Nombre Completo, Parentesco y Porcentaje asignado.',
+          message: 'Cada beneficiario necesita nombre, parentesco y porcentaje.',
         });
       }
       const pct = parseFloat(ben.porcentaje);
       if (isNaN(pct) || pct <= 0 || pct > 100) {
         return res.status(400).json({
           success: false,
-          message: `El porcentaje de ${ben.nombre_completo} (${ben.porcentaje}%) debe ser mayor a 0 y menor o igual a 100%.`,
+          message: `El porcentaje de ${ben.nombre_completo} debe ser mayor que 0 % y no pasar de 100 %.`,
         });
       }
       if (ben.telefono && ben.telefono.trim().length > 0) {
@@ -577,7 +577,7 @@ const guardarBeneficiarios = async (req, res) => {
         if (cleanTel.length !== 8) {
           return res.status(400).json({
             success: false,
-            message: `El número de teléfono de "${ben.nombre_completo}" debe tener exactamente 8 dígitos numéricos.`,
+            message: `El teléfono de ${ben.nombre_completo} debe tener 8 dígitos.`,
           });
         }
       }
@@ -618,7 +618,7 @@ const guardarBeneficiarios = async (req, res) => {
     if (prevNorm.length > 0 && JSON.stringify(prevNorm) === JSON.stringify(newNorm)) {
       return res.status(400).json({
         success: false,
-        message: 'No se detectaron modificaciones en los datos o porcentajes de los beneficiarios.',
+        message: 'No hay cambios por guardar.',
       });
     }
 
@@ -663,14 +663,14 @@ const guardarBeneficiarios = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: 'Beneficiarios declarados y guardados exitosamente (100.00% distribuido).',
+      message: 'Beneficiarios guardados.',
     });
   } catch (error) {
     await client.query('ROLLBACK');
     console.error('[ERROR] Fallo en asociadosAdminController.guardarBeneficiarios:', error.message);
     return res.status(500).json({
       success: false,
-      message: 'Error al registrar beneficiarios de la cuenta: ' + error.message,
+      message: 'No se pudieron guardar los beneficiarios: ' + error.message,
     });
   } finally {
     client.release();
@@ -717,7 +717,7 @@ const getHistorialBeneficiarios = async (req, res) => {
     console.error('[ERROR] Fallo en asociadosAdminController.getHistorialBeneficiarios:', error.message);
     return res.status(500).json({
       success: false,
-      message: 'Error al consultar el historial de cambios de beneficiarios.',
+      message: 'No se pudo cargar el historial. Intente de nuevo.',
     });
   }
 };
@@ -740,7 +740,7 @@ const cambiarEstadoAsociado = async (req, res) => {
     if (!estadosValidos.includes(estado)) {
       return res.status(400).json({
         success: false,
-        message: 'Estado no válido. Debe ser ACTIVO, INACTIVO o SUSPENDIDO.',
+        message: 'Estado no válido.',
       });
     }
 
@@ -767,7 +767,7 @@ const cambiarEstadoAsociado = async (req, res) => {
     console.error('[ERROR] Fallo en asociadosAdminController.cambiarEstadoAsociado:', error.message);
     return res.status(500).json({
       success: false,
-      message: 'Error al cambiar estado del asociado.',
+      message: 'No se pudo cambiar el estado. Intente de nuevo.',
     });
   }
 };
@@ -808,14 +808,14 @@ const enviarBoletaApertura = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: `Comprobante de apertura enviado correctamente a ${emailDestino}.`,
+      message: `Comprobante enviado a ${emailDestino}.`,
       data: mailRes,
     });
   } catch (error) {
     console.error('[ERROR] Fallo en asociadosAdminController.enviarBoletaApertura:', error.message);
     return res.status(500).json({
       success: false,
-      message: 'Error al enviar la boleta de apertura por correo: ' + error.message,
+      message: 'No se pudo enviar el comprobante por correo: ' + error.message,
     });
   }
 };

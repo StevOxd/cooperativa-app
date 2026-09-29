@@ -77,7 +77,7 @@ const getBandejaCreditos = async (req, res) => {
     console.error('Error en ejecutivoController.getBandejaCreditos:', error);
     return res.status(500).json({
       success: false,
-      message: 'Error al obtener las solicitudes de crédito para el Ejecutivo.',
+      message: 'No se pudieron cargar las solicitudes. Intente de nuevo.',
     });
   }
 };
@@ -108,7 +108,7 @@ const resolverSolicitudCredito = async (req, res) => {
   if (['DEVOLVER', 'DENEGAR'].includes(accion) && (!observaciones || observaciones.trim() === '')) {
     return res.status(400).json({
       success: false,
-      message: `Para la acción "${accion}" es obligatorio ingresar las observaciones / justificación correspondiente.`,
+      message: `Escriba el motivo de su decisión.`,
     });
   }
 
@@ -130,7 +130,7 @@ const resolverSolicitudCredito = async (req, res) => {
       await client.query('ROLLBACK');
       return res.status(404).json({
         success: false,
-        message: 'Solicitud de crédito no encontrada.',
+        message: 'No encontramos esa solicitud.',
       });
     }
 
@@ -140,7 +140,7 @@ const resolverSolicitudCredito = async (req, res) => {
       await client.query('ROLLBACK');
       return res.status(400).json({
         success: false,
-        message: `La solicitud no se encuentra en estado de autorización ejecutiva (Estado actual: "${sol.estado}").`,
+        message: `Esa solicitud ya no está pendiente de su autorización.`,
       });
     }
 
@@ -203,7 +203,7 @@ const resolverSolicitudCredito = async (req, res) => {
 
       return res.status(200).json({
         success: true,
-        message: `Solicitud #${id} devuelta al Operador exitosamente con sus observaciones.`,
+        message: `La solicitud #${id} se devolvió al operador con sus observaciones.`,
         data: updateRes.rows[0],
       });
     }
@@ -253,7 +253,7 @@ const resolverSolicitudCredito = async (req, res) => {
 
       return res.status(200).json({
         success: true,
-        message: `Solicitud #${id} denegada definitivamente por la Gerencia Ejecutiva.`,
+        message: `Se denegó la solicitud #${id}.`,
         data: updateRes.rows[0],
       });
     }
@@ -263,7 +263,7 @@ const resolverSolicitudCredito = async (req, res) => {
       await client.query('ROLLBACK');
       return res.status(400).json({
         success: false,
-        message: 'Es obligatorio adjuntar el documento de crédito en PDF firmado por la Gerencia Ejecutiva para autorizar y desembolsar la solicitud.',
+        message: 'Adjunte el PDF firmado por usted para aprobar la solicitud.',
       });
     }
 
@@ -421,7 +421,7 @@ const resolverSolicitudCredito = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: `Solicitud de crédito #${id} ACEPTADA exitosamente por la Gerencia Ejecutiva. Se han desembolsado Q${monto.toFixed(2)} a ${destinoInfo}.`,
+      message: `Se aprobó la solicitud #${id} y se acreditaron Q${monto.toFixed(2)} a ${destinoInfo}.`,
       data: updateRes.rows[0],
     });
   } catch (error) {

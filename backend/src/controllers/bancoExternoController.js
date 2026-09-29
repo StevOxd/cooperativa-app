@@ -179,7 +179,7 @@ const acreditarCuenta = async (req, res) => {
     if (isNaN(montoNum) || montoNum <= 0) {
       return res.status(400).json({
         success: false,
-        message: 'El monto debe ser un valor numérico mayor a cero.',
+        message: 'El monto debe ser mayor que cero.',
       });
     }
 
@@ -206,7 +206,7 @@ const acreditarCuenta = async (req, res) => {
     console.error('Error en bancoExternoController.acreditarCuenta:', error);
     return res.status(500).json({
       success: false,
-      message: 'Error interno al procesar acreditación en el banco.',
+      message: 'No se pudieron acreditar los fondos. Intente de nuevo.',
     });
   }
 };
@@ -221,7 +221,7 @@ const aperturarCuentaBancaria = async (req, res) => {
     if (bcoRes.success) {
       return res.status(201).json({
         success: true,
-        message: 'Cuenta bancaria aperturada exitosamente en la Entidad Bancaria.',
+        message: 'Cuenta abierta en el banco.',
         data: bcoRes.data,
       });
     }
@@ -234,7 +234,7 @@ const aperturarCuentaBancaria = async (req, res) => {
     console.error('Error en bancoExternoController.aperturarCuentaBancaria:', error);
     return res.status(500).json({
       success: false,
-      message: 'Error interno al aperturar cuenta bancaria.',
+      message: 'No se pudo abrir la cuenta en el banco. Intente de nuevo.',
     });
   }
 };

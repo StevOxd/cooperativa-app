@@ -177,7 +177,7 @@ class MailerService {
       console.error('[MAILER ERROR] Error de autenticación con Google:', verifyErr.message);
       return {
         success: false,
-        message: 'Google no pudo autenticar las credenciales proporcionadas. Asegúrate de haber generado una "Contraseña de Aplicación" en myaccount.google.com/apppasswords con la verificación en 2 pasos activa.',
+        message: 'Google rechazó la cuenta o la contraseña de aplicación. Revise que la haya creado en myaccount.google.com/apppasswords y que la cuenta tenga activa la verificación en dos pasos.',
         error: verifyErr.message,
       };
     }
@@ -218,7 +218,7 @@ class MailerService {
 
     return {
       success: true,
-      message: 'Servicio de Google Mail verificado y activado exitosamente.',
+      message: 'Gmail quedó conectado y verificado.',
       status: this.getStatus(),
     };
   }

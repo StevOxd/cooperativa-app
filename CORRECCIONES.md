@@ -16,15 +16,15 @@ Registro de errores y mejoras encontrados durante el rediseño del frontend (ram
 | C-03 | El recorrido guiado hay que cerrarlo dos veces | Frontend · asociado | Media | **Corregido** |
 | C-04 | Docker Compose no lee `docker.env` con el comando del README | Infraestructura | Media | Pendiente |
 | C-05 | El recorrido guiado promete funciones que no existen | Contenido | Media | **Corregido** (Fase 3.4, grupo 3a) |
-| C-06 | Mensajes del backend y de los handlers con jerga técnica | Contenido | Media | Pendiente (Fase 3.5) |
+| C-06 | Mensajes del backend y de los handlers con jerga técnica | Contenido | Media | **Corregido** (Fase 3.5) |
 | C-07 | Sin proxy de WebSocket en el servidor de desarrollo | Frontend · desarrollo | Baja | Por verificar |
 | C-08 | Contraseña `'admin123'` como valor por defecto que no se usa | Frontend y backend | Baja | Pendiente |
 | C-09 | Modales montados que nada abre | Frontend | Baja | Pendiente |
-| C-10 | Clases de animación que no existen | Frontend | Baja | Pendiente (se van con la Fase 3.4) |
+| C-10 | Clases de animación que no existen | Frontend | Baja | **Corregido** |
 | C-11 | El paquete de JavaScript supera los 500 kB | Frontend · rendimiento | Baja | Pendiente |
 | C-12 | Los KPI del administrador no cuentan a los ejecutivos | Frontend · admin | Baja | Pendiente |
 | C-13 | Variables sin uso tras separar los dashboards | Frontend | Baja | Pendiente |
-| C-14 | Mismo texto de error de credenciales en el backend para todos los casos | Backend · contenido | Baja | Pendiente (Fase 3.5) |
+| C-14 | Mismo texto de error de credenciales en el backend para todos los casos | Backend · contenido | Baja | **Corregido** (Fase 3.5) |
 | C-15 | Si el correo falla, la afiliación se completa igual y el asociado no recibe su contraseña | Backend · correo | Alta | Pendiente |
 | C-16 | Contraseñas temporales y secretos 2FA en los registros y en memoria | Backend · seguridad | Alta | Pendiente |
 | C-17 | Los traslados que entran a una cuenta se muestran como egreso en los movimientos | Frontend · asociado | Media | Por verificar |
@@ -40,6 +40,9 @@ Registro de errores y mejoras encontrados durante el rediseño del frontend (ram
 | C-27 | Al editar un usuario, el administrador puede fijarle una contraseña que no expira | Backend y frontend · seguridad | Media | **Corregido** |
 | C-28 | Desistir de un crédito lo guarda como "rechazado" | Backend · créditos | Media | Pendiente |
 | C-29 | El servidor no valida el monto ni el plazo mínimo y máximo de un crédito | Backend · créditos | Baja | Pendiente |
+| C-30 | La afiliación en línea revelaba el usuario del administrador | Backend · seguridad | Media | **Corregido** (Fase 3.5) |
+| C-31 | El aviso de intentos restantes permite saber si una cuenta existe | Backend · seguridad | Media | Pendiente |
+| C-32 | Un rol desconocido ve el panel del administrador | Frontend · sesión | Baja | Pendiente |
 
 ---
 
@@ -135,7 +138,7 @@ Revisar también qué otras variables de `docker.env` se están perdiendo.
 ---
 
 ### C-06 · Mensajes del backend y de los handlers con jerga técnica
-**Prioridad:** Media · **Fase 3.5**
+**Prioridad:** Media · **Corregido** (Fase 3.5: se reescribieron unos 220 mensajes del frontend y 270 del backend en «usted», sin jerga ni «exitosamente». Quedan fuera los PDF (Fase 4), `AuthContext` (por regla no se toca: tiene 3 textos de respaldo como «Error al iniciar sesión») y los modales que nada abre (C-09))
 
 **Qué pasa:** algunos mensajes que ve el usuario no los controla el diseño:
 - Backend: *"[SECURITY ERROR] La sesión bancaria ha expirado…"*, *"Por motivos de seguridad institucional…"*.
@@ -181,7 +184,7 @@ No es un riesgo hoy, pero es confuso y podría usarse por error en el futuro.
 ---
 
 ### C-10 · Clases de animación que no existen
-**Prioridad:** Baja · **Se resuelve con la Fase 3.4**
+**Prioridad:** Baja · **Corregido** (la última, `animate-shake` en DashboardPage, se quitó en la Fase 3.5)
 
 **Qué pasa:** 17 archivos usan clases como `animate-fadeIn`, `animate-scaleUp`, `animate-shake`, `animate-in`, `fade-in` y `zoom-in-95`. No existen en Tailwind 3 ni en `index.css`, así que no hacen nada.
 
@@ -220,7 +223,7 @@ No es un riesgo hoy, pero es confuso y podría usarse por error en el futuro.
 ---
 
 ### C-14 · Mismo texto de error de credenciales en el backend para todos los casos
-**Prioridad:** Baja · **Fase 3.5**
+**Prioridad:** Baja · **Corregido** (Fase 3.5: «El usuario o la contraseña no son correctos.». Ver C-31 sobre el conteo de intentos)
 
 **Qué pasa:** el login responde *"Credenciales inválidas. Verifique su código corporativo/correo o contraseña."* Es correcto no decir cuál de los dos falló, por seguridad, pero el texto usa "código corporativo", un término que el asociado no conoce. En pantalla se le llama "código de usuario".
 
@@ -418,6 +421,33 @@ En el rediseño del simulador, el historial la muestra como "Cancelada por usted
 
 ---
 
+### C-30 · La afiliación en línea revelaba el usuario del administrador
+**Prioridad:** Media · **Corregido** (Fase 3.5)
+
+**Qué pasaba:** `validarDpi` ([afiliacionOnlineController.js:36](backend/src/controllers/afiliacionOnlineController.js#L36)), que es una ruta **pública**, respondía al DPI del administrador con *"El usuario Administrador (steven08) es una cuenta de administración central…"*. Cualquiera que probara ese DPI obtenía el nombre de usuario de la cuenta con más privilegios.
+
+**Qué se hizo:** ahora responde *"No es posible afiliar este DPI en línea. Comuníquese con la cooperativa."*, sin nombres. Conviene revisar si hay otros mensajes públicos que confirmen datos internos.
+
+---
+
+### C-31 · El aviso de intentos restantes permite saber si una cuenta existe
+**Prioridad:** Media · **Por corregir**
+
+**Qué pasa:** con un usuario que no existe, el login responde *"El usuario o la contraseña no son correctos."*. Con un usuario que sí existe y la contraseña mal, agrega *"Le quedan N intento(s)…"* ([authController.js:133](backend/src/controllers/authController.js#L133)). La diferencia permite probar códigos de usuario o correos hasta dar con uno real.
+
+**Propuesta:** el mismo mensaje en los dos casos. Si se quiere avisar del bloqueo, hacerlo solo en el último intento o por correo al titular.
+
+---
+
+### C-32 · Un rol desconocido ve el panel del administrador
+**Prioridad:** Baja · **Por corregir**
+
+**Qué pasa:** [DashboardPage.jsx](frontend/src/pages/DashboardPage.jsx) muestra `AdminDashboard` cuando el rol no es ninguno de los cuatro conocidos. El backend rechaza sus peticiones, así que no hay fuga de datos, pero la persona ve la estructura del panel de administración vacía.
+
+**Propuesta:** mostrar un mensaje ("Su usuario no tiene un rol asignado. Comuníquese con el administrador.") en lugar del panel.
+
+---
+
 ## Corregidos durante el rediseño
 
 Errores visuales o de contenido que se corrigieron dentro de los commits del rediseño, porque no tocaban lógica.
@@ -464,3 +494,6 @@ Errores visuales o de contenido que se corrigieron dentro de los commits del red
 | El simulador usaba un degradado (`from-brand-50 to-teal-50`) y colores `rose-` fuera de la paleta | CreditSimulatorPage | 3.4 |
 | La cuenta de acreditación del simulador se elegía con `<div>` clicables; los controles deslizantes de monto y plazo no tenían nombre accesible; el archivo firmado usaba `<input hidden>`, que no se alcanza con el teclado | CreditSimulatorPage | 3.4 |
 | Una solicitud a la que el asociado había renunciado aparecía como "Denegada" (ver C-28) | CreditSimulatorPage | 3.4 |
+| Los avisos flotantes decían "OPERACIÓN EXITOSA" en mayúsculas, mostraban siempre "4s" aunque la duración cambiara, anunciaban los mensajes de éxito como alertas urgentes (`role="alert"`) y usaban colores fuera de la paleta (`rose`, `blue`). Ahora tienen títulos simples ("Listo", "No se pudo completar"), `role="status"` salvo en errores, colores del sistema y respetan la preferencia de reducir movimiento | ToastContext, index.css | 3.5 |
+| El aviso de acceso restringido mostraba los roles en código ("Se requieren permisos de ADMINISTRADOR") | RoleProtectedRoute, DashboardPage | 3.5 |
+| El fondo base de la aplicación usaba `bg-slate-50` en vez de los tokens | index.css | 3.5 |
