@@ -15,7 +15,7 @@ Registro de errores y mejoras encontrados durante el rediseño del frontend (ram
 | C-02 | "Mi cuenta" pide 6 caracteres, pero el backend exige 8 y un símbolo | Frontend · validación | Alta | Pendiente |
 | C-03 | El recorrido guiado hay que cerrarlo dos veces | Frontend · asociado | Media | Pendiente |
 | C-04 | Docker Compose no lee `docker.env` con el comando del README | Infraestructura | Media | Pendiente |
-| C-05 | El recorrido guiado promete funciones que no existen | Contenido | Media | Pendiente |
+| C-05 | El recorrido guiado promete funciones que no existen | Contenido | Media | **Corregido** (Fase 3.4, grupo 3a) |
 | C-06 | Mensajes del backend y de los handlers con jerga técnica | Contenido | Media | Pendiente (Fase 3.5) |
 | C-07 | Sin proxy de WebSocket en el servidor de desarrollo | Frontend · desarrollo | Baja | Por verificar |
 | C-08 | Contraseña `'admin123'` como valor por defecto que no se usa | Frontend y backend | Baja | Pendiente |
@@ -27,6 +27,7 @@ Registro de errores y mejoras encontrados durante el rediseño del frontend (ram
 | C-14 | Mismo texto de error de credenciales en el backend para todos los casos | Backend · contenido | Baja | Pendiente (Fase 3.5) |
 | C-15 | Si el correo falla, la afiliación se completa igual y el asociado no recibe su contraseña | Backend · correo | Alta | Pendiente |
 | C-16 | Contraseñas temporales y secretos 2FA en los registros y en memoria | Backend · seguridad | Alta | Pendiente |
+| C-17 | Los traslados que entran a una cuenta se muestran como egreso en los movimientos | Frontend · asociado | Media | Por verificar |
 
 ---
 
@@ -261,6 +262,19 @@ Cualquiera con acceso a los registros (`docker compose logs`, un servicio de log
 
 ---
 
+### C-17 · Los traslados que entran a una cuenta se muestran como egreso en los movimientos
+**Prioridad:** Media · **Por verificar**
+
+**Qué pasa:** en el modal de movimientos del asociado ([AccountMovementsModal.jsx](frontend/src/components/associate/dashboard/AccountMovementsModal.jsx)), un movimiento se considera ingreso (verde, con "+") solo si su tipo es `DEPOSITO` o `PAGO_CREDITO`. Esta regla viene del código original y no se cambió en el rediseño. Los tipos válidos en la base de datos son `DEPOSITO`, `RETIRO`, `TRANSFERENCIA`, `PAGO_CREDITO` y `AJUSTE` ([database.sql:290](backend/database.sql#L290)).
+
+Un `TRANSFERENCIA` que **entra** a la cuenta (por ejemplo, un traslado aprobado desde la cuenta de planilla) o un `AJUSTE` a favor se mostrarían como egreso, con "−". Tampoco está claro si `PAGO_CREDITO` es dinero que entra (desembolso) o que sale (abono a un préstamo).
+
+**Cómo verificar:** aprobar un traslado hacia una cuenta de ahorro y abrir los movimientos de esa cuenta. El traslado debe aparecer con "+".
+
+**Propuesta:** decidir el signo por la dirección real del movimiento y no solo por el tipo. Por ejemplo, comparar `saldo_nuevo` con el saldo anterior, o que el backend envíe un campo `sentido: 'ENTRADA' | 'SALIDA'`. Confirmar también qué significa `PAGO_CREDITO`.
+
+---
+
 ## Corregidos durante el rediseño
 
 Errores visuales o de contenido que se corrigieron dentro de los commits del rediseño, porque no tocaban lógica.
@@ -284,4 +298,7 @@ Errores visuales o de contenido que se corrigieron dentro de los commits del red
 | El modal de traslado mostraba el tipo de operación en código (`APERTURA_Y_TRASLADO`) | OperatorTrasladoModal | 3.4 |
 | El botón "Subir PDF firmado" (evaluación del operador y resolución del ejecutivo) usaba un `<input type="file">` con `hidden`, que no se puede alcanzar con el teclado. Ahora es `sr-only` y muestra el anillo de foco | SignedPdfPanel | 3.4 |
 | Degradados en el dictamen automático de la evaluación de crédito y encabezado oscuro del modal | OperatorCreditEvaluationModal | 3.4 |
+| El modal de movimientos mostraba "undefined%" como tasa de interés, porque las cuentas del resumen no traen ese campo. Ahora solo se muestra si existe | AccountMovementsModal | 3.4 |
+| El recorrido guiado prometía funciones que no existen (C-05). Se reescribieron sus pasos con lo que el portal hace hoy | AssociateOnboardingTour | 3.4 |
+| Los botones "Descargar estado de cuenta" usaban degradado | AccountMovementsModal | 3.4 |
 | La tabla de créditos del operador ponía "Devuelta:" ante cualquier comentario del ejecutivo, incluso en créditos aprobados. Ahora dice "Devuelta:" solo si el estado es `DEVUELTA_OPERADOR` y "Ejecutivo:" en los demás casos | CreditsPanel | 3.4 |

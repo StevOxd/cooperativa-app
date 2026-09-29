@@ -1,20 +1,25 @@
 import React, { useState, useEffect } from 'react';
-import { createPortal } from 'react-dom';
-import {
-  Sparkles,
-  CheckCircle2,
-  ArrowRight,
-  ArrowLeft,
-  X,
-  Wallet,
-  CreditCard,
-  Send,
-  TrendingUp,
-  ShieldCheck,
-  Compass,
-  Info,
-} from 'lucide-react';
+import { ArrowLeft, ArrowRight, Calculator, Percent, Send, ShieldCheck, Users2, Wallet } from 'lucide-react';
+import { Button, Modal } from '../ui';
 
+/** Casilla "no mostrar": se repite en cada vista del recorrido. */
+const DontShowAgain = ({ id, checked, onChange }) => (
+  <label htmlFor={id} className="flex cursor-pointer items-center gap-2 text-sm text-ink-muted">
+    <input
+      id={id}
+      type="checkbox"
+      checked={checked}
+      onChange={onChange}
+      className="h-4 w-4 cursor-pointer rounded border-line-input accent-brand-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600"
+    />
+    No mostrar este recorrido al iniciar sesión
+  </label>
+);
+
+/**
+ * Recorrido guiado del portal del asociado: bienvenida, pasos por cada
+ * pestaña y cierre. Cambia de pestaña al avanzar para mostrar cada sección.
+ */
 export const AssociateOnboardingTour = ({
   user,
   activeTab,
@@ -29,57 +34,60 @@ export const AssociateOnboardingTour = ({
   const [currentStep, setCurrentStep] = useState(0);
   const [dontShowAgain, setDontShowAgain] = useState(false);
 
-  // Pasos del recorrido guiado
+  // Pasos del recorrido guiado (solo describen lo que el portal hace hoy)
   const TOUR_STEPS = [
     {
       stepNumber: 1,
-      title: 'Resumen Financiero y Aportaciones',
-      badge: 'Patrimonio y Membresía',
+      title: 'Sus cuentas y su saldo',
       targetTab: 'resumen',
       icon: Wallet,
       description:
-        'En este panel tienes una vista panorámica de tu salud financiera en la Cooperativa. El saldo de Aportaciones representa tu patrimonio como socio copropietario, el cual genera excedentes según el ejercicio contable.',
-      tip: 'Tus aportaciones de membresía son la base para acceder a tasas preferenciales y derechos de voto.',
+        'En Resumen ve el total que tiene en la cooperativa y cada una de sus cuentas con su saldo disponible.',
+      tip: 'Con «Ver movimientos» revisa depósitos, retiros y pagos, y con «Estado de cuenta» lo descarga en PDF.',
     },
     {
       stepNumber: 2,
-      title: 'Mis Cuentas y Consulta de Movimientos',
-      badge: 'Trazabilidad y Estados de Cuenta',
-      targetTab: 'resumen',
-      icon: CreditCard,
-      description:
-        'Accede al detalle de tus cuentas activas (Aportaciones, Ahorro Corriente y Depósitos a Plazo). Al presionar "Ver Movimientos" puedes auditar cada depósito, retiro o acreditación de intereses en tiempo real.',
-      tip: 'Puedes filtrar y revisar cada débito interbancario ACH con su respectivo identificador.',
-    },
-    {
-      stepNumber: 3,
-      title: 'Cuenta de Planilla y Traslado de Fondos',
-      badge: 'Nómina y Ahorro Programado',
+      title: 'Traslados desde su cuenta de planilla',
       targetTab: 'planilla',
       icon: Send,
       description:
-        'Si tu empresa cuenta con convenio de pago de nómina, recibirás tu salario directamente en tu Cuenta de Planilla. Con el botón "Solicitar Traslado" puedes mover fondos hacia tus cuentas de ahorro o aperturar nuevas cuentas automáticamente.',
-      tip: 'Automatiza tu ahorro programando traslados mensuales sin comisiones interbancarias.',
+        'Su cuenta de planilla es la cuenta bancaria vinculada a su afiliación. Con «Solicitar traslado» puede pasar fondos a una cuenta de la cooperativa o abrir una cuenta nueva.',
+      tip: 'Un operador revisa cada solicitud. Su estado aparece en «Mis solicitudes de traslado».',
+    },
+    {
+      stepNumber: 3,
+      title: 'Plan de pagos de sus créditos',
+      targetTab: 'creditos',
+      icon: Calculator,
+      description:
+        'Si tiene un crédito aprobado, aquí ve la cuota, la tasa y el calendario de pagos, con lo que abona a capital y a interés cada mes.',
+      tip: 'Para pedir un crédito, use el «Simulador de crédito» del menú: calcula la cuota antes de enviar la solicitud.',
     },
     {
       stepNumber: 4,
-      title: 'Productos Financieros y Créditos en Línea',
-      badge: 'Simuladores Financieros',
+      title: 'Productos de ahorro',
       targetTab: 'productos',
-      icon: TrendingUp,
-      description:
-        'Explora nuestro catálogo de productos de financiamiento. Dispones de un simulador de cuotas con amortización decreciente sobre saldos (Sistema Alemán) o cuotas niveladas fijas (Sistema Francés).',
-      tip: 'Conoce con total claridad el desglose de intereses y capital antes de solicitar un crédito.',
+      icon: Percent,
+      description: 'Consulte la tasa anual y el monto mínimo de apertura de cada tipo de cuenta.',
+      tip: 'Para abrir una de estas cuentas, solicite un traslado y elija «Abrir una cuenta nueva».',
     },
     {
       stepNumber: 5,
-      title: 'Seguridad Bancaria y Control de Sesión',
-      badge: 'Protección Integral',
+      title: 'Sus beneficiarios',
+      targetTab: 'beneficiarios',
+      icon: Users2,
+      description:
+        'Designe quién recibirá los fondos de cada cuenta. En cada cuenta, los porcentajes deben sumar 100 %.',
+      tip: 'Revise sus beneficiarios cuando cambie su situación familiar.',
+    },
+    {
+      stepNumber: 6,
+      title: 'Su cuenta está protegida',
       targetTab: 'resumen',
       icon: ShieldCheck,
       description:
-        'Tu tranquilidad es lo más importante. Tu sesión cuenta con cifrado institucional. Por normativa bancaria, si sales de tu cuenta o regresas a la pantalla de login, el sistema revocará inmediatamente la sesión para evitar accesos de terceros.',
-      tip: 'No compartas tus credenciales y utiliza siempre el botón oficial de Cerrar Sesión al terminar.',
+        'La sesión se cierra sola después de 10 minutos sin actividad o si vuelve a la pantalla de inicio de sesión. Puede activar la verificación en dos pasos en el menú de su cuenta, en «Seguridad».',
+      tip: 'No comparta su contraseña ni su código de verificación con nadie.',
     },
   ];
 
@@ -167,224 +175,106 @@ export const AssociateOnboardingTour = ({
   if (!isOpen) return null;
 
   const currentStepData = TOUR_STEPS[currentStep];
-  const StepIcon = currentStepData?.icon || Sparkles;
+  const StepIcon = currentStepData?.icon || Wallet;
+  const nombre = user?.nombre || user?.nombre_completo;
 
-  return createPortal(
-    <div className="fixed inset-0 z-[999] flex items-center justify-center p-4 bg-slate-950/60 animate-in fade-in duration-200">
-      <div className="bg-white w-full max-w-xl rounded-lg shadow-lg border border-slate-200 overflow-hidden relative transition-all">
-        
-        {/* Botón de Cierre Superior */}
-        <button
-          onClick={handleClose}
-          className="absolute top-4 right-4 text-slate-400 hover:text-slate-700 hover:bg-slate-100 p-1.5 rounded-full transition-colors cursor-pointer z-10"
-          title="Cerrar ventana"
+  if (modalMode === 'welcome') {
+    return (
+      <Modal
+        isOpen
+        onClose={handleClose}
+        lockScroll={false}
+        title="Le damos la bienvenida a su portal"
+        description={`${nombre ? `Hola, ${nombre}. ` : ''}En ${TOUR_STEPS.length} pasos le mostramos dónde está cada cosa.`}
+        footer={
+          <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <DontShowAgain id="tour-dismiss-welcome" checked={dontShowAgain} onChange={handleCheckboxChange} />
+            <div className="flex flex-col-reverse gap-2 sm:flex-row">
+              <Button variant="secondary" onClick={handleClose}>Ahora no</Button>
+              <Button onClick={handleStartTour}>
+                Empezar recorrido
+                <ArrowRight className="w-4 h-4" aria-hidden="true" />
+              </Button>
+            </div>
+          </div>
+        }
+      >
+        <ul className="grid grid-cols-1 gap-2 text-sm sm:grid-cols-2">
+          {TOUR_STEPS.map(({ stepNumber, title, icon: Icon }) => (
+            <li key={stepNumber} className="flex items-center gap-2.5 text-ink-soft">
+              <Icon className="w-4 h-4 shrink-0 text-ink-subtle" aria-hidden="true" />
+              {title}
+            </li>
+          ))}
+        </ul>
+      </Modal>
+    );
+  }
+
+  if (modalMode === 'completed') {
+    return (
+      <Modal
+        isOpen
+        onClose={handleFinish}
+        lockScroll={false}
+        size="sm"
+        title="Ya conoce su portal"
+        description="Puede volver a ver este recorrido cuando quiera con el botón «Recorrido» del encabezado."
+        footer={
+          <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <DontShowAgain id="tour-dismiss-finish" checked={dontShowAgain} onChange={handleCheckboxChange} />
+            <Button onClick={handleFinish}>Ir a mi portal</Button>
+          </div>
+        }
+      />
+    );
+  }
+
+  return (
+    <Modal
+      isOpen
+      onClose={handleClose}
+      lockScroll={false}
+      title={
+        <span className="flex items-center gap-2.5">
+          <StepIcon className="w-5 h-5 shrink-0 text-brand-700" aria-hidden="true" />
+          {currentStepData.title}
+        </span>
+      }
+      description={`Paso ${currentStepData.stepNumber} de ${TOUR_STEPS.length}`}
+      footer={
+        <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <DontShowAgain id="tour-dismiss-step" checked={dontShowAgain} onChange={handleCheckboxChange} />
+          <div className="flex gap-2">
+            <Button variant="ghost" icon={ArrowLeft} onClick={handlePrev} disabled={currentStep === 0}>
+              Anterior
+            </Button>
+            <Button onClick={handleNext}>
+              {currentStep === TOUR_STEPS.length - 1 ? 'Finalizar' : 'Siguiente'}
+              <ArrowRight className="w-4 h-4" aria-hidden="true" />
+            </Button>
+          </div>
+        </div>
+      }
+    >
+      <div className="space-y-4">
+        <div
+          className="h-1.5 w-full rounded-sm bg-surface-sunken"
+          role="progressbar"
+          aria-label="Avance del recorrido"
+          aria-valuemin={1}
+          aria-valuemax={TOUR_STEPS.length}
+          aria-valuenow={currentStep + 1}
         >
-          <X className="w-5 h-5" />
-        </button>
-
-        {/* ================= MODAL: BIENVENIDA INICIAL ================= */}
-        {modalMode === 'welcome' && (
-          <div className="p-6 sm:p-8 text-center space-y-5">
-            <div className="w-16 h-16 bg-brand-100 text-brand-700 rounded-lg flex items-center justify-center mx-auto">
-              <Compass className="w-8 h-8 animate-pulse" />
-            </div>
-
-            <div>
-              <span className="text-xs font-bold text-brand-700 uppercase tracking-widest bg-brand-50 px-3 py-1 rounded-full border border-brand-200">
-                Bienvenido Asociado
-              </span>
-              <h2 className="text-2xl font-black text-slate-900 mt-2.5 tracking-tight">
-                ¡Te damos la bienvenida a tu Portal!
-              </h2>
-              <p className="text-sm text-slate-600 font-medium mt-2 max-w-md mx-auto leading-relaxed">
-                Hola, <strong className="text-slate-800">{user?.nombre || 'estimado socio'}</strong>. Hemos preparado un recorrido guiado e interactivo de 5 pasos para que conozcas todas las herramientas y beneficios disponibles para gestionar tus cuentas.
-              </p>
-            </div>
-
-            {/* Tarjetas resumen de lo que verá */}
-            <div className="grid grid-cols-2 gap-2 text-left pt-1">
-              <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg flex items-center space-x-2.5">
-                <Wallet className="w-5 h-5 text-brand-700 shrink-0" />
-                <span className="text-xs font-semibold text-slate-700">Aportaciones y Ahorros</span>
-              </div>
-              <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg flex items-center space-x-2.5">
-                <Send className="w-5 h-5 text-brand-700 shrink-0" />
-                <span className="text-xs font-semibold text-slate-700">Traslados de Planilla</span>
-              </div>
-              <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg flex items-center space-x-2.5">
-                <TrendingUp className="w-5 h-5 text-brand-700 shrink-0" />
-                <span className="text-xs font-semibold text-slate-700">Simulador de Créditos</span>
-              </div>
-              <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg flex items-center space-x-2.5">
-                <ShieldCheck className="w-5 h-5 text-brand-700 shrink-0" />
-                <span className="text-xs font-semibold text-slate-700">Seguridad Bancaria</span>
-              </div>
-            </div>
-
-            {/* Checkbox de No volver a mostrar */}
-            <div className="pt-2 border-t border-slate-100 flex items-center justify-center space-x-2">
-              <input
-                id="tour-dismiss-welcome"
-                type="checkbox"
-                checked={dontShowAgain}
-                onChange={handleCheckboxChange}
-                className="w-4 h-4 text-brand-600 rounded border-slate-300 focus:ring-brand-500 cursor-pointer"
-              />
-              <label htmlFor="tour-dismiss-welcome" className="text-xs text-slate-600 select-none cursor-pointer font-medium">
-                No volver a mostrar este mensaje al iniciar sesión
-              </label>
-            </div>
-
-            {/* Botones de acción */}
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
-              <button
-                type="button"
-                onClick={handleClose}
-                className="w-full sm:w-auto px-5 py-2.5 rounded-md border border-slate-300 text-slate-700 hover:bg-slate-50 font-semibold text-sm transition-colors cursor-pointer"
-              >
-                Omitir por ahora
-              </button>
-              <button
-                type="button"
-                onClick={handleStartTour}
-                className="w-full sm:w-auto px-6 py-2.5 rounded-md bg-brand-700 hover:bg-brand-800 text-white font-bold text-sm flex items-center justify-center space-x-2 transition-all cursor-pointer"
-              >
-                <span>Iniciar Recorrido</span>
-                <ArrowRight className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* ================= MODAL: PASO A PASO DEL TOUR ================= */}
-        {modalMode === 'tour' && (
-          <div className="p-6 sm:p-8 space-y-5">
-            {/* Header del paso */}
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 rounded-lg bg-brand-100 text-brand-800 flex items-center justify-center">
-                  <StepIcon className="w-5 h-5" />
-                </div>
-                <div>
-                  <span className="text-xs font-bold text-brand-700 uppercase tracking-wider block">
-                    Paso {currentStepData.stepNumber} de {TOUR_STEPS.length} • {currentStepData.badge}
-                  </span>
-                  <h3 className="text-lg font-bold text-slate-900 leading-tight">
-                    {currentStepData.title}
-                  </h3>
-                </div>
-              </div>
-            </div>
-
-            {/* Barra de Progreso */}
-            <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-              <div
-                className="bg-brand-600 h-full transition-all duration-300 rounded-full"
-                style={{
-                  width: `${((currentStep + 1) / TOUR_STEPS.length) * 100}%`,
-                }}
-              />
-            </div>
-
-            {/* Contenido Principal del Paso */}
-            <div className="space-y-4">
-              <p className="text-sm text-slate-700 leading-relaxed font-medium">
-                {currentStepData.description}
-              </p>
-
-              {/* Recuadro de Tip o Consejo de Uso */}
-              <div className="p-3.5 bg-brand-50/70 border border-brand-200 rounded-lg flex items-start space-x-2.5 text-xs text-brand-900">
-                <Info className="w-4 h-4 text-brand-700 shrink-0 mt-0.5" />
-                <span className="leading-snug">{currentStepData.tip}</span>
-              </div>
-            </div>
-
-            {/* Checkbox persistente */}
-            <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
-              <div className="flex items-center space-x-2">
-                <input
-                  id="tour-dismiss-step"
-                  type="checkbox"
-                  checked={dontShowAgain}
-                  onChange={handleCheckboxChange}
-                  className="w-4 h-4 text-brand-600 rounded border-slate-300 focus:ring-brand-500 cursor-pointer"
-                />
-                <label htmlFor="tour-dismiss-step" className="text-xs text-slate-600 select-none cursor-pointer">
-                  No volver a mostrar
-                </label>
-              </div>
-
-              {/* Botones Anterior / Siguiente */}
-              <div className="flex items-center space-x-2">
-                <button
-                  type="button"
-                  onClick={handlePrev}
-                  disabled={currentStep === 0}
-                  className="px-3.5 py-2 rounded-md text-slate-600 hover:bg-slate-100 disabled:opacity-30 disabled:hover:bg-transparent text-xs font-semibold transition-colors flex items-center space-x-1 cursor-pointer"
-                >
-                  <ArrowLeft className="w-3.5 h-3.5" />
-                  <span>Anterior</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={handleNext}
-                  className="px-4 py-2 rounded-md bg-brand-700 hover:bg-brand-800 text-white text-xs font-bold transition-all flex items-center space-x-1 cursor-pointer"
-                >
-                  <span>
-                    {currentStep === TOUR_STEPS.length - 1 ? 'Finalizar' : 'Siguiente'}
-                  </span>
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* ================= MODAL: COMPLETADO ================= */}
-        {modalMode === 'completed' && (
-          <div className="p-6 sm:p-8 text-center space-y-5">
-            <div className="w-16 h-16 bg-brand-100 text-brand-700 rounded-full flex items-center justify-center mx-auto">
-              <CheckCircle2 className="w-9 h-9" />
-            </div>
-
-            <div>
-              <h3 className="text-2xl font-black text-slate-900 tracking-tight">
-                ¡Recorrido Completado!
-              </h3>
-              <p className="text-sm text-slate-600 mt-2 font-medium max-w-md mx-auto leading-relaxed">
-                Ahora conoces las principales capacidades de tu portal de asociado. Si en cualquier momento deseas volver a ver este recorrido, puedes presionar el botón <strong>"Recorrido Guiado"</strong> en el encabezado de tu pantalla.
-              </p>
-            </div>
-
-            {/* Checkbox de No volver a mostrar */}
-            <div className="pt-2 border-t border-slate-100 flex items-center justify-center space-x-2">
-              <input
-                id="tour-dismiss-finish"
-                type="checkbox"
-                checked={dontShowAgain}
-                onChange={handleCheckboxChange}
-                className="w-4 h-4 text-brand-600 rounded border-slate-300 focus:ring-brand-500 cursor-pointer"
-              />
-              <label htmlFor="tour-dismiss-finish" className="text-xs text-slate-600 select-none cursor-pointer font-medium">
-                No volver a mostrar automáticamente este mensaje
-              </label>
-            </div>
-
-            <div className="pt-2">
-              <button
-                type="button"
-                onClick={handleFinish}
-                className="w-full py-3 px-6 rounded-md bg-brand-700 hover:bg-brand-800 text-white font-bold text-sm transition-all cursor-pointer"
-              >
-                Comenzar a Gestionar mis Cuentas
-              </button>
-            </div>
-          </div>
-        )}
-
+          <div
+            className="h-1.5 rounded-sm bg-brand-700 transition-all"
+            style={{ width: `${((currentStep + 1) / TOUR_STEPS.length) * 100}%` }}
+          />
+        </div>
+        <p className="text-sm text-ink-soft">{currentStepData.description}</p>
+        <p className="text-sm text-ink-muted">{currentStepData.tip}</p>
       </div>
-    </div>,
-    document.body
+    </Modal>
   );
 };
 
