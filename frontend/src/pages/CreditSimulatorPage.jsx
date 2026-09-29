@@ -1139,6 +1139,7 @@ export const CreditSimulatorPage = () => {
               ]
             : []
         }
+        note="Esta acción no se puede deshacer. Podrá hacer una nueva simulación cuando lo necesite."
         confirmText="Sí, Desistir y Cancelar"
         cancelText="No, Mantener Solicitud"
         variant="danger"

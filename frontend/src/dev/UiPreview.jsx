@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { Download, Inbox, Plus, Search, Users } from 'lucide-react';
 import '../index.css';
 import { SecurityAlertModal } from '../components/common/SecurityAlertModal';
+import { ConfirmModal } from '../components/common/ConfirmModal';
 import {
   Alert, Badge, Button, Card, CardBody, CardFooter, CardHeader, EmptyState, Field, Input,
   Modal, PageHeader, Select, StatCard, StatGroup, Table, TBody, TD, TH, THead, TR, Textarea,
@@ -26,6 +27,7 @@ const UiPreview = () => {
   const [open, setOpen] = useState(false);
   const [locked, setLocked] = useState(false);
   const [securityAlert, setSecurityAlert] = useState(null);
+  const [confirm, setConfirm] = useState(null);
 
   return (
     <main className="mx-auto max-w-6xl space-y-10 px-4 py-8 sm:px-6">
@@ -175,6 +177,26 @@ const UiPreview = () => {
           alert={securityAlert}
           onClose={() => setSecurityAlert(null)}
           onLogout={() => setSecurityAlert(null)}
+        />
+      </Section>
+
+      <Section title="ConfirmModal">
+        <div className="flex flex-wrap gap-2">
+          <Button variant="secondary" onClick={() => setConfirm('danger')}>Confirmación con aviso</Button>
+          <Button variant="secondary" onClick={() => setConfirm('primary')}>Confirmación simple</Button>
+        </div>
+        <ConfirmModal
+          isOpen={Boolean(confirm)}
+          onClose={() => setConfirm(null)}
+          onConfirm={() => setConfirm(null)}
+          variant={confirm || 'danger'}
+          title={confirm === 'danger' ? '¿Cancelar esta solicitud?' : '¿Activar al asociado?'}
+          subtitle={confirm === 'danger' ? 'Solicitud #33' : 'María José López'}
+          message={confirm === 'danger' ? 'Se liberará su cupo para enviar una nueva solicitud.' : 'Podrá volver a operar sus cuentas.'}
+          details={confirm === 'danger' ? [{ label: 'Monto', value: 'Q5,000.00' }, { label: 'Cuota mensual', value: 'Q453.65', highlight: true }] : []}
+          note={confirm === 'danger' ? 'Esta acción no se puede deshacer.' : undefined}
+          confirmText={confirm === 'danger' ? 'Sí, cancelar' : 'Activar'}
+          cancelText={confirm === 'danger' ? 'No, mantenerla' : 'Cancelar'}
         />
       </Section>
 
