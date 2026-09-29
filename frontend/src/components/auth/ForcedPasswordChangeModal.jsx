@@ -35,7 +35,7 @@ const ForcedPasswordChangeModal = ({ isOpen, user, onSuccess, onLogout }) => {
     setErrorMsg('');
 
     if (!passwordActual) {
-      setErrorMsg('Debe ingresar la contraseña temporal asignada.');
+      setErrorMsg('Escriba la contraseña temporal que recibió por correo.');
       return;
     }
 
@@ -45,22 +45,22 @@ const ForcedPasswordChangeModal = ({ isOpen, user, onSuccess, onLogout }) => {
     }
 
     if (!hasLetters || !hasNumbers) {
-      setErrorMsg('La nueva contraseña debe combinar obligatoriamente letras y números.');
+      setErrorMsg('La nueva contraseña debe tener letras y números.');
       return;
     }
 
     if (!hasSpecial) {
-      setErrorMsg('La nueva contraseña debe contener al menos un carácter especial (!@#$%^&*...).');
+      setErrorMsg('La nueva contraseña debe tener al menos un símbolo (!@#$…).');
       return;
     }
 
     if (passwordActual === nuevaPassword) {
-      setErrorMsg('La nueva contraseña debe ser distinta a la contraseña actual.');
+      setErrorMsg('La nueva contraseña debe ser distinta de la temporal.');
       return;
     }
 
     if (nuevaPassword !== confirmarPassword) {
-      setErrorMsg('La confirmación de la contraseña no coincide.');
+      setErrorMsg('Las contraseñas no coinciden.');
       return;
     }
 
@@ -73,14 +73,14 @@ const ForcedPasswordChangeModal = ({ isOpen, user, onSuccess, onLogout }) => {
       });
 
       if (response.data?.success) {
-        toast.success('¡Contraseña actualizada exitosamente! Por favor, inicia sesión con tu nueva contraseña.');
+        toast.success('Contraseña actualizada. Inicie sesión con su nueva contraseña.');
         if (onSuccess) onSuccess();
       } else {
-        setErrorMsg(response.data?.message || 'Error al actualizar la contraseña.');
+        setErrorMsg(response.data?.message || 'No se pudo cambiar la contraseña. Intente de nuevo.');
       }
     } catch (err) {
       console.error('Error al cambiar contraseña obligatoria:', err);
-      const backendMsg = err.response?.data?.message || 'Error de comunicación con el servidor.';
+      const backendMsg = err.response?.data?.message || 'No hay conexión con el servidor. Intente de nuevo.';
       setErrorMsg(backendMsg);
     } finally {
       setLoading(false);

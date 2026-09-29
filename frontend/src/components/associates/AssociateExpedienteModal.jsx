@@ -39,12 +39,12 @@ export const AssociateExpedienteModal = ({
           if (res.data?.success) {
             setExpediente(res.data.data);
           } else {
-            setErrorMsg(res.data?.message || 'Error al obtener expediente.');
+            setErrorMsg(res.data?.message || 'No se pudo cargar el expediente.');
           }
         })
         .catch((err) => {
           console.error('Error al consultar expediente:', err);
-          setErrorMsg(err.response?.data?.message || 'Error de conexión.');
+          setErrorMsg(err.response?.data?.message || 'No hay conexión con el servidor. Intente de nuevo.');
         })
         .finally(() => setLoading(false));
     }

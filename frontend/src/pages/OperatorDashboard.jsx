@@ -107,7 +107,7 @@ export const OperatorDashboard = () => {
       setOperatorEmailStatus({
         checking: false,
         disponible: false,
-        message: 'Formato de correo inválido.',
+        message: 'Revise el formato del correo.',
       });
       return;
     }
@@ -338,7 +338,7 @@ export const OperatorDashboard = () => {
       }
     } catch (err) {
       console.error('Error al bloquear caso:', err);
-      const msg = err.response?.data?.message || 'No se pudo adquirir el caso. Es posible que otro operador lo esté atendiendo.';
+      const msg = err.response?.data?.message || 'No pudo tomar el caso. Es posible que otro operador ya lo esté atendiendo.';
       toast.error(msg);
       fetchAfiliaciones(searchAfiliacion);
     } finally {
@@ -364,34 +364,34 @@ export const OperatorDashboard = () => {
     if (!selectedAfiliacion) return;
 
     if (!editPrimerNombre.trim() || !editPrimerApellido.trim()) {
-      toast.error('Primer nombre y primer apellido son campos obligatorios.');
+      toast.error('Escriba el primer nombre y el primer apellido.');
       return;
     }
 
     const nameRegex = /^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s]{2,50}$/;
     if (!nameRegex.test(editPrimerNombre.trim()) || !nameRegex.test(editPrimerApellido.trim())) {
-      toast.error('Los nombres y apellidos únicamente pueden contener letras, sin números ni símbolos especiales.');
+      toast.error('Los nombres y apellidos solo pueden llevar letras.');
       return;
     }
 
     if (editSegundoNombre.trim() && !nameRegex.test(editSegundoNombre.trim())) {
-      toast.error('El segundo nombre únicamente puede contener letras.');
+      toast.error('El segundo nombre solo puede llevar letras.');
       return;
     }
 
     if (editSegundoApellido.trim() && !nameRegex.test(editSegundoApellido.trim())) {
-      toast.error('El segundo apellido únicamente puede contener letras.');
+      toast.error('El segundo apellido solo puede llevar letras.');
       return;
     }
 
     const cleanTel = editTelefono.replace(/\D/g, '');
     if (cleanTel && cleanTel.length !== 8) {
-      toast.error(`El teléfono de contacto debe contener exactamente 8 dígitos (ingresó ${cleanTel.length} dígitos).`);
+      toast.error(`El teléfono debe tener 8 dígitos (tiene ${cleanTel.length}).`);
       return;
     }
 
     if (!editCuiDpi.trim() || editCuiDpi.trim().length !== 13) {
-      toast.error('El CUI / DPI debe contener exactamente 13 dígitos.');
+      toast.error('El DPI debe tener 13 dígitos.');
       return;
     }
 
@@ -402,17 +402,17 @@ export const OperatorDashboard = () => {
 
     const montoNum = parseFloat(montoAportacion);
     if (isNaN(montoNum) || montoNum < 100.0) {
-      toast.error('El depósito inicial mínimo estatutario es de Q100.00.');
+      toast.error('El depósito inicial mínimo es de Q100.00.');
       return;
     }
 
     if (operatorEmailStatus.disponible === false) {
-      toast.error(operatorEmailStatus.message || 'El correo electrónico ya se encuentra registrado por otro usuario. Modifíquelo antes de formalizar.');
+      toast.error(operatorEmailStatus.message || 'Ese correo ya lo usa otra persona. Cámbielo para continuar.');
       return;
     }
 
     if (operatorEmailStatus.checking) {
-      toast.error('Verificando disponibilidad del correo electrónico. Por favor espere...');
+      toast.error('Estamos revisando el correo. Espere un momento.');
       return;
     }
 
@@ -436,14 +436,14 @@ export const OperatorDashboard = () => {
 
       if (response.data?.success) {
         const resData = response.data.data;
-        toast.success(`¡Afiliación formalizada con éxito para ${resData.nombre_completo}!`);
+        toast.success(`${resData.nombre_completo} ya es asociado.`);
         setFormalizadoResult(resData);
         setSelectedAfiliacion(null);
         fetchAfiliaciones(searchAfiliacion);
       }
     } catch (err) {
       console.error('Error al formalizar afiliación:', err);
-      toast.error(err.response?.data?.message || 'Ocurrió un error al formalizar la afiliación.');
+      toast.error(err.response?.data?.message || 'No se pudo completar la afiliación. Intente de nuevo.');
     } finally {
       setFormalizando(false);
     }
@@ -465,17 +465,17 @@ export const OperatorDashboard = () => {
           operador_nombre: caso.operador_resuelve_nombre || user?.nombre || user?.nombre_completo || 'Operador en Ventanilla',
         },
       });
-      toast.success(`Comprobante del caso ${caso.numero_caso} descargado exitosamente.`);
+      toast.success(`Se descargó el comprobante del caso ${caso.numero_caso}.`);
     } catch (err) {
       console.error('Error al generar comprobante existente:', err);
-      toast.error('No se pudo generar el comprobante PDF.');
+      toast.error('No se pudo generar el comprobante. Intente de nuevo.');
     }
   };
 
   const handleRechazarAfiliacionSubmit = async (e) => {
     e.preventDefault();
     if (!selectedAfiliacion || !motivoRechazoAfiliacion.trim()) {
-      toast.error('Debe ingresar un motivo detallado del rechazo.');
+      toast.error('Escriba el motivo del rechazo.');
       return;
     }
 
@@ -486,14 +486,14 @@ export const OperatorDashboard = () => {
       });
 
       if (response.data?.success) {
-        toast.success(`El caso ${selectedAfiliacion.numero_caso} ha sido cancelado.`);
+        toast.success(`Se canceló el caso ${selectedAfiliacion.numero_caso}.`);
         setSelectedAfiliacion(null);
         setShowRechazarAfiliacion(false);
         fetchAfiliaciones(searchAfiliacion);
       }
     } catch (err) {
       console.error('Error al rechazar caso de afiliación:', err);
-      toast.error(err.response?.data?.message || 'Error al cancelar la solicitud.');
+      toast.error(err.response?.data?.message || 'No se pudo cancelar la solicitud. Intente de nuevo.');
     } finally {
       setRechazandoAfiliacion(false);
     }
@@ -505,7 +505,7 @@ export const OperatorDashboard = () => {
   const openResolverTrasladoModal = (sol, type) => {
     setSelectedSolicitud(sol);
     setActionType(type);
-    setObservacionesTraslado(type === 'APROBAR' ? 'Traslado de fondos aprobado y procesado.' : '');
+    setObservacionesTraslado(type === 'APROBAR' ? 'Traslado aprobado.' : '');
   };
 
   const closeResolverTrasladoModal = () => {
@@ -525,13 +525,13 @@ export const OperatorDashboard = () => {
       });
 
       if (response.data?.success) {
-        toast.success(`El caso ${selectedSolicitud.numero_caso} ha sido ${actionType === 'APROBAR' ? 'aprobado y procesado' : 'rechazado'} correctamente.`);
+        toast.success(`Se ${actionType === 'APROBAR' ? 'aprobó' : 'rechazó'} el caso ${selectedSolicitud.numero_caso}.`);
         closeResolverTrasladoModal();
         fetchTraslados();
       }
     } catch (err) {
       console.error('Error al resolver caso:', err);
-      toast.error(err.response?.data?.message || 'Ocurrió un error al intentar resolver el caso.');
+      toast.error(err.response?.data?.message || 'No se pudo resolver el caso. Intente de nuevo.');
       closeResolverTrasladoModal();
     } finally {
       setResolvingTraslado(false);
@@ -555,7 +555,7 @@ export const OperatorDashboard = () => {
       }
     } catch (err) {
       console.error('Error al cargar evaluación crediticia:', err);
-      toast.error('No se pudo cargar la evaluación y scoring del asociado.');
+      toast.error('No se pudo cargar la evaluación del asociado.');
     } finally {
       setLoadingEvaluacion(false);
     }
@@ -572,11 +572,11 @@ export const OperatorDashboard = () => {
   const handleElevarCredito = async (archivoFirmado = null) => {
     if (!selectedCredito) return;
     if (!archivoFirmado?.base64) {
-      toast.error('Es obligatorio adjuntar el archivo PDF firmado por el Operador para poder aceptar la solicitud y elevarla al Ejecutivo.');
+      toast.error('Adjunte el PDF firmado por usted para enviar la solicitud al ejecutivo.');
       return;
     }
     if (!observacionesCredito.trim()) {
-      toast.error('Debe ingresar su dictamen u observaciones operativas antes de elevar la solicitud al Ejecutivo.');
+      toast.error('Escriba su dictamen antes de enviar la solicitud al ejecutivo.');
       return;
     }
 
@@ -593,13 +593,13 @@ export const OperatorDashboard = () => {
       const response = await api.post(`/operador/creditos/${selectedCredito.id_solicitud_credito}/elevar`, payload);
 
       if (response.data?.success) {
-        toast.success(`Solicitud #${selectedCredito.id_solicitud_credito} elevada con éxito a la Gerencia Ejecutiva para dictamen final.`);
+        toast.success(`La solicitud #${selectedCredito.id_solicitud_credito} se envió al ejecutivo para su resolución.`);
         closeResolverCreditoModal();
         fetchCreditos();
       }
     } catch (err) {
       console.error('Error al elevar crédito:', err);
-      toast.error(err.response?.data?.message || 'Error al elevar la solicitud de crédito.');
+      toast.error(err.response?.data?.message || 'No se pudo enviar la solicitud al ejecutivo. Intente de nuevo.');
     } finally {
       setResolvingCredito(false);
     }
@@ -610,12 +610,12 @@ export const OperatorDashboard = () => {
     const finalAction = typeof accionParam === 'string' && accionParam ? accionParam : actionCreditoType;
 
     if (!finalAction || !['RECHAZAR', 'DENEGAR'].includes(finalAction)) {
-      toast.error('Acción operativa inválida.');
+      toast.error('Acción no válida.');
       return;
     }
 
     if (!observacionesCredito.trim()) {
-      toast.error('Debe ingresar el motivo detallado del rechazo en el campo de observaciones.');
+      toast.error('Escriba el motivo del rechazo en las observaciones.');
       return;
     }
 
@@ -633,13 +633,13 @@ export const OperatorDashboard = () => {
       const response = await api.post(`/operador/creditos/${selectedCredito.id_solicitud_credito}/resolver`, payload);
 
       if (response.data?.success) {
-        toast.success(`La solicitud de crédito #${selectedCredito.id_solicitud_credito} ha sido rechazada exitosamente.`);
+        toast.success(`Se rechazó la solicitud #${selectedCredito.id_solicitud_credito}.`);
         closeResolverCreditoModal();
         fetchCreditos();
       }
     } catch (err) {
       console.error('Error al rechazar crédito:', err);
-      toast.error(err.response?.data?.message || 'Ocurrió un error al procesar el rechazo de la solicitud.');
+      toast.error(err.response?.data?.message || 'No se pudo rechazar la solicitud. Intente de nuevo.');
     } finally {
       setResolvingCredito(false);
     }

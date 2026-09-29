@@ -156,7 +156,7 @@ export const CreditSimulatorPage = () => {
       }
     } catch (err) {
       console.error('Error al cargar créditos:', err);
-      setErrorMessage('No se pudieron obtener las solicitudes de crédito anteriores.');
+      setErrorMessage('No se pudieron cargar sus solicitudes. Intente de nuevo.');
     } finally {
       setLoading(false);
     }
@@ -212,18 +212,18 @@ export const CreditSimulatorPage = () => {
     setSuccessMessage('');
 
     if (limitePendientesAlcanzado) {
-      toast.error('Ha alcanzado el límite máximo de 2 solicitudes activas en evaluación.');
+      toast.error('Ya tiene 2 solicitudes en trámite, que es el máximo.');
       return;
     }
 
     if (montoExcedeCupo) {
-      toast.error('El monto solicitado supera su cupo crediticio disponible.');
+      toast.error('El monto supera su cupo disponible.');
       return;
     }
 
     const selectedCuenta = cuentasAcreditacion.find((c) => c.key === selectedCuentaKey);
     if (!selectedCuenta?.id_cuenta_bancaria) {
-      toast.error('Debe seleccionar una cuenta bancaria (Monetaria o Ahorro) para acreditación.');
+      toast.error('Elija la cuenta del banco que recibirá el dinero.');
       return;
     }
 
@@ -239,7 +239,7 @@ export const CreditSimulatorPage = () => {
       const res = await api.post('/asociado/creditos/iniciar', payload);
       if (res.data?.success) {
         const nuevaSol = res.data.data;
-        toast.success(`¡Solicitud #${nuevaSol.id_solicitud_credito} registrada! Se ha descargado el formulario oficial para su firma.`);
+        toast.success(`Se registró la solicitud #${nuevaSol.id_solicitud_credito}. Descargamos el formulario para que lo firme.`);
         
         // Generar y descargar inmediatamente el PDF oficial vinculado al Folio persistido en BD
         generateCreditApplicationPdf({
@@ -260,7 +260,7 @@ export const CreditSimulatorPage = () => {
       }
     } catch (err) {
       console.error('Error al iniciar solicitud de crédito:', err);
-      toast.error(err.response?.data?.message || 'Error al registrar la solicitud de crédito.');
+      toast.error(err.response?.data?.message || 'No se pudo registrar la solicitud. Intente de nuevo.');
     } finally {
       setSubmitting(false);
     }
@@ -269,7 +269,7 @@ export const CreditSimulatorPage = () => {
   // Paso 2: Subir formulario firmado para la solicitud exacta
   const handleSubirExpediente = async (idSolicitud) => {
     if (!archivoFirmadoBase64) {
-      toast.error('Por favor seleccione el documento PDF o imagen firmado antes de enviarlo.');
+      toast.error('Adjunte el formulario firmado antes de enviar.');
       return;
     }
 
@@ -282,7 +282,7 @@ export const CreditSimulatorPage = () => {
 
       const res = await api.post(`/asociado/creditos/${idSolicitud}/subir-expediente-firmado`, payload);
       if (res.data?.success) {
-        toast.success('¡Formulario firmado enviado al comité de créditos exitosamente!');
+        toast.success('Solicitud enviada. El comité de créditos la revisará.');
         setArchivoFirmadoBase64(null);
         setArchivoFirmadoNombre('');
         setArchivoFirmadoSize(0);
@@ -290,7 +290,7 @@ export const CreditSimulatorPage = () => {
       }
     } catch (err) {
       console.error('Error al subir expediente firmado:', err);
-      toast.error(err.response?.data?.message || 'Error al enviar el expediente firmado.');
+      toast.error(err.response?.data?.message || 'No se pudo enviar el formulario firmado. Intente de nuevo.');
     } finally {
       setSubmitting(false);
     }
@@ -314,10 +314,10 @@ export const CreditSimulatorPage = () => {
           etiqueta_tipo: sol.cuenta_destino_info,
         },
       });
-      toast.success(`Formulario oficial de la Solicitud #${sol.id_solicitud_credito} descargado.`);
+      toast.success(`Se descargó el formulario de la solicitud #${sol.id_solicitud_credito}.`);
     } catch (err) {
       console.error('Error al generar PDF:', err);
-      toast.error('No se pudo generar el documento PDF.');
+      toast.error('No se pudo generar el formulario. Intente de nuevo.');
     }
   };
 
@@ -326,7 +326,7 @@ export const CreditSimulatorPage = () => {
     if (!file) return;
 
     if (file.size > 12 * 1024 * 1024) {
-      toast.error('El archivo excede el tamaño máximo permitido de 12 MB.');
+      toast.error('El archivo no puede pasar de 12 MB.');
       return;
     }
 
@@ -335,10 +335,10 @@ export const CreditSimulatorPage = () => {
       setArchivoFirmadoBase64(reader.result);
       setArchivoFirmadoNombre(file.name);
       setArchivoFirmadoSize(file.size);
-      toast.success(`Archivo "${file.name}" cargado exitosamente.`);
+      toast.success(`Archivo listo: ${file.name}.`);
     };
     reader.onerror = () => {
-      toast.error('Error al leer el archivo. Intente nuevamente.');
+      toast.error('No se pudo leer el archivo. Intente con otro.');
     };
     reader.readAsDataURL(file);
   };
@@ -371,7 +371,7 @@ export const CreditSimulatorPage = () => {
       setCancelando(true);
       const res = await api.post(`/asociado/creditos/${idSolicitud}/cancelar`);
       if (res.data?.success) {
-        toast.success(`Solicitud #${idSolicitud} cancelada exitosamente.`);
+        toast.success(`Se canceló la solicitud #${idSolicitud}.`);
         setArchivoFirmadoBase64(null);
         setArchivoFirmadoNombre('');
         setArchivoFirmadoSize(0);
@@ -379,7 +379,7 @@ export const CreditSimulatorPage = () => {
         await Promise.all([fetchCreditos(), fetchCapacidad()]);
       }
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Error al cancelar la solicitud.');
+      toast.error(err.response?.data?.message || 'No se pudo cancelar la solicitud. Intente de nuevo.');
     } finally {
       setCancelando(false);
     }

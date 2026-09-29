@@ -125,11 +125,11 @@ export const AccountSettingsModal = ({ isOpen, onClose, initialTab = '2fa' }) =>
         setIsConfiguring2fa(true);
         setTotpCode('');
       } else {
-        setErrorMsg(response.data?.message || 'No se pudo iniciar la configuración de 2FA.');
+        setErrorMsg(response.data?.message || 'No se pudo iniciar la verificación en dos pasos. Intente de nuevo.');
       }
     } catch (err) {
       console.error('Error al generar configuración 2FA:', err);
-      setErrorMsg(err.response?.data?.message || 'Error al comunicarse con el servidor.');
+      setErrorMsg(err.response?.data?.message || 'No hay conexión con el servidor. Intente de nuevo.');
     } finally {
       setGeneratingQr(false);
     }
@@ -155,7 +155,7 @@ export const AccountSettingsModal = ({ isOpen, onClose, initialTab = '2fa' }) =>
 
     const cleanCode = totpCode.trim().replace(/\s+/g, '');
     if (cleanCode.length !== 6 || !/^\d{6}$/.test(cleanCode)) {
-      setErrorMsg('Por favor ingrese un código numérico válido de 6 dígitos.');
+      setErrorMsg('Escriba los 6 dígitos que muestra su aplicación.');
       return;
     }
 
@@ -173,14 +173,14 @@ export const AccountSettingsModal = ({ isOpen, onClose, initialTab = '2fa' }) =>
         setSecretKey('');
         setTotpCode('');
         updateUserData({ mfa_enabled: true });
-        setSuccessMsg('¡Doble Factor de Autenticación (2FA) activado con éxito! Su cuenta ahora está protegida.');
-        toast?.success('Doble Factor de Autenticación (2FA) activado exitosamente.');
+        setSuccessMsg('Verificación en dos pasos activada.');
+        toast?.success('Verificación en dos pasos activada.');
       } else {
-        setErrorMsg(response.data?.message || 'Código incorrecto. Intente de nuevo.');
+        setErrorMsg(response.data?.message || 'El código no es correcto. Intente de nuevo.');
       }
     } catch (err) {
       console.error('Error al activar 2FA:', err);
-      setErrorMsg(err.response?.data?.message || 'Código de seguridad incorrecto o expirado.');
+      setErrorMsg(err.response?.data?.message || 'El código no es correcto o ya venció. Use el que aparece ahora en su aplicación.');
     } finally {
       setVerifyingCode(false);
     }
@@ -193,7 +193,7 @@ export const AccountSettingsModal = ({ isOpen, onClose, initialTab = '2fa' }) =>
     setSuccessMsg('');
 
     if (!disablePassword) {
-      setErrorMsg('Debe ingresar su contraseña actual para confirmar la desactivación.');
+      setErrorMsg('Escriba su contraseña actual para confirmar.');
       return;
     }
 
@@ -208,14 +208,14 @@ export const AccountSettingsModal = ({ isOpen, onClose, initialTab = '2fa' }) =>
         setIsDisabling2fa(false);
         setDisablePassword('');
         updateUserData({ mfa_enabled: false });
-        setSuccessMsg('Doble factor de autenticación desactivado.');
-        toast?.success('2FA desactivado.');
+        setSuccessMsg('Verificación en dos pasos desactivada.');
+        toast?.success('Verificación en dos pasos desactivada.');
       } else {
-        setErrorMsg(response.data?.message || 'No se pudo desactivar el 2FA.');
+        setErrorMsg(response.data?.message || 'No se pudo desactivar la verificación en dos pasos.');
       }
     } catch (err) {
       console.error('Error al desactivar 2FA:', err);
-      setErrorMsg(err.response?.data?.message || 'Contraseña incorrecta.');
+      setErrorMsg(err.response?.data?.message || 'La contraseña no es correcta.');
     } finally {
       setDisablingLoading(false);
     }
@@ -228,12 +228,12 @@ export const AccountSettingsModal = ({ isOpen, onClose, initialTab = '2fa' }) =>
     setSuccessMsg('');
 
     if (!passwordActual || !nuevaPassword || !confirmarPassword) {
-      setErrorMsg('Todos los campos son obligatorios.');
+      setErrorMsg('Complete los tres campos.');
       return;
     }
 
     if (nuevaPassword !== confirmarPassword) {
-      setErrorMsg('La nueva contraseña y su confirmación no coinciden.');
+      setErrorMsg('Las contraseñas nuevas no coinciden.');
       return;
     }
 
@@ -244,17 +244,17 @@ export const AccountSettingsModal = ({ isOpen, onClose, initialTab = '2fa' }) =>
     }
 
     if (nuevaPassword === passwordActual) {
-      setErrorMsg('La nueva contraseña no puede ser idéntica a la anterior.');
+      setErrorMsg('La nueva contraseña debe ser distinta de la actual.');
       return;
     }
 
     if (!reglas.hasLetters || !reglas.hasNumbers) {
-      setErrorMsg('La nueva contraseña debe contener al menos una letra y un número.');
+      setErrorMsg('La nueva contraseña debe tener letras y números.');
       return;
     }
 
     if (!reglas.hasSpecial) {
-      setErrorMsg('La nueva contraseña debe contener al menos un carácter especial (!@#$%^&*...).');
+      setErrorMsg('La nueva contraseña debe tener al menos un símbolo (!@#$…).');
       return;
     }
 
@@ -270,14 +270,14 @@ export const AccountSettingsModal = ({ isOpen, onClose, initialTab = '2fa' }) =>
         setPasswordActual('');
         setNuevaPassword('');
         setConfirmarPassword('');
-        setSuccessMsg('Contraseña actualizada exitosamente.');
-        toast?.success('Contraseña actualizada exitosamente.');
+        setSuccessMsg('Contraseña actualizada.');
+        toast?.success('Contraseña actualizada.');
       } else {
         setErrorMsg(response.data?.message || 'No se pudo actualizar la contraseña.');
       }
     } catch (err) {
       console.error('Error al cambiar contraseña:', err);
-      setErrorMsg(err.response?.data?.message || 'Error al procesar la actualización de contraseña.');
+      setErrorMsg(err.response?.data?.message || 'No se pudo cambiar la contraseña. Intente de nuevo.');
     } finally {
       setSavingPassword(false);
     }
@@ -291,12 +291,12 @@ export const AccountSettingsModal = ({ isOpen, onClose, initialTab = '2fa' }) =>
 
     const cleanTel = telefono.trim();
     if (!cleanTel) {
-      setErrorMsg('El número de teléfono no puede estar vacío.');
+      setErrorMsg('Escriba su número de teléfono.');
       return;
     }
 
     if (!/^\d{8}$/.test(cleanTel)) {
-      setErrorMsg('El número de teléfono debe contener exactamente 8 dígitos.');
+      setErrorMsg('El teléfono debe tener 8 dígitos.');
       return;
     }
 
@@ -305,14 +305,14 @@ export const AccountSettingsModal = ({ isOpen, onClose, initialTab = '2fa' }) =>
       const response = await api.patch('/auth/perfil', { telefono: cleanTel });
       if (response.data?.success) {
         updateUserData({ telefono: cleanTel });
-        setSuccessMsg('Datos de contacto actualizados correctamente.');
-        toast?.success('Teléfono actualizado correctamente.');
+        setSuccessMsg('Teléfono actualizado.');
+        toast?.success('Teléfono actualizado.');
       } else {
         setErrorMsg(response.data?.message || 'No se pudo actualizar el teléfono.');
       }
     } catch (err) {
       console.error('Error al actualizar perfil:', err);
-      setErrorMsg(err.response?.data?.message || 'Error al comunicarse con el servidor.');
+      setErrorMsg(err.response?.data?.message || 'No hay conexión con el servidor. Intente de nuevo.');
     } finally {
       setSavingProfile(false);
     }

@@ -130,7 +130,7 @@ export const AssociateDashboard = () => {
 
   let realTimeError = '';
   if (isMismaCuenta) {
-    realTimeError = 'La cuenta de destino no puede ser la misma cuenta de origen. Seleccione otra cuenta o elija la apertura de un nuevo producto (ej. Plazo Fijo o Metas).';
+    realTimeError = 'La cuenta de destino no puede ser la misma de origen. Elija otra o abra una cuenta nueva.';
   } else if (isMontoInferior) {
     realTimeError = `El monto solicitado de Q${parsedMontoVal.toFixed(2)} es inferior al monto mínimo de apertura para la cuenta ${nombreProductoDestino} (Mínimo: Q${minRequerido.toFixed(2)}).`;
   } else if (isMontoMayorQueSaldo) {
@@ -163,7 +163,7 @@ export const AssociateDashboard = () => {
 
     } catch (error) {
       console.error('Error al cargar datos del asociado:', error);
-      setErrorMessage('No se pudieron obtener los datos financieros del servidor.');
+      setErrorMessage('No se pudieron cargar sus datos. Intente de nuevo.');
     } finally {
       setLoading(false);
     }
@@ -285,7 +285,7 @@ export const AssociateDashboard = () => {
 
   const handleAddBeneficiarioAsociado = () => {
     if (totalPorcentajeAsociado >= 100) {
-      toast.warning('La suma actual de porcentajes ya es del 100.00%. Reduzca los porcentajes actuales antes de agregar otro beneficiario.');
+      toast.warning('Ya asignó el 100 %. Reduzca algún porcentaje para agregar otro beneficiario.');
       return;
     }
     const rem = Math.max(0, 100 - totalPorcentajeAsociado);
@@ -297,7 +297,7 @@ export const AssociateDashboard = () => {
 
   const handleRemoveBeneficiarioAsociado = (index) => {
     if (editBeneficiariosList.length <= 1) {
-      toast.error('Debe declarar al menos un beneficiario para la cuenta.');
+      toast.error('Agregue al menos un beneficiario.');
       return;
     }
     const updated = editBeneficiariosList.filter((_, i) => i !== index);
@@ -309,28 +309,28 @@ export const AssociateDashboard = () => {
     setModalBenError('');
 
     if (!hasAssociateBenChanges) {
-      setModalBenError('No se han detectado modificaciones en los beneficiarios. Realice algún cambio para guardar.');
+      setModalBenError('No hay cambios por guardar.');
       return;
     }
 
     if (Math.abs(totalPorcentajeAsociado - 100.00) > 0.01) {
-      setModalBenError(`La suma de los porcentajes debe ser exactamente 100.00%. Suma actual: ${totalPorcentajeAsociado.toFixed(2)}%`);
+      setModalBenError(`Los porcentajes deben sumar 100 %. Ahora suman ${totalPorcentajeAsociado.toFixed(2)} %.`);
       return;
     }
 
     for (let i = 0; i < editBeneficiariosList.length; i++) {
       const b = editBeneficiariosList[i];
       if (!b.nombre_completo.trim()) {
-        setModalBenError(`El beneficiario #${i + 1} debe contener Nombre Completo.`);
+        setModalBenError(`Escriba el nombre completo del beneficiario ${i + 1}.`);
         return;
       }
       if (b.telefono && b.telefono.length > 0 && b.telefono.length !== 8) {
-        setModalBenError(`El teléfono del beneficiario #${i + 1} (${b.nombre_completo || 'sin nombre'}) debe contener exactamente 8 dígitos numéricos.`);
+        setModalBenError(`El teléfono del beneficiario ${i + 1} debe tener 8 dígitos.`);
         return;
       }
       const pct = parseFloat(b.porcentaje);
       if (isNaN(pct) || pct <= 0 || pct > 100) {
-        setModalBenError(`El beneficiario #${i + 1} debe tener un porcentaje mayor a 0% y menor o igual a 100%.`);
+        setModalBenError(`El porcentaje del beneficiario ${i + 1} debe ser mayor que 0 % y no pasar de 100 %.`);
         return;
       }
     }
@@ -341,15 +341,15 @@ export const AssociateDashboard = () => {
         beneficiarios: editBeneficiariosList,
       });
       if (res.data?.success) {
-        toast.success('¡Beneficiarios actualizados exitosamente (100.00% distribuido)!');
+        toast.success('Beneficiarios guardados.');
         setInitialEditBeneficiarios(JSON.parse(JSON.stringify(editBeneficiariosList)));
         closeEditarBeneficiariosModal();
         fetchMisBeneficiarios();
       } else {
-        setModalBenError(res.data?.message || 'Error al guardar beneficiarios.');
+        setModalBenError(res.data?.message || 'No se pudieron guardar los beneficiarios. Intente de nuevo.');
       }
     } catch (err) {
-      setModalBenError(err.response?.data?.message || 'Error al actualizar beneficiarios.');
+      setModalBenError(err.response?.data?.message || 'No se pudieron guardar los beneficiarios. Intente de nuevo.');
     } finally {
       setSavingBeneficiarios(false);
     }
@@ -366,7 +366,7 @@ export const AssociateDashboard = () => {
       }
     } catch (error) {
       console.error('Error al cargar transacciones:', error);
-      setErrorMessage('No se pudieron cargar los movimientos de la cuenta.');
+      setErrorMessage('No se pudieron cargar los movimientos. Intente de nuevo.');
     } finally {
       setLoadingTx(false);
     }
@@ -390,10 +390,10 @@ export const AssociateDashboard = () => {
         cuenta: cuentaTarget,
         transacciones: finalTxs || [],
       });
-      toast.success(`Estado de cuenta de la cuenta ${cuentaTarget.numero_cuenta} generado exitosamente.`);
+      toast.success(`Se descargó el estado de cuenta de ${cuentaTarget.numero_cuenta}.`);
     } catch (err) {
       console.error('Error al generar estado de cuenta en PDF:', err);
-      toast.error('No se pudo generar el Estado de Cuenta en PDF.');
+      toast.error('No se pudo generar el estado de cuenta. Intente de nuevo.');
     } finally {
       setGeneratingPdf(false);
       setDownloadingAccountId(null);
@@ -409,28 +409,28 @@ export const AssociateDashboard = () => {
 
     const monto = parseFloat(montoTraslado);
     if (isNaN(monto) || monto <= 0) {
-      setModalErrorMessage('Por favor ingrese un monto válido mayor a cero.');
+      setModalErrorMessage('Escriba un monto mayor que cero.');
       return;
     }
 
     if (!cuentaPlanilla) {
-      setModalErrorMessage('No posee una cuenta activa vinculada para realizar traslados.');
+      setModalErrorMessage('No tiene una cuenta de planilla activa para hacer traslados.');
       return;
     }
 
     if (monto > parseFloat(cuentaPlanilla.saldo_disponible)) {
-      setModalErrorMessage(`Saldo insuficiente en su cuenta origen (Disponible: Q${parseFloat(cuentaPlanilla.saldo_disponible).toFixed(2)}).`);
+      setModalErrorMessage(`No tiene saldo suficiente. Disponible: Q${parseFloat(cuentaPlanilla.saldo_disponible).toFixed(2)}.`);
       return;
     }
 
     if (!destinoSeleccionado) {
-      setModalErrorMessage('Debe seleccionar una cuenta o producto de destino.');
+      setModalErrorMessage('Elija a qué cuenta o producto va el dinero.');
       return;
     }
 
     const [destType, destId] = destinoSeleccionado.split(':');
     if (destType === 'EXISTENTE' && cuentaPlanilla && String(destId) === String(cuentaPlanilla.id_cuenta)) {
-      setModalErrorMessage('La cuenta de destino no puede ser la misma cuenta de origen. Seleccione otra cuenta o elija la apertura de un nuevo producto (ej. Plazo Fijo o Metas).');
+      setModalErrorMessage('La cuenta de destino no puede ser la misma de origen. Elija otra o abra una cuenta nueva.');
       return;
     }
 
@@ -458,7 +458,7 @@ export const AssociateDashboard = () => {
     try {
       const response = await api.post('/asociado/solicitudes-traslado', payload);
       if (response.data?.success) {
-        setSuccessMessage(`Solicitud registrada. Se generó el caso ${response.data.data.numero_caso} para aprobación operativa.`);
+        setSuccessMessage(`Solicitud enviada con el caso ${response.data.data.numero_caso}. Un operador la revisará.`);
         setMontoTraslado('');
         setObservacionesTraslado('');
         setDestinoSeleccionado('');
@@ -467,7 +467,7 @@ export const AssociateDashboard = () => {
       }
     } catch (error) {
       console.error('Error al registrar traslado:', error);
-      setModalErrorMessage(error.response?.data?.message || 'Error al procesar la solicitud de traslado.');
+      setModalErrorMessage(error.response?.data?.message || 'No se pudo enviar la solicitud de traslado. Intente de nuevo.');
     } finally {
       setEnviandoTraslado(false);
     }

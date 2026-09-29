@@ -143,20 +143,20 @@ export const PublicAffiliationPage = () => {
       return {
         valid: false,
         age,
-        message: `Edad calculada: ${age >= 0 ? age : 0} años. Debe tener al menos 18 años cumplidos para afiliarse (nacidos en ${today.getFullYear() - 18} o antes).`,
+        message: `Tiene ${age >= 0 ? age : 0} años. Para afiliarse necesita 18 años cumplidos.`,
       };
     }
     if (age > 105) {
       return {
         valid: false,
         age,
-        message: `Edad calculada: ${age} años. La fecha ingresada excede el límite máximo permitido.`,
+        message: `La fecha da ${age} años. Revise el año de nacimiento.`,
       };
     }
     return {
       valid: true,
       age,
-      message: `${age} años cumplidos (Mayor de edad apto para membresía)`,
+      message: `${age} años cumplidos.`,
     };
   };
 
@@ -188,12 +188,12 @@ export const PublicAffiliationPage = () => {
       setEmailStatus({
         checking: false,
         disponible: false,
-        message: 'Formato de correo electrónico no válido.',
+        message: 'Revise el formato del correo.',
       });
       return;
     }
 
-    setEmailStatus({ checking: true, disponible: null, message: 'Verificando disponibilidad...' });
+    setEmailStatus({ checking: true, disponible: null, message: 'Revisando el correo…' });
 
     const timer = setTimeout(async () => {
       try {
@@ -202,13 +202,13 @@ export const PublicAffiliationPage = () => {
           setEmailStatus({
             checking: false,
             disponible: true,
-            message: 'Correo disponible para registro.',
+            message: 'Correo disponible.',
           });
         } else {
           setEmailStatus({
             checking: false,
             disponible: false,
-            message: res.data.message || 'Este correo electrónico ya se encuentra registrado.',
+            message: res.data.message || 'Ese correo ya está registrado.',
           });
         }
       } catch (err) {
@@ -232,12 +232,12 @@ export const PublicAffiliationPage = () => {
       setCredEmailStatus({
         checking: false,
         disponible: false,
-        message: 'Formato de correo electrónico no válido.',
+        message: 'Revise el formato del correo.',
       });
       return;
     }
 
-    setCredEmailStatus({ checking: true, disponible: null, message: 'Verificando disponibilidad...' });
+    setCredEmailStatus({ checking: true, disponible: null, message: 'Revisando el correo…' });
 
     const timer = setTimeout(async () => {
       try {
@@ -255,7 +255,7 @@ export const PublicAffiliationPage = () => {
           setCredEmailStatus({
             checking: false,
             disponible: false,
-            message: res.data.message || 'Este correo electrónico ya se encuentra registrado.',
+            message: res.data.message || 'Ese correo ya está registrado.',
           });
         }
       } catch (err) {
@@ -273,7 +273,7 @@ export const PublicAffiliationPage = () => {
 
     const limpio = cuiInput.trim().replace(/\s+/g, '');
     if (limpio.length !== 13 || !/^\d+$/.test(limpio)) {
-      setErrorMsg('El CUI / DPI debe contener exactamente 13 dígitos numéricos.');
+      setErrorMsg('El DPI debe tener 13 dígitos, sin espacios ni guiones.');
       return;
     }
 
@@ -306,11 +306,11 @@ export const PublicAffiliationPage = () => {
           setPhase('NUEVO_FORMULARIO');
         }
       } else {
-        setErrorMsg(response.data?.message || 'No fue posible validar el DPI ingresado.');
+        setErrorMsg(response.data?.message || 'No pudimos consultar ese DPI. Intente de nuevo.');
       }
     } catch (err) {
       setErrorMsg(
-        err.response?.data?.message || 'Error de comunicación al consultar el sistema bancario.'
+        err.response?.data?.message || 'No pudimos comunicarnos con el banco. Intente de nuevo en unos minutos.'
       );
     } finally {
       setLoading(false);
@@ -323,7 +323,7 @@ export const PublicAffiliationPage = () => {
     setErrorMsg('');
 
     if (!bancoCreds.nombre_usuario.trim() || !bancoCreds.codigo.trim() || !bancoCreds.password) {
-      setErrorMsg('Debe ingresar su Nombre de Usuario, Código de Cliente y Contraseña de la Banca en Línea.');
+      setErrorMsg('Escriba su usuario, su código de cliente y su contraseña de la Banca en Línea.');
       return;
     }
 
@@ -346,11 +346,11 @@ export const PublicAffiliationPage = () => {
         }
         setPhase('EXISTENTE_CONFIG');
       } else {
-        setErrorMsg(response.data?.message || 'Credenciales de la Banca en Línea no válidas.');
+        setErrorMsg(response.data?.message || 'Los datos de la Banca en Línea no son correctos.');
       }
     } catch (err) {
       setErrorMsg(
-        err.response?.data?.message || 'Error al validar credenciales con la Entidad Bancaria.'
+        err.response?.data?.message || 'No pudimos comunicarnos con el banco. Intente de nuevo en unos minutos.'
       );
     } finally {
       setBancoAuthLoading(false);
@@ -363,17 +363,17 @@ export const PublicAffiliationPage = () => {
     setErrorMsg('');
 
     if (credenciales.password.length < 6) {
-      setErrorMsg('La contraseña de acceso debe contener al menos 6 caracteres.');
+      setErrorMsg('La contraseña debe tener al menos 6 caracteres.');
       return;
     }
     if (credenciales.password !== credenciales.confirmPassword) {
-      setErrorMsg('Las contraseñas ingresadas no coinciden.');
+      setErrorMsg('Las contraseñas no coinciden.');
       return;
     }
 
     const monto = parseFloat(montoAportacion);
     if (isNaN(monto) || monto < 100.0) {
-      setErrorMsg('El monto de aportación inicial no puede ser inferior a Q100.00.');
+      setErrorMsg('El aporte inicial mínimo es de Q100.00.');
       return;
     }
 
@@ -392,10 +392,10 @@ export const PublicAffiliationPage = () => {
         setAfiliacionExitosa(response.data.data);
         setPhase('EXISTENTE_EXITO');
       } else {
-        setErrorMsg(response.data?.message || 'Error al procesar la afiliación.');
+        setErrorMsg(response.data?.message || 'No se pudo completar la afiliación. Intente de nuevo.');
       }
     } catch (err) {
-      setErrorMsg(err.response?.data?.message || 'Error al comunicarse con el servidor.');
+      setErrorMsg(err.response?.data?.message || 'No hay conexión con el servidor. Intente de nuevo.');
     } finally {
       setLoading(false);
     }
@@ -412,7 +412,7 @@ export const PublicAffiliationPage = () => {
       return;
     }
     if (!nameRegex.test(nuevoForm.primer_nombre.trim())) {
-      setErrorMsg('El primer nombre únicamente puede contener letras, sin números ni caracteres especiales.');
+      setErrorMsg('El primer nombre solo puede llevar letras.');
       return;
     }
     if (!nuevoForm.primer_apellido.trim()) {
@@ -420,26 +420,26 @@ export const PublicAffiliationPage = () => {
       return;
     }
     if (!nameRegex.test(nuevoForm.primer_apellido.trim())) {
-      setErrorMsg('El primer apellido únicamente puede contener letras, sin números ni caracteres especiales.');
+      setErrorMsg('El primer apellido solo puede llevar letras.');
       return;
     }
     if (nuevoForm.segundo_nombre.trim() && !nameRegex.test(nuevoForm.segundo_nombre.trim())) {
-      setErrorMsg('El segundo nombre únicamente puede contener letras, sin números ni caracteres especiales.');
+      setErrorMsg('El segundo nombre solo puede llevar letras.');
       return;
     }
     if (nuevoForm.segundo_apellido.trim() && !nameRegex.test(nuevoForm.segundo_apellido.trim())) {
-      setErrorMsg('El segundo apellido únicamente puede contener letras, sin números ni caracteres especiales.');
+      setErrorMsg('El segundo apellido solo puede llevar letras.');
       return;
     }
 
     const cleanTel = nuevoForm.telefono.replace(/\D/g, '');
     if (cleanTel.length !== 8) {
-      setErrorMsg(`El número de teléfono móvil debe contener exactamente 8 dígitos numéricos (ingresó ${cleanTel.length} dígitos).`);
+      setErrorMsg(`El teléfono debe tener 8 dígitos (tiene ${cleanTel.length}).`);
       return;
     }
 
     if (!nuevoForm.fecha_nacimiento) {
-      setErrorMsg('Debe seleccionar su fecha de nacimiento completa (día, mes y año).');
+      setErrorMsg('Elija el día, el mes y el año de nacimiento.');
       return;
     }
     const ageInfo = calculateAgeInfo(nuevoForm.fecha_nacimiento);
@@ -449,23 +449,23 @@ export const PublicAffiliationPage = () => {
     }
 
     if (!nuevoForm.email || !nuevoForm.email.trim()) {
-      setErrorMsg('Debe ingresar su correo electrónico.');
+      setErrorMsg('Escriba su correo electrónico.');
       return;
     }
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(nuevoForm.email.trim())) {
-      setErrorMsg('El formato del correo electrónico ingresado no es válido (ejemplo: usuario@correo.com).');
+      setErrorMsg('Revise el correo. Debe verse así: nombre@correo.com.');
       return;
     }
 
     if (emailStatus.disponible === false) {
-      setErrorMsg(emailStatus.message || 'El correo electrónico ya se encuentra registrado por otro usuario. Ingrese un correo diferente.');
+      setErrorMsg(emailStatus.message || 'Ese correo ya lo usa otra persona. Escriba otro.');
       return;
     }
 
     if (emailStatus.checking) {
-      setErrorMsg('Verificando disponibilidad del correo electrónico. Por favor espere un momento...');
+      setErrorMsg('Estamos revisando el correo. Espere un momento.');
       return;
     }
 
@@ -488,11 +488,11 @@ export const PublicAffiliationPage = () => {
         setCasoGenerado(response.data.data);
         setPhase('NUEVO_CASO_EXITO');
       } else {
-        setErrorMsg(response.data?.message || 'No fue posible registrar su solicitud.');
+        setErrorMsg(response.data?.message || 'No se pudo registrar su solicitud. Intente de nuevo.');
       }
     } catch (err) {
       const backendError = err.response?.data?.message || err.response?.data?.error;
-      setErrorMsg(backendError || 'Error de conexión al registrar la solicitud. Por favor verifique los datos ingresados.');
+      setErrorMsg(backendError || 'No se pudo registrar su solicitud. Revise sus datos e intente de nuevo.');
     } finally {
       setLoading(false);
     }

@@ -55,12 +55,12 @@ const OperatorCreditEvaluationModal = ({
     if (!file) return;
 
     if (file.type !== 'application/pdf') {
-      setFileError('Solo se admiten documentos en formato PDF.');
+      setFileError('El archivo debe ser un PDF.');
       return;
     }
 
     if (file.size > 10 * 1024 * 1024) {
-      setFileError('El tamaño del PDF no debe exceder los 10 MB.');
+      setFileError('El PDF no puede pasar de 10 MB.');
       return;
     }
 
@@ -75,7 +75,7 @@ const OperatorCreditEvaluationModal = ({
       setActiveEvalTab('documento');
     };
     reader.onerror = () => {
-      setFileError('Error al leer el archivo PDF seleccionado.');
+      setFileError('No se pudo leer el PDF. Intente con otro archivo.');
     };
     reader.readAsDataURL(file);
   };

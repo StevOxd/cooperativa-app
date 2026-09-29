@@ -41,7 +41,7 @@ export const AdminDashboard = () => {
       }
     } catch (error) {
       console.error('Error al cargar datos del Centro de Monitoreo:', error);
-      setErrorMessage('No se pudieron cargar todas las métricas en tiempo real.');
+      setErrorMessage('Algunos datos del panel no se pudieron cargar. Actualice la página para intentar de nuevo.');
     } finally {
       setLoading(false);
     }

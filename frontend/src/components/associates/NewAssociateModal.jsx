@@ -130,20 +130,20 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess }) => {
       return {
         valid: false,
         age,
-        message: `Edad: ${age >= 0 ? age : 0} años. Debe ser mayor de edad (mínimo 18 años).`,
+        message: `Tiene ${age >= 0 ? age : 0} años. Debe tener 18 años cumplidos.`,
       };
     }
     if (age > 105) {
       return {
         valid: false,
         age,
-        message: `Edad: ${age} años. La fecha ingresada excede el límite permitido.`,
+        message: `La fecha da ${age} años. Revise el año de nacimiento.`,
       };
     }
     return {
       valid: true,
       age,
-      message: `${age} años cumplidos (Mayor de edad)`,
+      message: `${age} años cumplidos.`,
     };
   };
 
@@ -182,7 +182,7 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess }) => {
     setDpiStatus((prev) => ({
       ...prev,
       checking: true,
-      message: 'Consultando datos de identidad en Core Banking...',
+      message: 'Consultando el DPI en el banco…',
     }));
     setLoadingCuentasBanco(true);
 
@@ -190,7 +190,7 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess }) => {
       const res = await api.get(`/banco-externo/cuentas-cliente/${cleanCui}`);
       if (res.data?.success) {
         if (res.data.ya_registrado_cooperativa) {
-          const errMsg = `El CUI / DPI ya se encuentra registrado en el padrón de asociados de la Cooperativa (${res.data.asociado_existente?.codigo_asociado || 'Asociado Activo'}).`;
+          const errMsg = `Este DPI ya es de un asociado (${res.data.asociado_existente?.codigo_asociado || 'activo'}).`;
           setFieldErrors((prev) => ({ ...prev, cui_dpi: errMsg }));
           setDpiStatus({
             checking: false,
@@ -243,8 +243,8 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess }) => {
           tipo_cliente: res.data.tipo_cliente,
           nombre_completo: res.data.cliente?.nombre_completo || null,
           message: esEmpleado
-            ? 'Colaborador Bancario identificado en Core Banking (Planilla Corporativa).'
-            : 'Persona identificada como Afiliado Externo / Ajeno al Banco.',
+            ? 'Es empleado del banco. Se registrará como asociado EB.'
+            : 'No es empleado del banco. Se registrará como asociado externo (EX).',
           error: false,
         });
 
@@ -267,7 +267,7 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess }) => {
           tipo_asociado: 'EX',
           tipo_cliente: 'NO_REGISTRADO',
           nombre_completo: null,
-          message: 'Persona identificada como Afiliado Externo / Ajeno al Banco.',
+          message: 'No es empleado del banco. Se registrará como asociado externo (EX).',
           error: false,
         });
         setFormData((prev) => ({ ...prev, tipo_asociado: 'EX', numero_cuenta_bancaria: '' }));
@@ -283,7 +283,7 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess }) => {
         tipo_asociado: 'EX',
         tipo_cliente: 'DESCONOCIDO',
         nombre_completo: null,
-        message: 'Afiliado Externo (Sin vinculación bancaria previa).',
+        message: 'No tiene cuentas en el banco. Se registrará como asociado externo (EX).',
         error: false,
       });
       setFormData((prev) => ({ ...prev, tipo_asociado: 'EX', numero_cuenta_bancaria: '' }));
@@ -321,12 +321,12 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess }) => {
   // Acreditar o depositar saldo a la cuenta bancaria del empleado
   const handleAcreditarFondos = async () => {
     if (!cuentaBancoSeleccionada) {
-      setAcreditarErrorMsg('Seleccione la cuenta bancaria a acreditar.');
+      setAcreditarErrorMsg('Elija la cuenta del banco a la que se acreditará.');
       return;
     }
     const monto = parseFloat(montoAcreditar);
     if (isNaN(monto) || monto <= 0) {
-      setAcreditarErrorMsg('Ingrese un monto válido mayor a Q0.00.');
+      setAcreditarErrorMsg('Escriba un monto mayor que Q0.00.');
       return;
     }
 
@@ -342,17 +342,17 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess }) => {
       });
 
       if (res.data?.success) {
-        setAcreditarSuccessMsg(`¡Se han acreditado Q${monto.toFixed(2)} exitosamente a la cuenta ${cuentaBancoSeleccionada}!`);
+        setAcreditarSuccessMsg(`Se acreditaron Q${monto.toFixed(2)} a la cuenta ${cuentaBancoSeleccionada}.`);
         await fetchCuentasEmpleado(formData.cui_dpi);
         setTimeout(() => {
           setAcreditarSuccessMsg('');
           setShowAcreditarModal(false);
         }, 2200);
       } else {
-        setAcreditarErrorMsg(res.data?.message || 'Error al acreditar fondos en el banco.');
+        setAcreditarErrorMsg(res.data?.message || 'No se pudieron acreditar los fondos. Intente de nuevo.');
       }
     } catch (err) {
-      setAcreditarErrorMsg(err.response?.data?.message || 'Error al conectar con la entidad bancaria.');
+      setAcreditarErrorMsg(err.response?.data?.message || 'No hay conexión con el banco. Intente de nuevo.');
     } finally {
       setAcreditando(false);
     }
@@ -361,7 +361,7 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess }) => {
   // Aperturar cuenta en el banco para el colaborador si no tuviese cuentas activas
   const handleAperturarCuentaBanco = async () => {
     if (!formData.cui_dpi || formData.cui_dpi.length !== 13 || !formData.primer_nombre) {
-      setErrorMsg('Complete CUI (13 dígitos) y Nombres antes de aperturar la cuenta bancaria.');
+      setErrorMsg('Escriba el DPI (13 dígitos) y los nombres antes de abrir la cuenta en el banco.');
       return;
     }
     setLoadingCuentasBanco(true);
@@ -399,7 +399,7 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess }) => {
     }
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(cleanEmail)) {
-      setEmailStatus({ checking: false, available: false, message: 'Formato de correo inválido.' });
+      setEmailStatus({ checking: false, available: false, message: 'Revise el formato del correo.' });
       return;
     }
 
@@ -408,14 +408,14 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess }) => {
       const res = await api.get(`/afiliacion/verificar-email?email=${encodeURIComponent(cleanEmail)}`);
       if (res.data?.success) {
         if (res.data.disponible) {
-          setEmailStatus({ checking: false, available: true, message: 'Correo disponible para registro.' });
+          setEmailStatus({ checking: false, available: true, message: 'Correo disponible.' });
           setFieldErrors((prev) => {
             const next = { ...prev };
             delete next.email;
             return next;
           });
         } else {
-          const msg = res.data.message || 'El correo electrónico ya se encuentra registrado.';
+          const msg = res.data.message || 'Ese correo ya está registrado.';
           setEmailStatus({
             checking: false,
             available: false,
@@ -559,7 +559,7 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess }) => {
     // 4. Validar Fecha de Nacimiento (Mayor de edad)
     const ageResult = calculateAgeInfo(formData.fecha_nacimiento);
     if (!formData.fecha_nacimiento || !ageResult || !ageResult.valid) {
-      errors.fecha_nacimiento = ageResult?.message || 'Debe ser mayor de edad (mínimo 18 años cumplidos).';
+      errors.fecha_nacimiento = ageResult?.message || 'Debe tener 18 años cumplidos.';
     }
 
     // 5. Validar Correo Electrónico
@@ -568,7 +568,7 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess }) => {
     if (!cleanEmail || !emailRegex.test(cleanEmail)) {
       errors.email = 'Ingrese un correo electrónico válido.';
     } else if (emailStatus.available === false) {
-      errors.email = emailStatus.message || 'El correo electrónico ya se encuentra registrado.';
+      errors.email = emailStatus.message || 'Ese correo ya está registrado.';
     }
 
     // 6. Validar Monto
@@ -579,7 +579,7 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess }) => {
 
     if (Object.keys(errors).length > 0) {
       setFieldErrors(errors);
-      setErrorMsg('Por favor corrija los campos requeridos con formato inválido.');
+      setErrorMsg('Revise los campos marcados.');
       return;
     }
 
@@ -609,10 +609,10 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess }) => {
         setSuccessData(res.data.data);
         if (onSuccess) onSuccess();
       } else {
-        setErrorMsg(res.data?.message || 'Error al procesar afiliación.');
+        setErrorMsg(res.data?.message || 'No se pudo registrar al asociado. Intente de nuevo.');
       }
     } catch (err) {
-      const msg = err.response?.data?.message || 'Error al conectar con el servidor.';
+      const msg = err.response?.data?.message || 'No hay conexión con el servidor. Intente de nuevo.';
       setErrorMsg(msg);
       if (msg.toLowerCase().includes('correo') || msg.toLowerCase().includes('email')) {
         setFieldErrors((prev) => ({ ...prev, email: msg }));

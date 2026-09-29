@@ -33,11 +33,11 @@ export const BankConfigStep = ({
   const handleProceed = () => {
     const monto = parseFloat(montoAportacion);
     if (isNaN(monto) || monto < 100) {
-      setErrorMsg('La aportación inicial mínima es de Q100.00.');
+      setErrorMsg('El aporte inicial mínimo es de Q100.00.');
       return;
     }
     if (cuentaSeleccionadaObj && parseFloat(cuentaSeleccionadaObj.saldo_disponible) < monto) {
-      setErrorMsg('Fondos insuficientes en la cuenta bancaria de ahorro seleccionada.');
+      setErrorMsg('Esa cuenta del banco no tiene saldo suficiente. Elija otra o reduzca el monto.');
       return;
     }
     setErrorMsg('');

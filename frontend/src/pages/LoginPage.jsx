@@ -33,10 +33,10 @@ export const LoginPage = () => {
     const teniaToken = Boolean(localStorage.getItem('coop_token'));
 
     if (motivo === 'inactividad') {
-      setInfoMessage('Su sesión ha expirado automáticamente por inactividad (10 minutos) para proteger su cuenta.');
+      setInfoMessage('Cerramos su sesión porque pasaron 10 minutos sin actividad.');
       logout();
     } else if (teniaToken) {
-      setInfoMessage('Sesión cerrada por seguridad bancaria al regresar a la pantalla de acceso.');
+      setInfoMessage('Por seguridad, cerramos su sesión al volver a esta pantalla.');
       logout();
     }
 
@@ -46,7 +46,7 @@ export const LoginPage = () => {
 
     const handleBackForward = () => {
       if (localStorage.getItem('coop_token')) {
-        setInfoMessage('Sesión cerrada por seguridad bancaria al regresar a la pantalla de acceso.');
+        setInfoMessage('Por seguridad, cerramos su sesión al volver a esta pantalla.');
         logout();
       }
       setIdentifier('');
@@ -69,7 +69,7 @@ export const LoginPage = () => {
     setInfoMessage('');
 
     if (!identifier.trim() || !password) {
-      setErrorMessage('Por favor ingrese su usuario o correo electrónico y contraseña.');
+      setErrorMessage('Escriba su usuario o correo y su contraseña.');
       return;
     }
 
@@ -92,13 +92,13 @@ export const LoginPage = () => {
         // Login directo exitoso
         navigate('/dashboard');
       } else {
-        setErrorMessage(result.message || 'Credenciales inválidas.');
+        setErrorMessage(result.message || 'El usuario o la contraseña no son correctos.');
         setIdentifier('');
         setPassword('');
         identifierInputRef.current?.focus();
       }
     } catch (err) {
-      setErrorMessage('Ocurrió un error inesperado. Por favor intente nuevamente.');
+      setErrorMessage('Ocurrió un error inesperado. Intente de nuevo.');
       setIdentifier('');
       setPassword('');
       identifierInputRef.current?.focus();
@@ -113,7 +113,7 @@ export const LoginPage = () => {
 
     const cleanCode = totpCode.trim().replace(/\s+/g, '');
     if (!cleanCode || cleanCode.length !== 6 || !/^\d{6}$/.test(cleanCode)) {
-      setErrorMessage('Ingrese exactamente los 6 dígitos numéricos del autenticador.');
+      setErrorMessage('Escriba los 6 dígitos que muestra su aplicación.');
       return;
     }
 
@@ -123,12 +123,12 @@ export const LoginPage = () => {
       if (result.success) {
         navigate('/dashboard');
       } else {
-        setErrorMessage(result.message || 'Código de seguridad incorrecto.');
+        setErrorMessage(result.message || 'El código no es correcto.');
         setTotpCode('');
         mfaInputRef.current?.focus();
       }
     } catch (err) {
-      setErrorMessage('Error al verificar el código de seguridad. Intente nuevamente.');
+      setErrorMessage('No se pudo verificar el código. Intente de nuevo.');
     } finally {
       setIsSubmitting(false);
     }

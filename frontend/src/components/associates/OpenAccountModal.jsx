@@ -141,7 +141,7 @@ export const OpenAccountModal = ({ isOpen, onClose, asociado, onSuccess }) => {
     }
 
     if (formData.origen_fondos === 'CUENTA_INTERNA' && !formData.id_cuenta_origen) {
-      setErrorMsg('Debe seleccionar la cuenta interna del asociado para realizar el débito.');
+      setErrorMsg('Elija la cuenta del asociado de la que saldrá el dinero.');
       return;
     }
 
@@ -162,10 +162,10 @@ export const OpenAccountModal = ({ isOpen, onClose, asociado, onSuccess }) => {
         setSuccessData(res.data.data);
         if (onSuccess) onSuccess();
       } else {
-        setErrorMsg(res.data?.message || 'Error al aperturar cuenta.');
+        setErrorMsg(res.data?.message || 'No se pudo abrir la cuenta. Intente de nuevo.');
       }
     } catch (err) {
-      setErrorMsg(err.response?.data?.message || 'Error al procesar la apertura de la cuenta.');
+      setErrorMsg(err.response?.data?.message || 'No se pudo abrir la cuenta. Intente de nuevo.');
     } finally {
       setLoading(false);
     }
@@ -217,13 +217,13 @@ export const OpenAccountModal = ({ isOpen, onClose, asociado, onSuccess }) => {
 
       if (res.data?.success) {
         setEmailSent(true);
-        setEmailNotice(res.data.message || 'Comprobante enviado al correo del asociado con éxito.');
+        setEmailNotice(res.data.message || 'Comprobante enviado al correo del asociado.');
       } else {
         setEmailNotice(res.data?.message || 'No se pudo enviar el correo.');
       }
     } catch (err) {
       console.error('Error al enviar boleta por correo:', err);
-      setEmailNotice(err.response?.data?.message || 'Error al enviar el comprobante por correo.');
+      setEmailNotice(err.response?.data?.message || 'No se pudo enviar el comprobante. Intente de nuevo.');
     } finally {
       setSendingEmail(false);
     }

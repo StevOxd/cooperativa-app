@@ -204,20 +204,20 @@ export const UsersPage = () => {
       return {
         valid: false,
         age,
-        message: `Edad: ${age >= 0 ? age : 0} años. Debe ser mayor de edad (mínimo 18 años).`,
+        message: `Tiene ${age >= 0 ? age : 0} años. Debe tener 18 años cumplidos.`,
       };
     }
     if (age > 105) {
       return {
         valid: false,
         age,
-        message: `Edad: ${age} años. La fecha ingresada excede el límite permitido.`,
+        message: `La fecha da ${age} años. Revise el año de nacimiento.`,
       };
     }
     return {
       valid: true,
       age,
-      message: `${age} años cumplidos (Mayor de edad)`,
+      message: `${age} años cumplidos.`,
     };
   };
 
@@ -261,7 +261,7 @@ export const UsersPage = () => {
       }
     } catch (error) {
       console.error('Error al cargar usuarios:', error);
-      setErrorMessage(error.response?.data?.message || 'No se pudieron cargar los usuarios del servidor.');
+      setErrorMessage(error.response?.data?.message || 'No se pudieron cargar los usuarios. Intente de nuevo.');
     } finally {
       if (showLoading) setLoading(false);
     }
@@ -311,12 +311,12 @@ export const UsersPage = () => {
       setSuccessMessage('');
       const response = await api.patch(`/usuarios/${userId}/desbloquear`);
       if (response.data?.success) {
-        setSuccessMessage(response.data.message || 'Usuario desbloqueado exitosamente.');
+        setSuccessMessage(response.data.message || 'Usuario desbloqueado.');
         fetchUsers(false);
       }
     } catch (error) {
       console.error('Error al desbloquear usuario:', error);
-      setErrorMessage(error.response?.data?.message || 'Error al desbloquear al usuario.');
+      setErrorMessage(error.response?.data?.message || 'No se pudo desbloquear al usuario. Intente de nuevo.');
     }
   };
 
@@ -378,59 +378,59 @@ export const UsersPage = () => {
     // Validaciones de negocio y formato (igual al estándar institucional y de asociados)
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!formData.email || !emailRegex.test(formData.email.trim())) {
-      setModalError('Ingrese un correo electrónico válido (ejemplo: usuario@correo.com).');
+      setModalError('Revise el correo. Debe verse así: nombre@correo.com.');
       return;
     }
 
     const cleanCui = (formData.cui_dpi || '').replace(/\D/g, '');
     if (cleanCui.length !== 13) {
-      setModalError('El DPI / CUI debe contener exactamente 13 dígitos numéricos.');
+      setModalError('El DPI debe tener 13 dígitos.');
       return;
     }
 
     const cleanTel = (formData.telefono || '').replace(/\D/g, '');
     if (cleanTel && cleanTel.length !== 8) {
-      setModalError('El número de teléfono debe contener exactamente 8 dígitos numéricos.');
+      setModalError('El teléfono debe tener 8 dígitos.');
       return;
     }
 
     const nameRegex = /^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s]+$/;
     if (!formData.primer_nombre || formData.primer_nombre.trim().length < 2) {
-      setModalError('El primer nombre es obligatorio (mínimo 2 letras).');
+      setModalError('Escriba el primer nombre (al menos 2 letras).');
       return;
     }
     if (!nameRegex.test(formData.primer_nombre.trim())) {
-      setModalError('El primer nombre solo debe contener letras, sin números ni símbolos.');
+      setModalError('El primer nombre solo puede llevar letras.');
       return;
     }
 
     if (formData.segundo_nombre && !nameRegex.test(formData.segundo_nombre.trim())) {
-      setModalError('El segundo nombre solo debe contener letras, sin números ni símbolos.');
+      setModalError('El segundo nombre solo puede llevar letras.');
       return;
     }
 
     if (!formData.primer_apellido || formData.primer_apellido.trim().length < 2) {
-      setModalError('El primer apellido es obligatorio (mínimo 2 letras).');
+      setModalError('Escriba el primer apellido (al menos 2 letras).');
       return;
     }
     if (!nameRegex.test(formData.primer_apellido.trim())) {
-      setModalError('El primer apellido solo debe contener letras, sin números ni símbolos.');
+      setModalError('El primer apellido solo puede llevar letras.');
       return;
     }
 
     if (formData.segundo_apellido && !nameRegex.test(formData.segundo_apellido.trim())) {
-      setModalError('El segundo apellido solo debe contener letras, sin números ni símbolos.');
+      setModalError('El segundo apellido solo puede llevar letras.');
       return;
     }
 
     if (!formData.fecha_nacimiento) {
-      setModalError('La fecha de nacimiento es obligatoria.');
+      setModalError('Escriba la fecha de nacimiento.');
       return;
     }
 
     const ageCheck = calculateAgeInfo(formData.fecha_nacimiento);
     if (!ageCheck || !ageCheck.valid) {
-      setModalError(ageCheck?.message || 'El colaborador debe ser mayor de edad (mínimo 18 años).');
+      setModalError(ageCheck?.message || 'La persona debe tener 18 años cumplidos.');
       return;
     }
 
@@ -443,7 +443,7 @@ export const UsersPage = () => {
 
         const response = await api.put(`/usuarios/${editingUserPersonaId}`, payload);
         if (response.data?.success) {
-          setSuccessMessage('Usuario actualizado exitosamente.');
+          setSuccessMessage('Cambios guardados.');
           setIsModalOpen(false);
           fetchUsers();
         }
@@ -460,14 +460,14 @@ export const UsersPage = () => {
         if (response.data?.success) {
           const codAsignado = response.data.data?.codigo_corporativo || previewCode || '';
           setSuccessMessage(
-            `Usuario ${codAsignado} creado exitosamente. La contraseña temporal generada fue enviada al correo ${formData.email}.`
+            `Se creó el usuario ${codAsignado}. Enviamos su contraseña temporal a ${formData.email}.`
           );
           setIsModalOpen(false);
           fetchUsers();
         }
       }
     } catch (error) {
-      setModalError(error.response?.data?.message || 'Error al procesar la solicitud.');
+      setModalError(error.response?.data?.message || 'No se pudieron guardar los cambios. Intente de nuevo.');
     } finally {
       setModalSubmitting(false);
     }
@@ -495,11 +495,11 @@ export const UsersPage = () => {
       );
       if (response.data?.success) {
         setResetSuccess(true);
-        setSuccessMessage(`Contraseña del usuario "${resetTargetUser.codigo_corporativo}" reiniciada exitosamente. Se ha enviado al correo institucional.`);
+        setSuccessMessage(`Se reinició la contraseña de ${resetTargetUser.codigo_corporativo} y se envió a su correo.`);
         fetchUsers(false);
       }
     } catch (error) {
-      setResetError(error.response?.data?.message || 'Error al reiniciar contraseña.');
+      setResetError(error.response?.data?.message || 'No se pudo reiniciar la contraseña. Intente de nuevo.');
     } finally {
       setResetSubmitting(false);
     }
@@ -516,7 +516,7 @@ export const UsersPage = () => {
   const handleChangeStatusSubmit = async (e) => {
     e.preventDefault();
     if (statusNewValue === 'INACTIVO' && (!statusMotivo || !statusMotivo.trim())) {
-      setStatusError('El motivo es obligatorio al cambiar el estado a INACTIVO.');
+      setStatusError('Escriba el motivo para desactivar al usuario.');
       return;
     }
     setStatusError('');
@@ -531,13 +531,13 @@ export const UsersPage = () => {
       );
       if (response.data?.success) {
         setSuccessMessage(
-          `Estado del usuario "${statusTargetUser.nombre_completo || statusTargetUser.codigo_corporativo}" actualizado a ${statusNewValue}.`
+          `${statusTargetUser.nombre_completo || statusTargetUser.codigo_corporativo} quedó ${statusNewValue === 'INACTIVO' ? 'inactivo' : 'activo'}.`
         );
         setStatusModalOpen(false);
         fetchUsers();
       }
     } catch (error) {
-      setStatusError(error.response?.data?.message || 'Error al actualizar el estado del usuario.');
+      setStatusError(error.response?.data?.message || 'No se pudo cambiar el estado. Intente de nuevo.');
     } finally {
       setStatusSubmitting(false);
     }

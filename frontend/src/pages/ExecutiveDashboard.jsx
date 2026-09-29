@@ -35,12 +35,12 @@ export const ExecutiveDashboard = () => {
     if (!file) return;
 
     if (file.type !== 'application/pdf') {
-      setFileError('Solo se admiten documentos en formato PDF.');
+      setFileError('El archivo debe ser un PDF.');
       return;
     }
 
     if (file.size > 10 * 1024 * 1024) {
-      setFileError('El tamaño del PDF no debe exceder 10 MB.');
+      setFileError('El PDF no puede pasar de 10 MB.');
       return;
     }
 
@@ -55,7 +55,7 @@ export const ExecutiveDashboard = () => {
       setActiveModalTab('documento');
     };
     reader.onerror = () => {
-      setFileError('Error al leer el archivo PDF seleccionado.');
+      setFileError('No se pudo leer el PDF. Intente con otro archivo.');
     };
     reader.readAsDataURL(file);
   };
@@ -81,7 +81,7 @@ export const ExecutiveDashboard = () => {
       }
     } catch (err) {
       console.error('Error al cargar créditos ejecutivos:', err);
-      toast.error('No se pudieron obtener las solicitudes de crédito.');
+      toast.error('No se pudieron cargar las solicitudes. Intente de nuevo.');
     } finally {
       setLoading(false);
     }
@@ -164,17 +164,17 @@ export const ExecutiveDashboard = () => {
     if (!selectedCredito) return;
 
     if (accion === 'ACEPTAR' && !archivoFirmado) {
-      toast.error('Es obligatorio subir el documento PDF firmado por la Gerencia Ejecutiva para autorizar y desembolsar la solicitud.');
+      toast.error('Adjunte el PDF firmado por usted para aprobar la solicitud.');
       return;
     }
 
     if (accion === 'DEVOLVER' && !observaciones.trim()) {
-      toast.error('Para devolver la solicitud al Operador, debe ingresar obligatoriamente las observaciones o motivo de devolución.');
+      toast.error('Escriba qué debe corregir el operador para devolverle la solicitud.');
       return;
     }
 
     if (accion === 'DENEGAR' && !observaciones.trim()) {
-      toast.error('Para denegar formalmente la solicitud, debe ingresar obligatoriamente la justificación del rechazo.');
+      toast.error('Escriba el motivo para denegar la solicitud.');
       return;
     }
 
@@ -192,13 +192,13 @@ export const ExecutiveDashboard = () => {
       const res = await api.post(`/ejecutivo/creditos/${selectedCredito.id_solicitud_credito}/resolver`, payload);
 
       if (res.data?.success) {
-        toast.success(res.data.message || 'Resolución ejecutiva registrada correctamente.');
+        toast.success(res.data.message || 'Resolución guardada.');
         closeResolverModal();
         fetchCreditos();
       }
     } catch (err) {
       console.error('Error al resolver crédito:', err);
-      toast.error(err.response?.data?.message || 'Error al procesar la resolución de la solicitud.');
+      toast.error(err.response?.data?.message || 'No se pudo guardar la resolución. Intente de nuevo.');
     } finally {
       setResolving(false);
     }

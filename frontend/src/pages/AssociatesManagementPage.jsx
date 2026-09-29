@@ -121,11 +121,11 @@ export const AssociatesManagementPage = () => {
         estado: nuevoEstado,
       });
       if (res.data?.success) {
-        toast.success(`Estado de ${asociado.nombre_completo} actualizado a ${nuevoEstado}.`);
+        toast.success(`${asociado.nombre_completo} quedó ${nuevoEstado === 'SUSPENDIDO' ? 'suspendido' : 'activo'}.`);
         fetchAsociados(pagination.page);
       }
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Error al cambiar estado del asociado.');
+      toast.error(err.response?.data?.message || 'No se pudo cambiar el estado. Intente de nuevo.');
     } finally {
       setConfirmModalData({
         isOpen: false,

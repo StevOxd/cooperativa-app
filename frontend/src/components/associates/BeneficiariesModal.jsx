@@ -242,7 +242,7 @@ export const BeneficiariesModal = ({
     }
 
     if (!hasChanges) {
-      setErrorMsg('No se detectaron modificaciones en los beneficiarios. Realice algún cambio para guardar.');
+      setErrorMsg('No hay cambios por guardar.');
       return;
     }
 
@@ -257,15 +257,15 @@ export const BeneficiariesModal = ({
 
     for (const b of beneficiarios) {
       if (!b.nombre_completo.trim()) {
-        setErrorMsg('Todos los beneficiarios deben tener nombre completo.');
+        setErrorMsg('Escriba el nombre completo de cada beneficiario.');
         return;
       }
       if (b.telefono && b.telefono.length > 0 && b.telefono.length !== 8) {
-        setErrorMsg(`El teléfono de "${b.nombre_completo}" debe contener exactamente 8 dígitos numéricos.`);
+        setErrorMsg(`El teléfono de ${b.nombre_completo} debe tener 8 dígitos.`);
         return;
       }
       if (parseFloat(b.porcentaje) <= 0) {
-        setErrorMsg('Cada beneficiario debe tener un porcentaje mayor al 0.00%.');
+        setErrorMsg('Cada beneficiario debe tener un porcentaje mayor que 0 %.');
         return;
       }
     }
@@ -285,16 +285,16 @@ export const BeneficiariesModal = ({
       });
 
       if (res.data?.success) {
-        setSuccessMsg('Beneficiarios declarados y guardados exitosamente (100.00% distribuido).');
+        setSuccessMsg('Beneficiarios guardados.');
         setMotivoCambio('');
         setInitialBeneficiarios(JSON.parse(JSON.stringify(beneficiarios)));
         loadHistorialBeneficiarios(selectedCuentaId);
         if (onSuccess) onSuccess();
       } else {
-        setErrorMsg(res.data?.message || 'Error al guardar beneficiarios.');
+        setErrorMsg(res.data?.message || 'No se pudieron guardar los beneficiarios. Intente de nuevo.');
       }
     } catch (err) {
-      setErrorMsg(err.response?.data?.message || 'Error al conectar con el servidor.');
+      setErrorMsg(err.response?.data?.message || 'No hay conexión con el servidor. Intente de nuevo.');
     } finally {
       setSaving(false);
     }

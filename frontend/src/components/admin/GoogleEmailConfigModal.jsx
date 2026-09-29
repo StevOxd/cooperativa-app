@@ -57,7 +57,7 @@ export const GoogleEmailConfigModal = ({ isOpen, onClose, onConfigSaved }) => {
   const handleSaveConfig = async (e) => {
     e.preventDefault();
     if (!gmailUser.trim() || !gmailAppPassword.trim()) {
-      toast.warning('Ingresa la cuenta de Google y la Contraseña de Aplicación de 16 caracteres.');
+      toast.warning('Escriba la cuenta de Gmail y la contraseña de aplicación de 16 caracteres.');
       return;
     }
 
@@ -74,7 +74,7 @@ export const GoogleEmailConfigModal = ({ isOpen, onClose, onConfigSaved }) => {
       });
 
       if (res.data?.success) {
-        toast.success('¡Servicio de Google Mail conectado y verificado exitosamente!');
+        toast.success('Gmail quedó conectado y verificado.');
         setServiceStatus(res.data.data);
         setGmailAppPassword(''); // Limpiar contraseña del formulario por seguridad
         if (onConfigSaved) onConfigSaved(res.data.data);
@@ -92,7 +92,7 @@ export const GoogleEmailConfigModal = ({ isOpen, onClose, onConfigSaved }) => {
   const handleSendTest = async (e) => {
     e.preventDefault();
     if (!testRecipient.trim() || !testRecipient.includes('@')) {
-      toast.warning('Ingresa un correo electrónico de destino válido.');
+      toast.warning('Escriba un correo de destino válido.');
       return;
     }
 
@@ -105,10 +105,10 @@ export const GoogleEmailConfigModal = ({ isOpen, onClose, onConfigSaved }) => {
 
       if (res.data?.success) {
         setTestResult(res.data);
-        toast.success(res.data.message || 'Correo de prueba despachado.');
+        toast.success(res.data.message || 'Correo de prueba enviado.');
       }
     } catch (err) {
-      const errorMsg = err.response?.data?.message || 'Error al enviar correo de prueba.';
+      const errorMsg = err.response?.data?.message || 'No se pudo enviar el correo de prueba.';
       toast.error(errorMsg);
       setTestResult({
         success: false,
