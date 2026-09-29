@@ -91,20 +91,26 @@ export const AssociateOnboardingTour = ({
     },
   ];
 
-  // Comprobar estado en localStorage al montar o cambiar de usuario
+  // Apertura automática: solo al entrar o al cambiar de usuario, si no se marcó "no mostrar".
+  // No depende de `forceOpen`: al cerrar el recorrido manual, `forceOpen` vuelve a false y
+  // antes eso reabría la ventana (había que cerrarla dos veces).
   useEffect(() => {
     const isDismissed = localStorage.getItem(storageKey) === 'true';
-    if (forceOpen) {
-      setModalMode('welcome');
-      setCurrentStep(0);
-      setIsOpen(true);
-    } else if (!isDismissed) {
-      // Si es la primera vez o no ha sido omitido de forma permanente
+    if (!isDismissed) {
       setModalMode('welcome');
       setCurrentStep(0);
       setIsOpen(true);
     }
-  }, [user?.codigo_corporativo, forceOpen, storageKey]);
+  }, [storageKey]);
+
+  // Apertura manual con el botón "Recorrido": solo cuando `forceOpen` pasa a true.
+  useEffect(() => {
+    if (forceOpen) {
+      setModalMode('welcome');
+      setCurrentStep(0);
+      setIsOpen(true);
+    }
+  }, [forceOpen]);
 
   const handleStartTour = () => {
     setModalMode('tour');
