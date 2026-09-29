@@ -3,6 +3,7 @@ import { Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import Navbar from './Navbar';
 import { StaffShell } from './layout/StaffShell';
+import { Wordmark } from './layout/Wordmark';
 import { STAFF_ROLES } from './layout/navigation';
 
 export const Layout = () => {
@@ -29,6 +30,17 @@ export const Layout = () => {
       window.removeEventListener('popstate', checkSecurity);
     };
   }, [location.pathname]);
+
+  // Mientras la contraseña temporal no se cambie, no se monta la aplicación: solo un
+  // fondo neutro. El modal obligatorio lo muestra AuthContext encima. Así no se ve el
+  // portal ni se disparan peticiones que el backend rechaza (403 CAMBIO_PASSWORD_OBLIGATORIO).
+  if (user?.debe_cambiar_password) {
+    return (
+      <div className="flex min-h-screen justify-center bg-surface-muted px-4 pt-10">
+        <Wordmark />
+      </div>
+    );
+  }
 
   // Operador, Ejecutivo y Administrador: barra lateral. Asociado: barra superior.
   if (STAFF_ROLES.includes(user?.rol)) {
