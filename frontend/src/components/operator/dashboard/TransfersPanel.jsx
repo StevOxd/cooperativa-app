@@ -55,8 +55,8 @@ const PendingTransfers = ({ solicitudes, loading, onResolve }) => {
             </TD>
             <TD className="whitespace-nowrap text-xs">{formatDateTime(s.fecha_solicitud)}</TD>
             <TD numeric className="font-medium text-ink">{formatQ(s.monto)}</TD>
-            <TD sticky className="whitespace-nowrap text-right">
-              <div className="flex justify-end gap-2">
+            <TD sticky className="whitespace-nowrap text-center">
+              <div className="flex justify-center gap-2">
                 <Button size="sm" onClick={() => onResolve(s, 'APROBAR')}>Aprobar</Button>
                 <Button size="sm" variant="secondary" className="text-danger-700" onClick={() => onResolve(s, 'RECHAZAR')}>
                   Rechazar

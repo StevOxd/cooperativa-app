@@ -106,20 +106,24 @@ export const CreditsPanel = ({ creditos, total, pendientes, loading, search, onS
                 </TD>
                 <TD className="max-w-xs text-xs" title={note}>
                   {c.observaciones_ejecutivo ? (
-                    <div className="line-clamp-2 text-warning-800">Devuelta: {c.observaciones_ejecutivo}</div>
+                    c.estado === 'DEVUELTA_OPERADOR' ? (
+                      <div className="line-clamp-2 text-warning-800">Devuelta: {c.observaciones_ejecutivo}</div>
+                    ) : (
+                      <div className="line-clamp-2">Ejecutivo: {c.observaciones_ejecutivo}</div>
+                    )
                   ) : c.dictamen_operador ? (
                     <div className="line-clamp-2">Dictamen: {c.dictamen_operador}</div>
                   ) : (
                     <div className="line-clamp-2 text-ink-subtle">{c.observaciones || '—'}</div>
                   )}
                 </TD>
-                <TD sticky className="whitespace-nowrap text-right">
+                <TD sticky className="whitespace-nowrap text-center">
                   {isPending ? (
                     <Button size="sm" onClick={() => onOpen(c, '')} title="Evaluar solvencia y emitir dictamen">
                       {c.estado === 'DEVUELTA_OPERADOR' ? 'Reevaluar' : 'Evaluar'}
                     </Button>
                   ) : (
-                    <div className="flex flex-col items-end gap-1">
+                    <div className="flex flex-col items-center gap-1">
                       <Button size="sm" variant="secondary" onClick={() => onOpen(c, '')}>Expediente</Button>
                       <span className="text-xs text-ink-subtle">
                         {c.analista_nombre ? `Por ${c.analista_nombre}` : 'Procesada'}

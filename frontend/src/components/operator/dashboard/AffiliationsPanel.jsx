@@ -150,7 +150,7 @@ export const AffiliationsPanel = ({
                   <TD numeric className="text-ink">{formatQ(a.monto_estimado || 100.0)}</TD>
                   <TD className="whitespace-nowrap text-xs">{formatDateTime(a.fecha_solicitud)}</TD>
                   <TD className="whitespace-nowrap"><AffiliationStatus a={a} /></TD>
-                  <TD sticky className="whitespace-nowrap text-right">
+                  <TD sticky className="whitespace-nowrap text-center">
                     {a.estado === 'ATENDIDA' ? (
                       <Button
                         size="sm"
