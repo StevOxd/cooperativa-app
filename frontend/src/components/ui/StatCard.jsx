@@ -54,16 +54,17 @@ export const StatCard = ({
  * @param {Object} props
  * @param {2|3|4} [props.columns=4]
  */
-export const StatGroup = ({ columns = 4, className, children }) => {
-  const cols = { 2: 'sm:grid-cols-2', 3: 'sm:grid-cols-3', 4: 'sm:grid-cols-2 lg:grid-cols-4' }[columns];
+export const StatGroup = ({ columns = 4, className, children, ...props }) => {
+  const cols = { 2: 'grid-cols-1 sm:grid-cols-2', 3: 'grid-cols-1 sm:grid-cols-3', 4: 'grid-cols-2 lg:grid-cols-4' }[columns];
   return (
     // El fondo `bg-line` asoma por el `gap-px` y dibuja los divisores en cualquier número de filas.
     <dl
       className={cn(
-        'grid grid-cols-1 gap-px overflow-hidden bg-line border border-line rounded-lg',
+        'grid gap-px overflow-hidden bg-line border border-line rounded-lg',
         cols,
         className
       )}
+      {...props}
     >
       {React.Children.map(children, (child) =>
         React.isValidElement(child) ? React.cloneElement(child, { bare: true }) : child
