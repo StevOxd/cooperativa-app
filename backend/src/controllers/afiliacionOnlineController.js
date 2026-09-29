@@ -137,7 +137,10 @@ const validarCredencialesBanco = async (req, res) => {
     });
 
     if (!bancoAuthRes.success || bancoAuthRes.status !== 200) {
-      return res.status(bancoAuthRes.status || 401).json({
+      // Credenciales bancarias incorrectas: 400, no 401. Esta ruta es pública y el
+      // interceptor del frontend trata cualquier 401 como sesión vencida y redirige a /login.
+      const status = !bancoAuthRes.status || bancoAuthRes.status === 401 ? 400 : bancoAuthRes.status;
+      return res.status(status).json({
         success: false,
         message: bancoAuthRes.message || 'Credenciales de la Banca en Línea inválidas.',
       });

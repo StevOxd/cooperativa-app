@@ -35,7 +35,7 @@ Registro de errores y mejoras encontrados durante el rediseño del frontend (ram
 | C-22 | El correo de prueba en modo demostrativo se anuncia como "Operación exitosa" | Frontend · admin | Baja | Pendiente |
 | C-23 | En la afiliación en línea, la contraseña que define el cliente del banco se descarta o se envía por correo | Backend · afiliación | Alta | Pendiente |
 | C-24 | El código QR de 2FA que muestra la afiliación no sirve y expone el secreto | Backend · seguridad | Alta | Pendiente |
-| C-25 | Una contraseña bancaria incorrecta en la afiliación manda a la pantalla de inicio de sesión | Frontend · afiliación | Alta | Pendiente |
+| C-25 | Una contraseña bancaria incorrecta en la afiliación manda a la pantalla de inicio de sesión | Backend · afiliación | Alta | **Corregido** |
 
 ---
 
@@ -364,13 +364,15 @@ En el rediseño se mantuvo el QR (no se cambian flujos de seguridad), pero ya no
 ---
 
 ### C-25 · Una contraseña bancaria incorrecta en la afiliación manda a la pantalla de inicio de sesión
-**Prioridad:** Alta · **Por corregir**
+**Prioridad:** Alta · **Corregido** (`fix(afiliacion)`: `validarCredencialesBanco` responde 400 cuando el banco devuelve 401. Se mantienen el 403, usuario bloqueado, y los errores 5xx del banco)
 
 **Qué pasa:** si las credenciales de la Banca en Línea son incorrectas, el backend responde **401** ([afiliacionOnlineController.js:139](backend/src/controllers/afiliacionOnlineController.js#L139)). El interceptor de [api.js](frontend/src/services/api.js) trata cualquier 401 como sesión vencida: borra el almacenamiento y redirige a `/login`. La persona, que todavía no tiene cuenta, termina en el inicio de sesión sin ver el mensaje de error y pierde lo que había escrito.
 
 **Cómo verificar:** en `/registro-asociado`, ingresar un DPI de cliente del banco y una contraseña bancaria incorrecta.
 
 **Propuesta:** que el backend responda 400 o 422 en ese caso, o que el interceptor no redirija en las rutas públicas (`/afiliacion/*`).
+
+**Pendiente relacionado:** el banco responde con un mensaje distinto según qué dato falló ("el nombre de usuario no coincide", "el código es incorrecto", "la contraseña es incorrecta"). Eso permite adivinar los datos uno por uno. Conviene un solo mensaje genérico, como en C-14. También se podría reforzar el interceptor para que no redirija si no había sesión iniciada.
 
 ---
 
