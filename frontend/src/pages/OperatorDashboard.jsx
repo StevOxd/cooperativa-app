@@ -1,54 +1,19 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { createPortal } from 'react-dom';
+import { RefreshCw } from 'lucide-react';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
-import { getSecureDocumentUrl } from '../utils/documentUrl';
 import OperatorCreditEvaluationModal from '../components/operator/modals/OperatorCreditEvaluationModal';
 import OperatorAffiliationModal from '../components/operator/modals/OperatorAffiliationModal';
 import OperatorAffiliationSuccessModal from '../components/operator/modals/OperatorAffiliationSuccessModal';
 import OperatorTrasladoModal from '../components/operator/modals/OperatorTrasladoModal';
 import { generateAccountOpeningReceiptPdf } from '../utils/accountOpeningReceiptPdf';
-import {
-  Inbox,
-  CheckCircle,
-  CheckCircle2,
-  FileDown,
-  XCircle,
-  Loader2,
-  AlertCircle,
-  Check,
-  X,
-  FileText,
-  Clock,
-  RefreshCw,
-  Send,
-  Building2,
-  ShieldAlert,
-  Search,
-  UserCheck,
-  UserPlus,
-  Lock,
-  Unlock,
-  Calendar,
-  DollarSign,
-  Phone,
-  Mail,
-  MapPin,
-  CreditCard,
-  AlertTriangle,
-  User,
-  Calculator,
-  ShieldCheck,
-  Wallet,
-  ArrowUpRight,
-  ArrowDownLeft,
-  Activity,
-  Info,
-  Eye,
-  FileCheck,
-  ExternalLink,
-} from 'lucide-react';
+import { Button, Card, PageHeader, TabPanel, Tabs } from '../components/ui';
+import { AffiliationsPanel } from '../components/operator/dashboard/AffiliationsPanel';
+import { TransfersPanel } from '../components/operator/dashboard/TransfersPanel';
+import { CreditsPanel } from '../components/operator/dashboard/CreditsPanel';
+
+const TABS_ID = 'operador';
 
 const formatDateOnly = (dateStr) => {
   if (!dateStr) return '-';
@@ -680,877 +645,98 @@ export const OperatorDashboard = () => {
     }
   };
 
+
+  const isRefreshing = loadingAfiliaciones || loadingTraslados || loadingCreditos;
+
   return (
     <div className="space-y-6">
-      {/* Encabezado del Operador */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-white p-6 rounded-lg border border-slate-200">
-        <div>
-          <span className="text-xs font-bold text-brand-700 uppercase tracking-widest block mb-1">
-            Bandeja de Operaciones
-          </span>
-          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
-            Gestión Operativa de Casos
-          </h1>
-          <p className="text-sm text-slate-500 mt-0.5">
-            Operador en turno: <span className="font-semibold text-slate-800">{user?.nombre_completo || user?.nombre}</span>{' '}
-            <span className="font-mono text-xs text-brand-700 font-bold">({user?.codigo_corporativo})</span>
-          </p>
-        </div>
-        <button
-          onClick={refreshAll}
-          disabled={loadingAfiliaciones || loadingTraslados || loadingCreditos}
-          className="inline-flex items-center space-x-1.5 px-4 py-2 rounded-md border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-bold transition-colors cursor-pointer disabled:opacity-50"
-        >
-          <RefreshCw className={`w-3.5 h-3.5 ${loadingAfiliaciones || loadingTraslados || loadingCreditos ? 'animate-spin' : ''}`} />
-          <span>Actualizar Bandeja</span>
-        </button>
-      </div>
-
-      {/* Pestañas Operativas */}
-      <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
-        <div className="flex border-b border-slate-200 bg-slate-50/60 px-4 pt-3 gap-2 overflow-x-auto">
-          <button
-            onClick={() => setActiveTab('afiliaciones')}
-            className={`pb-3 px-4 text-xs font-bold flex items-center space-x-2 border-b-2 cursor-pointer transition-all ${
-              activeTab === 'afiliaciones'
-                ? 'border-brand-600 text-brand-800 bg-white rounded-t-lg -mb-px'
-                : 'border-transparent text-slate-500 hover:text-slate-800'
-            }`}
+      <PageHeader
+        title="Bandeja de trabajo"
+        description="Afiliaciones, traslados y créditos que esperan su atención."
+        actions={
+          <Button
+            variant="secondary"
+            icon={RefreshCw}
+            onClick={refreshAll}
+            disabled={isRefreshing}
+            className={isRefreshing ? '[&>svg]:animate-spin' : undefined}
           >
-            <UserPlus className="w-4 h-4 text-brand-600" />
-            <span>Solicitudes de Afiliación (Atención en Agencia)</span>
-            <span
-              className={`px-2 py-0.5 rounded-full text-xs font-extrabold ${
-                activeTab === 'afiliaciones'
-                  ? 'bg-brand-100 text-brand-800'
-                  : afiliacionesPendientesCount > 0
-                  ? 'bg-warning-100 text-warning-800'
-                  : 'bg-slate-200 text-slate-700'
-              }`}
-            >
-              {afiliacionesPendientesCount}
-            </span>
-          </button>
+            Actualizar
+          </Button>
+        }
+      />
 
-          <button
-            onClick={() => setActiveTab('traslados')}
-            className={`pb-3 px-4 text-xs font-bold flex items-center space-x-2 border-b-2 cursor-pointer transition-all ${
-              activeTab === 'traslados'
-                ? 'border-brand-600 text-brand-800 bg-white rounded-t-lg -mb-px'
-                : 'border-transparent text-slate-500 hover:text-slate-800'
-            }`}
-          >
-            <Building2 className="w-4 h-4 text-slate-600" />
-            <span>Traslados de Fondos y Aperturas</span>
-            <span
-              className={`px-2 py-0.5 rounded-full text-xs font-extrabold ${
-                activeTab === 'traslados' ? 'bg-brand-100 text-brand-800' : 'bg-slate-200 text-slate-700'
-              }`}
-            >
-              {solicitudes.length}
-            </span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('creditos')}
-            className={`pb-3 px-4 text-xs font-bold flex items-center space-x-2 border-b-2 cursor-pointer transition-all ${
-              activeTab === 'creditos'
-                ? 'border-brand-600 text-brand-800 bg-white rounded-t-lg -mb-px'
-                : 'border-transparent text-slate-500 hover:text-slate-800'
-            }`}
-          >
-            <Calculator className="w-4 h-4 text-brand-600" />
-            <span>Solicitudes de Crédito</span>
-            <span
-              className={`px-2 py-0.5 rounded-full text-xs font-extrabold ${
-                activeTab === 'creditos'
-                  ? 'bg-brand-100 text-brand-800'
-                  : creditosPendientesCount > 0
-                  ? 'bg-warning-100 text-warning-800'
-                  : 'bg-slate-200 text-slate-700'
-              }`}
-            >
-              {creditosPendientesCount}
-            </span>
-          </button>
+      <Card>
+        <div className="px-5 pt-4">
+          <Tabs
+            label="Bandejas del operador"
+            idPrefix={TABS_ID}
+            value={activeTab}
+            onChange={setActiveTab}
+            items={[
+              { id: 'afiliaciones', label: 'Afiliaciones', count: afiliacionesPendientesCount, attention: afiliacionesPendientesCount > 0 },
+              { id: 'traslados', label: 'Traslados', count: solicitudes.length, attention: solicitudes.length > 0 },
+              { id: 'creditos', label: 'Créditos', count: creditosPendientesCount, attention: creditosPendientesCount > 0 },
+            ]}
+          />
         </div>
 
-        {/* ================================================================= */}
-        {/* CONTENIDO PESTAÑA 1: SOLICITUDES DE AFILIACIÓN EN AGENCIA */}
-        {/* ================================================================= */}
-        {activeTab === 'afiliaciones' && (
-          <div className="p-5 space-y-4">
-            {/* Filtros por Estado de Afiliación */}
-            <div className="flex flex-wrap gap-2 items-center">
-              {[
-                { id: 'TODOS', label: 'Todas las Solicitudes', count: afiliaciones.length },
-                { id: 'PENDIENTE_AGENCIA', label: 'Pendientes de Atención', count: afiliacionesPendientesCount },
-                { id: 'ATENDIDA', label: 'Formalizadas / Aceptadas', count: afiliacionesAtendidasCount },
-                { id: 'CANCELADA', label: 'Canceladas / Denegadas', count: afiliacionesCanceladasCount },
-              ].map((pill) => (
-                <button
-                  key={pill.id}
-                  onClick={() => setFilterAfiliacionEstado(pill.id)}
-                  className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all flex items-center space-x-1.5 cursor-pointer ${
-                    filterAfiliacionEstado === pill.id
-                      ? 'bg-slate-900 text-white'
-                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                  }`}
-                >
-                  <span>{pill.label}</span>
-                  <span
-                    className={`px-1.5 py-0.5 rounded-full text-xs font-mono ${
-                      filterAfiliacionEstado === pill.id
-                        ? 'bg-slate-700 text-slate-100'
-                        : 'bg-slate-200 text-slate-700'
-                    }`}
-                  >
-                    {pill.count}
-                  </span>
-                </button>
-              ))}
-            </div>
+        <TabPanel id={activeTab} idPrefix={TABS_ID} className="p-5">
+          {activeTab === 'afiliaciones' && (
+            <AffiliationsPanel
+              afiliaciones={filteredAfiliaciones}
+              loading={loadingAfiliaciones}
+              search={searchAfiliacion}
+              onSearchChange={setSearchAfiliacion}
+              filter={filterAfiliacionEstado}
+              onFilterChange={setFilterAfiliacionEstado}
+              counts={{
+                total: afiliaciones.length,
+                pendientes: afiliacionesPendientesCount,
+                atendidas: afiliacionesAtendidasCount,
+                canceladas: afiliacionesCanceladasCount,
+              }}
+              lockingCaso={lockingCaso}
+              onAttend={handleOpenAfiliacionModal}
+              onDownloadReceipt={handleDownloadComprobanteExistente}
+            />
+          )}
 
-            {/* Barra de Filtros y Búsqueda */}
-            <div className="flex flex-col sm:flex-row gap-3 items-center justify-between">
-              <div className="relative w-full sm:max-w-md">
-                <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
-                <input
-                  type="text"
-                  value={searchAfiliacion}
-                  onChange={(e) => setSearchAfiliacion(e.target.value)}
-                  placeholder="Buscar por No. Caso, CUI/DPI, Nombre o Correo..."
-                  className="w-full pl-10 pr-9 py-2 bg-slate-50 border border-slate-200 rounded-md text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-600 font-medium"
-                />
-                {searchAfiliacion && (
-                  <button
-                    onClick={() => setSearchAfiliacion('')}
-                    className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600 cursor-pointer"
-                    title="Limpiar búsqueda"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
-                )}
-              </div>
+          {activeTab === 'traslados' && (
+            <TransfersPanel
+              subTab={subTabTraslados}
+              onSubTabChange={(id) => {
+                setSubTabTraslados(id);
+                if (id === 'historial' && historialTraslados.length === 0) {
+                  fetchHistorialTraslados();
+                }
+              }}
+              solicitudes={solicitudes}
+              loadingTraslados={loadingTraslados}
+              onResolve={openResolverTrasladoModal}
+              historial={historialTraslados}
+              loadingHistorial={loadingHistorialTraslados}
+              historialSearch={searchHistorialTraslados}
+              onHistorialSearchChange={setSearchHistorialTraslados}
+              historialEstado={filterHistorialEstado}
+              onHistorialEstadoChange={setFilterHistorialEstado}
+              onHistorialSearch={fetchHistorialTraslados}
+            />
+          )}
 
-              <div className="text-xs text-slate-500">
-                Mostrando:{' '}
-                <span className="font-bold text-slate-800">{filteredAfiliaciones.length}</span>
-                <span className="ml-2 text-slate-400 font-medium">({afiliacionesPendientesCount} pendientes)</span>
-              </div>
-            </div>
-
-            {/* Tabla de Afiliaciones */}
-            {loadingAfiliaciones ? (
-              <div className="py-24 flex flex-col items-center justify-center text-slate-400">
-                <Loader2 className="w-8 h-8 text-brand-600 animate-spin mb-2" />
-                <p className="text-xs font-semibold">Cargando solicitudes de afiliación...</p>
-              </div>
-            ) : filteredAfiliaciones.length === 0 ? (
-              <div className="py-20 text-center text-slate-400 bg-slate-50/50 rounded-lg border border-dashed border-slate-200">
-                <CheckCircle className="w-14 h-14 text-slate-300 mx-auto mb-2" />
-                <p className="font-semibold text-slate-700 text-sm">No hay solicitudes de afiliación pendientes</p>
-                <p className="text-xs text-slate-400 mt-0.5">
-                  {searchAfiliacion
-                    ? 'No se encontraron resultados para los términos de búsqueda ingresados.'
-                    : 'Las solicitudes digitales generadas para atención en agencia aparecerán automáticamente aquí.'}
-                </p>
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-500 uppercase tracking-wider">
-                      <th className="py-3 px-4">Número de Caso</th>
-                      <th className="py-3 px-4">Solicitante</th>
-                      <th className="py-3 px-4">CUI / DPI</th>
-                      <th className="py-3 px-4">Contacto</th>
-                      <th className="py-3 px-4 text-right">Monto Estimado</th>
-                      <th className="py-3 px-4">Fecha Emisión</th>
-                      <th className="py-3 px-4 text-center">Estado / Bloqueo</th>
-                      <th className="py-3 px-4 text-center">Acción</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 text-xs text-slate-700">
-                    {filteredAfiliaciones.map((a) => {
-                      const bloqueadoPorOtro = a.esta_bloqueado && !a.bloqueado_por_mi;
-                      const bloqueadoPorMi = a.bloqueado_por_mi;
-
-                      return (
-                        <tr
-                          key={a.id_solicitud}
-                          className={`hover:bg-slate-50/70 transition-colors ${
-                            bloqueadoPorMi ? 'bg-blue-50/40' : bloqueadoPorOtro ? 'bg-warning-50/30' : ''
-                          }`}
-                        >
-                          <td className="py-3.5 px-4 font-mono font-bold text-slate-900 whitespace-nowrap">
-                            <span className="px-2.5 py-1 bg-slate-100 rounded-lg text-slate-800 border border-slate-200">
-                              {a.numero_caso}
-                            </span>
-                          </td>
-
-                          <td className="py-3.5 px-4">
-                            <span className="font-bold text-slate-900 block">
-                              {a.nombre_completo || `${a.primer_nombre} ${a.primer_apellido}`}
-                            </span>
-                            {a.fecha_nacimiento && (
-                              <span className="text-xs text-slate-500 flex items-center space-x-1 mt-0.5">
-                                <Calendar className="w-3 h-3 text-slate-400" />
-                                <span>Nac: {formatDateOnly(a.fecha_nacimiento)}</span>
-                              </span>
-                            )}
-                          </td>
-
-                          <td className="py-3.5 px-4 font-mono text-slate-800 font-semibold whitespace-nowrap">
-                            {a.cui_dpi}
-                          </td>
-
-                          <td className="py-3.5 px-4 text-xs text-slate-600 space-y-0.5">
-                            {a.email && (
-                              <div className="flex items-center space-x-1 truncate max-w-[180px]">
-                                <Mail className="w-3 h-3 text-slate-400 flex-shrink-0" />
-                                <span className="truncate">{a.email}</span>
-                              </div>
-                            )}
-                            {a.telefono && (
-                              <div className="flex items-center space-x-1 font-mono text-slate-700">
-                                <Phone className="w-3 h-3 text-slate-400 flex-shrink-0" />
-                                <span>{a.telefono}</span>
-                              </div>
-                            )}
-                            {a.direccion && (
-                              <div className="flex items-center space-x-1 text-slate-400 truncate max-w-[180px]">
-                                <MapPin className="w-3 h-3 text-slate-400 flex-shrink-0" />
-                                <span className="truncate">{a.direccion}</span>
-                              </div>
-                            )}
-                          </td>
-
-                          <td className="py-3.5 px-4 text-right font-extrabold text-brand-800 whitespace-nowrap">
-                            Q{parseFloat(a.monto_estimado || 100.0).toLocaleString('es-GT', { minimumFractionDigits: 2 })}
-                          </td>
-
-                          <td className="py-3.5 px-4 text-slate-500 text-xs whitespace-nowrap">
-                            <div className="flex items-center space-x-1">
-                              <Clock className="w-3 h-3 text-slate-400" />
-                              <span>{new Date(a.fecha_solicitud).toLocaleDateString('es-GT', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
-                            </div>
-                          </td>
-
-                          <td className="py-3.5 px-4 text-center whitespace-nowrap">
-                            {a.estado === 'ATENDIDA' ? (
-                              <div className="flex flex-col items-center">
-                                <span className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-full text-xs font-bold bg-brand-50 text-brand-800 border border-brand-200">
-                                  <CheckCircle2 className="w-3 h-3 text-brand-600" />
-                                  <span>Formalizada</span>
-                                </span>
-                                {a.fecha_resolucion && (
-                                  <span className="text-xs text-slate-400 mt-0.5 font-sans">
-                                    {new Date(a.fecha_resolucion).toLocaleDateString('es-GT', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
-                                  </span>
-                                )}
-                              </div>
-                            ) : a.estado === 'CANCELADA' ? (
-                              <div className="flex flex-col items-center">
-                                <span className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-full text-xs font-bold bg-rose-50 text-rose-800 border border-rose-200">
-                                  <XCircle className="w-3 h-3 text-rose-600" />
-                                  <span>Cancelada / Denegada</span>
-                                </span>
-                                {a.fecha_resolucion && (
-                                  <span className="text-xs text-slate-400 mt-0.5 font-sans">
-                                    {new Date(a.fecha_resolucion).toLocaleDateString('es-GT', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
-                                  </span>
-                                )}
-                              </div>
-                            ) : bloqueadoPorOtro ? (
-                              <span
-                                className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-full text-xs font-bold bg-warning-100 text-warning-900 border border-warning-300"
-                                title={`Caso tomado por ${a.operador_bloqueo_nombre} (${a.operador_bloqueo_codigo})`}
-                              >
-                                <Lock className="w-3 h-3 text-warning-700" />
-                                <span>En atención por {a.operador_bloqueo_codigo || 'Operador'}</span>
-                              </span>
-                            ) : bloqueadoPorMi ? (
-                              <span className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-900 border border-blue-300 animate-pulse">
-                                <Unlock className="w-3 h-3 text-blue-700" />
-                                <span>En atención por ti</span>
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-full text-xs font-bold bg-brand-50 text-brand-800 border border-brand-200">
-                                <span className="w-1.5 h-1.5 rounded-full bg-brand-500"></span>
-                                <span>Disponible</span>
-                              </span>
-                            )}
-                          </td>
-
-                          <td className="py-3.5 px-4 text-center whitespace-nowrap">
-                            {a.estado === 'ATENDIDA' ? (
-                              <div className="flex items-center justify-center space-x-1.5 mx-auto">
-                                <span className="inline-flex items-center space-x-1.5 px-2.5 py-1.5 rounded-lg bg-brand-50 text-brand-800 text-xs font-bold border border-brand-200">
-                                  <Check className="w-3.5 h-3.5 text-brand-600" />
-                                  <span>Caso Formalizado</span>
-                                </span>
-                                <button
-                                  type="button"
-                                  onClick={() => handleDownloadComprobanteExistente(a)}
-                                  title="Descargar Comprobante Oficial de Apertura en PDF"
-                                  className="inline-flex items-center space-x-1 px-2.5 py-1.5 rounded-md bg-brand-50 hover:bg-brand-100 text-brand-800 border border-brand-300 text-xs font-bold transition-all cursor-pointer"
-                                >
-                                  <FileDown className="w-3.5 h-3.5 text-brand-700" />
-                                  <span>PDF</span>
-                                </button>
-                              </div>
-                            ) : a.estado === 'CANCELADA' ? (
-                              <span
-                                className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-rose-50 text-rose-800 text-xs font-bold border border-rose-200 mx-auto"
-                                title={a.observaciones ? `Motivo: ${a.observaciones}` : 'Caso denegado'}
-                              >
-                                <X className="w-3.5 h-3.5 text-rose-600" />
-                                <span>Caso Denegado</span>
-                              </span>
-                            ) : bloqueadoPorOtro ? (
-                              <button
-                                disabled
-                                title={`Este caso está siendo gestionado por ${a.operador_bloqueo_nombre} (${a.operador_bloqueo_codigo})`}
-                                className="px-3 py-1.5 rounded-md bg-slate-100 text-slate-400 text-xs font-bold border border-slate-200 cursor-not-allowed flex items-center space-x-1 mx-auto"
-                              >
-                                <Lock className="w-3 h-3" />
-                                <span>Bloqueado</span>
-                              </button>
-                            ) : (
-                              <button
-                                onClick={() => handleOpenAfiliacionModal(a)}
-                                disabled={lockingCaso}
-                                className={`px-3 py-1.5 rounded-md text-xs font-bold transition-colors cursor-pointer flex items-center space-x-1.5 mx-auto ${
-                                  bloqueadoPorMi
-                                    ? 'bg-blue-600 hover:bg-blue-700 text-white'
-                                    : 'bg-brand-700 hover:bg-brand-800 text-white'
-                                }`}
-                              >
-                                {bloqueadoPorMi ? (
-                                  <>
-                                    <Unlock className="w-3.5 h-3.5" />
-                                    <span>Continuar</span>
-                                  </>
-                                ) : (
-                                  <>
-                                    <UserCheck className="w-3.5 h-3.5" />
-                                    <span>Atender Caso</span>
-                                  </>
-                                )}
-                              </button>
-                            )}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* ================================================================= */}
-        {/* CONTENIDO PESTAÑA 2: TRASLADOS DE FONDOS Y APERTURAS */}
-        {/* ================================================================= */}
-        {activeTab === 'traslados' && (
-          <div className="p-5 space-y-4">
-            {/* Sub-navegación entre Bandeja de Pendientes y Buscador de Historial (Req-4) */}
-            <div className="flex border-b border-slate-200 gap-4 pb-1">
-              <button
-                type="button"
-                onClick={() => setSubTabTraslados('pendientes')}
-                className={`pb-2.5 px-2 text-xs font-bold border-b-2 flex items-center space-x-1.5 cursor-pointer transition-all ${
-                  subTabTraslados === 'pendientes'
-                    ? 'border-brand-600 text-brand-800'
-                    : 'border-transparent text-slate-500 hover:text-slate-800'
-                }`}
-              >
-                <Inbox className="w-4 h-4 text-brand-600" />
-                <span>Casos Pendientes de Aprobación</span>
-                <span className="ml-1 px-2 py-0.5 rounded-full text-xs font-extrabold bg-brand-100 text-brand-800">
-                  {solicitudes.length}
-                </span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setSubTabTraslados('historial');
-                  if (historialTraslados.length === 0) {
-                    fetchHistorialTraslados();
-                  }
-                }}
-                className={`pb-2.5 px-2 text-xs font-bold border-b-2 flex items-center space-x-1.5 cursor-pointer transition-all ${
-                  subTabTraslados === 'historial'
-                    ? 'border-brand-600 text-brand-800'
-                    : 'border-transparent text-slate-500 hover:text-slate-800'
-                }`}
-              >
-                <Search className="w-4 h-4 text-slate-600" />
-                <span>Buscador e Historial por Asociado</span>
-                <span className="ml-1 px-2 py-0.5 rounded-full text-xs font-bold bg-slate-100 text-slate-600">
-                  {historialTraslados.length}
-                </span>
-              </button>
-            </div>
-
-            {/* SUB-TAB 1: BANDEJA DE CASOS PENDIENTES */}
-            {subTabTraslados === 'pendientes' && (
-              <div className="space-y-4">
-                <div className="flex justify-between items-center">
-                  <h2 className="font-bold text-slate-800 text-sm uppercase tracking-wider flex items-center space-x-2">
-                    <Clock className="w-4 h-4 text-warning-500" />
-                    <span>Casos en Espera de Dictamen Operativo ({solicitudes.length})</span>
-                  </h2>
-                </div>
-
-                {loadingTraslados ? (
-                  <div className="py-24 flex flex-col items-center justify-center text-slate-400">
-                    <Loader2 className="w-8 h-8 text-brand-600 animate-spin mb-2" />
-                    <p className="text-xs font-semibold">Cargando bandeja de traslados...</p>
-                  </div>
-                ) : solicitudes.length === 0 ? (
-                  <div className="py-20 text-center text-slate-400 bg-slate-50/50 rounded-lg border border-dashed border-slate-200">
-                    <CheckCircle className="w-14 h-14 text-slate-300 mx-auto mb-2" />
-                    <p className="font-semibold text-slate-700 text-sm">¡Bandeja de traslados al día!</p>
-                    <p className="text-xs text-slate-400 mt-0.5">No hay solicitudes de traslado o aperturas pendientes.</p>
-                  </div>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left text-sm">
-                      <thead className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wider border-b border-slate-200">
-                        <tr>
-                          <th className="px-6 py-3 font-semibold">Número de Caso</th>
-                          <th className="px-6 py-3 font-semibold">Asociado</th>
-                          <th className="px-6 py-3 font-semibold text-right">Monto</th>
-                          <th className="px-6 py-3 font-semibold">Operación / Destino</th>
-                          <th className="px-6 py-3 font-semibold">Origen / Saldo</th>
-                          <th className="px-6 py-3 font-semibold">Fecha Recepción</th>
-                          <th className="px-6 py-3 font-semibold text-center">Acciones</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100">
-                        {solicitudes.map((s) => (
-                          <tr key={s.id_solicitud} className="hover:bg-slate-50/50">
-                            <td className="px-6 py-4 font-mono font-bold text-slate-850">
-                              {s.numero_caso}
-                            </td>
-                            <td className="px-6 py-4">
-                              <span className="font-semibold block text-slate-900">
-                                {s.primer_nombre} {s.primer_apellido}
-                              </span>
-                              <span className="text-xs text-slate-500">ID Asociado: {s.id_asociado}</span>
-                            </td>
-                            <td className="px-6 py-4 text-right font-extrabold text-slate-900">
-                              Q{parseFloat(s.monto).toLocaleString('es-GT', { minimumFractionDigits: 2 })}
-                            </td>
-                            <td className="px-6 py-4 text-xs">
-                              <span className="font-semibold block text-slate-700">
-                                {s.tipo_operacion === 'TRASLADO_DIRECTO' ? 'Traslado Directo' : 'Apertura y Traslado'}
-                              </span>
-                              <span className="text-xs text-slate-500 font-mono block mt-0.5">
-                                Tipo Destino: {s.tipo_cuenta_destino_nombre}
-                              </span>
-                              {s.cuenta_destino_numero && (
-                                <span className="text-xs text-brand-700 font-mono">
-                                  Cta Destino: {s.cuenta_destino_numero}
-                                </span>
-                              )}
-                            </td>
-                            <td className="px-6 py-4 text-xs text-slate-600">
-                              <span className="font-mono block">{s.cuenta_origen_numero}</span>
-                              <span className="block mt-0.5">Saldo Planilla: Q{parseFloat(s.cuenta_origen_saldo).toFixed(2)}</span>
-                            </td>
-                            <td className="px-6 py-4 text-slate-500 text-xs">
-                              {new Date(s.fecha_solicitud).toLocaleString()}
-                            </td>
-                            <td className="px-6 py-4">
-                              <div className="flex items-center justify-center space-x-2">
-                                <button
-                                  onClick={() => openResolverTrasladoModal(s, 'APROBAR')}
-                                  className="px-3 py-1.5 rounded-md bg-brand-50 hover:bg-brand-100 text-brand-700 text-xs font-bold border border-brand-200 transition-colors cursor-pointer"
-                                >
-                                  Aprobar
-                                </button>
-                                <button
-                                  onClick={() => openResolverTrasladoModal(s, 'RECHAZAR')}
-                                  className="px-3 py-1.5 rounded-md bg-danger-50 hover:bg-danger-100 text-danger-700 text-xs font-bold border border-danger-200 transition-colors cursor-pointer"
-                                >
-                                  Rechazar
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* SUB-TAB 2: BUSCADOR E HISTORIAL POR ASOCIADO (Req-4) */}
-            {subTabTraslados === 'historial' && (
-              <div className="space-y-4">
-                {/* Barra de Filtros y Búsqueda */}
-                <div className="flex flex-col sm:flex-row gap-3 items-center justify-between bg-slate-50/70 p-3.5 rounded-lg border border-slate-200">
-                  <div className="relative w-full sm:max-w-md">
-                    <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
-                    <input
-                      type="text"
-                      value={searchHistorialTraslados}
-                      onChange={(e) => setSearchHistorialTraslados(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') fetchHistorialTraslados(searchHistorialTraslados, filterHistorialEstado);
-                      }}
-                      placeholder="Buscar por Nombre, CUI/DPI, Caso o No. Cuenta..."
-                      className="w-full pl-10 pr-9 py-2 bg-white border border-slate-200 rounded-md text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-600 font-medium"
-                    />
-                    {searchHistorialTraslados && (
-                      <button
-                        onClick={() => {
-                          setSearchHistorialTraslados('');
-                          fetchHistorialTraslados('', filterHistorialEstado);
-                        }}
-                        className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600 cursor-pointer"
-                        title="Limpiar búsqueda"
-                      >
-                        <X className="w-3.5 h-3.5" />
-                      </button>
-                    )}
-                  </div>
-
-                  <div className="flex items-center space-x-2 w-full sm:w-auto">
-                    <select
-                      value={filterHistorialEstado}
-                      onChange={(e) => {
-                        setFilterHistorialEstado(e.target.value);
-                        fetchHistorialTraslados(searchHistorialTraslados, e.target.value);
-                      }}
-                      className="px-3 py-2 bg-white border border-slate-200 rounded-md text-xs text-slate-700 font-semibold focus:outline-none focus:ring-2 focus:ring-brand-600"
-                    >
-                      <option value="TODOS">Todos los Estados</option>
-                      <option value="PENDIENTE">Pendientes</option>
-                      <option value="APROBADO">Aprobados</option>
-                      <option value="RECHAZADO">Rechazados</option>
-                    </select>
-
-                    <button
-                      onClick={() => fetchHistorialTraslados(searchHistorialTraslados, filterHistorialEstado)}
-                      disabled={loadingHistorialTraslados}
-                      className="px-3.5 py-2 bg-brand-700 hover:bg-brand-800 text-white rounded-md text-xs font-bold transition-colors flex items-center space-x-1.5 cursor-pointer disabled:opacity-50 shrink-0"
-                    >
-                      <Search className="w-3.5 h-3.5" />
-                      <span>Buscar</span>
-                    </button>
-                  </div>
-                </div>
-
-                {/* Tabla de Historial de Traslados */}
-                {loadingHistorialTraslados ? (
-                  <div className="py-24 flex flex-col items-center justify-center text-slate-400">
-                    <Loader2 className="w-8 h-8 text-brand-600 animate-spin mb-2" />
-                    <p className="text-xs font-semibold">Consultando historial de traslados...</p>
-                  </div>
-                ) : historialTraslados.length === 0 ? (
-                  <div className="py-20 text-center text-slate-400 bg-slate-50/50 rounded-lg border border-dashed border-slate-200">
-                    <Activity className="w-14 h-14 text-slate-300 mx-auto mb-2" />
-                    <p className="font-semibold text-slate-700 text-sm">No se encontraron registros de traslados</p>
-                    <p className="text-xs text-slate-400 mt-0.5">
-                      {searchHistorialTraslados
-                        ? 'No hay registros que coincidan con la búsqueda ingresada.'
-                        : 'Utilice el buscador para localizar el historial de traslados de un asociado específico.'}
-                    </p>
-                  </div>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left text-xs border-collapse">
-                      <thead className="bg-slate-50 text-slate-500 uppercase tracking-wider text-xs font-bold border-b border-slate-200">
-                        <tr>
-                          <th className="px-4 py-3">Número de Caso</th>
-                          <th className="px-4 py-3">Asociado</th>
-                          <th className="px-4 py-3">CUI / DPI</th>
-                          <th className="px-4 py-3 text-right">Monto</th>
-                          <th className="px-4 py-3">Operación / Destino</th>
-                          <th className="px-4 py-3">Fechas</th>
-                          <th className="px-4 py-3 text-center">Estado</th>
-                          <th className="px-4 py-3">Resolución / Operador</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100 text-slate-700">
-                        {historialTraslados.map((h) => {
-                          const nombreCompleto = `${h.primer_nombre} ${h.segundo_nombre || ''} ${h.primer_apellido} ${h.segundo_apellido || ''}`.trim();
-                          return (
-                            <tr key={h.id_solicitud} className="hover:bg-slate-50/70 transition-colors">
-                              <td className="px-4 py-3 font-mono font-bold text-slate-900 whitespace-nowrap">
-                                <span className="px-2 py-0.5 bg-slate-100 rounded text-slate-800 border border-slate-200">
-                                  {h.numero_caso}
-                                </span>
-                              </td>
-                              <td className="px-4 py-3">
-                                <span className="font-bold text-slate-900 block">{nombreCompleto}</span>
-                                {h.codigo_corporativo && (
-                                  <span className="text-xs font-mono text-brand-700 block">
-                                    {h.codigo_corporativo}
-                                  </span>
-                                )}
-                              </td>
-                              <td className="px-4 py-3 font-mono text-slate-600 whitespace-nowrap">
-                                {h.cui_dpi}
-                              </td>
-                              <td className="px-4 py-3 text-right font-extrabold text-slate-900 font-mono whitespace-nowrap">
-                                Q{parseFloat(h.monto).toLocaleString('es-GT', { minimumFractionDigits: 2 })}
-                              </td>
-                              <td className="px-4 py-3">
-                                <span className="font-semibold block text-slate-800">
-                                  {h.tipo_operacion === 'TRASLADO_DIRECTO' ? 'Traslado Directo' : 'Apertura y Traslado'}
-                                </span>
-                                <span className="text-xs text-slate-500 font-mono block">
-                                  {h.cuenta_destino_numero || h.tipo_cuenta_destino_nombre}
-                                </span>
-                              </td>
-                              <td className="px-4 py-3 text-xs text-slate-500 whitespace-nowrap">
-                                <div>Sol: {new Date(h.fecha_solicitud).toLocaleDateString('es-GT', { day: '2-digit', month: 'short', year: 'numeric' })}</div>
-                                {h.fecha_resolucion && (
-                                  <div className="text-xs text-slate-400">
-                                    Res: {new Date(h.fecha_resolucion).toLocaleDateString('es-GT', { day: '2-digit', month: 'short' })}
-                                  </div>
-                                )}
-                              </td>
-                              <td className="px-4 py-3 text-center whitespace-nowrap">
-                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold border ${
-                                  h.estado === 'APROBADO'
-                                    ? 'bg-brand-50 text-brand-700 border-brand-200'
-                                    : h.estado === 'RECHAZADO'
-                                    ? 'bg-danger-50 text-danger-700 border-danger-200'
-                                    : 'bg-warning-50 text-warning-700 border-warning-200'
-                                }`}>
-                                  {h.estado}
-                                </span>
-                              </td>
-                              <td className="px-4 py-3 text-xs max-w-xs">
-                                {h.operador_nombre ? (
-                                  <span className="block font-medium text-slate-700">
-                                    Por: {h.operador_nombre} {h.operador_apellido || ''}
-                                  </span>
-                                ) : (
-                                  <span className="text-slate-400 italic block">-</span>
-                                )}
-                                {h.observaciones_operador && (
-                                  <span className="block text-xs text-slate-500 truncate" title={h.observaciones_operador}>
-                                    "{h.observaciones_operador}"
-                                  </span>
-                                )}
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* ================================================================= */}
-        {/* CONTENIDO PESTAÑA 3: SOLICITUDES DE CRÉDITO DE ASOCIADOS */}
-        {/* ================================================================= */}
-        {activeTab === 'creditos' && (
-          <div className="p-5 space-y-4">
-            {/* Barra de Filtros y Búsqueda */}
-            <div className="flex flex-col sm:flex-row gap-3 items-center justify-between">
-              <div className="relative w-full sm:max-w-md">
-                <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
-                <input
-                  type="text"
-                  value={searchCredito}
-                  onChange={(e) => setSearchCredito(e.target.value)}
-                  placeholder="Buscar por ID, CUI/DPI, Nombre o Código Corporativo..."
-                  className="w-full pl-10 pr-9 py-2 bg-slate-50 border border-slate-200 rounded-md text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-600 font-medium"
-                />
-                {searchCredito && (
-                  <button
-                    onClick={() => setSearchCredito('')}
-                    className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600 cursor-pointer"
-                    title="Limpiar búsqueda"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
-                )}
-              </div>
-
-              <div className="text-xs text-slate-500">
-                Pendientes de análisis:{' '}
-                <span className="font-bold text-warning-700">{creditosPendientesCount}</span>
-                <span className="mx-1.5">•</span>
-                Total solicitudes: <span className="font-bold text-slate-800">{creditos.length}</span>
-              </div>
-            </div>
-
-            {loadingCreditos ? (
-              <div className="py-24 flex flex-col items-center justify-center text-slate-400">
-                <Loader2 className="w-8 h-8 text-brand-600 animate-spin mb-2" />
-                <p className="text-xs font-semibold">Cargando solicitudes de crédito...</p>
-              </div>
-            ) : filteredCreditos.length === 0 ? (
-              <div className="py-20 text-center text-slate-400 bg-slate-50/50 rounded-lg border border-dashed border-slate-200">
-                <CheckCircle className="w-14 h-14 text-slate-300 mx-auto mb-2" />
-                <p className="font-semibold text-slate-700 text-sm">No hay solicitudes de crédito</p>
-                <p className="text-xs text-slate-400 mt-0.5">
-                  {searchCredito
-                    ? 'No se encontraron resultados para los términos ingresados.'
-                    : 'Las solicitudes presentadas por los asociados a través del simulador aparecerán aquí.'}
-                </p>
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm">
-                  <thead className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wider border-b border-slate-200">
-                    <tr>
-                      <th className="px-4 py-3 font-semibold">No. Solicitud</th>
-                      <th className="px-4 py-3 font-semibold">Asociado</th>
-                      <th className="px-4 py-3 font-semibold text-right">Monto</th>
-                      <th className="px-4 py-3 font-semibold">Cuenta Acreditación</th>
-                      <th className="px-4 py-3 font-semibold text-center">Plazo</th>
-                      <th className="px-4 py-3 font-semibold text-right">Cuota Estimada</th>
-                      <th className="px-4 py-3 font-semibold text-center">Tasa Anual</th>
-                      <th className="px-4 py-3 font-semibold">Fecha Solicitud</th>
-                      <th className="px-4 py-3 font-semibold text-center">Estado</th>
-                      <th className="px-4 py-3 font-semibold">Observaciones / Motivo</th>
-                      <th className="px-4 py-3 font-semibold text-center">Acciones</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {filteredCreditos.map((c) => (
-                      <tr key={c.id_solicitud_credito} className="hover:bg-slate-50/50">
-                        <td className="px-4 py-3.5 font-mono font-bold text-slate-800 text-xs">
-                          #{c.id_solicitud_credito}
-                        </td>
-                        <td className="px-4 py-3.5">
-                          <span className="font-semibold block text-slate-900 text-xs">
-                            {c.primer_nombre} {c.segundo_nombre || ''} {c.primer_apellido} {c.segundo_apellido || ''}
-                          </span>
-                          <span className="text-xs text-slate-500 block font-mono">
-                            CUI: {c.cui_dpi} {c.codigo_corporativo ? `• ${c.codigo_corporativo}` : ''}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3.5 text-right font-extrabold text-slate-900 text-xs">
-                          Q{parseFloat(c.monto_solicitado).toLocaleString('es-GT', { minimumFractionDigits: 2 })}
-                        </td>
-                        <td className="px-4 py-3.5 text-xs text-slate-700">
-                          <span className="font-semibold text-brand-900 block text-xs">
-                            {c.cuenta_destino_info || (c.cuenta_bancaria_destino_numero ? `Cuenta Bancaria (${c.cuenta_bancaria_destino_numero})` : 'Cuenta Principal')}
-                          </span>
-                          {c.cuenta_bancaria_destino_tipo && (
-                            <span className="text-xs text-slate-400 font-mono block">
-                              Tipo: {c.cuenta_bancaria_destino_tipo}
-                            </span>
-                          )}
-                        </td>
-                        <td className="px-4 py-3.5 text-center text-xs text-slate-700 font-medium">
-                          {c.plazo_meses} meses
-                        </td>
-                        <td className="px-4 py-3.5 text-right text-xs text-brand-800 font-bold">
-                          Q{parseFloat(c.cuota_mensual_estimada).toLocaleString('es-GT', { minimumFractionDigits: 2 })}
-                        </td>
-                        <td className="px-4 py-3.5 text-center text-xs text-slate-600 font-mono">
-                          {parseFloat(c.tasa_interes).toFixed(2)}%
-                        </td>
-                        <td className="px-4 py-3.5 text-xs text-slate-500">
-                          {new Date(c.fecha_solicitud).toLocaleString()}
-                        </td>
-                        <td className="px-4 py-3.5 text-center">
-                          <span
-                            className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold border ${
-                              c.estado === 'APROBADA' || c.estado === 'APROBADO' || c.estado === 'DESEMBOLSADA'
-                                ? 'bg-brand-50 text-brand-700 border-brand-200'
-                                : c.estado === 'RECHAZADA' || c.estado === 'RECHAZADO' || c.estado === 'DENEGADA'
-                                ? 'bg-danger-50 text-danger-700 border-danger-200'
-                                : c.estado === 'DEVUELTA_OPERADOR'
-                                ? 'bg-warning-50 text-warning-700 border-warning-200'
-                                : c.estado === 'EN_AUTORIZACION_EJECUTIVO'
-                                ? 'bg-brand-50 text-brand-700 border-brand-200'
-                                : 'bg-blue-50 text-blue-700 border-blue-200'
-                            }`}
-                          >
-                            {c.estado === 'PENDIENTE_FIRMA'
-                              ? 'Pendiente Firma'
-                              : c.estado === 'EN_REVISION_OPERADOR'
-                              ? 'En Revisión'
-                              : c.estado === 'DEVUELTA_OPERADOR'
-                              ? 'Devuelta'
-                              : c.estado === 'EN_AUTORIZACION_EJECUTIVO'
-                              ? 'En Ejecutivo'
-                              : c.estado}
-                          </span>
-                          {c.documento_firmado_url && (
-                            <div className="mt-1">
-                              <a
-                                href={getSecureDocumentUrl(c.documento_firmado_url)}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-flex items-center text-xs font-bold text-brand-700 hover:text-brand-900 hover:underline"
-                              >
-                                <FileCheck className="w-3 h-3 mr-0.5" />
-                                <span>PDF Firmado</span>
-                              </a>
-                            </div>
-                          )}
-                        </td>
-                        <td className="px-4 py-3.5 text-xs text-slate-500 max-w-xs truncate" title={c.observaciones_ejecutivo || c.dictamen_operador || c.observaciones}>
-                          {c.observaciones_ejecutivo ? (
-                            <span className="text-warning-800 font-semibold">Devuelta: "{c.observaciones_ejecutivo}"</span>
-                          ) : c.dictamen_operador ? (
-                            <span>Dictamen: "{c.dictamen_operador}"</span>
-                          ) : (
-                            c.observaciones || '-'
-                          )}
-                        </td>
-                        <td className="px-4 py-3.5 text-center">
-                          {['PENDIENTE', 'EN_REVISION_OPERADOR', 'DEVUELTA_OPERADOR'].includes(c.estado) ? (
-                            <div className="flex items-center justify-center">
-                              <button
-                                onClick={() => openResolverCreditoModal(c, '')}
-                                className={`px-3 py-1.5 rounded-md text-white text-xs font-bold transition-colors flex items-center space-x-1.5 cursor-pointer ${
-                                  c.estado === 'DEVUELTA_OPERADOR'
-                                    ? 'bg-warning-600 hover:bg-warning-700'
-                                    : 'bg-brand-600 hover:bg-brand-700'
-                                }`}
-                                title="Evaluar solvencia y emitir dictamen"
-                              >
-                                <Eye className="w-3.5 h-3.5" />
-                                <span>{c.estado === 'DEVUELTA_OPERADOR' ? 'Reevaluar' : 'Evaluar'}</span>
-                              </button>
-                            </div>
-                          ) : (
-                            <div className="flex flex-col items-center space-y-1">
-                              <button
-                                onClick={() => openResolverCreditoModal(c, '')}
-                                className="inline-flex items-center px-2.5 py-1 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-medium border border-slate-200 transition-colors cursor-pointer"
-                              >
-                                <Eye className="w-3 h-3 mr-1 text-slate-500" />
-                                <span>Expediente</span>
-                              </button>
-                              <span className="text-xs text-slate-400 font-medium">
-                                {c.analista_nombre ? `Por ${c.analista_nombre}` : 'Procesado'}
-                                {c.fecha_resolucion && ` • ${formatDateOnly(c.fecha_resolucion)}`}
-                              </span>
-                            </div>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
+          {activeTab === 'creditos' && (
+            <CreditsPanel
+              creditos={filteredCreditos}
+              total={creditos.length}
+              pendientes={creditosPendientesCount}
+              loading={loadingCreditos}
+              search={searchCredito}
+              onSearchChange={setSearchCredito}
+              onOpen={openResolverCreditoModal}
+            />
+          )}
+        </TabPanel>
+      </Card>
 
       {/* MODALES MODULARIZADOS DEL OPERADOR (ARQ-04) */}
       <OperatorAffiliationModal
