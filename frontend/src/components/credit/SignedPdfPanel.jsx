@@ -75,7 +75,7 @@ export const SignedPdfPanel = ({
           <span className="truncate font-medium">{newFile.name}</span>
           <span className="shrink-0 text-success-800">{kb(newFile.size)} · listo para adjuntar</span>
         </span>
-        <Button size="sm" variant="ghost" className="text-danger-700" icon={Trash2} onClick={onDiscard}>
+        <Button size="sm" variant="ghostDanger" icon={Trash2} onClick={onDiscard}>
           Descartar
         </Button>
       </div>

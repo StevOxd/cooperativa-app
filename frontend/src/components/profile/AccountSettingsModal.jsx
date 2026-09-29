@@ -372,8 +372,7 @@ export const AccountSettingsModal = ({ isOpen, onClose, initialTab = '2fa' }) =>
                   <div className="shrink-0">
                     {mfaEnabled ? (
                       <Button
-                        variant="secondary"
-                        className="text-danger-700"
+                        variant="secondaryDanger"
                         onClick={() => {
                           setIsDisabling2fa(true);
                           setErrorMsg('');

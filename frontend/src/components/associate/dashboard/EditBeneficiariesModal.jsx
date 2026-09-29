@@ -92,8 +92,7 @@ export const EditBeneficiariesModal = ({
                 {editBeneficiariosList.length > 1 && (
                   <Button
                     size="sm"
-                    variant="ghost"
-                    className="text-danger-700"
+                    variant="ghostDanger"
                     icon={Trash2}
                     onClick={() => handleRemoveBeneficiarioAsociado(idx)}
                     aria-label={`Quitar al beneficiario ${idx + 1}`}

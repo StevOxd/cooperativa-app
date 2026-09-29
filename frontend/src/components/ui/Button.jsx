@@ -8,6 +8,12 @@ const VARIANTS = {
   ghost: 'text-ink-soft hover:bg-surface-sunken active:bg-line',
   danger: 'bg-danger-700 text-white hover:bg-danger-800 active:bg-danger-900',
   link: 'text-brand-700 underline-offset-4 hover:underline hover:text-brand-800',
+  // Acciones destructivas o de alta sin fondo lleno. Son variantes propias porque `cn` no
+  // resuelve conflictos: un `className="text-danger-700"` sobre `ghost` pierde contra
+  // `text-ink-soft` por el orden del CSS generado.
+  secondaryDanger: 'bg-white text-danger-700 border border-line-strong hover:bg-danger-50 active:bg-danger-100',
+  ghostDanger: 'text-danger-700 hover:bg-danger-50 active:bg-danger-100',
+  ghostSuccess: 'text-success-700 hover:bg-success-50 active:bg-success-100',
 };
 
 const SIZES = {
@@ -22,7 +28,7 @@ const SIZES = {
  * pasar `type="submit"` de forma explícita.
  *
  * @param {Object} props
- * @param {'primary'|'secondary'|'ghost'|'danger'|'link'} [props.variant='primary']
+ * @param {'primary'|'secondary'|'ghost'|'danger'|'link'|'secondaryDanger'|'ghostDanger'|'ghostSuccess'} [props.variant='primary']
  * @param {'sm'|'md'|'lg'|'icon'} [props.size='md']
  * @param {React.ElementType} [props.icon] - Ícono de lucide-react a la izquierda del texto.
  * @param {boolean} [props.loading=false] - Muestra un indicador y bloquea el botón.

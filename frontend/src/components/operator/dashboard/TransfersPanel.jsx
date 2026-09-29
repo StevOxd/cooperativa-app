@@ -58,7 +58,7 @@ const PendingTransfers = ({ solicitudes, loading, onResolve }) => {
             <TD sticky className="whitespace-nowrap text-center">
               <div className="flex justify-center gap-2">
                 <Button size="sm" onClick={() => onResolve(s, 'APROBAR')}>Aprobar</Button>
-                <Button size="sm" variant="secondary" className="text-danger-700" onClick={() => onResolve(s, 'RECHAZAR')}>
+                <Button size="sm" variant="secondaryDanger" onClick={() => onResolve(s, 'RECHAZAR')}>
                   Rechazar
                 </Button>
               </div>

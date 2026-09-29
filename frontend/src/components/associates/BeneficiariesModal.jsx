@@ -407,8 +407,7 @@ export const BeneficiariesModal = ({
                         {beneficiarios.length > 1 && (
                           <Button
                             size="sm"
-                            variant="ghost"
-                            className="text-danger-700"
+                            variant="ghostDanger"
                             icon={Trash2}
                             onClick={() => handleRemoveBeneficiario(index)}
                             aria-label={`Quitar al beneficiario ${index + 1}`}

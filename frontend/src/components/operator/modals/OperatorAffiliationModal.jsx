@@ -71,7 +71,7 @@ const OperatorAffiliationModal = ({
         <Button variant="ghost" onClick={handleLiberarAfiliacion}>
           Liberar y salir
         </Button>
-        <Button variant="secondary" className="text-danger-700" onClick={() => setShowRechazarAfiliacion(true)}>
+        <Button variant="secondaryDanger" onClick={() => setShowRechazarAfiliacion(true)}>
           Cancelar solicitud
         </Button>
       </div>

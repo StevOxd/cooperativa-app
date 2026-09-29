@@ -94,8 +94,8 @@ const UserSummary = ({ u, extra }) => (
 );
 
 /** Botón de ícono de la columna de acciones: el texto va en `title` y `aria-label`. */
-const RowAction = ({ icon: Icon, label, onClick, className }) => (
-  <Button size="icon" variant="ghost" onClick={onClick} title={label} aria-label={label} className={className}>
+const RowAction = ({ icon: Icon, label, onClick, variant = 'ghost' }) => (
+  <Button size="icon" variant={variant} onClick={onClick} title={label} aria-label={label}>
     <Icon className="w-4 h-4" aria-hidden="true" />
   </Button>
 );
@@ -662,7 +662,7 @@ export const UsersPage = () => {
                             icon={activo ? Ban : UserCheck}
                             label={activo ? `Desactivar a ${u.codigo_corporativo}` : `Reactivar a ${u.codigo_corporativo}`}
                             onClick={() => openChangeStatusModal(u, activo ? 'INACTIVO' : 'ACTIVO')}
-                            className={activo ? 'text-danger-700 hover:bg-danger-50' : 'text-success-700 hover:bg-success-50'}
+                            variant={activo ? 'ghostDanger' : 'ghostSuccess'}
                           />
                         </div>
                       </TD>
