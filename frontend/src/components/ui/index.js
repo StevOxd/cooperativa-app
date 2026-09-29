@@ -14,3 +14,4 @@ export { EmptyState } from './EmptyState';
 export { Tabs, TabPanel } from './Tabs';
 export { SearchInput } from './SearchInput';
 export { LoadingState } from './LoadingState';
+export { PasswordInput } from './PasswordInput';

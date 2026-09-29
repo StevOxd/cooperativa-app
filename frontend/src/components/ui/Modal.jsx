@@ -33,6 +33,8 @@ const stack = [];
  * @param {'sm'|'md'|'lg'|'xl'} [props.size='md']
  * @param {boolean} [props.dismissible=true]
  * @param {React.RefObject} [props.initialFocusRef] - Elemento que recibe el foco al abrir.
+ * @param {boolean} [props.lockScroll=true] - En `false`, no bloquea el scroll (para modales que ya lo hacen por su cuenta).
+ * @param {boolean} [props.critical=false] - Capa superior a cualquier otro modal (alertas de seguridad).
  */
 export const Modal = ({
   isOpen,
@@ -43,6 +45,8 @@ export const Modal = ({
   size = 'md',
   dismissible = true,
   initialFocusRef,
+  critical = false,
+  lockScroll = true,
   className,
   children,
 }) => {
@@ -61,7 +65,7 @@ export const Modal = ({
     const panel = panelRef.current;
     const previouslyFocused = document.activeElement;
     const prevOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
+    if (lockScroll) document.body.style.overflow = 'hidden';
     stack.push(panel);
 
     const target =
@@ -99,16 +103,20 @@ export const Modal = ({
     return () => {
       document.removeEventListener('keydown', handleKeyDown);
       stack.splice(stack.indexOf(panel), 1);
-      if (!stack.length) document.body.style.overflow = prevOverflow;
+      if (lockScroll && !stack.length) document.body.style.overflow = prevOverflow;
       previouslyFocused?.focus?.();
     };
-  }, [isOpen, initialFocusRef]);
+  }, [isOpen, initialFocusRef, lockScroll]);
 
   if (!isOpen) return null;
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[1000] flex items-start justify-center overflow-y-auto bg-surface-inverse/60 p-4 sm:items-center print:static print:block print:bg-white print:p-0"
+      className={cn(
+        'fixed inset-0 flex',
+        critical ? 'z-[9999]' : 'z-[1000]',
+        'items-start justify-center overflow-y-auto bg-surface-inverse/60 p-4 sm:items-center print:static print:block print:bg-white print:p-0'
+      )}
       onMouseDown={(e) => {
         if (dismissible && e.target === e.currentTarget) onClose?.();
       }}

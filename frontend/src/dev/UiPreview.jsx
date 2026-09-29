@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Download, Inbox, Plus, Search, Users } from 'lucide-react';
 import '../index.css';
+import { SecurityAlertModal } from '../components/common/SecurityAlertModal';
 import {
   Alert, Badge, Button, Card, CardBody, CardFooter, CardHeader, EmptyState, Field, Input,
   Modal, PageHeader, Select, StatCard, StatGroup, Table, TBody, TD, TH, THead, TR, Textarea,
@@ -24,6 +25,7 @@ const q = (n) => `Q ${n.toLocaleString('es-GT', { minimumFractionDigits: 2 })}`;
 const UiPreview = () => {
   const [open, setOpen] = useState(false);
   const [locked, setLocked] = useState(false);
+  const [securityAlert, setSecurityAlert] = useState(null);
 
   return (
     <main className="mx-auto max-w-6xl space-y-10 px-4 py-8 sm:px-6">
@@ -160,6 +162,20 @@ const UiPreview = () => {
             action={<Button variant="secondary" size="sm">Actualizar</Button>}
           />
         </Card>
+      </Section>
+
+      <Section title="Alerta de sesión concurrente">
+        <Button
+          variant="secondary"
+          onClick={() => setSecurityAlert({ message: '', timestamp: new Date().toISOString() })}
+        >
+          Simular alerta
+        </Button>
+        <SecurityAlertModal
+          alert={securityAlert}
+          onClose={() => setSecurityAlert(null)}
+          onLogout={() => setSecurityAlert(null)}
+        />
       </Section>
 
       <Section title="Modal">
