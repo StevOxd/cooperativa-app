@@ -1,22 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Eye, EyeOff, Layers, ShieldAlert } from 'lucide-react';
-import { Alert, Button, Field, Input, cn } from '../components/ui';
-
-const Wordmark = ({ inverse = false }) => (
-  <div className="flex items-center gap-2.5">
-    <span
-      className={cn(
-        'flex h-9 w-9 items-center justify-center rounded-md',
-        inverse ? 'bg-white/10 text-white' : 'bg-brand-700 text-white'
-      )}
-    >
-      <Layers className="w-5 h-5" aria-hidden="true" />
-    </span>
-    <span className={cn('text-lg font-semibold', inverse ? 'text-white' : 'text-ink')}>Cooperativa</span>
-  </div>
-);
+import { Eye, EyeOff, ShieldAlert } from 'lucide-react';
+import { Alert, Button, Field, Input } from '../components/ui';
+import { Wordmark } from '../components/layout/Wordmark';
 
 export const LoginPage = () => {
   const [identifier, setIdentifier] = useState('');

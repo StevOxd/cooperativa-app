@@ -1,9 +1,13 @@
 import React, { useEffect } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 import Navbar from './Navbar';
+import { StaffShell } from './layout/StaffShell';
+import { STAFF_ROLES } from './layout/navigation';
 
 export const Layout = () => {
   const location = useLocation();
+  const { user } = useAuth();
 
   useEffect(() => {
     // Validar inmediatamente si existe el token en el storage
@@ -26,16 +30,23 @@ export const Layout = () => {
     };
   }, [location.pathname]);
 
+  // Operador, Ejecutivo y Administrador: barra lateral. Asociado: barra superior.
+  if (STAFF_ROLES.includes(user?.rol)) {
+    return (
+      <StaffShell>
+        <Outlet />
+      </StaffShell>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col">
+    <div className="min-h-screen flex flex-col bg-surface-muted">
       <Navbar />
-      <main className="flex-1 w-full max-w-[1680px] mx-auto p-4 sm:p-6 lg:p-8 xl:p-10 2xl:px-12">
+      <main className="w-full max-w-7xl flex-1 mx-auto px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
         <Outlet />
       </main>
-      <footer className="bg-white border-t border-slate-200 py-4 text-center text-xs text-slate-500">
-        <div className="w-full max-w-[1680px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12">
-          Cooperativa © 2026 - Sistema de Gestión Integral | Proyecto de Graduación
-        </div>
+      <footer className="border-t border-line bg-white py-4 text-center text-xs text-ink-subtle print:hidden">
+        © {new Date().getFullYear()} Cooperativa · Proyecto de graduación
       </footer>
     </div>
   );
