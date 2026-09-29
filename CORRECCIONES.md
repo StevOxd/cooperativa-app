@@ -33,6 +33,9 @@ Registro de errores y mejoras encontrados durante el rediseño del frontend (ram
 | C-20 | El operador y el asociado guardan el parentesco con valores distintos | Frontend y backend | Media | Pendiente |
 | C-21 | Suspender o activar un asociado no actualiza la lista ni avisa | Frontend · operador | Alta | **Corregido** |
 | C-22 | El correo de prueba en modo demostrativo se anuncia como "Operación exitosa" | Frontend · admin | Baja | Pendiente |
+| C-23 | En la afiliación en línea, la contraseña que define el cliente del banco se descarta o se envía por correo | Backend · afiliación | Alta | Pendiente |
+| C-24 | El código QR de 2FA que muestra la afiliación no sirve y expone el secreto | Backend · seguridad | Alta | Pendiente |
+| C-25 | Una contraseña bancaria incorrecta en la afiliación manda a la pantalla de inicio de sesión | Frontend · afiliación | Alta | Pendiente |
 
 ---
 
@@ -334,6 +337,43 @@ En pantalla ya se muestran bien los dos juegos de valores ([utils/parentesco.js]
 
 ---
 
+### C-23 · En la afiliación en línea, la contraseña que define el cliente del banco se descarta o se envía por correo
+**Prioridad:** Alta · **Por corregir**
+
+**Qué pasa:** en el paso "Su acceso al portal" el cliente del banco escribe una contraseña, pero `procesarAfiliacionExistente` ([afiliacionOnlineController.js:340](backend/src/controllers/afiliacionOnlineController.js#L340)) hace esto:
+- **Si la persona no tenía usuario** (el caso normal), ignora esa contraseña: genera una aleatoria, la envía por correo y marca `debe_cambiar_password`. Si el correo falla (C-15), la persona no puede entrar.
+- **Si ya tenía usuario**, guarda la contraseña elegida, pero también marca `debe_cambiar_password` y la envía **en texto plano** por correo (`password: usuarioFinal.passwordGenerada || password`).
+
+Además, el frontend y el backend solo exigen 6 caracteres, mientras que el cambio de contraseña exige 8 con letras, números y un símbolo (C-02).
+
+En el rediseño, la pantalla final ya no dice "ingrese con la contraseña que acaba de definir": indica que revise su correo y que el sistema le pedirá una contraseña nueva, que es lo que ocurre en los dos casos.
+
+**Propuesta:** elegir un solo camino. O se quita el paso de contraseña y se usa siempre la temporal por correo, o se guarda la contraseña elegida (con la política de 8 caracteres), sin forzar el cambio y sin enviarla por correo.
+
+---
+
+### C-24 · El código QR de 2FA que muestra la afiliación no sirve y expone el secreto
+**Prioridad:** Alta · **Por corregir**
+
+**Qué pasa:** al afiliarse, el backend genera un secreto TOTP, lo guarda con `mfa_enabled = FALSE` y lo devuelve en la respuesta y en el correo. La pantalla muestra el QR y la clave en texto. Pero cuando el asociado activa la verificación en dos pasos desde "Seguridad", `setup2fa` ([authController.js:739](backend/src/controllers/authController.js#L739)) genera **otro** secreto. El código que escaneó al afiliarse nunca funciona, y el secreto queda expuesto en una página pública, en el correo y en la base de datos sin uso.
+
+En el rediseño se mantuvo el QR (no se cambian flujos de seguridad), pero ya no se le pide a la persona que lo escanee "para activar su acceso".
+
+**Propuesta:** no generar el secreto en la afiliación. Que la verificación en dos pasos se active solo desde "Seguridad", como ya permite el sistema.
+
+---
+
+### C-25 · Una contraseña bancaria incorrecta en la afiliación manda a la pantalla de inicio de sesión
+**Prioridad:** Alta · **Por corregir**
+
+**Qué pasa:** si las credenciales de la Banca en Línea son incorrectas, el backend responde **401** ([afiliacionOnlineController.js:139](backend/src/controllers/afiliacionOnlineController.js#L139)). El interceptor de [api.js](frontend/src/services/api.js) trata cualquier 401 como sesión vencida: borra el almacenamiento y redirige a `/login`. La persona, que todavía no tiene cuenta, termina en el inicio de sesión sin ver el mensaje de error y pierde lo que había escrito.
+
+**Cómo verificar:** en `/registro-asociado`, ingresar un DPI de cliente del banco y una contraseña bancaria incorrecta.
+
+**Propuesta:** que el backend responda 400 o 422 en ese caso, o que el interceptor no redirija en las rutas públicas (`/afiliacion/*`).
+
+---
+
 ## Corregidos durante el rediseño
 
 Errores visuales o de contenido que se corrigieron dentro de los commits del rediseño, porque no tocaban lógica.
@@ -368,3 +408,8 @@ Errores visuales o de contenido que se corrigieron dentro de los commits del red
 | El parentesco se mostraba en código ("CONYUGE", "PADRE/MADRE") | AssociateExpedienteModal, BeneficiariesModal | 3.4 |
 | El modal de correo no distinguía "conectado", "sin verificar" y "sin configurar", y el envío de prueba simulado parecía real | GoogleEmailConfigModal | 3.4 |
 | En la tabla de asociados, la columna fija de acciones tapaba el estado en pantallas de 1366 px | AssociatesManagementPage | 3.4 |
+| La pantalla final de la afiliación en línea decía que se ingresa "con la contraseña que acabas de definir", pero el backend envía una temporal por correo y obliga a cambiarla (ver C-23) | DirectAffiliationSuccess | 3.4 |
+| La afiliación en línea usaba tuteo, a diferencia del resto del sistema, y tenía un fondo de puntos decorativo | PublicAffiliationPage, `components/affiliation/*` | 3.4 |
+| Las cuentas bancarias de la afiliación se mostraban con el tipo en código ("Cuenta AHORRO") y montos sin separador de miles | BankConfigStep | 3.4 |
+| La constancia de agencia podía mostrar "Q0.00" como depósito estimado cuando la solicitud ya existía; ahora la fila solo aparece si hay monto | AgencyReceiptStep | 3.4 |
+| Al imprimir, las firmas quedaban pegadas al contenido: la regla de impresión de index.css quita márgenes y rellenos a todos los `div`. Las firmas ahora usan `<footer>` | AgencyReceiptStep, AssociateExpedienteModal | 3.4 |

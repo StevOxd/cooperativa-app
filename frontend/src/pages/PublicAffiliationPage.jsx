@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../services/api';
-import { Building2, AlertCircle } from 'lucide-react';
+import { Alert } from '../components/ui';
+import { Wordmark } from '../components/layout/Wordmark';
 import {
   DpiLookupStep,
   BankCredentialsStep,
@@ -13,12 +14,11 @@ import {
 } from '../components/affiliation';
 
 /**
- * Public Affiliation Page orchestrator.
- * Handles the multi-step digital affiliation process for both existing bank
- * customers/employees and new applicants seeking cooperative membership.
+ * Afiliación en línea (pública). Dos caminos según el DPI:
+ * - Cliente o colaborador del banco: se afilia en el momento, debitando su aporte inicial.
+ * - Persona sin cuenta en el banco: recibe un número de caso para terminar en agencia.
  *
  * @component
- * @returns {JSX.Element} The rendered public affiliation page.
  */
 export const PublicAffiliationPage = () => {
   // Fases del flujo:
@@ -516,63 +516,50 @@ export const PublicAffiliationPage = () => {
     (c) => String(c.id_cuenta_bancaria) === String(selectedCuentaBancariaId)
   );
 
+  // Cada paso empieza arriba (en móvil el formulario anterior podía dejar la vista a media página).
+  useEffect(() => {
+    window.scrollTo({ top: 0 });
+  }, [phase]);
+
   return (
-    <div
-      className="min-h-screen bg-slate-100 flex flex-col justify-start relative"
-      style={{
-        backgroundImage: 'radial-gradient(circle, #cbd5e1 1px, transparent 1px)',
-        backgroundSize: '24px 24px',
-      }}
-    >
-      {/* Barra Institucional Sticky: el logo y nombre de la cooperativa nunca se cortan al hacer scroll */}
-      <header className="sticky top-0 z-30 bg-white border-b border-slate-200/80 px-4 sm:px-6 py-3 print:hidden">
-        <div className="max-w-4xl mx-auto flex items-center justify-between">
-          <Link to="/login" className="inline-flex items-center space-x-3 group">
-            <div className="w-10 h-10 rounded-lg bg-brand-700 flex items-center justify-center text-white group-hover:scale-105 transition-transform">
-              <Building2 className="w-5 h-5" />
-            </div>
-            <div className="text-left">
-              <span className="font-extrabold text-slate-900 text-base tracking-tight block leading-tight">COOPERATIVA</span>
-              <span className="text-xs text-brand-800 font-bold uppercase tracking-wider block">
-                Corporación Bancaria
-              </span>
-            </div>
+    <div className="min-h-screen flex flex-col bg-surface-muted">
+      <header className="border-b border-line bg-white print:hidden">
+        <div className="mx-auto flex max-w-2xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
+          <Link
+            to="/login"
+            aria-label="Cooperativa: ir al inicio de sesión"
+            className="rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600"
+          >
+            <Wordmark size="sm" />
           </Link>
-          <div className="flex items-center space-x-2">
-            <span className="hidden sm:inline text-xs font-semibold text-slate-500">¿Ya tienes usuario?</span>
+          <p className="text-sm text-ink-muted">
+            <span className="hidden sm:inline">¿Ya es asociado? </span>
             <Link
               to="/login"
-              className="text-xs font-bold text-brand-700 hover:text-brand-800 bg-brand-50 hover:bg-brand-100 px-3 py-1.5 rounded-lg transition-colors"
+              className="font-medium text-brand-700 hover:text-brand-800 hover:underline rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600"
             >
-              Iniciar Sesión
+              Iniciar sesión
             </Link>
-          </div>
+          </p>
         </div>
       </header>
 
-      {/* Contenido Central */}
-      <div className="flex-1 py-8 px-4 sm:px-6 lg:px-8 print:p-0 print:m-0 print:w-full print:max-w-none">
-        <div className="sm:mx-auto sm:w-full sm:max-w-2xl text-center mb-6 print:hidden">
-          <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
-            Portal de Afiliación Digital
-          </h2>
-          <p className="mt-1 text-sm text-slate-600 font-medium max-w-lg mx-auto">
-            Gestiona tu membresía cooperativa respaldada por las cuentas de la Corporación Bancaria.
-          </p>
-        </div>
+      <main className="flex-1 px-4 py-8 sm:px-6 print:p-0">
+        <div className="mx-auto w-full max-w-2xl print:max-w-none">
+          <div className="mb-6 print:hidden">
+            <h1 className="text-xl font-semibold text-ink sm:text-2xl">Afiliación en línea</h1>
+            <p className="mt-1 text-sm text-ink-muted">
+              Hágase asociado de la cooperativa. Solo necesita su DPI y, si es cliente del banco, su acceso a la Banca en Línea.
+            </p>
+          </div>
 
-        {/* Contenedor Principal */}
-        <div className="sm:mx-auto sm:w-full sm:max-w-2xl print:max-w-none print:w-full">
-          <div className="bg-white py-8 px-6 sm:px-10 rounded-lg shadow-lg border border-slate-200 print:shadow-none print:border-none print:p-0 print:m-0 print:rounded-none print-avoid-break">
-            {/* Alerta de Error */}
+          <div className="rounded-lg border border-line bg-white px-5 py-6 sm:px-8 sm:py-8 print:border-none print:p-0">
             {errorMsg && (
-              <div className="mb-6 p-4 rounded-lg bg-danger-50 border border-danger-200 flex items-start space-x-3 text-danger-700">
-                <AlertCircle className="w-5 h-5 shrink-0 mt-0.5 text-danger-600" />
-                <div className="text-sm font-medium">{errorMsg}</div>
-              </div>
+              <Alert tone="danger" className="mb-6">
+                {errorMsg}
+              </Alert>
             )}
 
-            {/* Fase 0: Búsqueda inicial de DPI */}
             {phase === 'CONSULTAR_DPI' && (
               <DpiLookupStep
                 cuiInput={cuiInput}
@@ -584,7 +571,7 @@ export const PublicAffiliationPage = () => {
               />
             )}
 
-            {/* Escenario 1 - Paso 0: Validación de credenciales de banca en línea */}
+            {/* Cliente del banco · paso 1: Banca en Línea */}
             {phase === 'EXISTENTE_AUTH_BANCO' && bancoData && (
               <BankCredentialsStep
                 bancoData={bancoData}
@@ -596,7 +583,7 @@ export const PublicAffiliationPage = () => {
               />
             )}
 
-            {/* Escenario 1 - Paso 1: Configuración de cuenta y aporte */}
+            {/* Cliente del banco · paso 2: cuenta de origen y aporte */}
             {phase === 'EXISTENTE_CONFIG' && bancoData && (
               <BankConfigStep
                 bancoData={bancoData}
@@ -611,7 +598,7 @@ export const PublicAffiliationPage = () => {
               />
             )}
 
-            {/* Escenario 1 - Paso 2: Definición de contraseña para el portal */}
+            {/* Cliente del banco · paso 3: acceso al portal */}
             {phase === 'EXISTENTE_CREDENCIALES' && bancoData && (
               <PortalPasswordStep
                 credenciales={credenciales}
@@ -625,12 +612,11 @@ export const PublicAffiliationPage = () => {
               />
             )}
 
-            {/* Escenario 1 - Paso 3: Éxito y ficha digital de asociado con 2FA */}
             {phase === 'EXISTENTE_EXITO' && afiliacionExitosa && (
               <DirectAffiliationSuccess afiliacionExitosa={afiliacionExitosa} />
             )}
 
-            {/* Escenario 2 - Paso 1: Formulario para solicitante nuevo sin cuenta bancaria */}
+            {/* Sin cuenta en el banco: solicitud para agencia */}
             {phase === 'NUEVO_FORMULARIO' && (
               <AgencyApplicationForm
                 cuiInput={cuiInput}
@@ -651,13 +637,14 @@ export const PublicAffiliationPage = () => {
               />
             )}
 
-            {/* Escenario 2 - Paso 2: Constancia oficial con número de caso para agencia */}
-            {phase === 'NUEVO_CASO_EXITO' && casoGenerado && (
-              <AgencyReceiptStep casoGenerado={casoGenerado} />
-            )}
+            {phase === 'NUEVO_CASO_EXITO' && casoGenerado && <AgencyReceiptStep casoGenerado={casoGenerado} />}
           </div>
         </div>
-      </div>
+      </main>
+
+      <footer className="py-4 text-center text-xs text-ink-subtle print:hidden">
+        © {new Date().getFullYear()} Cooperativa
+      </footer>
     </div>
   );
 };

@@ -181,18 +181,19 @@ export const AssociateExpedienteModal = ({
             </ul>
           </section>
 
-          {/* Firmas: solo al imprimir */}
-          <div className="hidden grid-cols-2 gap-8 pt-12 text-center text-xs print:grid">
-            <div className="border-t border-ink-subtle pt-2">
-              <p className="font-medium text-ink">{a.nombre_completo}</p>
-              <p className="text-ink-muted">Firma del asociado</p>
-              <p className="font-mono text-ink-subtle">DPI {a.cui_dpi}</p>
-            </div>
-            <div className="border-t border-ink-subtle pt-2">
-              <p className="font-medium text-ink">Operador de ventanilla</p>
-              <p className="text-ink-muted">Firma y sello</p>
-            </div>
-          </div>
+          {/* Firmas: solo al imprimir. Se usan <footer>/<span> porque la regla de impresión
+              de index.css quita márgenes y rellenos a todos los <div>. */}
+          <footer className="hidden grid-cols-2 gap-8 pt-16 text-center text-xs print:grid">
+            <span className="block border-t border-ink-subtle pt-2">
+              <span className="block font-medium text-ink">{a.nombre_completo}</span>
+              <span className="block text-ink-muted">Firma del asociado</span>
+              <span className="block font-mono text-ink-subtle">DPI {a.cui_dpi}</span>
+            </span>
+            <span className="block border-t border-ink-subtle pt-2">
+              <span className="block font-medium text-ink">Operador de ventanilla</span>
+              <span className="block text-ink-muted">Firma y sello</span>
+            </span>
+          </footer>
         </div>
       ) : null}
     </Modal>

@@ -1,155 +1,105 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import {
-  CheckCircle2,
-  Building2,
-  Landmark,
-  ShieldCheck,
-  Info,
-  ArrowRight,
-} from 'lucide-react';
+import { ArrowRight, CheckCircle2 } from 'lucide-react';
+import { Button } from '../ui';
+import { formatQ } from '../../utils/format';
+
+/** Fila de una lista de definiciones. */
+const Row = ({ label, children }) => (
+  <div className="flex flex-wrap justify-between gap-x-4 gap-y-0.5 px-4 py-2.5">
+    <dt className="text-ink-muted">{label}</dt>
+    <dd className="text-ink">{children}</dd>
+  </div>
+);
 
 /**
- * Step 1D: Direct affiliation success confirmation with membership details and 2FA QR code.
+ * Afiliación completada (clientes del banco): usuario, cuenta creada, débito
+ * realizado y cómo ingresar por primera vez.
  *
  * @component
- * @param {Object} props - Component properties.
- * @param {Object} props.afiliacionExitosa - Affiliation result payload with user, account and MFA tokens.
- * @returns {JSX.Element} Rendered success view.
+ * @param {Object} props
+ * @param {Object} props.afiliacionExitosa - Respuesta de `/afiliacion/procesar-existente`.
  */
 export const DirectAffiliationSuccess = ({ afiliacionExitosa }) => {
   if (!afiliacionExitosa) return null;
 
+  const cuenta = afiliacionExitosa.cuenta_ahorro || afiliacionExitosa.cuenta_aportaciones;
+  const origen = afiliacionExitosa.cuenta_bancaria_origen;
+  const email = afiliacionExitosa.usuario.email;
+
   return (
-    <div className="text-center py-4 space-y-5">
-      <div className="w-16 h-16 bg-brand-100 rounded-full flex items-center justify-center mx-auto text-brand-700">
-        <CheckCircle2 className="w-10 h-10" />
+    <div>
+      <div className="mb-6 flex items-start gap-3">
+        <CheckCircle2 className="mt-0.5 w-6 h-6 shrink-0 text-success-700" aria-hidden="true" />
+        <div>
+          <h2 className="text-lg font-semibold text-ink">Ya es asociado de la cooperativa</h2>
+          <p className="mt-1 text-sm text-ink-muted">
+            Su cuenta de ahorro está abierta y el aporte inicial ya está acreditado.
+          </p>
+        </div>
       </div>
 
-      <div>
-        <h3 className="text-2xl font-black text-slate-900 tracking-tight">
-          ¡Afiliación Formalizada con Éxito!
-        </h3>
-        <p className="text-sm text-slate-600 mt-1">
-          Has sido registrado formalmente en el Padrón General de Asociados.
-        </p>
-      </div>
+      <div className="space-y-4">
+        <section aria-labelledby="afiliacion-cuenta" className="rounded-md border border-line">
+          <h3 id="afiliacion-cuenta" className="border-b border-line px-4 py-2.5 text-sm font-medium text-ink">
+            Su cuenta en la cooperativa
+          </h3>
+          <dl className="divide-y divide-line text-sm">
+            <Row label="Titular">{afiliacionExitosa.asociado.nombre_completo}</Row>
+            <Row label="Usuario"><span className="font-mono">{afiliacionExitosa.usuario.codigo_corporativo}</span></Row>
+            <Row label="Cuenta de ahorro"><span className="font-mono">{cuenta?.numero_cuenta}</span></Row>
+            <Row label="Saldo inicial"><span className="font-medium tabular-nums">{formatQ(cuenta?.saldo_disponible)}</span></Row>
+          </dl>
+        </section>
 
-      {/* Resumen de Cuentas */}
-      <div className="space-y-3 text-left">
-        {/* Datos del Asociado */}
-        <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 space-y-2">
-          <div className="flex justify-between items-center border-b border-slate-200 pb-2">
-            <span className="text-xs text-slate-600 font-semibold">Usuario:</span>
-            <span className="text-sm font-bold text-brand-700 font-mono bg-brand-50 px-2 py-0.5 rounded border border-brand-200">
-              {afiliacionExitosa.usuario.codigo_corporativo}
-            </span>
-          </div>
-          <div className="flex justify-between items-center pt-1">
-            <span className="text-xs text-slate-600 font-semibold">Asociado Titular:</span>
-            <span className="text-sm font-bold text-slate-900">
-              {afiliacionExitosa.asociado.nombre_completo}
-            </span>
-          </div>
-        </div>
+        <section aria-labelledby="afiliacion-banco" className="rounded-md border border-line">
+          <h3 id="afiliacion-banco" className="border-b border-line px-4 py-2.5 text-sm font-medium text-ink">
+            Débito en el banco
+          </h3>
+          <dl className="divide-y divide-line text-sm">
+            <Row label="Cuenta de origen"><span className="font-mono">{origen.numero_cuenta_bancaria}</span></Row>
+            <Row label="Monto debitado"><span className="tabular-nums">{formatQ(origen.monto_debitado)}</span></Row>
+            <Row label="Saldo que queda en el banco"><span className="tabular-nums">{formatQ(origen.nuevo_saldo)}</span></Row>
+          </dl>
+        </section>
 
-        {/* Tarjeta 1: NUEVA CUENTA EN LA COOPERATIVA */}
-        <div className="bg-brand-50/90 border-2 border-brand-400 rounded-lg p-4 space-y-2">
-          <div className="flex items-center space-x-2 text-brand-900 font-extrabold text-xs uppercase tracking-wider">
-            <Building2 className="w-4 h-4 text-brand-700" />
-            <span>Tu Nueva Cuenta en la Cooperativa</span>
-          </div>
-          <div className="flex justify-between items-center">
-            <span className="text-xs text-slate-700 font-medium">Número de Cuenta Aperturada:</span>
-            <span className="text-base font-mono font-extrabold text-brand-900">
-              {afiliacionExitosa.cuenta_ahorro?.numero_cuenta || afiliacionExitosa.cuenta_aportaciones?.numero_cuenta}
-            </span>
-          </div>
-          <div className="flex justify-between items-center border-t border-brand-200 pt-2">
-            <span className="text-xs text-slate-700 font-medium">Saldo Inicial Acreditado:</span>
-            <span className="text-base font-extrabold text-brand-700">
-              Q{parseFloat(afiliacionExitosa.cuenta_ahorro?.saldo_disponible || afiliacionExitosa.cuenta_aportaciones?.saldo_disponible || 0).toFixed(2)}
-            </span>
-          </div>
-        </div>
+        <section aria-labelledby="afiliacion-ingreso" className="rounded-md border border-brand-200 bg-brand-50 px-4 py-3 text-sm text-brand-900">
+          <h3 id="afiliacion-ingreso" className="font-medium">Cómo ingresar por primera vez</h3>
+          <ol className="mt-2 list-decimal space-y-1 pl-5">
+            <li>
+              Revise su correo{email && <> <span className="font-medium">{email}</span></>}: ahí le enviamos su usuario y su
+              contraseña.
+            </li>
+            <li>Inicie sesión con su usuario o su correo y esa contraseña.</li>
+            <li>El sistema le pedirá crear una contraseña nueva antes de entrar.</li>
+          </ol>
+        </section>
 
-        {/* Tarjeta 2: CUENTA BANCARIA DEBITADA */}
-        <div className="bg-slate-50 border border-slate-300 rounded-lg p-4 space-y-2">
-          <div className="flex items-center space-x-2 text-slate-700 font-bold text-xs uppercase tracking-wider">
-            <Landmark className="w-4 h-4 text-slate-600" />
-            <span>Cuenta Bancaria Debitada (Banco Corporativo)</span>
-          </div>
-          <div className="flex justify-between items-center">
-            <span className="text-xs text-slate-600 font-medium">Cuenta de Origen:</span>
-            <span className="text-xs font-mono font-bold text-slate-800">
-              {afiliacionExitosa.cuenta_bancaria_origen.numero_cuenta_bancaria}
-            </span>
-          </div>
-          <div className="flex justify-between items-center border-t border-slate-200 pt-2">
-            <span className="text-xs text-slate-600 font-medium">Monto Debitado:</span>
-            <span className="text-xs font-bold text-slate-800">
-              Q{parseFloat(afiliacionExitosa.cuenta_bancaria_origen.monto_debitado).toFixed(2)}
-            </span>
-          </div>
-          <div className="flex justify-between items-center border-t border-slate-200 pt-2">
-            <span className="text-xs text-slate-600 font-medium">Nuevo Saldo en Cuenta Bancaria:</span>
-            <span className="text-xs font-mono font-bold text-brand-700">
-              Q{parseFloat(afiliacionExitosa.cuenta_bancaria_origen.nuevo_saldo).toFixed(2)}
-            </span>
-          </div>
-        </div>
-
-        {/* Tarjeta de Seguridad: Doble Factor de Autenticación (MFA / 2FA) */}
         {afiliacionExitosa.mfa?.qr_code_url && (
-          <div className="bg-slate-900 text-white rounded-lg p-5 space-y-3.5 border border-slate-800">
-            <div className="flex items-center space-x-2 text-brand-400 font-bold text-xs uppercase tracking-wider">
-              <ShieldCheck className="w-4 h-4 text-brand-400 shrink-0" />
-              <span>Seguridad Bancaria: Doble Factor de Autenticación (2FA)</span>
-            </div>
-            <p className="text-xs text-slate-300 leading-relaxed">
-              Hemos enviado este código QR a tu correo electrónico registrado. Escanéalo ahora con <strong>Google Authenticator</strong> o <strong>Microsoft Authenticator</strong> para activar tu acceso:
+          <section aria-labelledby="afiliacion-2fa" className="rounded-md border border-line px-4 py-4">
+            <h3 id="afiliacion-2fa" className="text-sm font-medium text-ink">Verificación en dos pasos</h3>
+            <p className="mt-1 text-sm text-ink-muted">
+              Código generado para su usuario. También se lo enviamos por correo.
             </p>
-
-            <div className="bg-white p-3 rounded-lg inline-block mx-auto text-center border border-line">
+            <div className="mt-3 flex flex-col items-center gap-3 sm:flex-row sm:items-start">
               <img
                 src={afiliacionExitosa.mfa.qr_code_url}
-                alt="Código QR de Verificación 2FA"
-                className="w-40 h-40 mx-auto rounded"
+                alt="Código QR para configurar la verificación en dos pasos"
+                className="h-36 w-36 shrink-0 rounded border border-line bg-white p-1"
               />
+              <div className="min-w-0 text-sm">
+                <p className="text-ink-muted">Si no puede escanearlo, use esta clave en su aplicación de autenticación:</p>
+                <p className="mt-1 break-all font-mono text-ink select-all">{afiliacionExitosa.mfa.secret}</p>
+              </div>
             </div>
-
-            <div className="bg-slate-800/90 rounded-lg p-3 border border-slate-700/80 text-center space-y-1">
-              <span className="text-xs uppercase font-mono tracking-wider text-slate-400 block">
-                Clave Secreta de Configuración Manual:
-              </span>
-              <span className="font-mono text-xs font-bold text-brand-300 tracking-widest select-all">
-                {afiliacionExitosa.mfa.secret}
-              </span>
-            </div>
-          </div>
+          </section>
         )}
-
-        {/* Banner Aclaratorio */}
-        <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-xs text-blue-900 space-y-1">
-          <p className="font-bold flex items-center space-x-1.5">
-            <Info className="w-4 h-4 text-blue-700 shrink-0" />
-            <span>Primer Ingreso al Portal:</span>
-          </p>
-          <p className="text-xs leading-relaxed text-blue-800">
-            Ingresa utilizando tu <strong>Usuario ({afiliacionExitosa.usuario.codigo_corporativo})</strong> o correo electrónico junto con la contraseña que acabas de definir. Al entrar se te presentará el <strong>recorrido guiado</strong> para que conozcas todas las funciones.
-          </p>
-        </div>
       </div>
 
-      <div className="pt-2">
-        <Link
-          to="/login"
-          className="w-full py-3.5 px-6 rounded-lg bg-brand-700 hover:bg-brand-800 text-white font-bold text-sm flex items-center justify-center space-x-2 transition-all cursor-pointer"
-        >
-          <span>Iniciar Sesión Ahora</span>
-          <ArrowRight className="w-4 h-4" />
-        </Link>
-      </div>
+      <Button as={Link} to="/login" fullWidth size="lg" className="mt-8">
+        Ir a iniciar sesión
+        <ArrowRight className="w-4 h-4" aria-hidden="true" />
+      </Button>
     </div>
   );
 };
