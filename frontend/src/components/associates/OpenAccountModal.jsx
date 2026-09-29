@@ -174,12 +174,15 @@ export const OpenAccountModal = ({ isOpen, onClose, asociado, onSuccess }) => {
   const handleDownloadPdf = () => {
     if (!successData || !asociado) return;
     try {
-      const doc = generateAccountOpeningReceiptPdf({
+      // El generador ya descarga el archivo (antes se guardaba dos veces, C-18).
+      generateAccountOpeningReceiptPdf({
         data: {
           asociado: {
             id_asociado: asociado.id_asociado,
             nombre_completo: asociado.nombre_completo,
             cui_dpi: asociado.cui_dpi,
+            email: asociado.email,
+            telefono: asociado.telefono,
           },
           cuenta: {
             numero_cuenta: successData.numero_cuenta,
@@ -194,7 +197,6 @@ export const OpenAccountModal = ({ isOpen, onClose, asociado, onSuccess }) => {
           },
         },
       });
-      doc.save(`Comprobante_Apertura_${successData.numero_cuenta}.pdf`);
     } catch (err) {
       console.error('Error al generar PDF de comprobante:', err);
     }

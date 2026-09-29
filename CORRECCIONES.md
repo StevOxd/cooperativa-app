@@ -28,7 +28,7 @@ Registro de errores y mejoras encontrados durante el rediseño del frontend (ram
 | C-15 | Si el correo falla, la afiliación se completa igual y el asociado no recibe su contraseña | Backend · correo | Alta | Pendiente |
 | C-16 | Contraseñas temporales y secretos 2FA en los registros y en memoria | Backend · seguridad | Alta | Pendiente |
 | C-17 | Los traslados que entran a una cuenta se muestran como egreso en los movimientos | Frontend · asociado | Media | Por verificar |
-| C-18 | El comprobante de apertura de cuenta sale con datos de ejemplo y se descarga dos veces | Frontend · operador | Alta | Pendiente |
+| C-18 | El comprobante de apertura de cuenta sale con datos de ejemplo y se descarga dos veces | Frontend · operador | Alta | **Corregido** (Fase 4) |
 | C-19 | Los productos de ahorro del operador están escritos a mano | Frontend · operador | Media | Pendiente |
 | C-20 | El operador y el asociado guardan el parentesco con valores distintos | Frontend y backend | Media | Pendiente |
 | C-21 | Suspender o activar un asociado no actualiza la lista ni avisa | Frontend · operador | Alta | **Corregido** |
@@ -292,7 +292,7 @@ Un `TRANSFERENCIA` que **entra** a la cuenta (por ejemplo, un traslado aprobado 
 ---
 
 ### C-18 · El comprobante de apertura de cuenta sale con datos de ejemplo y se descarga dos veces
-**Prioridad:** Alta · **Por corregir**
+**Prioridad:** Alta · **Corregido** (Fase 4: el generador acepta los datos agrupados que envía el modal, toma el medio de pago del origen real de los fondos, y el modal ya no vuelve a guardar el PDF)
 
 **Qué pasa:** al abrir una cuenta en ventanilla, "Descargar comprobante" ([OpenAccountModal.jsx:174](frontend/src/components/associates/OpenAccountModal.jsx#L174)) pasa los datos agrupados (`{ asociado, cuenta, deposito }`), pero `generateAccountOpeningReceiptPdf` ([accountOpeningReceiptPdf.js](frontend/src/utils/accountOpeningReceiptPdf.js)) lee campos planos. El PDF muestra los valores de ejemplo: "CTA-AHORR-XXXXXX", "No especificado", "CASO-AFIL-XXXX".
 
@@ -497,3 +497,8 @@ Errores visuales o de contenido que se corrigieron dentro de los commits del red
 | Los avisos flotantes decían "OPERACIÓN EXITOSA" en mayúsculas, mostraban siempre "4s" aunque la duración cambiara, anunciaban los mensajes de éxito como alertas urgentes (`role="alert"`) y usaban colores fuera de la paleta (`rose`, `blue`). Ahora tienen títulos simples ("Listo", "No se pudo completar"), `role="status"` salvo en errores, colores del sistema y respetan la preferencia de reducir movimiento | ToastContext, index.css | 3.5 |
 | El aviso de acceso restringido mostraba los roles en código ("Se requieren permisos de ADMINISTRADOR") | RoleProtectedRoute, DashboardPage | 3.5 |
 | El fondo base de la aplicación usaba `bg-slate-50` en vez de los tokens | index.css | 3.5 |
+| Los cuatro PDF tenían su propia paleta (azul `#0c4a6e`, cielo y esmeralda), títulos en mayúsculas y un membrete distinto en cada uno. Ahora comparten `utils/pdf/pdfKit.js`, con los colores de `tailwind.config.js`, el mismo membrete, pie con número de página y el mismo nombre institucional que las constancias web | `utils/*Pdf.js`, `utils/pdf/pdfKit.js` | 4 |
+| El estado de cuenta imprimía un "Sello digital de integridad SHA256" que era un hash casero con la hora: no permitía verificar nada. Se reemplazó por una nota que dice que es un documento informativo | accountStatementPdf | 4 |
+| Los PDF rellenaban los datos faltantes con valores inventados ("CTA-AHORR-XXXXXX", "CASO-AFIL-XXXX", "ASOC-DEMO", dirección "Ciudad de Guatemala"). Ahora muestran "—" | `utils/*Pdf.js` | 4 |
+| El comprobante de apertura decía siempre "Efectivo en ventanilla" y hablaba de la contraseña temporal aunque se tratara de abrir una cuenta a un asociado que ya tenía acceso. Ahora usa el origen real de los fondos, y la nota del acceso solo aparece en afiliaciones | accountOpeningReceiptPdf | 4 |
+| La solicitud de crédito se descargaba como "Solicitud_Credito_EB-12_SOL-_32.pdf" y repetía los mismos datos dos veces. Ahora es "Solicitud_credito_32.pdf" y cabe en una página | creditApplicationPdf | 4 |
