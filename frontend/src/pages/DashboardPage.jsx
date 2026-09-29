@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { AlertOctagon, X } from 'lucide-react';
+import { X } from 'lucide-react';
+import { Alert } from '../components/ui';
 
 import AssociateDashboard from './AssociateDashboard';
 import OperatorDashboard from './OperatorDashboard';
@@ -19,22 +20,19 @@ export const DashboardPage = () => {
 
   return (
     <div className="space-y-6">
-      {/* Banner de Alerta por Permiso Denegado */}
+      {/* Aviso cuando se llega aquí por intentar abrir una sección sin permiso */}
       {deniedAlert && (
-        <div className="p-4 rounded-lg bg-warning-50 border border-warning-200 text-warning-900 text-sm flex items-center justify-between animate-shake">
-          <div className="flex items-center space-x-3">
-            <AlertOctagon className="w-5 h-5 text-warning-600 flex-shrink-0" />
-            <div>
-              <span className="font-bold block">Acceso Restringido</span>
-              <span>{deniedAlert}</span>
-            </div>
-          </div>
+        <div className="relative">
+          <Alert tone="warning" title="No tiene acceso a esa sección" className="pr-12">
+            {deniedAlert}
+          </Alert>
           <button
             type="button"
             onClick={() => setDeniedAlert('')}
-            className="text-warning-600 hover:text-warning-900 p-1 rounded-md hover:bg-warning-100 transition-colors cursor-pointer"
+            aria-label="Cerrar aviso"
+            className="absolute right-2 top-2 rounded-md p-1.5 text-warning-800 hover:bg-warning-100 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4" aria-hidden="true" />
           </button>
         </div>
       )}

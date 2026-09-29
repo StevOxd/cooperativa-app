@@ -1,33 +1,43 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { CheckCircle2, AlertCircle, AlertTriangle, Info, X, Bell } from 'lucide-react';
+import { cn } from '../components/ui/cn';
 import { getSocket } from '../services/socket';
 
 const ToastContext = createContext(null);
 
+/** Ícono y colores de cada tipo de aviso. */
+const TOAST_TONES = {
+  success: { icon: CheckCircle2, color: 'text-success-700', progress: 'bg-success-600', defaultTitle: 'Listo' },
+  error: { icon: AlertCircle, color: 'text-danger-700', progress: 'bg-danger-600', defaultTitle: 'No se pudo completar' },
+  warning: { icon: AlertTriangle, color: 'text-warning-700', progress: 'bg-warning-500', defaultTitle: 'Atención' },
+  info: { icon: Info, color: 'text-brand-700', progress: 'bg-brand-600', defaultTitle: 'Aviso' },
+  default: { icon: Bell, color: 'text-ink-subtle', progress: 'bg-ink-subtle', defaultTitle: 'Notificación' },
+};
+
 // Gestor de eventos global para invocar toasts desde cualquier módulo sin necesidad de hook
 export const toast = {
-  success: (message, title = 'Operación Exitosa', duration = 4000) => {
+  success: (message, title = 'Listo', duration = 4000) => {
     window.dispatchEvent(
       new CustomEvent('app_show_toast', {
         detail: { message, title, type: 'success', duration },
       })
     );
   },
-  error: (message, title = 'Error en la Solicitud', duration = 4000) => {
+  error: (message, title = 'No se pudo completar', duration = 4000) => {
     window.dispatchEvent(
       new CustomEvent('app_show_toast', {
         detail: { message, title, type: 'error', duration },
       })
     );
   },
-  warning: (message, title = 'Advertencia del Sistema', duration = 4000) => {
+  warning: (message, title = 'Atención', duration = 4000) => {
     window.dispatchEvent(
       new CustomEvent('app_show_toast', {
         detail: { message, title, type: 'warning', duration },
       })
     );
   },
-  info: (message, title = 'Aviso Institucional', duration = 4000) => {
+  info: (message, title = 'Aviso', duration = 4000) => {
     window.dispatchEvent(
       new CustomEvent('app_show_toast', {
         detail: { message, title, type: 'info', duration },
@@ -114,96 +124,39 @@ export const ToastProvider = ({ children }) => {
     <ToastContext.Provider value={value}>
       {children}
 
-      {/* Contenedor Flotante de Toasts Tipo Socket (Superior Derecho) */}
-      <div className="fixed top-5 right-5 z-[99999] flex flex-col gap-3 pointer-events-none max-w-sm w-full sm:w-96 px-3 sm:px-0">
+      {/* Avisos flotantes (arriba a la derecha; a todo el ancho en móvil) */}
+      <div className="pointer-events-none fixed inset-x-0 top-4 z-[99999] flex flex-col items-center gap-2 px-4 sm:inset-x-auto sm:right-4 sm:items-end sm:px-0">
         {toasts.map((t) => {
-          const config = {
-            success: {
-              icon: CheckCircle2,
-              color: 'text-brand-600',
-              bg: 'bg-brand-50',
-              border: 'border-brand-200',
-              badge: 'bg-brand-100 text-brand-800',
-              progress: 'bg-brand-500',
-              defaultTitle: 'Operación Exitosa',
-            },
-            error: {
-              icon: AlertCircle,
-              color: 'text-rose-600',
-              bg: 'bg-rose-50',
-              border: 'border-rose-200',
-              badge: 'bg-rose-100 text-rose-800',
-              progress: 'bg-rose-500',
-              defaultTitle: 'Error del Sistema',
-            },
-            warning: {
-              icon: AlertTriangle,
-              color: 'text-warning-600',
-              bg: 'bg-warning-50',
-              border: 'border-warning-200',
-              badge: 'bg-warning-100 text-warning-800',
-              progress: 'bg-warning-500',
-              defaultTitle: 'Aviso Importante',
-            },
-            info: {
-              icon: Info,
-              color: 'text-blue-600',
-              bg: 'bg-blue-50',
-              border: 'border-blue-200',
-              badge: 'bg-blue-100 text-blue-800',
-              progress: 'bg-blue-500',
-              defaultTitle: 'Información',
-            },
-          }[t.type] || {
-            icon: Bell,
-            color: 'text-slate-600',
-            bg: 'bg-slate-50',
-            border: 'border-slate-200',
-            badge: 'bg-slate-100 text-slate-800',
-            progress: 'bg-slate-500',
-            defaultTitle: 'Notificación',
-          };
-
+          const config = TOAST_TONES[t.type] || TOAST_TONES.default;
           const IconComponent = config.icon;
+          const title = t.title || config.defaultTitle;
 
           return (
             <div
               key={t.id}
-              className="pointer-events-auto bg-white rounded-lg shadow-lg border border-slate-200/90 overflow-hidden animate-slide-in-right transition-all duration-300 transform hover:scale-[1.02]"
-              role="alert"
+              role={t.type === 'error' ? 'alert' : 'status'}
+              className="pointer-events-auto w-full max-w-sm overflow-hidden rounded-lg border border-line bg-white shadow-lg animate-slide-in-right"
             >
-              <div className="p-4 flex items-start space-x-3">
-                <div
-                  className={`w-9 h-9 rounded-lg ${config.bg} ${config.color} flex items-center justify-center flex-shrink-0 mt-0.5`}
-                >
-                  <IconComponent className="w-5 h-5" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between gap-2">
-                    <span
-                      className={`inline-block px-2 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider ${config.badge}`}
-                    >
-                      {t.title || config.defaultTitle}
-                    </span>
-                    <span className="text-xs text-slate-400 font-mono">4s</span>
-                  </div>
-                  <p className="text-xs font-semibold text-slate-800 mt-1.5 leading-relaxed break-words">
-                    {t.message}
-                  </p>
+              <div className="flex items-start gap-3 px-4 py-3">
+                <IconComponent className={cn('mt-0.5 w-5 h-5 shrink-0', config.color)} aria-hidden="true" />
+                <div className="min-w-0 flex-1">
+                  {title && <p className="text-sm font-semibold text-ink">{title}</p>}
+                  <p className={cn('break-words text-sm text-ink-soft', title && 'mt-0.5')}>{t.message}</p>
                 </div>
                 <button
+                  type="button"
                   onClick={() => removeToast(t.id)}
-                  className="text-slate-400 hover:text-slate-600 p-1 rounded-md hover:bg-slate-100 transition-colors cursor-pointer flex-shrink-0"
-                  title="Cerrar notificación"
+                  aria-label="Cerrar aviso"
+                  className="-mr-1 shrink-0 rounded-md p-1 text-ink-subtle transition-colors hover:bg-surface-sunken hover:text-ink-soft cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600"
                 >
-                  <X className="w-4 h-4" />
+                  <X className="w-4 h-4" aria-hidden="true" />
                 </button>
               </div>
 
-              {/* Barra de progreso de 4 segundos */}
-              <div className="w-full bg-slate-100 h-1 overflow-hidden">
+              {/* Tiempo restante antes de cerrarse solo */}
+              <div className="h-0.5 w-full bg-surface-sunken" aria-hidden="true">
                 <div
-                  className={`h-full ${config.progress} animate-toast-progress`}
+                  className={cn('h-full animate-toast-progress', config.progress)}
                   style={{ animationDuration: `${t.duration || 4000}ms` }}
                 />
               </div>

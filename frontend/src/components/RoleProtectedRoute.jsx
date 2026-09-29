@@ -2,6 +2,7 @@ import React from 'react';
 import { Navigate, useLocation, Outlet } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Loader2 } from 'lucide-react';
+import { ROLE_LABELS } from './layout/navigation';
 
 /**
  * Componente para proteger rutas privadas basadas en roles específicos
@@ -31,7 +32,7 @@ export const RoleProtectedRoute = ({ allowedRoles = ['ADMINISTRADOR'], children 
         to="/dashboard"
         state={{
           accessDenied: true,
-          message: `Acceso denegado: Se requieren permisos de ${allowedRoles.join(', ')} para ingresar a esta sección.`,
+          message: `Esta sección es solo para el rol ${allowedRoles.map((r) => ROLE_LABELS[r] || r).join(' o ')}.`,
         }}
         replace
       />
