@@ -23,7 +23,7 @@ export const AgencyReceiptStep = ({ casoGenerado }) => {
       {/* Membrete: solo al imprimir */}
       <div className="mb-6 hidden items-start justify-between border-b border-line-strong pb-3 print:flex">
         <div>
-          <p className="text-base font-semibold text-ink">Cooperativa de Ahorro y Crédito</p>
+          <p className="text-base font-semibold text-ink">Cooperativa Integral de Ahorro y Crédito, R.L.</p>
           <p className="text-sm text-ink-muted">Constancia de solicitud de afiliación</p>
         </div>
         <p className="text-xs text-ink-muted">Impresa el {formatDate(new Date())}</p>

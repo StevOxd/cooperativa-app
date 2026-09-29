@@ -85,7 +85,7 @@ export const AssociateExpedienteModal = ({
           {/* Membrete: se imprime como encabezado de la ficha */}
           <header className="flex flex-wrap items-start justify-between gap-4 border-b border-line-strong pb-4">
             <div>
-              <p className="text-base font-semibold text-ink">Cooperativa de Ahorro y Crédito</p>
+              <p className="text-base font-semibold text-ink">Cooperativa Integral de Ahorro y Crédito, R.L.</p>
               <p className="text-sm text-ink-muted">Ficha de posición global del asociado</p>
               <p className="text-xs text-ink-subtle">
                 Emitida el {new Date().toLocaleDateString('es-GT', { dateStyle: 'long' })}
