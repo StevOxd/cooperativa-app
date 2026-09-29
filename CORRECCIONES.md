@@ -38,6 +38,8 @@ Registro de errores y mejoras encontrados durante el rediseño del frontend (ram
 | C-25 | Una contraseña bancaria incorrecta en la afiliación manda a la pantalla de inicio de sesión | Backend · afiliación | Alta | **Corregido** |
 | C-26 | Crear un usuario o reiniciar su contraseña muestra dos avisos iguales | Frontend · admin | Baja | **Corregido** |
 | C-27 | Al editar un usuario, el administrador puede fijarle una contraseña que no expira | Backend y frontend · seguridad | Media | **Corregido** |
+| C-28 | Desistir de un crédito lo guarda como "rechazado" | Backend · créditos | Media | Pendiente |
+| C-29 | El servidor no valida el monto ni el plazo mínimo y máximo de un crédito | Backend · créditos | Baja | Pendiente |
 
 ---
 
@@ -396,6 +398,26 @@ En el rediseño se mantuvo el QR (no se cambian flujos de seguridad), pero ya no
 
 ---
 
+### C-28 · Desistir de un crédito lo guarda como "rechazado"
+**Prioridad:** Media · **Por corregir**
+
+**Qué pasa:** cuando el asociado desiste, `cancelarCredito` ([asociadoController.js:1095](backend/src/controllers/asociadoController.js#L1095)) pone `estado = 'RECHAZADA'` y agrega " [Cancelada voluntariamente por el asociado]" a las observaciones. Para el resto del sistema es un rechazo de la cooperativa: el asociado lo veía como "Denegada" y cuenta en las estadísticas de solicitudes rechazadas del ejecutivo y del administrador.
+
+En el rediseño del simulador, el historial la muestra como "Cancelada por usted" (detectando esa marca) y oculta la marca de los comentarios. Es solo un arreglo visual; los datos siguen mezclados.
+
+**Propuesta:** un estado propio, `CANCELADA`, con su valor en la base de datos, y excluirlo de las estadísticas de rechazos.
+
+---
+
+### C-29 · El servidor no valida el monto ni el plazo mínimo y máximo de un crédito
+**Prioridad:** Baja · **Por corregir**
+
+**Qué pasa:** `iniciarCredito` ([asociadoController.js:317](backend/src/controllers/asociadoController.js#L317)) solo exige que el monto y el plazo sean mayores que cero. Los límites (Q500 como mínimo, de 3 a 120 meses) solo existen en el formulario del simulador; una llamada directa a la API puede pedir Q1 a 1000 meses. La tasa del 10 % también está escrita dos veces, en el frontend y en el backend, en lugar de venir de un parámetro.
+
+**Propuesta:** validar esos límites en el backend y enviar la tasa al frontend, por ejemplo junto con la capacidad crediticia.
+
+---
+
 ## Corregidos durante el rediseño
 
 Errores visuales o de contenido que se corrigieron dentro de los commits del rediseño, porque no tocaban lógica.
@@ -438,3 +460,7 @@ Errores visuales o de contenido que se corrigieron dentro de los commits del red
 | Los filtros de rol y estado de Usuarios eran botones sin estado accesible; ahora usan `aria-pressed`. Los botones de ícono de la tabla solo tenían `title` y ahora también tienen nombre accesible | UsersPage | 3.4 |
 | Los modales de Usuarios no cerraban con Escape ni devolvían el foco al cerrar. Ahora usan `ui/Modal` | UsersPage | 3.4 |
 | El buscador de Usuarios decía "Buscar por usuario…" sin aclarar que solo busca por código de usuario | UsersPage | 3.4 |
+| Los botones que querían ser rojos con `className="text-danger-700"` se veían grises: `cn` no resuelve conflictos y `text-ink-soft` de la variante ganaba por el orden del CSS. Afectaba a Quitar beneficiario, Rechazar traslado o afiliación, Desactivar 2FA, Suspender o desactivar y Desistir. `Button` tiene ahora las variantes `ghostDanger`, `secondaryDanger` y `ghostSuccess` | `ui/Button` y 9 archivos | 3.4 |
+| El simulador usaba un degradado (`from-brand-50 to-teal-50`) y colores `rose-` fuera de la paleta | CreditSimulatorPage | 3.4 |
+| La cuenta de acreditación del simulador se elegía con `<div>` clicables; los controles deslizantes de monto y plazo no tenían nombre accesible; el archivo firmado usaba `<input hidden>`, que no se alcanza con el teclado | CreditSimulatorPage | 3.4 |
+| Una solicitud a la que el asociado había renunciado aparecía como "Denegada" (ver C-28) | CreditSimulatorPage | 3.4 |
