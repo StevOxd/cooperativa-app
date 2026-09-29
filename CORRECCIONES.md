@@ -31,7 +31,7 @@ Registro de errores y mejoras encontrados durante el rediseño del frontend (ram
 | C-18 | El comprobante de apertura de cuenta sale con datos de ejemplo y se descarga dos veces | Frontend · operador | Alta | Pendiente |
 | C-19 | Los productos de ahorro del operador están escritos a mano | Frontend · operador | Media | Pendiente |
 | C-20 | El operador y el asociado guardan el parentesco con valores distintos | Frontend y backend | Media | Pendiente |
-| C-21 | Suspender o activar un asociado no actualiza la lista ni avisa | Frontend · operador | Alta | Pendiente |
+| C-21 | Suspender o activar un asociado no actualiza la lista ni avisa | Frontend · operador | Alta | **Corregido** |
 | C-22 | El correo de prueba en modo demostrativo se anuncia como "Operación exitosa" | Frontend · admin | Baja | Pendiente |
 
 ---
@@ -315,7 +315,7 @@ En pantalla ya se muestran bien los dos juegos de valores ([utils/parentesco.js]
 ---
 
 ### C-21 · Suspender o activar un asociado no actualiza la lista ni avisa
-**Prioridad:** Alta · **Por corregir**
+**Prioridad:** Alta · **Corregido** (`fix(asociados)`: se usa `const { toast } = useToast()`; tras confirmar se muestra el aviso y la lista se recarga)
 
 **Qué pasa:** [AssociatesManagementPage.jsx:48](frontend/src/pages/AssociatesManagementPage.jsx#L48) hace `const toast = useToast()`, pero el contexto devuelve `{ toast, addToast, removeToast }`. Al confirmar el cambio de estado, el backend sí lo guarda, pero `toast.success` lanza "toast.error is not a function", la tabla no se recarga y el operador no recibe ningún aviso. Parece que no pasó nada, y puede volver a intentarlo, lo que revierte el cambio.
 

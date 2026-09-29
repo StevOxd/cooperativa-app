@@ -45,7 +45,7 @@ const RowAction = ({ icon: Icon, label, onClick, className }) => (
 
 export const AssociatesManagementPage = () => {
   const { user } = useAuth();
-  const toast = useToast();
+  const { toast } = useToast();
   const canCreateAssociate = user?.rol === 'OPERADOR';
   const [asociados, setAsociados] = useState([]);
   const [pagination, setPagination] = useState({ total: 0, page: 1, limit: 10, totalPages: 1 });
