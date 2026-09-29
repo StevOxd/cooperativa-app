@@ -463,7 +463,6 @@ export const UsersPage = () => {
           setSuccessMessage(
             `Usuario ${codAsignado} creado exitosamente. La contraseña temporal generada fue enviada al correo ${formData.email}.`
           );
-          toast?.success(`Usuario ${codAsignado} creado. Contraseña enviada a ${formData.email}.`);
           setIsModalOpen(false);
           fetchUsers();
         }
@@ -498,7 +497,6 @@ export const UsersPage = () => {
       if (response.data?.success) {
         setResetSuccess(true);
         setSuccessMessage(`Contraseña del usuario "${resetTargetUser.codigo_corporativo}" reiniciada exitosamente. Se ha enviado al correo institucional.`);
-        toast?.success(`Contraseña de ${resetTargetUser.codigo_corporativo} reiniciada y enviada a ${resetTargetUser.email}.`);
         fetchUsers(false);
       }
     } catch (error) {

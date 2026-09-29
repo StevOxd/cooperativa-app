@@ -36,7 +36,7 @@ Registro de errores y mejoras encontrados durante el rediseño del frontend (ram
 | C-23 | En la afiliación en línea, la contraseña que define el cliente del banco se descarta o se envía por correo | Backend · afiliación | Alta | Pendiente |
 | C-24 | El código QR de 2FA que muestra la afiliación no sirve y expone el secreto | Backend · seguridad | Alta | Pendiente |
 | C-25 | Una contraseña bancaria incorrecta en la afiliación manda a la pantalla de inicio de sesión | Backend · afiliación | Alta | **Corregido** |
-| C-26 | Crear un usuario o reiniciar su contraseña muestra dos avisos iguales | Frontend · admin | Baja | Pendiente |
+| C-26 | Crear un usuario o reiniciar su contraseña muestra dos avisos iguales | Frontend · admin | Baja | **Corregido** |
 | C-27 | Al editar un usuario, el administrador puede fijarle una contraseña que no expira | Backend y frontend · seguridad | Media | Pendiente |
 
 ---
@@ -379,7 +379,7 @@ En el rediseño se mantuvo el QR (no se cambian flujos de seguridad), pero ya no
 ---
 
 ### C-26 · Crear un usuario o reiniciar su contraseña muestra dos avisos iguales
-**Prioridad:** Baja · **Por corregir**
+**Prioridad:** Baja · **Corregido** (`fix(usuarios)`: se quitaron las llamadas directas a `toast?.success`; queda un solo aviso)
 
 **Qué pasa:** en [UsersPage.jsx](frontend/src/pages/UsersPage.jsx) los handlers llaman a `setSuccessMessage(...)`, que un efecto convierte en `toast.success`, y además llaman directamente a `toast?.success(...)` ([línea 466](frontend/src/pages/UsersPage.jsx#L466) y [línea 501](frontend/src/pages/UsersPage.jsx#L501)). Aparecen dos avisos con casi el mismo texto.
 
