@@ -4,6 +4,7 @@ export { Input, Textarea } from './Input';
 export { Select } from './Select';
 export { Label, Field } from './Label';
 export { Card, CardHeader, CardBody, CardFooter } from './Card';
+export { Alert } from './Alert';
 export { Badge } from './Badge';
 export { StatCard, StatGroup } from './StatCard';
 export { PageHeader } from './PageHeader';

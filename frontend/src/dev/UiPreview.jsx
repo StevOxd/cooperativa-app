@@ -3,7 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { Download, Inbox, Plus, Search, Users } from 'lucide-react';
 import '../index.css';
 import {
-  Badge, Button, Card, CardBody, CardFooter, CardHeader, EmptyState, Field, Input,
+  Alert, Badge, Button, Card, CardBody, CardFooter, CardHeader, EmptyState, Field, Input,
   Modal, PageHeader, Select, StatCard, StatGroup, Table, TBody, TD, TH, THead, TR, Textarea,
 } from '../components/ui';
 
@@ -84,6 +84,15 @@ const UiPreview = () => {
             </Field>
           </CardBody>
         </Card>
+      </Section>
+
+      <Section title="Alert">
+        <div className="grid gap-2">
+          <Alert tone="info">Su solicitud fue enviada. Le avisaremos por correo cuando sea revisada.</Alert>
+          <Alert tone="success" title="Cuenta creada">El número de cuenta es 01-0042.</Alert>
+          <Alert tone="warning">Su sesión se cerró por inactividad.</Alert>
+          <Alert tone="danger">El DPI debe tener 13 dígitos.</Alert>
+        </div>
       </Section>
 
       <Section title="Badge">

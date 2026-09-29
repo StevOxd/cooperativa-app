@@ -19,33 +19,43 @@ export const controlClasses = (invalid) =>
  * @param {boolean} [props.invalid=false] - Marca el campo con error (también define `aria-invalid`).
  * @param {string} [props.prefix] - Texto fijo a la izquierda, p. ej. `"Q"` en montos.
  * @param {React.ElementType} [props.icon] - Ícono de lucide-react a la izquierda (p. ej. búsqueda).
+ * @param {React.ReactNode} [props.trailing] - Control a la derecha, p. ej. el botón de mostrar contraseña.
  */
 export const Input = forwardRef(function Input(
-  { invalid = false, prefix, icon: Icon, className, ...props },
+  { invalid = false, prefix, icon: Icon, trailing, className, ...props },
   ref
 ) {
-  const hasAdornment = Boolean(prefix || Icon);
+  const hasLeading = Boolean(prefix || Icon);
 
   const input = (
     <input
       ref={ref}
       aria-invalid={invalid || undefined}
-      className={cn(controlClasses(invalid), 'h-10 px-3 read-only:bg-surface-muted', hasAdornment && 'pl-8', className)}
+      className={cn(
+        controlClasses(invalid),
+        'h-10 px-3 read-only:bg-surface-muted',
+        hasLeading && 'pl-8',
+        trailing && 'pr-10',
+        className
+      )}
       {...props}
     />
   );
 
-  if (!hasAdornment) return input;
+  if (!hasLeading && !trailing) return input;
 
   return (
     <div className="relative">
-      <span
-        className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-sm text-ink-subtle"
-        aria-hidden="true"
-      >
-        {Icon ? <Icon className="w-4 h-4" /> : prefix}
-      </span>
+      {hasLeading && (
+        <span
+          className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-sm text-ink-subtle"
+          aria-hidden="true"
+        >
+          {Icon ? <Icon className="w-4 h-4" /> : prefix}
+        </span>
+      )}
       {input}
+      {trailing && <div className="absolute inset-y-0 right-0 flex items-center pr-1">{trailing}</div>}
     </div>
   );
 });
