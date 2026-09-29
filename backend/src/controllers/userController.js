@@ -691,17 +691,16 @@ const updateUser = async (req, res) => {
       });
     }
 
-    // 5. Manejo de contraseña (actualizar solo si se envía una nueva)
-    let password_hash = currentUser.password_hash;
+    // 5. La contraseña no se cambia al editar: el administrador no debe conocer la de otra
+    //    persona. Se usa POST /:id/reset-password, que genera una temporal, la envía por correo
+    //    y obliga a cambiarla en el siguiente ingreso.
+    const password_hash = currentUser.password_hash;
     if (password && password.trim() !== '') {
-      if (password.length < 6 || !/[a-zA-Z]/.test(password) || !/[0-9]/.test(password)) {
-        return res.status(400).json({
-          success: false,
-          message: 'La nueva contraseña debe tener al menos 6 caracteres y combinar obligatoriamente letras y números por política de seguridad bancaria.',
-          error: 'PASSWORD_COMPLEXITY_REQUIRED',
-        });
-      }
-      password_hash = await bcrypt.hash(password, 10);
+      return res.status(400).json({
+        success: false,
+        message: 'La contraseña no se cambia al editar un usuario. Use «Reiniciar contraseña».',
+        error: 'PASSWORD_CHANGE_NOT_ALLOWED',
+      });
     }
 
     // INICIAR TRANSACCIÓN SQL

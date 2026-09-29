@@ -37,7 +37,7 @@ Registro de errores y mejoras encontrados durante el rediseño del frontend (ram
 | C-24 | El código QR de 2FA que muestra la afiliación no sirve y expone el secreto | Backend · seguridad | Alta | Pendiente |
 | C-25 | Una contraseña bancaria incorrecta en la afiliación manda a la pantalla de inicio de sesión | Backend · afiliación | Alta | **Corregido** |
 | C-26 | Crear un usuario o reiniciar su contraseña muestra dos avisos iguales | Frontend · admin | Baja | **Corregido** |
-| C-27 | Al editar un usuario, el administrador puede fijarle una contraseña que no expira | Backend y frontend · seguridad | Media | Pendiente |
+| C-27 | Al editar un usuario, el administrador puede fijarle una contraseña que no expira | Backend y frontend · seguridad | Media | **Corregido** |
 
 ---
 
@@ -388,7 +388,7 @@ En el rediseño se mantuvo el QR (no se cambian flujos de seguridad), pero ya no
 ---
 
 ### C-27 · Al editar un usuario, el administrador puede fijarle una contraseña que no expira
-**Prioridad:** Media · **Por corregir**
+**Prioridad:** Media · **Corregido** (`fix(usuarios)`: se quitó el campo del modal y `updateUser` responde 400 `PASSWORD_CHANGE_NOT_ALLOWED` si recibe una contraseña; se cambia solo con «Reiniciar contraseña»)
 
 **Qué pasa:** el modal "Editar usuario" tiene un campo "Contraseña nueva". `updateUser` ([userController.js:697](backend/src/controllers/userController.js#L697)) la guarda si tiene 6 caracteres con letras y números, sin símbolo, y **no** marca `debe_cambiar_password`. El administrador queda conociendo la contraseña de otra persona. Esto contradice la regla del resto del sistema: las contraseñas temporales las genera el servidor, nadie las ve y se cambian al primer ingreso. Además usa una política distinta de la de 8 caracteres con símbolo (C-02).
 

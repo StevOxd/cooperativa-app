@@ -16,7 +16,6 @@ import {
   LoadingState,
   Modal,
   PageHeader,
-  PasswordInput,
   SearchInput,
   Select,
   Table,
@@ -766,14 +765,10 @@ export const UsersPage = () => {
                 por primera vez. Nadie más la ve.
               </Alert>
             ) : (
-              <Field label="Contraseña nueva" hint="Déjela vacía para no cambiarla. Al menos 6 caracteres, con letras y números.">
-                <PasswordInput
-                  autoComplete="new-password"
-                  value={formData.password}
-                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                  className="sm:max-w-sm"
-                />
-              </Field>
+              <p className="text-sm text-ink-muted">
+                La contraseña no se edita aquí. Si la persona la olvidó, use «Reiniciar contraseña» en la tabla: el
+                sistema le enviará una temporal por correo.
+              </p>
             )}
           </fieldset>
 
