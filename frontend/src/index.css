@@ -69,6 +69,11 @@
     display: none !important;
   }
 
+  /* Modal imprimible (p. ej. expediente): solo se imprime el modal, no la aplicación de fondo. */
+  body:has(> [data-print-dialog]) > #root {
+    display: none !important;
+  }
+
   .print-avoid-break {
     page-break-inside: avoid !important;
     break-inside: avoid !important;

@@ -34,6 +34,7 @@ const stack = [];
  * @param {boolean} [props.dismissible=true]
  * @param {React.RefObject} [props.initialFocusRef] - Elemento que recibe el foco al abrir.
  * @param {boolean} [props.closeOnOverlay=true] - En `false`, un clic fuera no cierra (formularios con trabajo sin guardar).
+ * @param {boolean} [props.printable=false] - Al imprimir, oculta el resto de la aplicación y deja solo este modal.
  * @param {boolean} [props.lockScroll=true] - En `false`, no bloquea el scroll (para modales que ya lo hacen por su cuenta).
  * @param {boolean} [props.critical=false] - Capa superior a cualquier otro modal (alertas de seguridad).
  */
@@ -49,6 +50,7 @@ export const Modal = ({
   critical = false,
   lockScroll = true,
   closeOnOverlay = true,
+  printable = false,
   className,
   children,
 }) => {
@@ -119,6 +121,7 @@ export const Modal = ({
         critical ? 'z-[9999]' : 'z-[1000]',
         'items-start justify-center overflow-y-auto bg-surface-inverse/60 p-4 sm:items-center print:static print:block print:bg-white print:p-0'
       )}
+      data-print-dialog={printable || undefined}
       onMouseDown={(e) => {
         if (dismissible && closeOnOverlay && e.target === e.currentTarget) onClose?.();
       }}

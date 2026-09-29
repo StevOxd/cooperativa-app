@@ -1,27 +1,24 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { createPortal } from 'react-dom';
+import { Building2 } from 'lucide-react';
 import api from '../../services/api';
-import {
-  X,
-  UserPlus,
-  Building2,
-  AlertCircle,
-  Loader2,
-  CheckCircle2,
-  Landmark,
-  Banknote,
-  KeyRound,
-  ShieldCheck,
-  CreditCard,
-  Phone,
-  Calendar,
-  Mail,
-  MapPin,
-  Check,
-  PlusCircle,
-  RefreshCw,
-} from 'lucide-react';
+import { Alert, Badge, Button, Field, Input, LoadingState, Modal, Select, cn } from '../ui';
+import { formatQ } from '../../utils/format';
 
+const FORM_ID = 'nuevo-asociado';
+
+/** Quita un error de campo sin tocar los demás. */
+const clearFieldError = (setFieldErrors, field) =>
+  setFieldErrors((prev) => {
+    const next = { ...prev };
+    delete next[field];
+    return next;
+  });
+
+/**
+ * Afiliación presencial de un nuevo asociado en ventanilla: datos personales,
+ * validación de DPI (detecta si es empleado del banco), mayoría de edad,
+ * correo disponible, depósito inicial y cuenta bancaria.
+ */
 export const NewAssociateModal = ({ isOpen, onClose, onSuccess }) => {
   const [formData, setFormData] = useState({
     cui_dpi: '',
@@ -632,813 +629,426 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess }) => {
     }
   };
 
-  return createPortal(
-    <div className="fixed inset-0 z-[999] overflow-y-auto bg-slate-950/60 flex items-center justify-center p-4">
-      <div
-        className="bg-white rounded-lg shadow-lg border border-slate-200 w-full max-w-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="new-associate-modal-title"
+
+  const soloLetras = (value) => value.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s]/g, '');
+  const esEmpleado = formData.tipo_asociado === 'EB';
+
+  // Estado del DPI: texto de ayuda bajo el campo
+  const dpiHint = dpiStatus.checking
+    ? 'Verificando en el banco…'
+    : dpiStatus.verified && dpiStatus.message
+    ? dpiStatus.message
+    : `${formData.cui_dpi?.length || 0}/13 dígitos, sin guiones ni espacios.`;
+
+  const emailError = emailStatus.available === false ? emailStatus.message : fieldErrors.email;
+  const emailHint = emailStatus.checking
+    ? 'Verificando que el correo esté disponible…'
+    : emailStatus.available === true
+    ? emailStatus.message
+    : 'A este correo se enviará la contraseña temporal.';
+
+  if (successData) {
+    return (
+      <Modal
+        isOpen
+        onClose={onClose}
+        lockScroll={false}
+        title="Asociado registrado"
+        description="Se creó su expediente y su cuenta de aportaciones."
+        footer={<Button onClick={onClose}>Cerrar</Button>}
       >
-        {/* Header Modal */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/50">
-          <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-lg bg-brand-100 flex items-center justify-center text-brand-700">
-              <UserPlus className="w-5 h-5" />
-            </div>
-            <div>
-              <h3 id="new-associate-modal-title" className="text-base font-bold text-slate-800">
-                Formulario 1: Ficha de Afiliación Presencial
-              </h3>
-              <p className="text-xs text-slate-500">
-                Registro de nuevo asociado en ventanilla y apertura de aportaciones
-              </p>
-            </div>
+        <dl className="divide-y divide-line rounded-md border border-line text-sm">
+          {[
+            ['Código de usuario', <span className="font-mono">{successData.codigo_corporativo}</span>],
+            ['Nombre', successData.nombre_completo],
+            ['Tipo de asociado', successData.tipo_asociado === 'EB' ? 'Empleado del banco (EB)' : 'Externo (EX)'],
+            ['Cuenta de aportaciones', <span className="font-mono">{successData.cuenta_ahorro || successData.cuenta_aportaciones}</span>],
+            successData.cuenta_bancaria_creada && ['Cuenta de ahorro abierta en el banco', <span className="font-mono">{successData.cuenta_bancaria_creada}</span>],
+            successData.numero_cuenta_bancaria_asociada && ['Cuenta bancaria vinculada', <span className="font-mono">{successData.numero_cuenta_bancaria_asociada}</span>],
+            ['Depósito inicial', <span className="font-medium tabular-nums">{formatQ(successData.saldo_inicial)}</span>],
+            ['Forma de pago', 'Efectivo en ventanilla'],
+          ]
+            .filter(Boolean)
+            .map(([label, value]) => (
+              <div key={label} className="flex justify-between gap-4 px-4 py-2.5">
+                <dt className="text-ink-muted">{label}</dt>
+                <dd className="text-right text-ink">{value}</dd>
+              </div>
+            ))}
+        </dl>
+      </Modal>
+    );
+  }
+
+  return (
+    <Modal
+      isOpen
+      onClose={onClose}
+      dismissible={!loading}
+      closeOnOverlay={false}
+      lockScroll={false}
+      size="lg"
+      title="Nuevo asociado"
+      description="Afiliación presencial en ventanilla."
+      footer={
+        <div className="flex w-full flex-col-reverse gap-2 sm:flex-row sm:justify-between">
+          <Button variant="secondary" onClick={onClose} disabled={loading}>
+            Cancelar
+          </Button>
+          <div className="flex flex-col-reverse gap-2 sm:flex-row">
+            <Button variant="ghost" onClick={handleResetForm} disabled={loading}>
+              Limpiar campos
+            </Button>
+            <Button
+              type="submit"
+              form={FORM_ID}
+              loading={loading}
+              loadingText="Registrando…"
+              disabled={emailStatus.available === false}
+            >
+              Registrar asociado
+            </Button>
           </div>
-          <button
-            onClick={onClose}
-            className="text-slate-400 hover:text-slate-600 p-1.5 rounded-md hover:bg-slate-100 transition-colors cursor-pointer"
-          >
-            <X className="w-5 h-5" />
-          </button>
         </div>
+      }
+    >
+      <form id={FORM_ID} onSubmit={handleSubmit} className="space-y-6">
+        {errorMsg && <Alert tone="danger">{errorMsg}</Alert>}
 
-        {/* Alerta de Error dentro del Modal */}
-        {errorMsg && (
-          <div className="mx-6 mt-4 p-3.5 rounded-lg bg-danger-50 border border-danger-200 flex items-start space-x-3 text-danger-700">
-            <AlertCircle className="w-5 h-5 shrink-0 mt-0.5 text-danger-600" />
-            <div className="text-xs font-semibold">{errorMsg}</div>
+        {/* ============ 1. DATOS PERSONALES ============ */}
+        <section aria-labelledby="na-datos" className="space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h3 id="na-datos" className="text-sm font-semibold text-ink">Datos personales</h3>
+            {dpiStatus.checking ? (
+              <Badge>Consultando DPI…</Badge>
+            ) : dpiStatus.verified ? (
+              esEmpleado ? <Badge tone="warning">Empleado del banco (EB)</Badge> : <Badge tone="brand">Externo (EX)</Badge>
+            ) : (
+              <Badge>El tipo se detecta con el DPI</Badge>
+            )}
           </div>
-        )}
 
-        {/* Vista de Éxito */}
-        {successData ? (
-          <div className="p-6 text-center space-y-4">
-            <div className="w-14 h-14 bg-brand-100 rounded-full flex items-center justify-center mx-auto text-brand-600">
-              <CheckCircle2 className="w-8 h-8" />
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <Field label="DPI" hint={dpiHint} error={fieldErrors.cui_dpi} required>
+              <Input
+                name="cui_dpi"
+                inputMode="numeric"
+                maxLength={13}
+                value={formData.cui_dpi}
+                onChange={(e) => {
+                  const val = e.target.value.replace(/\D/g, '').slice(0, 13);
+                  setFormData((prev) => ({ ...prev, cui_dpi: val }));
+                  if (fieldErrors.cui_dpi) clearFieldError(setFieldErrors, 'cui_dpi');
+                  if (errorMsg) setErrorMsg('');
+                }}
+                className="font-mono"
+                required
+              />
+            </Field>
+            <Field label="Primer nombre" error={fieldErrors.primer_nombre} required>
+              <Input
+                name="primer_nombre"
+                value={formData.primer_nombre}
+                onChange={(e) => {
+                  const val = soloLetras(e.target.value);
+                  setFormData((prev) => ({ ...prev, primer_nombre: val }));
+                  if (fieldErrors.primer_nombre) clearFieldError(setFieldErrors, 'primer_nombre');
+                  if (errorMsg) setErrorMsg('');
+                }}
+                autoComplete="off"
+                required
+              />
+            </Field>
+            <Field label="Segundo nombre">
+              <Input
+                name="segundo_nombre"
+                value={formData.segundo_nombre}
+                onChange={(e) => {
+                  const val = soloLetras(e.target.value);
+                  setFormData((prev) => ({ ...prev, segundo_nombre: val }));
+                  if (errorMsg) setErrorMsg('');
+                }}
+                autoComplete="off"
+              />
+            </Field>
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <Field label="Primer apellido" error={fieldErrors.primer_apellido} required>
+              <Input
+                name="primer_apellido"
+                value={formData.primer_apellido}
+                onChange={(e) => {
+                  const val = soloLetras(e.target.value);
+                  setFormData((prev) => ({ ...prev, primer_apellido: val }));
+                  if (fieldErrors.primer_apellido) clearFieldError(setFieldErrors, 'primer_apellido');
+                  if (errorMsg) setErrorMsg('');
+                }}
+                autoComplete="off"
+                required
+              />
+            </Field>
+            <Field label="Segundo apellido">
+              <Input
+                name="segundo_apellido"
+                value={formData.segundo_apellido}
+                onChange={(e) => {
+                  const val = soloLetras(e.target.value);
+                  setFormData((prev) => ({ ...prev, segundo_apellido: val }));
+                  if (errorMsg) setErrorMsg('');
+                }}
+                autoComplete="off"
+              />
+            </Field>
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <Field
+              label="Teléfono móvil"
+              hint={`${formData.telefono?.length || 0}/8 dígitos, sin guiones.`}
+              error={fieldErrors.telefono}
+              required
+            >
+              <Input
+                name="telefono"
+                inputMode="numeric"
+                maxLength={8}
+                value={formData.telefono}
+                onChange={(e) => {
+                  const val = e.target.value.replace(/\D/g, '').slice(0, 8);
+                  setFormData((prev) => ({ ...prev, telefono: val }));
+                  if (fieldErrors.telefono) clearFieldError(setFieldErrors, 'telefono');
+                  if (errorMsg) setErrorMsg('');
+                }}
+                className="font-mono"
+                required
+              />
+            </Field>
+            <Field label="Correo electrónico" hint={emailHint} error={emailError} required>
+              <Input
+                type="email"
+                name="email"
+                value={formData.email}
+                onChange={(e) => {
+                  const val = e.target.value.toLowerCase().replace(/\s+/g, '');
+                  setFormData((prev) => ({ ...prev, email: val }));
+                  if (fieldErrors.email) clearFieldError(setFieldErrors, 'email');
+                  setEmailStatus({ checking: false, available: null, message: '' });
+                  if (errorMsg) setErrorMsg('');
+                }}
+                onBlur={() => checkEmailAvailability(formData.email)}
+                required
+              />
+            </Field>
+          </div>
+
+          <fieldset className="space-y-1.5">
+            <legend className="text-sm font-medium text-ink-soft">
+              Fecha de nacimiento
+              <span className="ml-0.5 text-danger-700" aria-hidden="true">*</span>
+              <span className="sr-only"> (obligatorio)</span>
+            </legend>
+            <div className="grid grid-cols-3 gap-2">
+              <Select
+                value={birthDay}
+                onChange={(e) => handleDatePartChange('day', e.target.value)}
+                invalid={Boolean(fieldErrors.fecha_nacimiento)}
+                aria-label="Día"
+                required
+              >
+                <option value="">Día</option>
+                {DAYS.map((d) => <option key={d} value={d}>{d}</option>)}
+              </Select>
+              <Select
+                value={birthMonth}
+                onChange={(e) => handleDatePartChange('month', e.target.value)}
+                invalid={Boolean(fieldErrors.fecha_nacimiento)}
+                aria-label="Mes"
+                required
+              >
+                <option value="">Mes</option>
+                {MONTHS.map((m) => <option key={m.val} value={m.val}>{m.name}</option>)}
+              </Select>
+              <Select
+                value={birthYear}
+                onChange={(e) => handleDatePartChange('year', e.target.value)}
+                invalid={Boolean(fieldErrors.fecha_nacimiento)}
+                aria-label="Año"
+                required
+              >
+                <option value="">Año</option>
+                {YEARS.map((y) => <option key={y} value={y}>{y}</option>)}
+              </Select>
             </div>
-            <div>
-              <h4 className="text-lg font-bold text-slate-900">¡Asociado Afiliado Exitosamente!</h4>
-              <p className="text-xs text-slate-600 mt-1">
-                Se ha generado el expediente y la cuenta de Aportaciones Ordinarias.
+            <p
+              role="status"
+              className={cn(
+                'text-xs',
+                ageInfo ? (ageInfo.valid ? 'text-success-700' : 'text-danger-700') : fieldErrors.fecha_nacimiento ? 'text-danger-700' : 'text-ink-subtle'
+              )}
+            >
+              {ageInfo ? ageInfo.message : fieldErrors.fecha_nacimiento || 'Debe tener 18 años cumplidos.'}
+            </p>
+          </fieldset>
+
+          <Field label="Dirección">
+            <Input name="direccion" value={formData.direccion} onChange={handleChange} placeholder="Calle, avenida, zona, municipio" />
+          </Field>
+        </section>
+
+        {/* ============ 2. DEPÓSITO Y CUENTA BANCARIA ============ */}
+        <section aria-labelledby="na-deposito" className="space-y-4 border-t border-line pt-5">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h3 id="na-deposito" className="text-sm font-semibold text-ink">Depósito inicial y cuenta bancaria</h3>
+            <Badge tone={esEmpleado ? 'warning' : 'brand'}>{esEmpleado ? 'Empleado del banco (EB)' : 'Externo (EX)'}</Badge>
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <Field label="Aportación inicial" hint="Mínimo Q100.00." error={fieldErrors.monto_aportacion} required>
+              <Input
+                type="number"
+                step="0.01"
+                min="100.00"
+                name="monto_aportacion"
+                prefix="Q"
+                value={formData.monto_aportacion}
+                onChange={handleChange}
+                className="tabular-nums"
+                required
+              />
+            </Field>
+            <div className="space-y-1.5">
+              <p className="text-sm font-medium text-ink-soft">Forma de pago</p>
+              <p className="flex h-10 items-center rounded-md border border-line bg-surface-muted px-3 text-sm text-ink">
+                Efectivo en ventanilla
               </p>
             </div>
-
-            <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 text-left space-y-2.5 text-xs">
-              <div className="flex justify-between">
-                <span className="text-slate-500">Código de Cliente:</span>
-                <span className="font-bold text-brand-700 font-mono text-sm">{successData.codigo_corporativo}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500">Nombre Titular:</span>
-                <span className="font-semibold text-slate-800">{successData.nombre_completo}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500">Tipo de Asociado:</span>
-                <span className="font-semibold text-slate-700">
-                  {successData.tipo_asociado === 'EB' ? 'Empleado Bancario (EB)' : 'Ajeno / Externo (EX)'}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500">Cuenta de Aportaciones:</span>
-                <span className="font-mono font-bold text-slate-800">{successData.cuenta_ahorro || successData.cuenta_aportaciones}</span>
-              </div>
-              {successData.cuenta_bancaria_creada && (
-                <div className="flex justify-between items-center p-2 bg-brand-50 rounded-lg border border-brand-200">
-                  <span className="text-brand-800 font-medium">Cuenta de Ahorro Bancaria Creada:</span>
-                  <span className="font-mono font-bold text-brand-700">{successData.cuenta_bancaria_creada}</span>
-                </div>
-              )}
-              {successData.numero_cuenta_bancaria_asociada && (
-                <div className="flex justify-between items-center p-2 bg-slate-100 rounded-lg border border-slate-200">
-                  <span className="text-slate-700 font-medium">Cuenta Bancaria Vinculada:</span>
-                  <span className="font-mono font-bold text-slate-800">{successData.numero_cuenta_bancaria_asociada}</span>
-                </div>
-              )}
-              <div className="flex justify-between">
-                <span className="text-slate-500">Depósito Inicial en Ventanilla:</span>
-                <span className="font-bold text-brand-600">Q{parseFloat(successData.saldo_inicial).toFixed(2)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500">Método de Recepción:</span>
-                <span className="font-medium text-slate-700">Efectivo en Ventanilla</span>
-              </div>
-            </div>
-
-            <div className="pt-2 flex justify-end">
-              <button
-                type="button"
-                onClick={onClose}
-                className="px-5 py-2.5 bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs rounded-md transition-all cursor-pointer"
-              >
-                Cerrar y Actualizar Padrón
-              </button>
-            </div>
           </div>
-        ) : (
-          <form onSubmit={handleSubmit} className="p-6 space-y-4 max-h-[75vh] overflow-y-auto">
-            {/* Sección: Datos Personales */}
-            <div>
-              <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
-                <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                  1. Datos de Identificación Personal
-                </h4>
-                <div className="flex items-center space-x-2">
-                  <span className="text-xs font-semibold text-slate-600">Tipo de Afiliado:</span>
-                  {dpiStatus.checking ? (
-                    <span className="inline-flex items-center px-2 py-0.5 bg-blue-50 border border-blue-200 text-blue-700 rounded-md text-xs font-medium">
-                      <Loader2 className="w-3 h-3 mr-1 animate-spin" />
-                      Consultando DPI...
-                    </span>
-                  ) : dpiStatus.verified ? (
-                    formData.tipo_asociado === 'EB' ? (
-                      <span className="inline-flex items-center px-2 py-0.5 bg-warning-50 border border-warning-300 text-warning-900 rounded-md text-xs font-bold">
-                        <ShieldCheck className="w-3 h-3 mr-1 text-warning-600" />
-                        Empleado Bancario (EB-X)
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center px-2 py-0.5 bg-brand-50 border border-brand-300 text-brand-900 rounded-md text-xs font-bold">
-                        <Check className="w-3 h-3 mr-1 text-brand-600" />
-                        Ajeno / Externo (EX-X)
-                      </span>
-                    )
-                  ) : (
-                    <span
-                      className="inline-flex items-center px-2 py-0.5 bg-slate-100 border border-slate-200 text-slate-500 rounded-md text-xs font-medium"
-                      title="Ingrese los 13 dígitos del DPI para clasificar automáticamente"
-                    >
-                      Detección automática por DPI
-                    </span>
-                  )}
-                </div>
+
+          {!esEmpleado && (
+            <Alert tone="info" icon={Building2}>
+              Como no tiene relación previa con el banco, se abrirá automáticamente una cuenta de ahorro en el banco
+              vinculada a su DPI, además de su cuenta en la cooperativa.
+            </Alert>
+          )}
+
+          {esEmpleado && (
+            <div className="space-y-3 rounded-md border border-line p-4">
+              <div className="flex items-center justify-between gap-3">
+                <h4 className="text-sm font-medium text-ink">Cuentas del colaborador en el banco</h4>
+                {loadingCuentasBanco && <span className="text-xs text-ink-muted">Consultando…</span>}
               </div>
 
-              {/* Fila 1: CUI, Primer Nombre, Segundo Nombre */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div className="sm:col-span-1">
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="block text-xs font-semibold text-slate-700">CUI / DPI *</label>
-                    <span
-                      className={`text-xs font-mono font-semibold ${
-                        formData.cui_dpi?.length === 13 ? 'text-brand-600 font-bold' : 'text-slate-400'
-                      }`}
-                    >
-                      {formData.cui_dpi?.length || 0}/13
-                    </span>
-                  </div>
-                  <div className="relative">
-                    <CreditCard className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
-                    <input
-                      type="text"
-                      name="cui_dpi"
-                      inputMode="numeric"
-                      maxLength={13}
-                      value={formData.cui_dpi}
-                      onChange={(e) => {
-                        const val = e.target.value.replace(/\D/g, '').slice(0, 13);
-                        setFormData((prev) => ({ ...prev, cui_dpi: val }));
-                        if (fieldErrors.cui_dpi) {
-                          setFieldErrors((prev) => {
-                            const next = { ...prev };
-                            delete next.cui_dpi;
-                            return next;
-                          });
-                        }
-                        if (errorMsg) setErrorMsg('');
-                      }}
-                      placeholder="13 dígitos numéricos"
-                      className={`w-full pl-9 pr-3 py-2 bg-slate-50 border rounded-md text-slate-900 focus:ring-2 focus:ring-brand-600 text-xs font-mono ${
-                        formData.cui_dpi?.length === 13
-                          ? dpiStatus.verified && formData.tipo_asociado === 'EB'
-                            ? 'border-warning-400 focus:border-warning-500'
-                            : 'border-brand-400 focus:border-brand-500'
-                          : fieldErrors.cui_dpi
-                          ? 'border-danger-400 bg-danger-50/20'
-                          : 'border-slate-300'
-                      }`}
-                      required
-                    />
-                  </div>
-                  {fieldErrors.cui_dpi ? (
-                    <p className="text-xs text-danger-600 font-medium mt-1">{fieldErrors.cui_dpi}</p>
-                  ) : dpiStatus.checking ? (
-                    <p className="text-xs text-blue-600 font-medium mt-1 flex items-center gap-1">
-                      <Loader2 className="w-3 h-3 animate-spin" /> Verificando en Core Banking...
-                    </p>
-                  ) : dpiStatus.verified && dpiStatus.message ? (
-                    <p
-                      className={`text-xs font-medium mt-1 ${
-                        formData.tipo_asociado === 'EB' ? 'text-warning-700 font-semibold' : 'text-brand-700'
-                      }`}
-                    >
-                      ✓ {dpiStatus.message}
-                    </p>
-                  ) : (
-                    <p className="text-xs text-slate-400 mt-1">Sin guiones ni espacios.</p>
-                  )}
-                </div>
-
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="block text-xs font-semibold text-slate-700">Primer Nombre *</label>
-                  </div>
-                  <input
-                    type="text"
-                    name="primer_nombre"
-                    value={formData.primer_nombre}
-                    onChange={(e) => {
-                      const val = e.target.value.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s]/g, '');
-                      setFormData((prev) => ({ ...prev, primer_nombre: val }));
-                      if (fieldErrors.primer_nombre) {
-                        setFieldErrors((prev) => {
-                          const next = { ...prev };
-                          delete next.primer_nombre;
-                          return next;
-                        });
-                      }
-                      if (errorMsg) setErrorMsg('');
-                    }}
-                    placeholder="Ej: Juan"
-                    className={`w-full px-3 py-2 bg-slate-50 border rounded-md text-slate-900 focus:ring-2 focus:ring-brand-600 text-xs ${
-                      fieldErrors.primer_nombre ? 'border-danger-400 bg-danger-50/20' : 'border-slate-300'
-                    }`}
-                    required
-                  />
-                  {fieldErrors.primer_nombre && (
-                    <p className="text-xs text-danger-600 font-medium mt-1">{fieldErrors.primer_nombre}</p>
-                  )}
-                </div>
-
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="block text-xs font-semibold text-slate-700">Segundo Nombre</label>
-                  </div>
-                  <input
-                    type="text"
-                    name="segundo_nombre"
-                    value={formData.segundo_nombre}
-                    onChange={(e) => {
-                      const val = e.target.value.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s]/g, '');
-                      setFormData((prev) => ({ ...prev, segundo_nombre: val }));
-                      if (errorMsg) setErrorMsg('');
-                    }}
-                    placeholder="Ej: José"
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-md text-slate-900 focus:ring-2 focus:ring-brand-600 text-xs"
-                  />
-                </div>
-              </div>
-
-              {/* Fila 2: Apellidos */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="block text-xs font-semibold text-slate-700">Primer Apellido *</label>
-                  </div>
-                  <input
-                    type="text"
-                    name="primer_apellido"
-                    value={formData.primer_apellido}
-                    onChange={(e) => {
-                      const val = e.target.value.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s]/g, '');
-                      setFormData((prev) => ({ ...prev, primer_apellido: val }));
-                      if (fieldErrors.primer_apellido) {
-                        setFieldErrors((prev) => {
-                          const next = { ...prev };
-                          delete next.primer_apellido;
-                          return next;
-                        });
-                      }
-                      if (errorMsg) setErrorMsg('');
-                    }}
-                    placeholder="Ej: Pérez"
-                    className={`w-full px-3 py-2 bg-slate-50 border rounded-md text-slate-900 focus:ring-2 focus:ring-brand-600 text-xs ${
-                      fieldErrors.primer_apellido ? 'border-danger-400 bg-danger-50/20' : 'border-slate-300'
-                    }`}
-                    required
-                  />
-                  {fieldErrors.primer_apellido && (
-                    <p className="text-xs text-danger-600 font-medium mt-1">{fieldErrors.primer_apellido}</p>
-                  )}
-                </div>
-
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="block text-xs font-semibold text-slate-700">Segundo Apellido</label>
-                  </div>
-                  <input
-                    type="text"
-                    name="segundo_apellido"
-                    value={formData.segundo_apellido}
-                    onChange={(e) => {
-                      const val = e.target.value.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s]/g, '');
-                      setFormData((prev) => ({ ...prev, segundo_apellido: val }));
-                      if (errorMsg) setErrorMsg('');
-                    }}
-                    placeholder="Ej: Gómez"
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-md text-slate-900 focus:ring-2 focus:ring-brand-600 text-xs"
-                  />
-                </div>
-              </div>
-
-              {/* Fila 3: Teléfono y Correo Electrónico */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="block text-xs font-semibold text-slate-700">Teléfono Móvil *</label>
-                    <span
-                      className={`text-xs font-mono font-semibold ${
-                        formData.telefono?.length === 8 ? 'text-brand-600 font-bold' : 'text-slate-400'
-                      }`}
-                    >
-                      {formData.telefono?.length || 0}/8 dígitos
-                    </span>
-                  </div>
-                  <div className="relative">
-                    <Phone className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      maxLength={8}
-                      name="telefono"
-                      value={formData.telefono}
-                      onChange={(e) => {
-                        const val = e.target.value.replace(/\D/g, '').slice(0, 8);
-                        setFormData((prev) => ({ ...prev, telefono: val }));
-                        if (fieldErrors.telefono) {
-                          setFieldErrors((prev) => {
-                            const next = { ...prev };
-                            delete next.telefono;
-                            return next;
-                          });
-                        }
-                        if (errorMsg) setErrorMsg('');
-                      }}
-                      placeholder="Ej: 55551234"
-                      className={`w-full pl-9 pr-3 py-2 bg-slate-50 border rounded-md text-slate-900 focus:ring-2 focus:ring-brand-600 text-xs font-mono ${
-                        formData.telefono?.length === 8
-                          ? 'border-brand-400 focus:border-brand-500'
-                          : fieldErrors.telefono
-                          ? 'border-danger-400 bg-danger-50/20'
-                          : 'border-slate-300'
-                      }`}
-                      required
-                    />
-                  </div>
-                  {fieldErrors.telefono ? (
-                    <p className="text-xs text-danger-600 font-medium mt-1">{fieldErrors.telefono}</p>
-                  ) : (
-                    <p className="text-xs text-slate-400 mt-1">8 dígitos sin guiones.</p>
-                  )}
-                </div>
-
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="block text-xs font-semibold text-slate-700">Correo Electrónico *</label>
-                    {emailStatus.checking && (
-                      <span className="text-xs text-slate-400 flex items-center gap-1">
-                        <Loader2 className="w-3 h-3 animate-spin" /> Verificando...
-                      </span>
-                    )}
-                    {!emailStatus.checking && emailStatus.available === true && (
-                      <span className="text-xs font-bold text-brand-600 bg-brand-50 px-1.5 py-0.5 rounded-full border border-brand-200">
-                        ✓ Disponible
-                      </span>
-                    )}
-                    {!emailStatus.checking && emailStatus.available === false && (
-                      <span className="text-xs font-bold text-danger-600 bg-danger-50 px-1.5 py-0.5 rounded-full border border-danger-200">
-                        ✕ Ya registrado
-                      </span>
-                    )}
-                  </div>
-                  <div className="relative">
-                    <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
-                    <input
-                      type="email"
-                      name="email"
-                      value={formData.email}
-                      onChange={(e) => {
-                        const val = e.target.value.toLowerCase().replace(/\s+/g, '');
-                        setFormData((prev) => ({ ...prev, email: val }));
-                        if (fieldErrors.email) {
-                          setFieldErrors((prev) => {
-                            const next = { ...prev };
-                            delete next.email;
-                            return next;
-                          });
-                        }
-                        setEmailStatus({ checking: false, available: null, message: '' });
-                        if (errorMsg) setErrorMsg('');
-                      }}
-                      onBlur={() => checkEmailAvailability(formData.email)}
-                      placeholder="correo@ejemplo.com"
-                      className={`w-full pl-9 pr-3 py-2 bg-slate-50 border rounded-md text-slate-900 focus:ring-2 focus:ring-brand-600 text-xs ${
-                        emailStatus.available === true
-                          ? 'border-brand-400 focus:border-brand-500'
-                          : emailStatus.available === false || fieldErrors.email
-                          ? 'border-danger-400 bg-danger-50/20 focus:border-danger-500'
-                          : 'border-slate-300'
-                      }`}
-                      required
-                    />
-                  </div>
-                  {emailStatus.available === false ? (
-                    <p className="text-xs text-danger-600 font-medium mt-1">{emailStatus.message}</p>
-                  ) : fieldErrors.email ? (
-                    <p className="text-xs text-danger-600 font-medium mt-1">{fieldErrors.email}</p>
-                  ) : emailStatus.available === true ? (
-                    <p className="text-xs text-brand-700 font-medium mt-1">{emailStatus.message}</p>
-                  ) : (
-                    <p className="text-xs text-slate-400 mt-1">Se enviará contraseña temporal.</p>
-                  )}
-                </div>
-              </div>
-
-              {/* Fila 4: Fecha de Nacimiento (Selectores Día, Mes, Año - Estilo Portal de Afiliación) */}
-              <div className="mt-3">
-                <div className="flex items-center justify-between mb-1">
-                  <label className="block text-xs font-semibold text-slate-700">
-                    Fecha de Nacimiento (Mayoría de Edad) *
-                  </label>
-                  {ageInfo && (
-                    <span
-                      className={`text-xs font-bold px-2 py-0.5 rounded-full ${
-                        ageInfo.valid
-                          ? 'bg-brand-50 text-brand-700 border border-brand-200'
-                          : 'bg-danger-50 text-danger-700 border border-danger-200'
-                      }`}
-                    >
-                      {ageInfo.valid ? `✓ ${ageInfo.age} años (Mayor de edad)` : 'Menor de edad'}
-                    </span>
-                  )}
-                </div>
-
-                <div className="grid grid-cols-3 gap-2">
-                  <div>
-                    <select
-                      value={birthDay}
-                      onChange={(e) => handleDatePartChange('day', e.target.value)}
-                      className={`w-full px-2.5 py-2 bg-slate-50 border rounded-md text-slate-900 text-xs font-medium focus:ring-2 focus:ring-brand-600 cursor-pointer ${
-                        fieldErrors.fecha_nacimiento ? 'border-danger-400 bg-danger-50/20' : 'border-slate-300'
-                      }`}
-                      required
-                    >
-                      <option value="">Día</option>
-                      {DAYS.map((d) => (
-                        <option key={d} value={d}>
-                          {d}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <select
-                      value={birthMonth}
-                      onChange={(e) => handleDatePartChange('month', e.target.value)}
-                      className={`w-full px-2.5 py-2 bg-slate-50 border rounded-md text-slate-900 text-xs font-medium focus:ring-2 focus:ring-brand-600 cursor-pointer ${
-                        fieldErrors.fecha_nacimiento ? 'border-danger-400 bg-danger-50/20' : 'border-slate-300'
-                      }`}
-                      required
-                    >
-                      <option value="">Mes</option>
-                      {MONTHS.map((m) => (
-                        <option key={m.val} value={m.val}>
-                          {m.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <select
-                      value={birthYear}
-                      onChange={(e) => handleDatePartChange('year', e.target.value)}
-                      className={`w-full px-2.5 py-2 bg-slate-50 border rounded-md text-slate-900 text-xs font-medium focus:ring-2 focus:ring-brand-600 cursor-pointer ${
-                        fieldErrors.fecha_nacimiento ? 'border-danger-400 bg-danger-50/20' : 'border-slate-300'
-                      }`}
-                      required
-                    >
-                      <option value="">Año</option>
-                      {YEARS.map((y) => (
-                        <option key={y} value={y}>
-                          {y}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
-                <div className="mt-1">
-                  {ageInfo ? (
-                    <p
-                      className={`text-xs font-medium ${
-                        ageInfo.valid ? 'text-brand-700' : 'text-danger-600'
-                      }`}
-                    >
-                      {ageInfo.message}
-                    </p>
-                  ) : fieldErrors.fecha_nacimiento ? (
-                    <p className="text-xs text-danger-600 font-medium">{fieldErrors.fecha_nacimiento}</p>
-                  ) : (
-                    <p className="text-xs text-slate-400">Requerido: 18+ años cumplidos para membresía.</p>
-                  )}
-                </div>
-              </div>
-
-              {/* Fila 5: Dirección */}
-              <div className="mt-3">
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Dirección Domiciliar</label>
-                <div className="relative">
-                  <MapPin className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
-                  <input
-                    type="text"
-                    name="direccion"
-                    value={formData.direccion}
-                    onChange={handleChange}
-                    placeholder="Calle, Avenida, Zona, Municipio"
-                    className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-300 rounded-md text-slate-900 focus:ring-2 focus:ring-brand-600 text-xs"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Sección: Fondeo Inicial y Vinculación Bancaria */}
-            <div className="pt-2 border-t border-slate-100 space-y-3">
-              <div className="flex items-center justify-between">
-                <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                  2. Fondeo Inicial y Vinculación Bancaria
-                </h4>
-                <span
-                  className={`text-xs font-semibold px-2 py-0.5 rounded-md border ${
-                    formData.tipo_asociado === 'EB'
-                      ? 'text-warning-800 bg-warning-50 border-warning-200'
-                      : 'text-brand-800 bg-brand-50 border-brand-200'
-                  }`}
-                >
-                  {formData.tipo_asociado === 'EB' ? 'Colaborador Bancario (EB)' : 'Afiliado Externo (EX)'}
-                </span>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Aportación Ordinaria Inicial (Mínimo Q100.00) *
-                  </label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-2 font-bold text-brand-700 text-xs">Q</span>
-                    <input
-                      type="number"
-                      step="0.01"
-                      min="100.00"
-                      name="monto_aportacion"
-                      value={formData.monto_aportacion}
-                      onChange={handleChange}
-                      className={`w-full pl-7 pr-3 py-2 bg-slate-50 border rounded-md text-slate-900 font-bold focus:ring-2 focus:ring-brand-600 text-xs ${
-                        fieldErrors.monto_aportacion ? 'border-danger-400 bg-danger-50/20' : 'border-slate-300'
-                      }`}
-                      required
-                    />
-                  </div>
-                  {fieldErrors.monto_aportacion && (
-                    <p className="text-xs text-danger-600 font-medium mt-1">{fieldErrors.monto_aportacion}</p>
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Método de Recepción *</label>
-                  <div className="w-full px-3 py-2 bg-slate-100 border border-slate-300 rounded-lg text-slate-800 text-xs font-semibold flex items-center justify-between">
-                    <div className="flex items-center space-x-2">
-                      <Banknote className="w-4 h-4 text-brand-600" />
-                      <span>Efectivo en Ventanilla (Recepción In Situ)</span>
-                    </div>
-                    <span className="text-xs bg-brand-100 text-brand-800 px-1.5 py-0.5 rounded font-bold">Oficial</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Si es Afiliado Externo (EX): Cuenta de Ahorro Bancaria Automática */}
-              {formData.tipo_asociado === 'EX' && (
-                <div className="p-3 bg-brand-50/70 border border-brand-200 rounded-lg flex items-start space-x-2.5">
-                  <Building2 className="w-4 h-4 text-brand-700 shrink-0 mt-0.5" />
-                  <div className="text-xs text-slate-700 leading-relaxed">
-                    <span className="font-bold text-brand-950 block">Apertura Automática de Cuenta de Ahorro en Entidad Bancaria:</span>
-                    Al ser un afiliado externo sin relación bancaria previa, el sistema aperturará automáticamente una <strong>Cuenta de Ahorro respaldada en la Entidad Bancaria Corporativa</strong> vinculada a su CUI, además de su cuenta en la Cooperativa.
-                  </div>
-                </div>
-              )}
-
-              {/* Si es Empleado Bancario (EB): Cuentas del Banco y Opción de Acreditar Dinero */}
-              {formData.tipo_asociado === 'EB' && (
-                <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-lg space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-2">
-                      <Landmark className="w-4 h-4 text-brand-700" />
-                      <span className="text-xs font-bold text-slate-800">
-                        Cuentas Bancarias del Colaborador (Banco de la Corporación)
-                      </span>
-                    </div>
-                    {loadingCuentasBanco && (
-                      <span className="text-xs text-slate-500 flex items-center gap-1">
-                        <Loader2 className="w-3 h-3 animate-spin text-brand-600" /> Consultando banco...
-                      </span>
-                    )}
-                  </div>
-
-                  {formData.cui_dpi?.length !== 13 ? (
-                    <p className="text-xs text-slate-500 italic">
-                      Ingrese los 13 dígitos del CUI en el paso 1 para consultar automáticamente sus cuentas en el Core Bancario.
-                    </p>
-                  ) : cuentasEmpleado.length > 0 ? (
-                    <div className="space-y-2.5">
-                      <p className="text-xs text-slate-600">
-                        Seleccione la cuenta bancaria corporativa a vincular al expediente del asociado:
-                      </p>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                        {cuentasEmpleado.map((cta) => {
-                          const isSelected = cuentaBancoSeleccionada === cta.numero_cuenta_bancaria;
-                          return (
-                            <div
-                              key={cta.id_cuenta_bancaria || cta.numero_cuenta_bancaria}
-                              onClick={() => {
+              {formData.cui_dpi?.length !== 13 ? (
+                <p className="text-sm text-ink-muted">Escriba los 13 dígitos del DPI para consultar sus cuentas en el banco.</p>
+              ) : loadingCuentasBanco && cuentasEmpleado.length === 0 ? (
+                <LoadingState label="Consultando cuentas…" className="py-6" />
+              ) : cuentasEmpleado.length > 0 ? (
+                <div className="space-y-3">
+                  <fieldset>
+                    <legend className="mb-2 text-sm text-ink-muted">Elija la cuenta que se vinculará al expediente:</legend>
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                      {cuentasEmpleado.map((cta) => {
+                        const isSelected = cuentaBancoSeleccionada === cta.numero_cuenta_bancaria;
+                        return (
+                          <label
+                            key={cta.id_cuenta_bancaria || cta.numero_cuenta_bancaria}
+                            className={cn(
+                              'block cursor-pointer rounded-md border p-3 text-sm transition-colors',
+                              'focus-within:ring-2 focus-within:ring-brand-600',
+                              isSelected ? 'border-brand-700 bg-brand-50' : 'border-line hover:border-line-strong'
+                            )}
+                          >
+                            <input
+                              type="radio"
+                              name="cuenta-banco"
+                              className="sr-only"
+                              checked={isSelected}
+                              onChange={() => {
                                 setCuentaBancoSeleccionada(cta.numero_cuenta_bancaria);
                                 setFormData((prev) => ({
                                   ...prev,
                                   numero_cuenta_bancaria: cta.numero_cuenta_bancaria,
                                 }));
                               }}
-                              className={`p-2.5 rounded-lg border text-xs cursor-pointer transition-all ${
-                                isSelected
-                                  ? 'bg-brand-50/90 border-brand-500 ring-2 ring-brand-500/20'
-                                  : 'bg-white border-slate-200 hover:border-slate-300'
-                              }`}
-                            >
-                              <div className="flex justify-between items-center mb-1">
-                                <span className="font-mono font-bold text-slate-800">{cta.numero_cuenta_bancaria}</span>
-                                <span className="text-xs px-1.5 py-0.5 rounded font-bold uppercase bg-slate-100 text-slate-700">
-                                  {cta.tipo_cuenta}
-                                </span>
-                              </div>
-                              <div className="flex justify-between items-center text-xs">
-                                <span className="text-slate-500">Saldo Disponible:</span>
-                                <span className={`font-bold ${cta.saldo_disponible > 0 ? 'text-brand-700' : 'text-warning-600'}`}>
-                                  Q{parseFloat(cta.saldo_disponible).toFixed(2)}
-                                </span>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-
-                      {/* Botón para Acreditar Dinero si la cuenta no tiene fondos suficientes */}
-                      <div className="pt-2 border-t border-slate-200/80 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                        <span className="text-xs text-slate-600">
-                          ¿Requiere recargar o depositar saldo a su cuenta bancaria?
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setShowAcreditarModal(!showAcreditarModal);
-                            setAcreditarErrorMsg('');
-                            setAcreditarSuccessMsg('');
-                          }}
-                          className="px-2.5 py-1 text-xs font-bold text-brand-700 hover:text-brand-800 bg-brand-50 hover:bg-brand-100 border border-brand-300 rounded-md transition-colors cursor-pointer self-start sm:self-auto"
-                        >
-                          {showAcreditarModal ? 'Ocultar Acreditación' : '+ Acreditar Dinero en Banco'}
-                        </button>
-                      </div>
-
-                      {/* Panel Interactivo de Acreditación / Depósito a Cuenta Bancaria */}
-                      {showAcreditarModal && (
-                        <div className="p-3 bg-white border border-brand-300 rounded-lg space-y-2.5 animate-in fade-in duration-150">
-                          <div className="flex items-center justify-between">
-                            <span className="text-xs font-bold text-slate-800">
-                              Acreditar Fondos a Cuenta Bancaria del Colaborador
+                            />
+                            <span className="flex items-center justify-between gap-2">
+                              <span className="font-mono text-ink">{cta.numero_cuenta_bancaria}</span>
+                              <Badge>{cta.tipo_cuenta}</Badge>
                             </span>
-                            <span className="text-xs font-mono text-brand-800 bg-brand-50 px-2 py-0.5 rounded font-semibold border border-brand-200">
-                              {cuentaBancoSeleccionada}
+                            <span className="mt-1 flex items-center justify-between text-xs">
+                              <span className="text-ink-muted">Saldo disponible</span>
+                              <span className={cn('font-medium tabular-nums', cta.saldo_disponible > 0 ? 'text-ink' : 'text-warning-800')}>
+                                {formatQ(cta.saldo_disponible)}
+                              </span>
                             </span>
-                          </div>
-
-                          {acreditarSuccessMsg && (
-                            <div className="p-2 rounded-lg bg-brand-50 border border-brand-300 text-brand-800 text-xs font-medium flex items-center space-x-1.5">
-                              <CheckCircle2 className="w-3.5 h-3.5 text-brand-600 shrink-0" />
-                              <span>{acreditarSuccessMsg}</span>
-                            </div>
-                          )}
-
-                          {acreditarErrorMsg && (
-                            <div className="p-2 rounded-lg bg-danger-50 border border-danger-300 text-danger-700 text-xs font-medium flex items-center space-x-1.5">
-                              <AlertCircle className="w-3.5 h-3.5 text-danger-600 shrink-0" />
-                              <span>{acreditarErrorMsg}</span>
-                            </div>
-                          )}
-
-                          <div className="flex items-center space-x-2">
-                            <div className="relative flex-1">
-                              <span className="absolute left-3 top-2 font-bold text-brand-700 text-xs">Q</span>
-                              <input
-                                type="number"
-                                step="0.01"
-                                min="1"
-                                value={montoAcreditar}
-                                onChange={(e) => setMontoAcreditar(e.target.value)}
-                                placeholder="Monto a acreditar"
-                                className="w-full pl-7 pr-3 py-1.5 bg-slate-50 border border-slate-300 rounded-md text-xs font-bold text-slate-900 focus:ring-2 focus:ring-brand-600"
-                              />
-                            </div>
-                            <button
-                              type="button"
-                              onClick={handleAcreditarFondos}
-                              disabled={acreditando}
-                              className="px-4 py-1.5 bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs rounded-md transition-all flex items-center space-x-1.5 cursor-pointer disabled:opacity-50"
-                            >
-                              {acreditando ? (
-                                <>
-                                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                                  <span>Acreditando...</span>
-                                </>
-                              ) : (
-                                <>
-                                  <span>Acreditar Fondos</span>
-                                </>
-                              )}
-                            </button>
-                          </div>
-                        </div>
-                      )}
+                          </label>
+                        );
+                      })}
                     </div>
-                  ) : (
-                    <div className="p-3 bg-warning-50/70 border border-warning-200 rounded-lg text-xs text-warning-900 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                      <span>No se encontraron cuentas activas en el Banco para este colaborador.</span>
-                      <button
-                        type="button"
-                        onClick={handleAperturarCuentaBanco}
-                        className="px-3 py-1 bg-warning-600 hover:bg-warning-700 text-white font-bold text-xs rounded-md transition-colors cursor-pointer self-start sm:self-auto"
-                      >
-                        Aperturar Cuenta en Banco
-                      </button>
+                  </fieldset>
+
+                  <div className="flex flex-col gap-2 border-t border-line pt-3 sm:flex-row sm:items-center sm:justify-between">
+                    <p className="text-sm text-ink-muted">¿Necesita depositar saldo en la cuenta bancaria?</p>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      aria-expanded={showAcreditarModal}
+                      onClick={() => {
+                        setShowAcreditarModal(!showAcreditarModal);
+                        setAcreditarErrorMsg('');
+                        setAcreditarSuccessMsg('');
+                      }}
+                    >
+                      {showAcreditarModal ? 'Ocultar' : 'Acreditar fondos'}
+                    </Button>
+                  </div>
+
+                  {showAcreditarModal && (
+                    <div className="space-y-3 rounded-md border border-line bg-surface-muted p-3">
+                      <p className="text-sm text-ink-soft">
+                        Acreditar a la cuenta <span className="font-mono text-ink">{cuentaBancoSeleccionada}</span>
+                      </p>
+                      {acreditarSuccessMsg && <Alert tone="success">{acreditarSuccessMsg}</Alert>}
+                      {acreditarErrorMsg && <Alert tone="danger">{acreditarErrorMsg}</Alert>}
+                      <div className="flex gap-2">
+                        <div className="flex-1">
+                          <Input
+                            type="number"
+                            step="0.01"
+                            min="1"
+                            prefix="Q"
+                            value={montoAcreditar}
+                            onChange={(e) => setMontoAcreditar(e.target.value)}
+                            aria-label="Monto a acreditar"
+                            className="tabular-nums"
+                          />
+                        </div>
+                        <Button onClick={handleAcreditarFondos} loading={acreditando} loadingText="Acreditando…">
+                          Acreditar
+                        </Button>
+                      </div>
                     </div>
                   )}
+                </div>
+              ) : (
+                <div className="flex flex-col gap-2 rounded-md border border-warning-200 bg-warning-50 p-3 text-sm text-warning-900 sm:flex-row sm:items-center sm:justify-between">
+                  <span>El colaborador no tiene cuentas activas en el banco.</span>
+                  <Button size="sm" variant="secondary" onClick={handleAperturarCuentaBanco}>
+                    Abrir cuenta en el banco
+                  </Button>
                 </div>
               )}
             </div>
+          )}
+        </section>
 
-            {/* Sección Informativa: Portal Web */}
-            <div className="pt-2 border-t border-slate-100">
-              <div className="p-3 bg-brand-50/70 border border-brand-200 rounded-lg flex items-start space-x-2.5">
-                <KeyRound className="w-4 h-4 text-brand-600 shrink-0 mt-0.5" />
-                <div className="text-xs text-slate-600 leading-relaxed">
-                  <span className="font-bold text-slate-800 block">Acceso al Portal Web de Asociados:</span>
-                  Al registrar al nuevo asociado, el sistema generará y enviará automáticamente a su correo electrónico una <strong>contraseña temporal segura</strong> junto con su código de cliente para su primer ingreso al portal web.
-                </div>
-              </div>
-            </div>
-
-            {/* Footer Modal */}
-            <div className="pt-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-t border-slate-100">
-              <button
-                type="button"
-                onClick={onClose}
-                disabled={loading}
-                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-md transition-colors cursor-pointer"
-              >
-                Cancelar
-              </button>
-
-              <div className="flex items-center space-x-2">
-                <button
-                  type="button"
-                  onClick={handleResetForm}
-                  disabled={loading}
-                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-800 font-semibold text-xs rounded-md transition-colors cursor-pointer"
-                >
-                  Limpiar Campos
-                </button>
-
-                <button
-                  type="submit"
-                  disabled={loading || emailStatus.available === false}
-                  className="px-5 py-2 bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs rounded-md flex items-center space-x-2 transition-all cursor-pointer disabled:opacity-50"
-                >
-                  {loading ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      <span>Registrando...</span>
-                    </>
-                  ) : (
-                    <>
-                      <span>Registrar Solicitud de Afiliación</span>
-                      <ShieldCheck className="w-4 h-4" />
-                    </>
-                  )}
-                </button>
-              </div>
-            </div>
-          </form>
-        )}
-      </div>
-    </div>,
-    document.body
+        <Alert tone="info">
+          Al registrarlo, el sistema enviará a su correo el código de usuario y una contraseña temporal para su primer
+          ingreso al portal.
+        </Alert>
+      </form>
+    </Modal>
   );
 };
 

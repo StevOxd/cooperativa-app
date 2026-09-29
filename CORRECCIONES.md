@@ -28,6 +28,11 @@ Registro de errores y mejoras encontrados durante el rediseño del frontend (ram
 | C-15 | Si el correo falla, la afiliación se completa igual y el asociado no recibe su contraseña | Backend · correo | Alta | Pendiente |
 | C-16 | Contraseñas temporales y secretos 2FA en los registros y en memoria | Backend · seguridad | Alta | Pendiente |
 | C-17 | Los traslados que entran a una cuenta se muestran como egreso en los movimientos | Frontend · asociado | Media | Por verificar |
+| C-18 | El comprobante de apertura de cuenta sale con datos de ejemplo y se descarga dos veces | Frontend · operador | Alta | Pendiente |
+| C-19 | Los productos de ahorro del operador están escritos a mano | Frontend · operador | Media | Pendiente |
+| C-20 | El operador y el asociado guardan el parentesco con valores distintos | Frontend y backend | Media | Pendiente |
+| C-21 | Suspender o activar un asociado no actualiza la lista ni avisa | Frontend · operador | Alta | Pendiente |
+| C-22 | El correo de prueba en modo demostrativo se anuncia como "Operación exitosa" | Frontend · admin | Baja | Pendiente |
 
 ---
 
@@ -128,6 +133,7 @@ Revisar también qué otras variables de `docker.env` se están perdiendo.
 **Qué pasa:** algunos mensajes que ve el usuario no los controla el diseño:
 - Backend: *"[SECURITY ERROR] La sesión bancaria ha expirado…"*, *"Por motivos de seguridad institucional…"*.
 - Handlers del frontend: *"Sesión cerrada por seguridad bancaria al regresar a la pantalla de acceso"* ([LoginPage](frontend/src/pages/LoginPage.jsx)).
+- Mensajes de la consulta de DPI en [NewAssociateModal](frontend/src/components/associates/NewAssociateModal.jsx): *"Colaborador Bancario identificado en Core Banking (Planilla Corporativa)"* y *"Persona identificada como Afiliado Externo / Ajeno al Banco"*.
 - Usted y tú mezclados en toasts y mensajes.
 
 **Propuesta:** revisarlos en la Fase 3.5 (textos), con frases cortas en "usted". Los del backend requieren un commit en `backend/`.
@@ -275,6 +281,59 @@ Un `TRANSFERENCIA` que **entra** a la cuenta (por ejemplo, un traslado aprobado 
 
 ---
 
+### C-18 · El comprobante de apertura de cuenta sale con datos de ejemplo y se descarga dos veces
+**Prioridad:** Alta · **Por corregir**
+
+**Qué pasa:** al abrir una cuenta en ventanilla, "Descargar comprobante" ([OpenAccountModal.jsx:174](frontend/src/components/associates/OpenAccountModal.jsx#L174)) pasa los datos agrupados (`{ asociado, cuenta, deposito }`), pero `generateAccountOpeningReceiptPdf` ([accountOpeningReceiptPdf.js](frontend/src/utils/accountOpeningReceiptPdf.js)) lee campos planos. El PDF muestra los valores de ejemplo: "CTA-AHORR-XXXXXX", "No especificado", "CASO-AFIL-XXXX".
+
+Además, el generador ya llama a `doc.save()` ([accountOpeningReceiptPdf.js:315](frontend/src/utils/accountOpeningReceiptPdf.js#L315)) y el modal vuelve a guardar el documento, por lo que el navegador descarga el archivo dos veces.
+
+**Cómo verificar:** abrir una cuenta desde Asociados y descargar el comprobante.
+
+**Propuesta:** pasar los campos con los nombres que espera el generador y guardar el PDF en un solo lugar.
+
+---
+
+### C-19 · Los productos de ahorro del operador están escritos a mano
+**Prioridad:** Media · **Por corregir**
+
+**Qué pasa:** el modal de apertura de cuenta tiene la lista de productos, tasas y montos mínimos fija en el código (`TIPOS_PRODUCTO`, [OpenAccountModal.jsx:23](frontend/src/components/associates/OpenAccountModal.jsx#L23)). El portal del asociado los lee de `/catalogo/tipos-cuenta`. Si cambia una tasa o un mínimo en la base de datos, el operador sigue viendo los valores anteriores y los dos portales no coinciden.
+
+**Propuesta:** leer el catálogo desde `/catalogo/tipos-cuenta` también en el modal del operador.
+
+---
+
+### C-20 · El operador y el asociado guardan el parentesco con valores distintos
+**Prioridad:** Media · **Por corregir**
+
+**Qué pasa:** el operador ofrece `HIJO/A, CONYUGE, PADRE/MADRE, HERMANO/A, SOBRINO/A, OTRO` ([BeneficiariesModal.jsx:34](frontend/src/components/associates/BeneficiariesModal.jsx#L34)) y el asociado `CÓNYUGE, HIJO/A, PADRE, MADRE, HERMANO/A, OTRO` ([EditBeneficiariesModal.jsx:6](frontend/src/components/associate/dashboard/EditBeneficiariesModal.jsx#L6)). Si uno guarda un valor que no existe en la lista del otro (por ejemplo "SOBRINO/A" o "CÓNYUGE" con tilde), el `<select>` del otro no lo encuentra y muestra la primera opción. Al guardar sin darse cuenta, el parentesco cambia.
+
+En pantalla ya se muestran bien los dos juegos de valores ([utils/parentesco.js](frontend/src/utils/parentesco.js)). Lo que falta es unificar los valores que se guardan.
+
+**Propuesta:** definir una sola lista (idealmente validada en el backend) y migrar los registros existentes.
+
+---
+
+### C-21 · Suspender o activar un asociado no actualiza la lista ni avisa
+**Prioridad:** Alta · **Por corregir**
+
+**Qué pasa:** [AssociatesManagementPage.jsx:48](frontend/src/pages/AssociatesManagementPage.jsx#L48) hace `const toast = useToast()`, pero el contexto devuelve `{ toast, addToast, removeToast }`. Al confirmar el cambio de estado, el backend sí lo guarda, pero `toast.success` lanza "toast.error is not a function", la tabla no se recarga y el operador no recibe ningún aviso. Parece que no pasó nada, y puede volver a intentarlo, lo que revierte el cambio.
+
+**Cómo verificar:** suspender a un asociado desde Asociados. En la consola aparece `TypeError: toast.error is not a function`.
+
+**Propuesta:** `const { toast } = useToast();`, como en el resto de páginas. Es un cambio de una línea.
+
+---
+
+### C-22 · El correo de prueba en modo demostrativo se anuncia como "Operación exitosa"
+**Prioridad:** Baja · **Por corregir**
+
+**Qué pasa:** si no hay una cuenta de Google configurada, el backend responde `success: true` con `simulado: true`. El modal ya muestra "El correo no salió", pero el aviso flotante sigue diciendo "Operación exitosa" ([GoogleEmailConfigModal.jsx](frontend/src/components/admin/GoogleEmailConfigModal.jsx), `handleSendTest`).
+
+**Propuesta:** usar `toast.warning` cuando la respuesta traiga `simulado`.
+
+---
+
 ## Corregidos durante el rediseño
 
 Errores visuales o de contenido que se corrigieron dentro de los commits del rediseño, porque no tocaban lógica.
@@ -301,4 +360,11 @@ Errores visuales o de contenido que se corrigieron dentro de los commits del red
 | El modal de movimientos mostraba "undefined%" como tasa de interés, porque las cuentas del resumen no traen ese campo. Ahora solo se muestra si existe | AccountMovementsModal | 3.4 |
 | El recorrido guiado prometía funciones que no existen (C-05). Se reescribieron sus pasos con lo que el portal hace hoy | AssociateOnboardingTour | 3.4 |
 | Los botones "Descargar estado de cuenta" usaban degradado | AccountMovementsModal | 3.4 |
+| La selección de la cuenta bancaria del colaborador (nuevo asociado) eran `<div>` con `onClick`: no se podía elegir con el teclado ni se anunciaba como opción. Ahora son radio buttons con el mismo aspecto | NewAssociateModal | 3.4 |
 | La tabla de créditos del operador ponía "Devuelta:" ante cualquier comentario del ejecutivo, incluso en créditos aprobados. Ahora dice "Devuelta:" solo si el estado es `DEVUELTA_OPERADOR` y "Ejecutivo:" en los demás casos | CreditsPanel | 3.4 |
+| La apertura de cuenta elegía el producto y el origen de fondos con `<div>` clicables. Ahora son radio buttons | OpenAccountModal | 3.4 |
+| Al imprimir el expediente salía también la página de fondo. Ahora el modal usa `printable` y solo se imprime la ficha, con espacio para firmas | AssociateExpedienteModal, `ui/Modal`, index.css | 3.4 |
+| El expediente y el selector de cuentas de beneficiarios nunca mostraban el tipo de cuenta: leían `tipo_cuenta`, pero el backend envía `tipo_cuenta_nombre` | AssociateExpedienteModal, BeneficiariesModal | 3.4 |
+| El parentesco se mostraba en código ("CONYUGE", "PADRE/MADRE") | AssociateExpedienteModal, BeneficiariesModal | 3.4 |
+| El modal de correo no distinguía "conectado", "sin verificar" y "sin configurar", y el envío de prueba simulado parecía real | GoogleEmailConfigModal | 3.4 |
+| En la tabla de asociados, la columna fija de acciones tapaba el estado en pantallas de 1366 px | AssociatesManagementPage | 3.4 |

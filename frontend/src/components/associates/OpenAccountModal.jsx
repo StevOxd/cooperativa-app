@@ -1,20 +1,24 @@
 import React, { useState, useEffect } from 'react';
-import { createPortal } from 'react-dom';
+import { Check, FileDown, Mail } from 'lucide-react';
 import api from '../../services/api';
 import { generateAccountOpeningReceiptPdf } from '../../utils/accountOpeningReceiptPdf';
-import {
-  X,
-  CreditCard,
-  AlertCircle,
-  Loader2,
-  CheckCircle2,
-  Wallet,
-  Banknote,
-  ShieldCheck,
-  FileDown,
-  Mail,
-  Check,
-} from 'lucide-react';
+import { Alert, Button, Field, Input, Modal, Select, cn } from '../ui';
+import { formatDateTime, formatQ } from '../../utils/format';
+
+const FORM_ID = 'apertura-cuenta';
+
+/** Opción seleccionable con aspecto de tarjeta (radio accesible con teclado). */
+const OptionCard = ({ name, checked, onSelect, children }) => (
+  <label
+    className={cn(
+      'block cursor-pointer rounded-md border p-3 text-sm transition-colors focus-within:ring-2 focus-within:ring-brand-600',
+      checked ? 'border-brand-700 bg-brand-50' : 'border-line hover:border-line-strong'
+    )}
+  >
+    <input type="radio" name={name} className="sr-only" checked={checked} onChange={onSelect} />
+    {children}
+  </label>
+);
 
 const TIPOS_PRODUCTO = [
   {
@@ -225,309 +229,157 @@ export const OpenAccountModal = ({ isOpen, onClose, asociado, onSuccess }) => {
     }
   };
 
-  return createPortal(
-    <div className="fixed inset-0 z-[999] overflow-y-auto bg-slate-950/60 flex items-center justify-center p-4">
-      <div
-        className="bg-white rounded-lg shadow-lg border border-slate-200 w-full max-w-xl overflow-hidden animate-in fade-in zoom-in-95 duration-200"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="open-account-modal-title"
+
+  if (successData) {
+    return (
+      <Modal
+        isOpen
+        onClose={onClose}
+        lockScroll={false}
+        title="Cuenta abierta"
+        description={`${successData.tipo_cuenta} para ${asociado.nombre_completo}.`}
+        footer={
+          <div className="flex w-full flex-col-reverse gap-2 sm:flex-row sm:justify-between">
+            <Button variant="secondary" onClick={onClose}>Cerrar</Button>
+            <div className="flex flex-col-reverse gap-2 sm:flex-row">
+              <Button
+                variant="secondary"
+                icon={emailSent ? Check : Mail}
+                onClick={handleSendEmail}
+                loading={sendingEmail}
+                loadingText="Enviando…"
+                disabled={emailSent}
+                title="Enviar el comprobante al correo del asociado"
+              >
+                {emailSent ? 'Comprobante enviado' : 'Enviar por correo'}
+              </Button>
+              <Button icon={FileDown} onClick={handleDownloadPdf} title="Descargar el comprobante en PDF">
+                Descargar comprobante
+              </Button>
+            </div>
+          </div>
+        }
       >
-        {/* Header Modal */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/50">
-          <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center text-blue-700">
-              <CreditCard className="w-5 h-5" />
-            </div>
-            <div>
-              <h3 id="open-account-modal-title" className="text-base font-bold text-slate-800">
-                Formulario 2: Apertura de Cuenta Financiera
-              </h3>
-              <p className="text-xs text-slate-500">
-                Titular: <span className="font-semibold text-slate-700">{asociado.nombre_completo}</span>
-              </p>
-            </div>
-          </div>
-          <button
-            onClick={onClose}
-            className="text-slate-400 hover:text-slate-600 p-1.5 rounded-md hover:bg-slate-100 transition-colors cursor-pointer"
-          >
-            <X className="w-5 h-5" />
-          </button>
+        <div className="space-y-4">
+          <dl className="divide-y divide-line rounded-md border border-line text-sm">
+            {[
+              ['Titular', asociado.nombre_completo],
+              ['Producto', successData.tipo_cuenta],
+              ['Número de cuenta', <span className="font-mono">{successData.numero_cuenta}</span>],
+              ['Saldo inicial', <span className="font-medium tabular-nums">{formatQ(successData.saldo_disponible)}</span>],
+              ['Origen de los fondos', formData.origen_fondos === 'EFECTIVO_VENTANILLA' ? 'Efectivo en ventanilla' : 'Otra cuenta del asociado'],
+              ['Fecha de apertura', formatDateTime(successData.fecha_apertura)],
+            ].map(([label, value]) => (
+              <div key={label} className="flex justify-between gap-4 px-4 py-2.5">
+                <dt className="text-ink-muted">{label}</dt>
+                <dd className="text-right text-ink">{value}</dd>
+              </div>
+            ))}
+          </dl>
+          {emailNotice && <Alert tone={emailSent ? 'success' : 'danger'}>{emailNotice}</Alert>}
         </div>
+      </Modal>
+    );
+  }
 
-        {/* Alerta de Error dentro del Modal */}
-        {errorMsg && (
-          <div className="mx-6 mt-4 p-3.5 rounded-lg bg-danger-50 border border-danger-200 flex items-start space-x-3 text-danger-700">
-            <AlertCircle className="w-5 h-5 shrink-0 mt-0.5 text-danger-600" />
-            <div className="text-xs font-semibold">{errorMsg}</div>
+  return (
+    <Modal
+      isOpen
+      onClose={onClose}
+      dismissible={!loading}
+      closeOnOverlay={false}
+      lockScroll={false}
+      size="lg"
+      title="Abrir cuenta"
+      description={`Titular: ${asociado.nombre_completo}`}
+      footer={
+        <>
+          <Button variant="secondary" onClick={onClose} disabled={loading}>Cancelar</Button>
+          <Button type="submit" form={FORM_ID} loading={loading} loadingText="Abriendo cuenta…">
+            Abrir cuenta
+          </Button>
+        </>
+      }
+    >
+      <form id={FORM_ID} onSubmit={handleSubmit} className="space-y-6">
+        {errorMsg && <Alert tone="danger">{errorMsg}</Alert>}
+
+        <fieldset>
+          <legend className="mb-2 text-sm font-medium text-ink-soft">
+            Producto
+            <span className="ml-0.5 text-danger-700" aria-hidden="true">*</span>
+          </legend>
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            {TIPOS_PRODUCTO.map((p) => (
+              <OptionCard
+                key={p.id_tipo_cuenta}
+                name="producto"
+                checked={formData.id_tipo_cuenta === p.id_tipo_cuenta}
+                onSelect={() => handleChange({ target: { name: 'id_tipo_cuenta', value: p.id_tipo_cuenta } })}
+              >
+                <span className="flex items-start justify-between gap-2">
+                  <span className="font-medium text-ink">{p.nombre}</span>
+                  <span className="shrink-0 tabular-nums text-ink-soft">{p.tasa}</span>
+                </span>
+                <span className="mt-1 block text-xs text-ink-muted">{p.descripcion}</span>
+                <span className="mt-2 block text-xs text-ink-subtle">Apertura desde {formatQ(p.monto_minimo)}</span>
+              </OptionCard>
+            ))}
           </div>
-        )}
+        </fieldset>
 
-        {/* Vista de Éxito / Boleta Oficial */}
-        {successData ? (
-          <div className="p-6 text-center space-y-4">
-            <div className="w-14 h-14 bg-brand-100 rounded-full flex items-center justify-center mx-auto text-brand-600">
-              <CheckCircle2 className="w-8 h-8" />
-            </div>
-            <div>
-              <h4 className="text-lg font-bold text-slate-900">¡Cuenta Aperturada Exitosamente!</h4>
-              <p className="text-xs text-slate-600 mt-1">
-                El producto financiero ha sido registrado y activado en el sistema core de la cooperativa.
-              </p>
-            </div>
+        <Field label="Depósito inicial" hint={`Mínimo ${formatQ(productoSeleccionado.monto_minimo)} para este producto.`} required>
+          <Input
+            type="number"
+            step="0.01"
+            min={productoSeleccionado.monto_minimo}
+            name="monto_apertura"
+            prefix="Q"
+            value={formData.monto_apertura}
+            onChange={handleChange}
+            className="tabular-nums sm:max-w-xs"
+            required
+          />
+        </Field>
 
-            <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 text-left space-y-2 text-xs">
-              <div className="flex justify-between">
-                <span className="text-slate-500">Titular:</span>
-                <span className="font-bold text-slate-800">{asociado.nombre_completo}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500">Producto:</span>
-                <span className="font-bold text-slate-800">{successData.tipo_cuenta}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500">Número de Cuenta Generado:</span>
-                <span className="font-mono font-bold text-brand-700 text-sm">{successData.numero_cuenta}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500">Saldo Disponible Inicial:</span>
-                <span className="font-bold text-brand-600 text-sm">
-                  Q{parseFloat(successData.saldo_disponible).toFixed(2)}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500">Origen de Fondos:</span>
-                <span className="font-semibold text-slate-700">
-                  {formData.origen_fondos === 'EFECTIVO_VENTANILLA' ? 'Efectivo en Ventanilla' : 'Cuenta Interna Cooperativa'}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500">Fecha de Alta:</span>
-                <span className="text-slate-700 font-medium">
-                  {new Date(successData.fecha_apertura).toLocaleString()}
-                </span>
-              </div>
-            </div>
-
-            {emailNotice && (
-              <div
-                className={`p-3 rounded-lg text-xs flex items-center space-x-2 ${
-                  emailSent
-                    ? 'bg-brand-50 text-brand-800 border border-brand-200'
-                    : 'bg-danger-50 text-danger-800 border border-danger-200'
-                }`}
-              >
-                {emailSent ? (
-                  <Check className="w-4 h-4 text-brand-600 shrink-0" />
-                ) : (
-                  <AlertCircle className="w-4 h-4 text-danger-600 shrink-0" />
-                )}
-                <span>{emailNotice}</span>
-              </div>
-            )}
-
-            <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-2">
-              <div className="flex items-center space-x-2 w-full sm:w-auto">
-                <button
-                  type="button"
-                  onClick={handleDownloadPdf}
-                  className="flex-1 sm:flex-initial px-4 py-2.5 bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs rounded-md transition-all flex items-center justify-center space-x-1.5 cursor-pointer"
-                  title="Descargar comprobante en formato PDF"
-                >
-                  <FileDown className="w-4 h-4" />
-                  <span>Descargar Boleta (PDF)</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={handleSendEmail}
-                  disabled={sendingEmail || emailSent}
-                  className="flex-1 sm:flex-initial px-4 py-2.5 bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs rounded-md transition-all flex items-center justify-center space-x-1.5 cursor-pointer disabled:opacity-50"
-                  title="Enviar comprobante por correo electrónico al asociado"
-                >
-                  {sendingEmail ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : emailSent ? (
-                    <>
-                      <Check className="w-4 h-4" />
-                      <span>Boleta Enviada</span>
-                    </>
-                  ) : (
-                    <>
-                      <Mail className="w-4 h-4" />
-                      <span>Enviar por Correo</span>
-                    </>
-                  )}
-                </button>
-              </div>
-
-              <button
-                type="button"
-                onClick={onClose}
-                className="w-full sm:w-auto px-5 py-2.5 bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold text-xs rounded-md transition-all cursor-pointer"
-              >
-                Cerrar y Actualizar Padrón
-              </button>
-            </div>
+        <fieldset className="space-y-3 border-t border-line pt-5">
+          <legend className="mb-2 text-sm font-medium text-ink-soft">Origen de los fondos</legend>
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <OptionCard
+              name="origen"
+              checked={formData.origen_fondos === 'EFECTIVO_VENTANILLA'}
+              onSelect={() => handleChange({ target: { name: 'origen_fondos', value: 'EFECTIVO_VENTANILLA' } })}
+            >
+              <span className="block font-medium text-ink">Efectivo en ventanilla</span>
+              <span className="block text-xs text-ink-muted">El asociado deposita en la agencia.</span>
+            </OptionCard>
+            <OptionCard
+              name="origen"
+              checked={formData.origen_fondos === 'CUENTA_INTERNA'}
+              onSelect={() => handleChange({ target: { name: 'origen_fondos', value: 'CUENTA_INTERNA' } })}
+            >
+              <span className="block font-medium text-ink">Otra cuenta del asociado</span>
+              <span className="block text-xs text-ink-muted">Se debita de una de sus cuentas en la cooperativa.</span>
+            </OptionCard>
           </div>
-        ) : (
-          <form onSubmit={handleSubmit} className="p-6 space-y-4 max-h-[75vh] overflow-y-auto">
-            {/* Selección de Producto */}
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2">
-                Seleccione el Producto Financiero *
-              </label>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                {TIPOS_PRODUCTO.map((p) => {
-                  const isSelected = formData.id_tipo_cuenta === p.id_tipo_cuenta;
-                  return (
-                    <div
-                      key={p.id_tipo_cuenta}
-                      onClick={() => handleChange({ target: { name: 'id_tipo_cuenta', value: p.id_tipo_cuenta } })}
-                      className={`p-3 rounded-lg border-2 transition-all cursor-pointer ${
-                        isSelected
-                          ? 'border-blue-600 bg-blue-50/50'
-                          : 'border-slate-200 hover:border-slate-300 bg-white'
-                      }`}
-                    >
-                      <div className="flex justify-between items-start">
-                        <p className="font-bold text-xs text-slate-800">{p.nombre}</p>
-                        <span className="text-xs font-bold text-brand-700 bg-brand-100 px-1.5 py-0.5 rounded">
-                          {p.tasa}
-                        </span>
-                      </div>
-                      <p className="text-xs text-slate-500 mt-1 line-clamp-2">{p.descripcion}</p>
-                      <p className="text-xs font-semibold text-blue-700 mt-2">
-                        Mínimo apertura: Q{p.monto_minimo.toFixed(2)}
-                      </p>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
 
-            {/* Monto de Apertura */}
-            <div>
-              <div className="flex justify-between items-center mb-1">
-                <label className="text-xs font-semibold text-slate-700 uppercase tracking-wider">
-                  Monto de Depósito Inicial *
-                </label>
-                <span className="text-xs text-slate-500">
-                  Mínimo requerido: <strong>Q{productoSeleccionado.monto_minimo.toFixed(2)}</strong>
-                </span>
-              </div>
-              <div className="relative">
-                <span className="absolute left-3 top-2.5 font-bold text-blue-700 text-sm">Q</span>
-                <input
-                  type="number"
-                  step="0.01"
-                  min={productoSeleccionado.monto_minimo}
-                  name="monto_apertura"
-                  value={formData.monto_apertura}
-                  onChange={handleChange}
-                  className="w-full pl-8 pr-3 py-2 bg-slate-50 border border-slate-300 rounded-md text-slate-900 font-bold focus:ring-2 focus:ring-blue-600 text-sm"
-                  required
-                />
-              </div>
-            </div>
-
-            {/* Origen de Fondos */}
-            <div className="pt-2 border-t border-slate-100">
-              <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2">
-                Origen de los Fondos para Apertura *
-              </label>
-
-              <div className="grid grid-cols-2 gap-3 mb-3">
-                <button
-                  type="button"
-                  onClick={() => handleChange({ target: { name: 'origen_fondos', value: 'EFECTIVO_VENTANILLA' } })}
-                  className={`p-3 rounded-md border text-center transition-all cursor-pointer ${
-                    formData.origen_fondos === 'EFECTIVO_VENTANILLA'
-                      ? 'border-blue-600 bg-blue-50/60 text-blue-700 font-bold'
-                      : 'border-slate-200 text-slate-600 hover:bg-slate-50'
-                  }`}
-                >
-                  <Banknote className="w-5 h-5 mx-auto mb-1 text-brand-600" />
-                  <span className="text-xs font-semibold block">Efectivo en Ventanilla</span>
-                  <span className="text-xs text-slate-400 block mt-0.5">Depósito in situ en agencia</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => handleChange({ target: { name: 'origen_fondos', value: 'CUENTA_INTERNA' } })}
-                  className={`p-3 rounded-md border text-center transition-all cursor-pointer ${
-                    formData.origen_fondos === 'CUENTA_INTERNA'
-                      ? 'border-blue-600 bg-blue-50/60 text-blue-700 font-bold'
-                      : 'border-slate-200 text-slate-600 hover:bg-slate-50'
-                  }`}
-                >
-                  <Wallet className="w-5 h-5 mx-auto mb-1 text-brand-600" />
-                  <span className="text-xs font-semibold block">Cuenta Interna</span>
-                  <span className="text-xs text-slate-400 block mt-0.5">Débito a otra cuenta del socio</span>
-                </button>
-              </div>
-
-              {/* Detalle según Origen */}
-              {formData.origen_fondos === 'CUENTA_INTERNA' && (
-                <div className="p-3 bg-slate-50 rounded-lg border border-slate-200">
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Cuenta Interna de Débito:
-                  </label>
-                  {cuentasAsociado.length > 0 ? (
-                    <select
-                      name="id_cuenta_origen"
-                      value={formData.id_cuenta_origen}
-                      onChange={handleChange}
-                      className="w-full px-3 py-2 bg-white border border-slate-300 rounded-md text-xs"
-                      required
-                    >
-                      {cuentasAsociado.map((c) => (
-                        <option key={c.id_cuenta} value={c.id_cuenta}>
-                          {c.tipo_cuenta} - {c.numero_cuenta} (Saldo: Q{parseFloat(c.saldo_disponible).toFixed(2)})
-                        </option>
-                      ))}
-                    </select>
-                  ) : (
-                    <p className="text-xs text-warning-700">El asociado no posee cuentas internas con saldo.</p>
-                  )}
-                </div>
-              )}
-            </div>
-
-            {/* Footer Modal */}
-            <div className="pt-4 flex justify-end space-x-3 border-t border-slate-100">
-              <button
-                type="button"
-                onClick={onClose}
-                disabled={loading}
-                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-md transition-colors cursor-pointer"
-              >
-                Cancelar
-              </button>
-              <button
-                type="submit"
-                disabled={loading}
-                className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-md flex items-center space-x-2 transition-all cursor-pointer disabled:opacity-50"
-              >
-                {loading ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    <span>Aperturando...</span>
-                  </>
-                ) : (
-                  <>
-                    <span>Confirmar Apertura</span>
-                    <ShieldCheck className="w-4 h-4" />
-                  </>
-                )}
-              </button>
-            </div>
-          </form>
-        )}
-      </div>
-    </div>,
-    document.body
+          {formData.origen_fondos === 'CUENTA_INTERNA' &&
+            (cuentasAsociado.length > 0 ? (
+              <Field label="Cuenta de la que se debita" required>
+                <Select name="id_cuenta_origen" value={formData.id_cuenta_origen} onChange={handleChange} required>
+                  {cuentasAsociado.map((c) => (
+                    <option key={c.id_cuenta} value={c.id_cuenta}>
+                      {c.tipo_cuenta} · {c.numero_cuenta} (saldo {formatQ(c.saldo_disponible)})
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+            ) : (
+              <Alert tone="warning">El asociado no tiene cuentas en la cooperativa con saldo.</Alert>
+            ))}
+        </fieldset>
+      </form>
+    </Modal>
   );
 };
 
