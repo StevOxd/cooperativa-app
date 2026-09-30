@@ -1,0 +1,79 @@
+# Integración continua: se ejecuta en cada Pull Request hacia main y en cada push a main.
+# Los nombres de los trabajos ("Frontend" y "Backend") son los que se eligen en
+# GitHub → Settings → Branches como checks obligatorios para fusionar.
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch: # permite lanzarlo a mano desde la pestaña Actions
+
+# Si se sube otro commit al mismo PR, se cancela la ejecución anterior.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  frontend:
+    name: Frontend
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - name: Descargar el código
+        uses: actions/checkout@v4
+
+      - name: Instalar Node 20 (igual que los Dockerfiles)
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Lint (ESLint)
+        run: npm run lint
+
+      - name: Build (Vite)
+        run: npm run build
+
+  backend:
+    name: Backend
+    runs-on: ubuntu-latest
+    steps:
+      - name: Descargar el código
+        uses: actions/checkout@v4
+
+      - name: Instalar Node 20 (igual que los Dockerfiles)
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: |
+            backend/package-lock.json
+            banco-backend/package-lock.json
+
+      # `npm ci` falla si package.json y package-lock.json no coinciden.
+      - name: Instalar dependencias (backend)
+        working-directory: backend
+        run: npm ci
+
+      - name: Instalar dependencias (banco-backend)
+        working-directory: banco-backend
+        run: npm ci
+
+      - name: Revisar sintaxis de todos los archivos .js
+        run: |
+          for dir in backend banco-backend; do
+            echo "Revisando $dir"
+            find "$dir" -path "$dir/node_modules" -prune -o -name '*.js' -print0 | xargs -0 -n1 node --check
+          done
+          echo "Sintaxis correcta"
