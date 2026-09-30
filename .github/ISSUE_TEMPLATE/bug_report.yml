@@ -1,0 +1,107 @@
+# Formulario de GitHub para reportar errores (Issues → New issue → "Reportar un error").
+# Los problemas de seguridad NO van aquí: ver SECURITY.md.
+name: Reportar un error
+description: Algo no funciona como debería.
+title: "[Error] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Gracias por reportarlo. Si el problema permite ver datos de otra persona, saltarse un permiso
+        o expone contraseñas o códigos, **no lo publique aquí**: repórtelo en privado según [SECURITY.md](https://github.com/StevOxd/cooperativa-app/blob/main/SECURITY.md).
+
+  - type: textarea
+    id: descripcion
+    attributes:
+      label: Qué pasa
+      description: Describa el error en una o dos frases.
+      placeholder: Al suspender a un asociado, la lista no se actualiza y no aparece ningún aviso.
+    validations:
+      required: true
+
+  - type: textarea
+    id: pasos
+    attributes:
+      label: Pasos para reproducirlo
+      description: Lo necesario para que otra persona vea el mismo error.
+      placeholder: |
+        1. Iniciar sesión como operador.
+        2. Ir a Asociados.
+        3. Suspender a un asociado activo.
+        4. Confirmar.
+    validations:
+      required: true
+
+  - type: textarea
+    id: esperado
+    attributes:
+      label: Qué se esperaba
+      placeholder: Que aparezca el aviso "…quedó suspendido" y la lista muestre el nuevo estado.
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Qué pasa en realidad
+      description: Si hay un mensaje de error en pantalla o en la consola del navegador, cópielo aquí.
+      placeholder: 'La ventana se cierra y la consola muestra "TypeError: toast.error is not a function".'
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Área
+      options:
+        - Frontend (pantallas)
+        - Backend (API)
+        - Banco (banco-backend)
+        - Base de datos
+        - Docker / infraestructura
+        - No sé
+    validations:
+      required: true
+
+  - type: dropdown
+    id: rol
+    attributes:
+      label: Rol afectado
+      multiple: true
+      options:
+        - Asociado
+        - Operador
+        - Ejecutivo
+        - Administrador
+        - Sin sesión (afiliación pública o login)
+    validations:
+      required: true
+
+  - type: dropdown
+    id: prioridad
+    attributes:
+      label: Prioridad sugerida
+      description: Quien revise el reporte puede ajustarla.
+      options:
+        - Alta (bloquea al usuario o afecta dinero o datos)
+        - Media (el usuario lo nota o se confunde)
+        - Baja (detalle o mejora interna)
+    validations:
+      required: true
+
+  - type: textarea
+    id: evidencia
+    attributes:
+      label: Capturas o archivos
+      description: Arrastre aquí capturas de pantalla, PDFs o registros. Oculte datos personales reales.
+    validations:
+      required: false
+
+  - type: input
+    id: entorno
+    attributes:
+      label: Dónde ocurrió
+      placeholder: Docker local, Codespaces, navegador Chrome 131…
+    validations:
+      required: false
