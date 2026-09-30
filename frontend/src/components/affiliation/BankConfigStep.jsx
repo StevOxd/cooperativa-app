@@ -1,21 +1,23 @@
 import React from 'react';
-import { Briefcase, Landmark, RotateCcw, ArrowLeft, ArrowRight } from 'lucide-react';
+import { ArrowLeft, ArrowRight } from 'lucide-react';
+import { Button, Field, Input, cn } from '../ui';
+import { formatQ, humanize } from '../../utils/format';
+import { IdentityBar, StepActions, StepHeader } from './StepHeader';
 
 /**
- * Step 1B: Account selection and initial contribution configuration for bank clients.
+ * Paso 2 (clientes del banco): cuenta bancaria de origen y aporte inicial.
  *
  * @component
- * @param {Object} props - Component properties.
- * @param {Object} props.bancoData - Bank payload containing verified accounts and profile.
- * @param {string|number} props.selectedCuentaBancariaId - Selected bank account ID.
- * @param {Function} props.setSelectedCuentaBancariaId - State updater for selected account.
- * @param {string} props.montoAportacion - Configured contribution amount.
- * @param {Function} props.setMontoAportacion - State updater for contribution amount.
- * @param {Object|null} props.cuentaSeleccionadaObj - Selected bank account object.
- * @param {Function} props.handleReset - Reset flow handler.
- * @param {Function} props.setPhase - State updater to advance/change phases.
- * @param {Function} props.setErrorMsg - State updater for error alerts.
- * @returns {JSX.Element} Rendered step.
+ * @param {Object} props
+ * @param {Object} props.bancoData - Persona y cuentas bancarias verificadas.
+ * @param {string|number} props.selectedCuentaBancariaId
+ * @param {Function} props.setSelectedCuentaBancariaId
+ * @param {string} props.montoAportacion
+ * @param {Function} props.setMontoAportacion
+ * @param {Object|null} props.cuentaSeleccionadaObj
+ * @param {Function} props.handleReset - Vuelve a la consulta de DPI.
+ * @param {Function} props.setPhase
+ * @param {Function} props.setErrorMsg
  */
 export const BankConfigStep = ({
   bancoData,
@@ -31,11 +33,11 @@ export const BankConfigStep = ({
   const handleProceed = () => {
     const monto = parseFloat(montoAportacion);
     if (isNaN(monto) || monto < 100) {
-      setErrorMsg('La aportación inicial mínima es de Q100.00.');
+      setErrorMsg('El aporte inicial mínimo es de Q100.00.');
       return;
     }
     if (cuentaSeleccionadaObj && parseFloat(cuentaSeleccionadaObj.saldo_disponible) < monto) {
-      setErrorMsg('Fondos insuficientes en la cuenta bancaria de ahorro seleccionada.');
+      setErrorMsg('Esa cuenta del banco no tiene saldo suficiente. Elija otra o reduzca el monto.');
       return;
     }
     setErrorMsg('');
@@ -43,125 +45,87 @@ export const BankConfigStep = ({
   };
 
   return (
-    <div className="space-y-5">
-      {/* Badge de Identificación */}
-      <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-        <div>
-          <span
-            className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-900 border border-blue-200"
-          >
-            {bancoData.tipo_sujeto === 'EMPLEADO_BANCO' ? (
-              <Briefcase className="w-3.5 h-3.5 text-blue-700" />
-            ) : (
-              <Landmark className="w-3.5 h-3.5 text-blue-700" />
-            )}
-            <span>{bancoData.tipo_sujeto_descripcion}</span>
-          </span>
-          <h3 className="text-lg font-extrabold text-slate-900 mt-2">
-            {bancoData.persona.nombre_completo}
-          </h3>
-          <p className="text-xs text-slate-500 font-mono">
-            DPI: {bancoData.persona.cui_dpi} {bancoData.persona.codigo_corporativo && `| Código: ${bancoData.persona.codigo_corporativo}`}
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={handleReset}
-          className="text-xs text-slate-500 hover:text-slate-800 flex items-center space-x-1 p-1.5 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
-          title="Cambiar DPI"
-        >
-          <RotateCcw className="w-3.5 h-3.5" />
-          <span>Cambiar</span>
-        </button>
-      </div>
+    <div>
+      <IdentityBar
+        nombre={bancoData.persona.nombre_completo}
+        dpi={bancoData.persona.cui_dpi}
+        detalle={bancoData.tipo_sujeto === 'EMPLEADO_BANCO' ? 'Colaborador del banco' : 'Cliente del banco'}
+        onChange={handleReset}
+      />
 
-      {/* Selección de Cuenta Bancaria de Ahorro para Débito */}
-      <div>
-        <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider mb-1.5">
-          Cuenta Bancaria de Origen (Monetaria o Ahorro) *
-        </label>
+      <StepHeader
+        step={2}
+        total={3}
+        title="Su primer ahorro"
+        description="Elija de qué cuenta del banco sale el dinero y cuánto quiere pasar a su nueva cuenta de ahorro en la cooperativa."
+      />
+
+      <fieldset>
+        <legend className="mb-2 text-sm font-medium text-ink-soft">
+          Cuenta del banco<span className="ml-0.5 text-danger-700" aria-hidden="true">*</span>
+          <span className="sr-only"> (obligatorio)</span>
+        </legend>
         <div className="space-y-2">
-          {bancoData.cuentas_bancarias.map((cb) => (
-            <label
-              key={cb.id_cuenta_bancaria}
-              className={`flex items-center justify-between p-3.5 rounded-2xl border-2 cursor-pointer transition-all ${
-                String(selectedCuentaBancariaId) === String(cb.id_cuenta_bancaria)
-                  ? 'border-blue-600 bg-blue-50/70 shadow-xs'
-                  : 'border-slate-200 bg-white hover:border-slate-300'
-              }`}
-            >
-              <div className="flex items-center space-x-3">
+          {bancoData.cuentas_bancarias.map((cb) => {
+            const checked = String(selectedCuentaBancariaId) === String(cb.id_cuenta_bancaria);
+            return (
+              <label
+                key={cb.id_cuenta_bancaria}
+                className={cn(
+                  'flex cursor-pointer items-center gap-3 rounded-md border p-3 transition-colors focus-within:ring-2 focus-within:ring-brand-600',
+                  checked ? 'border-brand-700 bg-brand-50' : 'border-line hover:border-line-strong'
+                )}
+              >
                 <input
                   type="radio"
                   name="cuenta_bancaria"
                   value={cb.id_cuenta_bancaria}
-                  checked={String(selectedCuentaBancariaId) === String(cb.id_cuenta_bancaria)}
+                  checked={checked}
                   onChange={(e) => setSelectedCuentaBancariaId(e.target.value)}
-                  className="w-4 h-4 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                  className="h-4 w-4 shrink-0 cursor-pointer accent-brand-700 focus-visible:outline-none"
                 />
-                <div>
-                  <p className="text-xs font-bold text-slate-900 font-mono">
-                    {cb.numero_cuenta_bancaria}
-                  </p>
-                  <p className="text-[11px] text-slate-500 font-medium">
-                    Cuenta {cb.tipo_cuenta} • Banco de la Corporación
-                  </p>
-                </div>
-              </div>
-              <div className="text-right">
-                <p className="text-xs font-extrabold text-blue-900">
-                  Q{parseFloat(cb.saldo_disponible).toFixed(2)}
-                </p>
-                <p className="text-[10px] text-slate-400 font-semibold uppercase">
-                  Disponible
-                </p>
-              </div>
-            </label>
-          ))}
+                <span className="min-w-0 flex-1">
+                  <span className="block font-mono text-sm text-ink">{cb.numero_cuenta_bancaria}</span>
+                  <span className="block text-xs text-ink-subtle">Cuenta {humanize(cb.tipo_cuenta).toLowerCase()}</span>
+                </span>
+                <span className="text-right">
+                  <span className="block text-sm font-medium text-ink tabular-nums">{formatQ(cb.saldo_disponible)}</span>
+                  <span className="block text-xs text-ink-subtle">disponible</span>
+                </span>
+              </label>
+            );
+          })}
         </div>
-      </div>
+      </fieldset>
 
-      {/* Monto de Aportación Inicial */}
-      <div>
-        <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
-          Monto de Apertura de Ahorro en Cooperativa (Mínimo Q100.00) *
-        </label>
-        <div className="relative">
-          <span className="absolute left-3.5 top-2.5 font-bold text-blue-700 text-base">Q</span>
-          <input
-            type="number"
-            step="0.01"
-            min="100.00"
-            value={montoAportacion}
-            onChange={(e) => setMontoAportacion(e.target.value)}
-            className="w-full pl-9 pr-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold focus:outline-none focus:ring-2 focus:ring-blue-600 text-base shadow-2xs"
-            required
-          />
-        </div>
-        <p className="text-[11px] text-slate-500 mt-1">
-          Este monto será transferido desde tu cuenta bancaria hacia tu nueva cuenta de Ahorro en la Cooperativa.
-        </p>
-      </div>
+      <Field
+        label="Aporte inicial"
+        hint="Mínimo Q100.00. Se debita de la cuenta del banco y se acredita en su cuenta de ahorro de la cooperativa."
+        required
+        className="mt-6"
+      >
+        <Input
+          type="number"
+          step="0.01"
+          min="100.00"
+          inputMode="decimal"
+          prefix="Q"
+          value={montoAportacion}
+          onChange={(e) => setMontoAportacion(e.target.value)}
+          className="tabular-nums sm:max-w-xs"
+          required
+        />
+      </Field>
 
-      {/* Botones */}
-      <div className="pt-4 flex justify-between items-center border-t border-slate-100">
-        <button
-          type="button"
-          onClick={handleReset}
-          className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-xl flex items-center space-x-1.5 transition-all cursor-pointer"
-        >
-          <ArrowLeft className="w-3.5 h-3.5" />
-          <span>Volver a DPI</span>
-        </button>
-        <button
-          type="button"
-          onClick={handleProceed}
-          className="px-6 py-2.5 bg-blue-700 hover:bg-blue-800 text-white font-bold text-sm rounded-xl shadow-md flex items-center space-x-2 transition-all cursor-pointer"
-        >
-          <span>Continuar a Credenciales</span>
-          <ArrowRight className="w-4 h-4" />
-        </button>
-      </div>
+      <StepActions>
+        <Button variant="ghost" icon={ArrowLeft} onClick={handleReset}>
+          Empezar de nuevo
+        </Button>
+        <Button onClick={handleProceed}>
+          Continuar
+          <ArrowRight className="w-4 h-4" aria-hidden="true" />
+        </Button>
+      </StepActions>
     </div>
   );
 };

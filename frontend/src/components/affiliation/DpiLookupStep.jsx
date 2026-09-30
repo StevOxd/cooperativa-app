@@ -1,19 +1,20 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Search, User, Loader2, ArrowRight } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
+import { Button, Field, Input } from '../ui';
+import { StepHeader } from './StepHeader';
 
 /**
- * Step 0: Initial CUI/DPI identity verification form for public affiliation.
+ * Paso inicial: consulta del DPI para saber si la persona ya es cliente del banco.
  *
  * @component
- * @param {Object} props - Component properties.
- * @param {string} props.cuiInput - Current CUI input value.
- * @param {Function} props.setCuiInput - State updater for CUI.
- * @param {Function} props.handleConsultarDpi - Submit handler.
- * @param {boolean} props.loading - Indicates API verification is in progress.
- * @param {string} props.errorMsg - Current error message to clear on typing.
- * @param {Function} props.setErrorMsg - State updater for error message.
- * @returns {JSX.Element} Rendered step.
+ * @param {Object} props
+ * @param {string} props.cuiInput
+ * @param {Function} props.setCuiInput
+ * @param {Function} props.handleConsultarDpi - Envío del formulario.
+ * @param {boolean} props.loading
+ * @param {string} props.errorMsg - Se limpia al escribir.
+ * @param {Function} props.setErrorMsg
  */
 export const DpiLookupStep = ({
   cuiInput,
@@ -24,63 +25,43 @@ export const DpiLookupStep = ({
   setErrorMsg,
 }) => {
   return (
-    <form onSubmit={handleConsultarDpi} className="space-y-6">
-      <div className="text-center space-y-2 border-b border-slate-100 pb-5">
-        <div className="w-12 h-12 bg-emerald-50 text-emerald-700 rounded-2xl flex items-center justify-center mx-auto border border-emerald-200">
-          <Search className="w-6 h-6" />
-        </div>
-        <h3 className="text-lg font-bold text-slate-900">Verificación de Identidad</h3>
-        <p className="text-xs text-slate-500 max-w-md mx-auto leading-relaxed">
-          Ingresa tu CUI / DPI para verificar si cuentas con una cuenta bancaria (monetaria o de ahorro) en la Corporación Bancaria o si debemos generar una nueva solicitud de apertura.
-        </p>
-      </div>
+    <form onSubmit={handleConsultarDpi} noValidate>
+      <StepHeader
+        title="Empecemos con su DPI"
+        description="Si ya tiene una cuenta monetaria o de ahorro en el banco, puede afiliarse ahora mismo. Si no, le daremos un número de caso para terminar el trámite en una agencia."
+      />
 
-      <div>
-        <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider mb-2">
-          CUI / DPI (13 Dígitos) *
-        </label>
-        <div className="relative">
-          <User className="w-5 h-5 text-slate-400 absolute left-3.5 top-3" />
-          <input
-            type="text"
-            maxLength={13}
-            value={cuiInput}
-            onChange={(e) => {
-              setCuiInput(e.target.value);
-              if (errorMsg) setErrorMsg('');
-            }}
-            placeholder="Ingrese CUI / DPI (13 dígitos)"
-            className="w-full pl-11 pr-4 py-3 bg-white border border-slate-300 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600 text-base font-mono tracking-wider shadow-2xs"
-            required
-            autoFocus
-          />
-        </div>
-      </div>
+      <Field label="Número de DPI" hint="Los 13 dígitos, sin espacios." required>
+        <Input
+          type="text"
+          inputMode="numeric"
+          autoComplete="off"
+          maxLength={13}
+          value={cuiInput}
+          onChange={(e) => {
+            setCuiInput(e.target.value);
+            if (errorMsg) setErrorMsg('');
+          }}
+          className="font-mono text-base tracking-wide"
+          required
+          autoFocus
+        />
+      </Field>
 
-      {/* Botón de Consulta */}
-      <button
-        type="submit"
-        disabled={loading}
-        className="w-full py-3 px-6 rounded-xl bg-blue-700 hover:bg-blue-800 text-white font-bold text-sm shadow-md flex items-center justify-center space-x-2 transition-all cursor-pointer disabled:opacity-50"
-      >
-        {loading ? (
-          <>
-            <Loader2 className="w-4 h-4 animate-spin" />
-            <span>Verificando en Entidad Bancaria...</span>
-          </>
-        ) : (
-          <>
-            <span>Verificar Identidad</span>
-            <ArrowRight className="w-4 h-4" />
-          </>
-        )}
-      </button>
+      <Button type="submit" fullWidth size="lg" className="mt-6" loading={loading} loadingText="Consultando…">
+        Continuar
+        <ArrowRight className="w-4 h-4" aria-hidden="true" />
+      </Button>
 
-      <div className="text-center pt-2">
-        <Link to="/login" className="text-xs font-bold text-slate-600 hover:text-emerald-700 transition-colors">
-          ¿Ya tienes cuenta activa? Inicia sesión aquí
+      <p className="mt-6 text-center text-sm text-ink-muted">
+        ¿Ya es asociado?{' '}
+        <Link
+          to="/login"
+          className="font-medium text-brand-700 hover:text-brand-800 hover:underline rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600"
+        >
+          Inicie sesión
         </Link>
-      </div>
+      </p>
     </form>
   );
 };

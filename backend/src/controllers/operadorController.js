@@ -74,7 +74,7 @@ const getBandejaSolicitudes = async (req, res) => {
     console.error('Error en operadorController.getBandejaSolicitudes:', error);
     return res.status(500).json({
       success: false,
-      message: 'Error al obtener la bandeja de solicitudes.',
+      message: 'No se pudo cargar la bandeja. Intente de nuevo.',
     });
   }
 };
@@ -111,7 +111,7 @@ const resolverSolicitud = async (req, res) => {
     if (solicitud.estado !== 'PENDIENTE') {
       return res.status(400).json({
         success: false,
-        message: `Esta solicitud ya fue resuelta anteriormente (Estado: ${solicitud.estado}).`,
+        message: `Esa solicitud ya fue resuelta.`,
       });
     }
 
@@ -128,7 +128,7 @@ const resolverSolicitud = async (req, res) => {
       const updateRes = await db.query(updateQuery, [idOperador, observaciones || 'Rechazado por operador.', id]);
       return res.status(200).json({
         success: true,
-        message: 'Solicitud rechazada exitosamente.',
+        message: 'Solicitud rechazada.',
         data: updateRes.rows[0],
       });
     }
@@ -294,7 +294,7 @@ const resolverSolicitud = async (req, res) => {
 
       return res.status(200).json({
         success: true,
-        message: 'Solicitud aprobada y fondos trasladados exitosamente.',
+        message: 'Traslado aprobado y fondos acreditados.',
         data: finalUpdateRes.rows[0],
       });
 
@@ -410,7 +410,7 @@ const getBandejaAfiliaciones = async (req, res) => {
     console.error('Error en operadorController.getBandejaAfiliaciones:', error);
     return res.status(500).json({
       success: false,
-      message: 'Error al obtener la bandeja de afiliaciones.',
+      message: 'No se pudo cargar la bandeja de afiliaciones. Intente de nuevo.',
     });
   }
 };
@@ -430,7 +430,7 @@ const bloquearCasoAfiliacion = async (req, res) => {
     console.error('Error en operadorController.bloquearCasoAfiliacion:', error);
     return res.status(500).json({
       success: false,
-      message: 'Error al intentar tomar el caso.',
+      message: 'No se pudo tomar el caso. Intente de nuevo.',
     });
   }
 };
@@ -451,7 +451,7 @@ const liberarCasoAfiliacion = async (req, res) => {
     console.error('Error en operadorController.liberarCasoAfiliacion:', error);
     return res.status(500).json({
       success: false,
-      message: 'Error al liberar el caso.',
+      message: 'No se pudo liberar el caso. Intente de nuevo.',
     });
   }
 };
@@ -495,7 +495,7 @@ const rechazarCasoAfiliacion = async (req, res) => {
     console.error('Error en operadorController.rechazarCasoAfiliacion:', error);
     return res.status(500).json({
       success: false,
-      message: 'Error al rechazar el caso de afiliación.',
+      message: 'No se pudo rechazar el caso. Intente de nuevo.',
     });
   }
 };
@@ -575,7 +575,7 @@ const getBandejaCreditos = async (req, res) => {
     console.error('Error en operadorController.getBandejaCreditos:', error);
     return res.status(500).json({
       success: false,
-      message: 'Error al obtener las solicitudes de crédito.',
+      message: 'No se pudieron cargar las solicitudes. Intente de nuevo.',
     });
   }
 };
@@ -616,7 +616,7 @@ const getEvaluacionCredito = async (req, res) => {
     console.error('Error en operadorController.getEvaluacionCredito:', error);
     return res.status(500).json({
       success: false,
-      message: 'Error al obtener la evaluación crediticia.',
+      message: 'No se pudo cargar la evaluación. Intente de nuevo.',
     });
   }
 };
@@ -639,7 +639,7 @@ const elevarSolicitudCredito = async (req, res) => {
     console.error('Error en operadorController.elevarSolicitudCredito:', error);
     return res.status(500).json({
       success: false,
-      message: 'Error al elevar la solicitud de crédito al Ejecutivo.',
+      message: 'No se pudo enviar la solicitud al ejecutivo. Intente de nuevo.',
     });
   }
 };
@@ -728,7 +728,7 @@ const getHistorialTraslados = async (req, res) => {
     console.error('Error en operadorController.getHistorialTraslados:', error);
     return res.status(500).json({
       success: false,
-      message: 'Error al consultar el historial de traslados.',
+      message: 'No se pudo cargar el historial de traslados. Intente de nuevo.',
     });
   }
 };

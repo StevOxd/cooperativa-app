@@ -92,9 +92,9 @@ export const UpdateProfileModal = ({ isOpen, onClose }) => {
   };
 
   return createPortal(
-    <div className="fixed inset-0 z-[999] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm overflow-y-auto">
+    <div className="fixed inset-0 z-[999] flex items-center justify-center p-4 bg-slate-950/60 overflow-y-auto">
       <div
-        className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl border border-slate-200 relative my-8"
+        className="bg-white rounded-lg max-w-lg w-full p-6 sm:p-8 shadow-lg border border-slate-200 relative my-8"
         role="dialog"
         aria-modal="true"
         aria-labelledby="update-profile-modal-title"
@@ -102,7 +102,7 @@ export const UpdateProfileModal = ({ isOpen, onClose }) => {
         {/* Encabezado del Modal */}
         <div className="flex justify-between items-center mb-6 border-b border-slate-100 pb-4">
           <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center border border-emerald-200">
+            <div className="w-10 h-10 rounded-lg bg-brand-50 text-brand-700 flex items-center justify-center border border-brand-200">
               <User className="w-5 h-5" />
             </div>
             <div>
@@ -113,7 +113,7 @@ export const UpdateProfileModal = ({ isOpen, onClose }) => {
           <button
             type="button"
             onClick={onClose}
-            className="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
+            className="text-slate-400 hover:text-slate-600 p-1.5 rounded-md hover:bg-slate-100 transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
@@ -121,37 +121,37 @@ export const UpdateProfileModal = ({ isOpen, onClose }) => {
 
         {/* Mensajes de Feedback */}
         {successMessage && (
-          <div className="mb-4 p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center space-x-2">
-            <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+          <div className="mb-4 p-3.5 rounded-lg bg-brand-50 border border-brand-200 text-brand-800 text-xs flex items-center space-x-2">
+            <CheckCircle2 className="w-4 h-4 text-brand-600 flex-shrink-0" />
             <span className="font-medium">{successMessage}</span>
           </div>
         )}
 
         {errorMessage && (
-          <div className="mb-4 p-3.5 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs flex items-center space-x-2">
-            <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0" />
+          <div className="mb-4 p-3.5 rounded-lg bg-danger-50 border border-danger-200 text-danger-700 text-xs flex items-center space-x-2">
+            <AlertCircle className="w-4 h-4 text-danger-600 flex-shrink-0" />
             <span className="font-medium">{errorMessage}</span>
           </div>
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Bloque de Información Institucional (Solo Lectura) */}
-          <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200/80 space-y-3">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 block">
+          <div className="bg-slate-50 p-4 rounded-lg border border-slate-200/80 space-y-3">
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-500 block">
               Identificación Corporativa (Solo Lectura)
             </span>
 
             <div className="grid grid-cols-2 gap-3 text-xs">
               <div>
-                <span className="text-slate-400 block text-[11px]">Usuario</span>
-                <span className="font-mono font-bold text-emerald-800 flex items-center space-x-1 mt-0.5">
-                  <KeyRound className="w-3.5 h-3.5 text-emerald-600" />
+                <span className="text-slate-400 block text-xs">Usuario</span>
+                <span className="font-mono font-bold text-brand-800 flex items-center space-x-1 mt-0.5">
+                  <KeyRound className="w-3.5 h-3.5 text-brand-600" />
                   <span>{user?.codigo_corporativo || '-'}</span>
                 </span>
               </div>
 
               <div>
-                <span className="text-slate-400 block text-[11px]">DPI / CUI</span>
+                <span className="text-slate-400 block text-xs">DPI / CUI</span>
                 <span className="font-mono font-medium text-slate-700 flex items-center space-x-1 mt-0.5">
                   <CreditCard className="w-3.5 h-3.5 text-slate-400" />
                   <span>{user?.cui_dpi || '-'}</span>
@@ -159,14 +159,14 @@ export const UpdateProfileModal = ({ isOpen, onClose }) => {
               </div>
 
               <div className="col-span-2">
-                <span className="text-slate-400 block text-[11px]">Nombre Completo</span>
+                <span className="text-slate-400 block text-xs">Nombre Completo</span>
                 <span className="font-semibold text-slate-800 block mt-0.5">
                   {user?.nombre_completo || user?.nombre || 'Usuario'}
                 </span>
               </div>
 
               <div className="col-span-2">
-                <span className="text-slate-400 block text-[11px]">Correo Institucional</span>
+                <span className="text-slate-400 block text-xs">Correo Institucional</span>
                 <span className="font-mono text-slate-600 flex items-center space-x-1 mt-0.5">
                   <Mail className="w-3.5 h-3.5 text-slate-400" />
                   <span>{user?.email || '-'}</span>
@@ -182,17 +182,17 @@ export const UpdateProfileModal = ({ isOpen, onClose }) => {
             </label>
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-                <Phone className="w-4 h-4 text-emerald-600" />
+                <Phone className="w-4 h-4 text-brand-600" />
               </div>
               <input
                 type="tel"
                 value={telefono}
                 onChange={(e) => setTelefono(e.target.value)}
                 placeholder="Ej. 5555-1234"
-                className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:border-emerald-600 focus:bg-white transition-all font-medium"
+                className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-300 rounded-md text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-600 focus:border-brand-600 focus:bg-white transition-all font-medium"
               />
             </div>
-            <p className="text-[11px] text-slate-400 pt-0.5">
+            <p className="text-xs text-slate-400 pt-0.5">
               Este número se utilizará para notificaciones de seguridad y contacto institucional.
             </p>
           </div>
@@ -203,14 +203,14 @@ export const UpdateProfileModal = ({ isOpen, onClose }) => {
               type="button"
               onClick={onClose}
               disabled={loading}
-              className="px-4 py-2.5 rounded-xl text-sm font-medium text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer disabled:opacity-50"
+              className="px-4 py-2.5 rounded-md text-sm font-medium text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer disabled:opacity-50"
             >
               Cancelar
             </button>
             <button
               type="submit"
               disabled={loading}
-              className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-sm shadow-md transition-all flex items-center space-x-2 disabled:opacity-50 cursor-pointer"
+              className="px-5 py-2.5 rounded-md bg-brand-600 hover:bg-brand-500 text-white font-semibold text-sm transition-all flex items-center space-x-2 disabled:opacity-50 cursor-pointer"
             >
               {loading && <Loader2 className="w-4 h-4 animate-spin" />}
               <span>{loading ? 'Guardando...' : 'Guardar Cambios'}</span>

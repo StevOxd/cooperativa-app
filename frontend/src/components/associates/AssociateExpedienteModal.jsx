@@ -1,25 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { createPortal } from 'react-dom';
+import { PlusCircle, Printer, Users } from 'lucide-react';
 import api from '../../services/api';
-import {
-  X,
-  FileText,
-  Printer,
-  CreditCard,
-  Users,
-  Shield,
-  Building2,
-  Calendar,
-  Phone,
-  Mail,
-  MapPin,
-  CheckCircle2,
-  AlertCircle,
-  Loader2,
-  PlusCircle,
-  UserCheck,
-} from 'lucide-react';
+import { Alert, Badge, Button, LoadingState, Modal, StatCard, StatGroup, cn } from '../ui';
+import { formatDate, formatQ, humanize } from '../../utils/format';
+import { parentescoLabel } from '../../utils/parentesco';
 
+/**
+ * Expediente del asociado: datos generales, posición consolidada, cuentas y
+ * beneficiarios. Se puede imprimir como ficha, con espacio para firmas.
+ */
 export const AssociateExpedienteModal = ({
   isOpen,
   onClose,
@@ -50,12 +39,12 @@ export const AssociateExpedienteModal = ({
           if (res.data?.success) {
             setExpediente(res.data.data);
           } else {
-            setErrorMsg(res.data?.message || 'Error al obtener expediente.');
+            setErrorMsg(res.data?.message || 'No se pudo cargar el expediente.');
           }
         })
         .catch((err) => {
           console.error('Error al consultar expediente:', err);
-          setErrorMsg(err.response?.data?.message || 'Error de conexión.');
+          setErrorMsg(err.response?.data?.message || 'No hay conexión con el servidor. Intente de nuevo.');
         })
         .finally(() => setLoading(false));
     }
@@ -67,293 +56,147 @@ export const AssociateExpedienteModal = ({
     window.print();
   };
 
-  return createPortal(
-    <div className="fixed inset-0 z-[999] overflow-y-auto bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4">
-      <div
-        className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-3xl overflow-hidden animate-in fade-in zoom-in-95 duration-200 print:shadow-none print:border-none print:m-0 print:w-full print:max-w-none"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="expediente-modal-title"
-      >
-        {/* Header Modal (Oculto al imprimir) */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/50 print:hidden">
-          <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center text-emerald-700">
-              <FileText className="w-5 h-5" />
-            </div>
+  const a = expediente?.asociado;
+
+  return (
+    <Modal
+      isOpen
+      onClose={onClose}
+      lockScroll={false}
+      printable
+      size="xl"
+      title="Expediente del asociado"
+      description="Datos generales, cuentas y beneficiarios."
+      footer={
+        <>
+          <Button variant="secondary" onClick={onClose}>Cerrar</Button>
+          <Button icon={Printer} onClick={handlePrint} disabled={!expediente} title="Imprimir o guardar en PDF">
+            Imprimir ficha
+          </Button>
+        </>
+      }
+    >
+      {loading ? (
+        <LoadingState label="Cargando expediente…" />
+      ) : errorMsg ? (
+        <Alert tone="danger">{errorMsg}</Alert>
+      ) : expediente ? (
+        <div className="space-y-6">
+          {/* Membrete: se imprime como encabezado de la ficha */}
+          <header className="flex flex-wrap items-start justify-between gap-4 border-b border-line-strong pb-4">
             <div>
-              <h3 id="expediente-modal-title" className="text-base font-bold text-slate-800">
-                Expediente Integral 360° del Asociado
-              </h3>
-              <p className="text-xs text-slate-500">
-                Reporte 1.1: Ficha de Posición Global y Registro de Cuentas
+              <p className="text-base font-semibold text-ink">Cooperativa Integral de Ahorro y Crédito, R.L.</p>
+              <p className="text-sm text-ink-muted">Ficha de posición global del asociado</p>
+              <p className="text-xs text-ink-subtle">
+                Emitida el {new Date().toLocaleDateString('es-GT', { dateStyle: 'long' })}
               </p>
             </div>
-          </div>
-          <div className="flex items-center space-x-2">
-            <button
-              onClick={handlePrint}
-              className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold flex items-center space-x-1.5 transition-colors cursor-pointer"
-              title="Imprimir o guardar en PDF"
-            >
-              <Printer className="w-4 h-4" />
-              <span>Imprimir Ficha</span>
-            </button>
-            <button
-              onClick={onClose}
-              className="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          </div>
-        </div>
-
-        {/* Contenido Principal */}
-        <div className="p-6 max-h-[80vh] overflow-y-auto print:max-h-none print:p-0 print:overflow-visible">
-          {loading ? (
-            <div className="py-16 text-center">
-              <Loader2 className="w-8 h-8 animate-spin text-emerald-600 mx-auto mb-2" />
-              <p className="text-xs text-slate-500">Cargando expediente 360°...</p>
+            <div className="text-right">
+              <Badge tone={a.estado_asociado === 'ACTIVO' ? 'success' : 'danger'}>{humanize(a.estado_asociado)}</Badge>
+              <p className="mt-1 font-mono text-xs text-ink-subtle">Asociado #{a.id_asociado}</p>
             </div>
-          ) : errorMsg ? (
-            <div className="p-4 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs font-semibold flex items-center space-x-2">
-              <AlertCircle className="w-5 h-5" />
-              <span>{errorMsg}</span>
+          </header>
+
+          <section aria-labelledby="exp-datos">
+            <h3 id="exp-datos" className="mb-3 text-sm font-semibold text-ink">Datos generales</h3>
+            <dl className="grid grid-cols-1 gap-x-6 gap-y-3 text-sm sm:grid-cols-3">
+              {[
+                ['Nombre', a.nombre_completo],
+                ['DPI', a.cui_dpi, 'font-mono'],
+                ['Código de usuario', a.codigo_corporativo || 'Sin acceso al portal', a.codigo_corporativo && 'font-mono'],
+                ['Teléfono', a.telefono || 'No registrado', a.telefono && 'font-mono'],
+                ['Correo', a.email || 'No registrado'],
+                ['Asociado desde', formatDate(a.fecha_ingreso)],
+              ].map(([label, value, valueClass]) => (
+                <div key={label}>
+                  <dt className="text-xs text-ink-muted">{label}</dt>
+                  <dd className={cn('mt-0.5 break-words text-ink', valueClass)}>{value}</dd>
+                </div>
+              ))}
+              <div className="sm:col-span-3">
+                <dt className="text-xs text-ink-muted">Dirección</dt>
+                <dd className="mt-0.5 text-ink">{a.direccion || 'No especificada'}</dd>
+              </div>
+            </dl>
+          </section>
+
+          <StatGroup columns={3}>
+            <StatCard label="Saldo total disponible" value={formatQ(expediente.metricas.saldo_total_disponible)} />
+            <StatCard label="Aportaciones" value={formatQ(expediente.metricas.saldo_aportaciones)} />
+            <StatCard label="Cuentas activas" value={expediente.metricas.total_cuentas} />
+          </StatGroup>
+
+          <section aria-labelledby="exp-cuentas" className="space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h3 id="exp-cuentas" className="text-sm font-semibold text-ink">Cuentas y beneficiarios</h3>
+              <div className="flex gap-2 print:hidden">
+                <Button size="sm" variant="secondary" icon={PlusCircle} onClick={() => onOpenNewAccount && onOpenNewAccount(expediente.asociado)}>
+                  Abrir cuenta
+                </Button>
+                <Button size="sm" variant="secondary" icon={Users} onClick={() => onOpenBeneficiarios && onOpenBeneficiarios(expediente.asociado)}>
+                  Beneficiarios
+                </Button>
+              </div>
             </div>
-          ) : expediente ? (
-            <div className="space-y-6">
-              {/* Membrete Formal de Reporte (Para impresión o vista formal) */}
-              <div className="border-b-2 border-emerald-800 pb-4 flex justify-between items-start">
-                <div className="flex items-center space-x-3">
-                  <div className="w-12 h-12 rounded-xl bg-emerald-700 flex items-center justify-center text-white font-black text-xl">
-                    <Building2 className="w-7 h-7" />
-                  </div>
-                  <div>
-                    <h2 className="text-lg font-black text-slate-900 tracking-tight">
-                      COOPERATIVA DE AHORRO Y CRÉDITO
-                    </h2>
-                    <p className="text-xs text-emerald-800 font-semibold tracking-wider uppercase">
-                      FICHA DE POSICIÓN GLOBAL DEL ASOCIADO (REPORTE 1.1)
-                    </p>
-                    <p className="text-[11px] text-slate-400">
-                      Fecha de emisión: {new Date().toLocaleDateString('es-GT', { dateStyle: 'full' })}
-                    </p>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <span
-                    className={`inline-block px-3 py-1 rounded-full text-xs font-bold ${
-                      expediente.asociado.estado_asociado === 'ACTIVO'
-                        ? 'bg-emerald-100 text-emerald-800'
-                        : 'bg-red-100 text-red-800'
-                    }`}
-                  >
-                    ESTADO: {expediente.asociado.estado_asociado}
-                  </span>
-                  <p className="text-xs text-slate-500 mt-1 font-mono">
-                    ID Socio: #{expediente.asociado.id_asociado}
-                  </p>
-                </div>
-              </div>
 
-              {/* Datos Personales */}
-              <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
-                <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">
-                  Datos Generales del Asociado
-                </h4>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
-                  <div>
-                    <span className="text-slate-400 block font-medium">Nombre Completo:</span>
-                    <span className="font-bold text-slate-800 text-sm">
-                      {expediente.asociado.nombre_completo}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-slate-400 block font-medium">CUI / DPI:</span>
-                    <span className="font-bold text-slate-800 font-mono text-sm">
-                      {expediente.asociado.cui_dpi}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-slate-400 block font-medium">Usuario:</span>
-                    <span className="font-bold text-emerald-700 font-mono text-sm">
-                      {expediente.asociado.codigo_corporativo || 'Sin acceso portal'}
-                    </span>
-                  </div>
-
-                  <div>
-                    <span className="text-slate-400 block font-medium">Teléfono:</span>
-                    <span className="font-semibold text-slate-700">
-                      {expediente.asociado.telefono || 'No registrado'}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-slate-400 block font-medium">Correo Electrónico:</span>
-                    <span className="font-semibold text-slate-700">
-                      {expediente.asociado.email || 'No registrado'}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-slate-400 block font-medium">Fecha de Afiliación:</span>
-                    <span className="font-semibold text-slate-700">
-                      {new Date(expediente.asociado.fecha_ingreso).toLocaleDateString()}
-                    </span>
-                  </div>
-
-                  <div className="sm:col-span-3">
-                    <span className="text-slate-400 block font-medium">Dirección de Domicilio:</span>
-                    <span className="font-semibold text-slate-700">
-                      {expediente.asociado.direccion || 'No especificada'}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Resumen Financiero Consolidado */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div className="p-4 bg-emerald-50 rounded-xl border border-emerald-200">
-                  <span className="text-xs text-emerald-800 font-semibold block">
-                    Saldo Total Disponible
-                  </span>
-                  <span className="text-xl font-extrabold text-emerald-700 font-mono">
-                    Q{expediente.metricas.saldo_total_disponible.toFixed(2)}
-                  </span>
-                </div>
-                <div className="p-4 bg-blue-50 rounded-xl border border-blue-200">
-                  <span className="text-xs text-blue-800 font-semibold block">
-                    Aportaciones Ordinarias
-                  </span>
-                  <span className="text-xl font-extrabold text-blue-700 font-mono">
-                    Q{expediente.metricas.saldo_aportaciones.toFixed(2)}
-                  </span>
-                </div>
-                <div className="p-4 bg-purple-50 rounded-xl border border-purple-200">
-                  <span className="text-xs text-purple-800 font-semibold block">
-                    Total Cuentas Activas
-                  </span>
-                  <span className="text-xl font-extrabold text-purple-700 font-mono">
-                    {expediente.metricas.total_cuentas}
-                  </span>
-                </div>
-              </div>
-
-              {/* Detalle de Cuentas Financieras */}
-              <div className="space-y-3">
-                <div className="flex justify-between items-center">
-                  <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider">
-                    Cuentas Financieras y Beneficiarios
-                  </h4>
-                  {/* Botones de acción rápida (Ocultos en impresión) */}
-                  <div className="flex items-center space-x-2 print:hidden">
-                    <button
-                      type="button"
-                      onClick={() => onOpenNewAccount && onOpenNewAccount(expediente.asociado)}
-                      className="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg text-xs font-bold flex items-center space-x-1 cursor-pointer"
-                    >
-                      <PlusCircle className="w-3.5 h-3.5" />
-                      <span>Aperturar Cuenta</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => onOpenBeneficiarios && onOpenBeneficiarios(expediente.asociado)}
-                      className="px-2.5 py-1 bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 rounded-lg text-xs font-bold flex items-center space-x-1 cursor-pointer"
-                    >
-                      <Users className="w-3.5 h-3.5" />
-                      <span>Beneficiarios</span>
-                    </button>
-                  </div>
-                </div>
-
-                <div className="space-y-3">
-                  {expediente.cuentas.map((c) => (
-                    <div
-                      key={c.id_cuenta}
-                      className="p-4 bg-white rounded-xl border border-slate-200 shadow-2xs space-y-3"
-                    >
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <span className="text-xs font-bold text-slate-800">{c.tipo_cuenta}</span>
-                          <p className="font-mono text-xs text-slate-600 font-semibold">
-                            {c.numero_cuenta}
-                          </p>
-                        </div>
-                        <div className="text-right">
-                          <span className="text-xs font-extrabold text-emerald-700 font-mono block">
-                            Q{c.saldo_disponible.toFixed(2)}
-                          </span>
-                          <span className="text-[10px] text-slate-400">
-                            Apertura: {new Date(c.fecha_apertura).toLocaleDateString()}
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Beneficiarios de esta cuenta */}
-                      <div className="pt-2 border-t border-slate-100">
-                        <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
-                          Beneficiarios Designados ({c.beneficiarios.length})
-                        </span>
-                        {c.beneficiarios.length > 0 ? (
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                            {c.beneficiarios.map((b) => (
-                              <div
-                                key={b.id_beneficiario}
-                                className="p-2 bg-slate-50 rounded-lg text-xs flex justify-between items-center border border-slate-100"
-                              >
-                                <div>
-                                  <span className="font-bold text-slate-800 block">
-                                    {b.nombre_completo}
-                                  </span>
-                                  <span className="text-[10px] text-slate-500">
-                                    {b.parentesco} {b.cui_dpi ? `• DPI: ${b.cui_dpi}` : ''}
-                                  </span>
-                                </div>
-                                <span className="font-mono font-extrabold text-purple-700 bg-purple-50 px-2 py-0.5 rounded">
-                                  {b.porcentaje.toFixed(2)}%
-                                </span>
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <p className="text-[11px] text-amber-600 italic">
-                            No se han declarado beneficiarios para esta cuenta aún.
-                          </p>
-                        )}
-                      </div>
+            <ul className="space-y-3">
+              {expediente.cuentas.map((c) => (
+                <li key={c.id_cuenta} className="print-avoid-break rounded-md border border-line p-4">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-medium text-ink">{c.tipo_cuenta_nombre || c.tipo_cuenta || 'Cuenta'}</p>
+                      <p className="font-mono text-xs text-ink-subtle">{c.numero_cuenta}</p>
                     </div>
-                  ))}
-                </div>
-              </div>
+                    <div className="text-right">
+                      <p className="font-medium text-ink tabular-nums">{formatQ(c.saldo_disponible)}</p>
+                      <p className="text-xs text-ink-subtle">Abierta el {formatDate(c.fecha_apertura)}</p>
+                    </div>
+                  </div>
 
-              {/* Bloque de Firmas Institucionales para Impresión */}
-              <div className="pt-12 hidden print:grid grid-cols-2 gap-8 text-center text-xs">
-                <div className="border-t border-slate-400 pt-2">
-                  <p className="font-bold text-slate-800">{expediente.asociado.nombre_completo}</p>
-                  <p className="text-slate-500">Firma del Asociado Titular</p>
-                  <p className="text-[10px] text-slate-400 font-mono">DPI: {expediente.asociado.cui_dpi}</p>
-                </div>
-                <div className="border-t border-slate-400 pt-2">
-                  <p className="font-bold text-slate-800">Oficial de Cumplimiento / Ventanilla</p>
-                  <p className="text-slate-500">Sello y Firma Institucional</p>
-                  <p className="text-[10px] text-slate-400 font-mono">Cooperativa Financiera RL</p>
-                </div>
-              </div>
-            </div>
-          ) : null}
-        </div>
+                  <div className="mt-3 border-t border-line pt-3">
+                    <p className="mb-2 text-xs text-ink-muted">
+                      Beneficiarios <span className="tabular-nums">({c.beneficiarios.length})</span>
+                    </p>
+                    {c.beneficiarios.length > 0 ? (
+                      <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                        {c.beneficiarios.map((b) => (
+                          <li key={b.id_beneficiario} className="flex items-center justify-between gap-3 text-sm">
+                            <span className="min-w-0">
+                              <span className="block truncate text-ink">{b.nombre_completo}</span>
+                              <span className="text-xs text-ink-subtle">
+                                {parentescoLabel(b.parentesco)}
+                                {b.cui_dpi && <> · DPI <span className="font-mono">{b.cui_dpi}</span></>}
+                              </span>
+                            </span>
+                            <span className="shrink-0 tabular-nums text-ink-soft">{parseFloat(b.porcentaje).toFixed(2)} %</span>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="text-sm text-warning-800">Esta cuenta todavía no tiene beneficiarios.</p>
+                    )}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </section>
 
-        {/* Footer Modal (Oculto en Impresión) */}
-        <div className="px-6 py-3 bg-slate-50 border-t border-slate-100 flex justify-end print:hidden">
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-5 py-2 bg-slate-800 hover:bg-slate-900 text-white font-bold text-xs rounded-xl transition-colors cursor-pointer"
-          >
-            Cerrar Expediente
-          </button>
+          {/* Firmas: solo al imprimir. Se usan <footer>/<span> porque la regla de impresión
+              de index.css quita márgenes y rellenos a todos los <div>. */}
+          <footer className="hidden grid-cols-2 gap-8 pt-16 text-center text-xs print:grid">
+            <span className="block border-t border-ink-subtle pt-2">
+              <span className="block font-medium text-ink">{a.nombre_completo}</span>
+              <span className="block text-ink-muted">Firma del asociado</span>
+              <span className="block font-mono text-ink-subtle">DPI {a.cui_dpi}</span>
+            </span>
+            <span className="block border-t border-ink-subtle pt-2">
+              <span className="block font-medium text-ink">Operador de ventanilla</span>
+              <span className="block text-ink-muted">Firma y sello</span>
+            </span>
+          </footer>
         </div>
-      </div>
-    </div>,
-    document.body
+      ) : null}
+    </Modal>
   );
 };
 

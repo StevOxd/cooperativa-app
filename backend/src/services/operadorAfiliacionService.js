@@ -45,7 +45,7 @@ const bloquearCaso = async ({ idSolicitud, idOperador }) => {
       return {
         status: 400,
         success: false,
-        message: `La solicitud ya no está pendiente (Estado: ${sol.estado}).`,
+        message: `Esa solicitud ya no está pendiente.`,
       };
     }
 
@@ -84,7 +84,7 @@ const bloquearCaso = async ({ idSolicitud, idOperador }) => {
     return {
       status: 200,
       success: true,
-      message: `Caso ${sol.numero_caso} tomado y bloqueado exitosamente para tu atención.`,
+      message: `Tomó el caso ${sol.numero_caso}. Nadie más puede atenderlo mientras usted lo tenga.`,
       data: {
         id_solicitud: sol.id_solicitud,
         numero_caso: sol.numero_caso,
@@ -117,7 +117,7 @@ const liberarCaso = async ({ idSolicitud, idOperador, esAdmin }) => {
   return {
     status: 200,
     success: true,
-    message: 'Caso liberado exitosamente.',
+    message: 'Caso liberado.',
   };
 };
 
@@ -129,7 +129,7 @@ const rechazarCaso = async ({ idSolicitud, idOperador, motivo }) => {
     return {
       status: 400,
       success: false,
-      message: 'Debe especificar el motivo del rechazo o cancelación del caso.',
+      message: 'Escriba el motivo del rechazo.',
     };
   }
 
@@ -149,14 +149,14 @@ const rechazarCaso = async ({ idSolicitud, idOperador, motivo }) => {
     return {
       status: 404,
       success: false,
-      message: 'Solicitud no encontrada o ya no está pendiente.',
+      message: 'Esa solicitud no existe o ya no está pendiente.',
     };
   }
 
   return {
     status: 200,
     success: true,
-    message: `Caso ${updateRes.rows[0].numero_caso} cancelado correctamente.`,
+    message: `Se canceló el caso ${updateRes.rows[0].numero_caso}.`,
     data: updateRes.rows[0],
   };
 };
@@ -187,7 +187,7 @@ const formalizarAfiliacion = async ({ idSolicitud, idOperador, rolUsuario, datos
     return {
       status: 400,
       success: false,
-      message: 'La aportación inicial de membresía no puede ser inferior a Q100.00.',
+      message: 'El depósito inicial mínimo es de Q100.00.',
     };
   }
 
@@ -213,7 +213,7 @@ const formalizarAfiliacion = async ({ idSolicitud, idOperador, rolUsuario, datos
       return {
         status: 400,
         success: false,
-        message: `Esta solicitud ya fue procesada anteriormente (Estado: ${sol.estado}).`,
+        message: `Esa solicitud ya fue procesada.`,
       };
     }
 
@@ -223,7 +223,7 @@ const formalizarAfiliacion = async ({ idSolicitud, idOperador, rolUsuario, datos
       return {
         status: 409,
         success: false,
-        message: 'El caso está siendo atendido por otro operador.',
+        message: 'Otro operador está atendiendo este caso.',
       };
     }
 
@@ -259,7 +259,7 @@ const formalizarAfiliacion = async ({ idSolicitud, idOperador, rolUsuario, datos
       return {
         status: 400,
         success: false,
-        message: 'Los nombres y apellidos únicamente pueden contener letras, sin números ni caracteres especiales.',
+        message: 'Los nombres y apellidos solo pueden llevar letras.',
       };
     }
     if (sNombreFinal && !nameRegex.test(sNombreFinal)) {
@@ -267,7 +267,7 @@ const formalizarAfiliacion = async ({ idSolicitud, idOperador, rolUsuario, datos
       return {
         status: 400,
         success: false,
-        message: 'El segundo nombre únicamente puede contener letras.',
+        message: 'El segundo nombre solo puede llevar letras.',
       };
     }
     if (sApellidoFinal && !nameRegex.test(sApellidoFinal)) {
@@ -275,7 +275,7 @@ const formalizarAfiliacion = async ({ idSolicitud, idOperador, rolUsuario, datos
       return {
         status: 400,
         success: false,
-        message: 'El segundo apellido únicamente puede contener letras.',
+        message: 'El segundo apellido solo puede llevar letras.',
       };
     }
 
@@ -286,7 +286,7 @@ const formalizarAfiliacion = async ({ idSolicitud, idOperador, rolUsuario, datos
         return {
           status: 400,
           success: false,
-          message: `El número de teléfono debe contener exactamente 8 dígitos numéricos (ingresó ${cleanTel.length} dígitos).`,
+          message: `El teléfono debe tener 8 dígitos (tiene ${cleanTel.length}).`,
         };
       }
     }
@@ -358,7 +358,7 @@ const formalizarAfiliacion = async ({ idSolicitud, idOperador, rolUsuario, datos
         return {
           status: 400,
           success: false,
-          message: `El correo electrónico "${emailUsuario}" ya se encuentra registrado por otro usuario en la cooperativa. Por favor modifique el correo en la ficha antes de formalizar.`,
+          message: `El correo ${emailUsuario} ya lo usa otra persona. Cámbielo en la ficha para continuar.`,
         };
       }
     }
@@ -477,7 +477,7 @@ const formalizarAfiliacion = async ({ idSolicitud, idOperador, rolUsuario, datos
     return {
       status: 200,
       success: true,
-      message: `Afiliación del caso ${sol.numero_caso} formalizada con éxito. Se ha aperturado su cuenta de ahorro en la Entidad Bancaria y generado su acceso a la cooperativa.`,
+      message: `Afiliación del caso ${sol.numero_caso} completada. Se abrió la cuenta de ahorro y se creó el acceso al portal.`,
       data: {
         id_asociado: idAsociado,
         nombre_completo: personaNombreCompleto,
@@ -500,7 +500,7 @@ const formalizarAfiliacion = async ({ idSolicitud, idOperador, rolUsuario, datos
       return {
         status: 400,
         success: false,
-        message: 'El correo electrónico ya se encuentra registrado por otro usuario en la cooperativa. Ingrese un correo diferente en la ficha.',
+        message: 'Ese correo ya lo usa otra persona. Cámbielo en la ficha para continuar.',
       };
     }
     throw error;

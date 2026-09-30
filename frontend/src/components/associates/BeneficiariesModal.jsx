@@ -1,24 +1,36 @@
 import React, { useState, useEffect } from 'react';
-import { createPortal } from 'react-dom';
+import { History, Plus, Trash2 } from 'lucide-react';
 import api from '../../services/api';
 import {
-  X,
-  Users2,
-  Plus,
-  Trash2,
-  AlertCircle,
-  CheckCircle2,
-  Loader2,
-  PieChart,
-  Percent,
-  Sparkles,
-  ShieldCheck,
-  History,
-  Clock,
-  User,
-  ArrowRight,
-} from 'lucide-react';
+  Alert, Badge, Button, EmptyState, Field, Input, LoadingState, Modal, Select, TabPanel, Tabs, cn,
+} from '../ui';
+import { formatDateTime, formatQ, humanize } from '../../utils/format';
+import { ROLE_LABELS } from '../layout/navigation';
+import { parentescoLabel } from '../../utils/parentesco';
 
+const FORM_ID = 'beneficiarios-operador';
+const TABS_ID = 'beneficiarios-operador';
+
+/** Valor guardado → texto en pantalla (los valores no cambian). */
+const CuentaSelect = ({ cuentas, value, onChange }) =>
+  cuentas.length > 0 ? (
+    <Field label="Cuenta" required>
+      <Select value={value || ''} onChange={onChange} required>
+        {cuentas.map((c) => (
+          <option key={c.id_cuenta} value={c.id_cuenta}>
+            {c.tipo_cuenta_nombre || c.tipo_cuenta || 'Cuenta'} · {c.numero_cuenta} (saldo {formatQ(c.saldo_disponible)})
+          </option>
+        ))}
+      </Select>
+    </Field>
+  ) : (
+    <Alert tone="warning">El asociado no tiene cuentas para asignar beneficiarios.</Alert>
+  );
+
+/**
+ * Declaración de beneficiarios de las cuentas de un asociado, hecha por el
+ * operador en ventanilla, con el historial de cambios. La suma debe ser 100 %.
+ */
 const PARENTESCOS = ['HIJO/A', 'CONYUGE', 'PADRE/MADRE', 'HERMANO/A', 'SOBRINO/A', 'OTRO'];
 
 export const BeneficiariesModal = ({
@@ -230,7 +242,7 @@ export const BeneficiariesModal = ({
     }
 
     if (!hasChanges) {
-      setErrorMsg('No se detectaron modificaciones en los beneficiarios. Realice algún cambio para guardar.');
+      setErrorMsg('No hay cambios por guardar.');
       return;
     }
 
@@ -245,15 +257,15 @@ export const BeneficiariesModal = ({
 
     for (const b of beneficiarios) {
       if (!b.nombre_completo.trim()) {
-        setErrorMsg('Todos los beneficiarios deben tener nombre completo.');
+        setErrorMsg('Escriba el nombre completo de cada beneficiario.');
         return;
       }
       if (b.telefono && b.telefono.length > 0 && b.telefono.length !== 8) {
-        setErrorMsg(`El teléfono de "${b.nombre_completo}" debe contener exactamente 8 dígitos numéricos.`);
+        setErrorMsg(`El teléfono de ${b.nombre_completo} debe tener 8 dígitos.`);
         return;
       }
       if (parseFloat(b.porcentaje) <= 0) {
-        setErrorMsg('Cada beneficiario debe tener un porcentaje mayor al 0.00%.');
+        setErrorMsg('Cada beneficiario debe tener un porcentaje mayor que 0 %.');
         return;
       }
     }
@@ -273,16 +285,16 @@ export const BeneficiariesModal = ({
       });
 
       if (res.data?.success) {
-        setSuccessMsg('Beneficiarios declarados y guardados exitosamente (100.00% distribuido).');
+        setSuccessMsg('Beneficiarios guardados.');
         setMotivoCambio('');
         setInitialBeneficiarios(JSON.parse(JSON.stringify(beneficiarios)));
         loadHistorialBeneficiarios(selectedCuentaId);
         if (onSuccess) onSuccess();
       } else {
-        setErrorMsg(res.data?.message || 'Error al guardar beneficiarios.');
+        setErrorMsg(res.data?.message || 'No se pudieron guardar los beneficiarios. Intente de nuevo.');
       }
     } catch (err) {
-      setErrorMsg(err.response?.data?.message || 'Error al conectar con el servidor.');
+      setErrorMsg(err.response?.data?.message || 'No hay conexión con el servidor. Intente de nuevo.');
     } finally {
       setSaving(false);
     }
@@ -290,499 +302,250 @@ export const BeneficiariesModal = ({
 
   if (!isOpen || !asociado) return null;
 
-  return createPortal(
-    <div className="fixed inset-0 z-[999] overflow-y-auto bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4">
-      <div
-        className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="beneficiaries-modal-title"
-      >
-        {/* Header Modal */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/50">
-          <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-xl bg-purple-100 flex items-center justify-center text-purple-700">
-              <Users2 className="w-5 h-5" />
-            </div>
-            <div>
-              <h3 id="beneficiaries-modal-title" className="text-base font-bold text-slate-800">
-                Formulario 3: Declaración y Distribución de Beneficiarios
-              </h3>
-              <p className="text-xs text-slate-500">
-                Asociado: <span className="font-semibold text-slate-700">{asociado.nombre_completo}</span>
-              </p>
-            </div>
-          </div>
-          <button
-            onClick={onClose}
-            className="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
+  const isOver = sumaPorcentajes > 100;
+  const tone = esValido100 ? 'success' : isOver ? 'danger' : 'warning';
+  const toneText = { success: 'text-success-700', danger: 'text-danger-700', warning: 'text-warning-800' }[tone];
+  const toneBar = { success: 'bg-success-600', danger: 'bg-danger-600', warning: 'bg-warning-500' }[tone];
+
+  const footer =
+    activeModalTab === 'declaracion' ? (
+      <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-sm text-ink-subtle" aria-live="polite">
+          {!hasChanges && esValido100 ? 'Sin cambios por guardar.' : ''}
+        </p>
+        <div className="flex flex-col-reverse gap-2 sm:flex-row">
+          <Button variant="secondary" onClick={onClose} disabled={saving}>Cerrar</Button>
+          <Button
+            type="submit"
+            form={FORM_ID}
+            loading={saving}
+            loadingText="Guardando…"
+            disabled={!esValido100 || !hasChanges}
+            title={!hasChanges ? 'Cambie algún dato o porcentaje para guardar' : undefined}
           >
-            <X className="w-5 h-5" />
-          </button>
+            Guardar beneficiarios
+          </Button>
         </div>
-
-        {/* Selector de Pestañas del Modal */}
-        <div className="flex border-b border-slate-200 bg-slate-50/50 px-6 gap-4">
-          <button
-            type="button"
-            onClick={() => setActiveModalTab('declaracion')}
-            className={`pb-2.5 pt-2 text-xs font-bold border-b-2 flex items-center space-x-1.5 cursor-pointer transition-all ${
-              activeModalTab === 'declaracion'
-                ? 'border-purple-600 text-purple-800'
-                : 'border-transparent text-slate-500 hover:text-slate-800'
-            }`}
-          >
-            <Users2 className="w-4 h-4 text-purple-600" />
-            <span>Declaración y Distribución (100%)</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setActiveModalTab('historial');
-              if (selectedCuentaId) loadHistorialBeneficiarios(selectedCuentaId);
-            }}
-            className={`pb-2.5 pt-2 text-xs font-bold border-b-2 flex items-center space-x-1.5 cursor-pointer transition-all ${
-              activeModalTab === 'historial'
-                ? 'border-purple-600 text-purple-800'
-                : 'border-transparent text-slate-500 hover:text-slate-800'
-            }`}
-          >
-            <History className="w-4 h-4 text-slate-600" />
-            <span>Historial de Modificaciones</span>
-            {historialList.length > 0 && (
-              <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-slate-200 text-slate-700">
-                {historialList.length}
-              </span>
-            )}
-          </button>
-        </div>
-
-        {/* Alerta de Error dentro del Modal */}
-        {errorMsg && (
-          <div className="mx-6 mt-4 p-3.5 rounded-xl bg-red-50 border border-red-200 flex items-start space-x-3 text-red-700">
-            <AlertCircle className="w-5 h-5 shrink-0 mt-0.5 text-red-600" />
-            <div className="text-xs font-semibold">{errorMsg}</div>
-          </div>
-        )}
-
-        {/* Alerta de Éxito dentro del Modal */}
-        {successMsg && (
-          <div className="mx-6 mt-4 p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 flex items-start space-x-3 text-emerald-800">
-            <CheckCircle2 className="w-5 h-5 shrink-0 mt-0.5 text-emerald-600" />
-            <div className="text-xs font-semibold">{successMsg}</div>
-          </div>
-        )}
-
-        {activeModalTab === 'declaracion' && (
-          <form onSubmit={handleSubmit} className="p-6 space-y-4 max-h-[75vh] overflow-y-auto">
-          {/* Selector de Cuenta Financiera */}
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
-              Cuenta Financiera a Designar Beneficiarios *
-            </label>
-            {cuentas.length > 0 ? (
-              <select
-                value={selectedCuentaId || ''}
-                onChange={handleCuentaChange}
-                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 font-semibold text-xs focus:ring-2 focus:ring-purple-600"
-                required
-              >
-                {cuentas.map((c) => (
-                  <option key={c.id_cuenta} value={c.id_cuenta}>
-                    {c.tipo_cuenta} - {c.numero_cuenta} (Saldo: Q{c.saldo_disponible.toFixed(2)})
-                  </option>
-                ))}
-              </select>
-            ) : (
-              <p className="text-xs text-amber-700">No hay cuentas disponibles para este asociado.</p>
-            )}
-          </div>
-
-          {/* Barra de Progreso Visual de la Regla del 100.00% */}
-          <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
-            <div className="flex justify-between items-center text-xs">
-              <span className="font-bold text-slate-700 flex items-center space-x-1.5">
-                <PieChart className="w-4 h-4 text-purple-600" />
-                <span>Distribución Total del Saldo:</span>
-              </span>
-              <span
-                className={`font-mono font-extrabold text-sm ${
-                  esValido100
-                    ? 'text-emerald-600'
-                    : sumaPorcentajes > 100
-                    ? 'text-red-600'
-                    : 'text-amber-600'
-                }`}
-              >
-                {sumaPorcentajes.toFixed(2)}% / 100.00%
-              </span>
-            </div>
-
-            {/* Barra visual */}
-            <div className="w-full h-3 bg-slate-200 rounded-full overflow-hidden">
-              <div
-                className={`h-full transition-all duration-300 ${
-                  esValido100
-                    ? 'bg-emerald-500'
-                    : sumaPorcentajes > 100
-                    ? 'bg-red-500'
-                    : 'bg-amber-500'
-                }`}
-                style={{ width: `${Math.min(sumaPorcentajes, 100)}%` }}
-              />
-            </div>
-
-            <div className="flex justify-between items-center text-[11px] pt-1">
-              {esValido100 ? (
-                <span className="text-emerald-700 font-semibold flex items-center space-x-1">
-                  <CheckCircle2 className="w-3.5 h-3.5" />
-                  <span>Distribución válida y completa al 100.00%.</span>
-                </span>
-              ) : sumaPorcentajes > 100 ? (
-                <span className="text-red-600 font-semibold">
-                  Excedido por {(sumaPorcentajes - 100).toFixed(2)}% (El máximo permitido es 100.00%).
-                </span>
-              ) : (
-                <span className="text-amber-700 font-semibold">
-                  Faltan {(100 - sumaPorcentajes).toFixed(2)}% por distribuir entre los beneficiarios.
-                </span>
-              )}
-
-              <button
-                type="button"
-                onClick={handleDistribuirEquitativo}
-                className="text-purple-700 hover:text-purple-900 font-bold flex items-center space-x-1 underline cursor-pointer"
-              >
-                <Sparkles className="w-3 h-3" />
-                <span>Distribuir Equitativamente</span>
-              </button>
-            </div>
-          </div>
-
-          {/* Lista de Beneficiarios Dinámica */}
-          <div className="space-y-3">
-            <div className="flex justify-between items-center">
-              <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">
-                Beneficiarios Designados ({beneficiarios.length})
-              </span>
-              <button
-                type="button"
-                onClick={handleAddBeneficiario}
-                className="px-2.5 py-1 text-xs font-bold text-purple-700 bg-purple-50 hover:bg-purple-100 border border-purple-200 rounded-lg flex items-center space-x-1 transition-colors cursor-pointer"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                <span>Agregar Beneficiario</span>
-              </button>
-            </div>
-
-            {beneficiarios.map((ben, index) => (
-              <div
-                key={index}
-                className="p-3.5 bg-slate-50/70 border border-slate-200 rounded-xl space-y-2 relative group"
-              >
-                <div className="flex justify-between items-center">
-                  <span className="text-[11px] font-bold text-slate-500 uppercase">
-                    Beneficiario #{index + 1}
-                  </span>
-                  {beneficiarios.length > 1 && (
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveBeneficiario(index)}
-                      className="text-red-400 hover:text-red-600 p-1 rounded transition-colors cursor-pointer"
-                      title="Eliminar este beneficiario"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  )}
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                  <div className="sm:col-span-2">
-                    <label className="block text-[11px] font-semibold text-slate-600 mb-0.5">
-                      Nombre Completo *
-                    </label>
-                    <input
-                      type="text"
-                      value={ben.nombre_completo}
-                      onChange={(e) => handleBenChange(index, 'nombre_completo', e.target.value)}
-                      placeholder="Nombres y Apellidos"
-                      className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-xs"
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-[11px] font-semibold text-slate-600 mb-0.5">
-                      Parentesco *
-                    </label>
-                    <select
-                      value={ben.parentesco}
-                      onChange={(e) => handleBenChange(index, 'parentesco', e.target.value)}
-                      className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-xs"
-                    >
-                      {PARENTESCOS.map((p) => (
-                        <option key={p} value={p}>
-                          {p}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                  <div>
-                    <label className="block text-[11px] font-semibold text-slate-600 mb-0.5">
-                      CUI / DPI
-                    </label>
-                    <input
-                      type="text"
-                      maxLength={13}
-                      value={ben.cui_dpi || ''}
-                      onChange={(e) => handleBenChange(index, 'cui_dpi', e.target.value)}
-                      placeholder="13 dígitos"
-                      className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-mono"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-[11px] font-semibold text-slate-600 mb-0.5">
-                      Teléfono (8 dígitos)
-                    </label>
-                    <input
-                      type="tel"
-                      maxLength={8}
-                      value={ben.telefono || ''}
-                      onChange={(e) => handleBenChange(index, 'telefono', e.target.value)}
-                      placeholder="Ej. 55551234"
-                      className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-mono"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-[11px] font-semibold text-slate-600 mb-0.5">
-                      Porcentaje Asignado (%) *
-                    </label>
-                    <div className="relative">
-                      <input
-                        type="number"
-                        step="0.01"
-                        min="0.01"
-                        max="100.00"
-                        value={ben.porcentaje}
-                        onChange={(e) => handleBenChange(index, 'porcentaje', e.target.value)}
-                        className="w-full pr-6 pl-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-bold text-slate-900 focus:ring-2 focus:ring-purple-600"
-                        required
-                      />
-                      <span className="absolute right-2 top-2 text-xs font-bold text-slate-400 pointer-events-none">
-                        %
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* Motivo de la Modificación (Opcional) */}
-          <div className="pt-2">
-            <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
-              Motivo o Justificación del Cambio (Opcional)
-            </label>
-            <input
-              type="text"
-              value={motivoCambio}
-              onChange={(e) => setMotivoCambio(e.target.value)}
-              placeholder="Ej. Solicitud directa en ventanilla por actualización familiar"
-              className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-purple-600"
-            />
-          </div>
-
-          {/* Footer Modal */}
-          <div className="pt-4 flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-slate-100">
-            <div className="text-xs">
-              {!hasChanges && esValido100 && (
-                <span className="text-slate-400 italic text-[11px]">
-                  Sin modificaciones pendientes por guardar
-                </span>
-              )}
-            </div>
-            <div className="flex items-center space-x-3 w-full sm:w-auto justify-end">
-              <button
-                type="button"
-                onClick={onClose}
-                disabled={saving}
-                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-xl transition-colors cursor-pointer"
-              >
-                Cerrar
-              </button>
-              <button
-                type="submit"
-                disabled={saving || !esValido100 || !hasChanges}
-                className="px-5 py-2 bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs rounded-xl shadow-md flex items-center space-x-2 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                title={!hasChanges ? 'Modifique algún campo o porcentaje para habilitar el guardado' : ''}
-              >
-                {saving ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    <span>Validando...</span>
-                  </>
-                ) : (
-                  <>
-                    <span>Guardar Beneficiarios (100%)</span>
-                    <ShieldCheck className="w-4 h-4" />
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-        </form>
-        )}
-
-        {/* PESTAÑA: HISTORIAL DE MODIFICACIONES DE BENEFICIARIOS */}
-        {activeModalTab === 'historial' && (
-          <div className="p-6 space-y-4 max-h-[75vh] overflow-y-auto">
-            {/* Selector de cuenta para filtrar historial */}
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
-                Cuenta Financiera *
-              </label>
-              {cuentas.length > 0 ? (
-                <select
-                  value={selectedCuentaId || ''}
-                  onChange={handleCuentaChange}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-purple-600"
-                >
-                  {cuentas.map((c) => (
-                    <option key={c.id_cuenta} value={c.id_cuenta}>
-                      {c.tipo_cuenta || 'Cuenta'} - {c.numero_cuenta} (Saldo: Q{parseFloat(c.saldo_disponible || 0).toFixed(2)})
-                    </option>
-                  ))}
-                </select>
-              ) : (
-                <div className="text-xs text-slate-500 italic">No hay cuentas disponibles</div>
-              )}
-            </div>
-
-            {loadingHistorial ? (
-              <div className="py-16 flex flex-col items-center justify-center text-slate-400">
-                <Loader2 className="w-8 h-8 text-purple-600 animate-spin mb-2" />
-                <p className="text-xs font-semibold">Cargando registro de auditoría...</p>
-              </div>
-            ) : historialList.length === 0 ? (
-              <div className="py-16 text-center text-slate-400 bg-slate-50/50 rounded-2xl border border-dashed border-slate-200">
-                <History className="w-12 h-12 text-slate-300 mx-auto mb-2" />
-                <p className="font-semibold text-slate-700 text-sm">Sin modificaciones registradas</p>
-                <p className="text-xs text-slate-400 mt-0.5">
-                  Esta cuenta no posee cambios previos en la declaración de beneficiarios.
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {historialList.map((item) => {
-                  let prevBens = [];
-                  let newBens = [];
-                  try {
-                    prevBens = typeof item.beneficiarios_anteriores === 'string'
-                      ? JSON.parse(item.beneficiarios_anteriores)
-                      : (item.beneficiarios_anteriores || []);
-                  } catch (e) {
-                    prevBens = [];
-                  }
-                  try {
-                    newBens = typeof item.beneficiarios_nuevos === 'string'
-                      ? JSON.parse(item.beneficiarios_nuevos)
-                      : (item.beneficiarios_nuevos || []);
-                  } catch (e) {
-                    newBens = [];
-                  }
-
-                  return (
-                    <div key={item.id_historial} className="bg-slate-50/70 border border-slate-200 rounded-xl p-4 space-y-3">
-                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 pb-2 border-b border-slate-200/80 text-xs">
-                        <div className="flex items-center space-x-2">
-                          <Clock className="w-3.5 h-3.5 text-purple-600" />
-                          <span className="font-bold text-slate-800">
-                            {new Date(item.fecha_cambio).toLocaleString('es-GT', {
-                              day: '2-digit',
-                              month: 'short',
-                              year: 'numeric',
-                              hour: '2-digit',
-                              minute: '2-digit',
-                            })}
-                          </span>
-                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-purple-800">
-                            {item.rol_usuario || 'OPERADOR'}
-                          </span>
-                        </div>
-                        <div className="text-[11px] text-slate-500">
-                          Modificado por: <strong className="text-slate-700">{item.nombre_usuario || 'Operador'}</strong>
-                        </div>
-                      </div>
-
-                      {item.motivo && (
-                        <div className="text-xs text-slate-600 italic bg-white p-2 rounded-lg border border-slate-100">
-                          Motivo: "{item.motivo}"
-                        </div>
-                      )}
-
-                      {/* Comparativa: Anteriores vs Nuevos */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                        {/* Anteriores */}
-                        <div className="p-3 bg-white rounded-lg border border-slate-200 space-y-1.5">
-                          <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
-                            Distribución Anterior
-                          </span>
-                          {prevBens.length === 0 ? (
-                            <span className="text-slate-400 italic text-[11px]">Sin beneficiarios registrados previamente</span>
-                          ) : (
-                            <ul className="space-y-1">
-                              {prevBens.map((b, i) => (
-                                <li key={i} className="flex justify-between items-center text-[11px]">
-                                  <span className="text-slate-700 font-medium truncate max-w-[140px]">{b.nombre_completo}</span>
-                                  <span className="font-bold text-slate-500 font-mono">{parseFloat(b.porcentaje).toFixed(2)}%</span>
-                                </li>
-                              ))}
-                            </ul>
-                          )}
-                        </div>
-
-                        {/* Nuevos */}
-                        <div className="p-3 bg-emerald-50/50 rounded-lg border border-emerald-200 space-y-1.5">
-                          <span className="text-[11px] font-bold text-emerald-800 uppercase tracking-wider block">
-                            Nueva Distribución Asignada (100%)
-                          </span>
-                          <ul className="space-y-1">
-                            {newBens.map((b, i) => (
-                              <li key={i} className="flex justify-between items-center text-[11px]">
-                                <span className="text-emerald-950 font-bold truncate max-w-[140px]">{b.nombre_completo}</span>
-                                <span className="font-extrabold text-emerald-700 font-mono bg-emerald-100 px-1.5 py-0.2 rounded">
-                                  {parseFloat(b.porcentaje).toFixed(2)}%
-                                </span>
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-
-            <div className="pt-4 flex justify-end border-t border-slate-100">
-              <button
-                type="button"
-                onClick={onClose}
-                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-xl transition-colors cursor-pointer"
-              >
-                Cerrar
-              </button>
-            </div>
-          </div>
-        )}
       </div>
-    </div>,
-    document.body
+    ) : (
+      <Button variant="secondary" onClick={onClose}>Cerrar</Button>
+    );
+
+  return (
+    <Modal
+      isOpen
+      onClose={onClose}
+      dismissible={!saving}
+      closeOnOverlay={false}
+      lockScroll={false}
+      size="lg"
+      title="Beneficiarios"
+      description={`Asociado: ${asociado.nombre_completo}`}
+      footer={footer}
+    >
+      <div className="space-y-5">
+        <Tabs
+          label="Secciones de beneficiarios"
+          idPrefix={TABS_ID}
+          value={activeModalTab}
+          onChange={(id) => {
+            setActiveModalTab(id);
+            if (id === 'historial' && selectedCuentaId) loadHistorialBeneficiarios(selectedCuentaId);
+          }}
+          items={[
+            { id: 'declaracion', label: 'Declaración' },
+            { id: 'historial', label: 'Historial de cambios', ...(historialList.length > 0 && { count: historialList.length }) },
+          ]}
+        />
+
+        {errorMsg && <Alert tone="danger">{errorMsg}</Alert>}
+        {successMsg && <Alert tone="success">{successMsg}</Alert>}
+
+        <TabPanel id={activeModalTab} idPrefix={TABS_ID}>
+          {activeModalTab === 'declaracion' && (
+            <form id={FORM_ID} onSubmit={handleSubmit} className="space-y-5">
+              <CuentaSelect cuentas={cuentas} value={selectedCuentaId} onChange={handleCuentaChange} />
+
+              {/* Total asignado: debe ser exactamente 100 % */}
+              <div className="space-y-2 rounded-md border border-line p-4" aria-live="polite">
+                <div className="flex items-baseline justify-between text-sm">
+                  <span className="text-ink-muted">Total asignado</span>
+                  <span className={cn('font-medium tabular-nums', toneText)}>{sumaPorcentajes.toFixed(2)} % de 100 %</span>
+                </div>
+                <div className="h-1.5 w-full rounded-sm bg-surface-sunken" aria-hidden="true">
+                  <div className={cn('h-1.5 rounded-sm transition-all', toneBar)} style={{ width: `${Math.min(sumaPorcentajes, 100)}%` }} />
+                </div>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className={cn('text-sm', toneText)}>
+                    {esValido100
+                      ? 'La distribución está completa.'
+                      : isOver
+                      ? `Sobra ${(sumaPorcentajes - 100).toFixed(2)} %. Reduzca algún porcentaje.`
+                      : `Falta asignar ${(100 - sumaPorcentajes).toFixed(2)} %.`}
+                  </p>
+                  <Button size="sm" variant="link" onClick={handleDistribuirEquitativo}>
+                    Repartir en partes iguales
+                  </Button>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-semibold text-ink">
+                    Beneficiarios <span className="font-normal text-ink-subtle tabular-nums">({beneficiarios.length})</span>
+                  </h3>
+                  <Button size="sm" variant="secondary" icon={Plus} onClick={handleAddBeneficiario}>
+                    Agregar
+                  </Button>
+                </div>
+
+                <ol className="space-y-3">
+                  {beneficiarios.map((ben, index) => (
+                    <li key={index} className="rounded-md border border-line p-4">
+                      <div className="mb-3 flex items-center justify-between">
+                        <h4 className="text-sm font-medium text-ink">Beneficiario {index + 1}</h4>
+                        {beneficiarios.length > 1 && (
+                          <Button
+                            size="sm"
+                            variant="ghostDanger"
+                            icon={Trash2}
+                            onClick={() => handleRemoveBeneficiario(index)}
+                            aria-label={`Quitar al beneficiario ${index + 1}`}
+                          >
+                            Quitar
+                          </Button>
+                        )}
+                      </div>
+                      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                        <Field label="Nombre completo" required className="sm:col-span-2">
+                          <Input value={ben.nombre_completo} onChange={(e) => handleBenChange(index, 'nombre_completo', e.target.value)} required />
+                        </Field>
+                        <Field label="Parentesco" required>
+                          <Select value={ben.parentesco} onChange={(e) => handleBenChange(index, 'parentesco', e.target.value)}>
+                            {PARENTESCOS.map((p) => (
+                              <option key={p} value={p}>{parentescoLabel(p)}</option>
+                            ))}
+                          </Select>
+                        </Field>
+                        <Field label="DPI" hint="13 dígitos.">
+                          <Input
+                            inputMode="numeric"
+                            maxLength={13}
+                            value={ben.cui_dpi || ''}
+                            onChange={(e) => handleBenChange(index, 'cui_dpi', e.target.value)}
+                            className="font-mono"
+                          />
+                        </Field>
+                        <Field label="Teléfono" hint="8 dígitos.">
+                          <Input
+                            type="tel"
+                            maxLength={8}
+                            value={ben.telefono || ''}
+                            onChange={(e) => handleBenChange(index, 'telefono', e.target.value)}
+                            className="font-mono"
+                          />
+                        </Field>
+                        <Field label="Porcentaje" required>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            min="0.01"
+                            max="100.00"
+                            value={ben.porcentaje}
+                            onChange={(e) => handleBenChange(index, 'porcentaje', e.target.value)}
+                            trailing={<span className="pr-2 text-sm text-ink-subtle" aria-hidden="true">%</span>}
+                            className="tabular-nums"
+                            required
+                          />
+                        </Field>
+                      </div>
+                    </li>
+                  ))}
+                </ol>
+              </div>
+
+              <Field label="Motivo del cambio" hint="Opcional. Queda en el historial.">
+                <Input
+                  value={motivoCambio}
+                  onChange={(e) => setMotivoCambio(e.target.value)}
+                  placeholder="Por ejemplo: el asociado actualizó sus datos familiares"
+                />
+              </Field>
+            </form>
+          )}
+
+          {activeModalTab === 'historial' && (
+            <div className="space-y-4">
+              <CuentaSelect cuentas={cuentas} value={selectedCuentaId} onChange={handleCuentaChange} />
+
+              {loadingHistorial ? (
+                <LoadingState label="Cargando historial…" />
+              ) : historialList.length === 0 ? (
+                <div className="rounded-md border border-dashed border-line-strong">
+                  <EmptyState icon={History} title="Sin cambios registrados" description="Esta cuenta no tiene cambios previos de beneficiarios." />
+                </div>
+              ) : (
+                <ol className="space-y-3">
+                  {historialList.map((item) => {
+                    let prevBens = [];
+                    let newBens = [];
+                    try {
+                      prevBens = typeof item.beneficiarios_anteriores === 'string'
+                        ? JSON.parse(item.beneficiarios_anteriores)
+                        : (item.beneficiarios_anteriores || []);
+                    } catch (e) {
+                      prevBens = [];
+                    }
+                    try {
+                      newBens = typeof item.beneficiarios_nuevos === 'string'
+                        ? JSON.parse(item.beneficiarios_nuevos)
+                        : (item.beneficiarios_nuevos || []);
+                    } catch (e) {
+                      newBens = [];
+                    }
+
+                    return (
+                      <li key={item.id_historial} className="space-y-3 rounded-md border border-line p-4">
+                        <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
+                          <span className="tabular-nums text-ink">{formatDateTime(item.fecha_cambio)}</span>
+                          <span className="flex items-center gap-2 text-ink-muted">
+                            {item.nombre_usuario || 'Operador'}
+                            <Badge>{ROLE_LABELS[item.rol_usuario] || humanize(item.rol_usuario) || 'Operador'}</Badge>
+                          </span>
+                        </div>
+                        {item.motivo && <p className="text-sm text-ink-soft">Motivo: {item.motivo}</p>}
+                        <div className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
+                          {[
+                            ['Antes', prevBens, 'Sin beneficiarios'],
+                            ['Después', newBens, 'Sin beneficiarios'],
+                          ].map(([label, list, empty]) => (
+                            <div key={label} className={cn('rounded-md border p-3', label === 'Después' ? 'border-brand-200 bg-brand-50' : 'border-line')}>
+                              <p className="mb-1.5 text-xs font-medium text-ink-muted">{label}</p>
+                              {list.length === 0 ? (
+                                <p className="text-ink-subtle">{empty}</p>
+                              ) : (
+                                <ul className="space-y-1">
+                                  {list.map((b, i) => (
+                                    <li key={i} className="flex justify-between gap-2">
+                                      <span className="truncate text-ink">{b.nombre_completo}</span>
+                                      <span className="shrink-0 tabular-nums text-ink-soft">{parseFloat(b.porcentaje).toFixed(2)} %</span>
+                                    </li>
+                                  ))}
+                                </ul>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ol>
+              )}
+            </div>
+          )}
+        </TabPanel>
+      </div>
+    </Modal>
   );
 };
 

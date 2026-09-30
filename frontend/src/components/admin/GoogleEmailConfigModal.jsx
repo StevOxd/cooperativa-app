@@ -1,23 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { createPortal } from 'react-dom';
+import { ExternalLink, RefreshCw, Send } from 'lucide-react';
 import api from '../../services/api';
 import { useToast } from '../../context/ToastContext';
-import {
-  Mail,
-  ShieldCheck,
-  CheckCircle2,
-  AlertCircle,
-  ExternalLink,
-  Send,
-  KeyRound,
-  Eye,
-  EyeOff,
-  Loader2,
-  X,
-  HelpCircle,
-  Sparkles,
-} from 'lucide-react';
+import { Alert, Badge, Button, Field, Input, Modal, PasswordInput } from '../ui';
 
+const CONFIG_FORM_ID = 'config-correo';
+const TEST_FORM_ID = 'prueba-correo';
+
+/**
+ * Configuración del correo del sistema (Gmail con contraseña de aplicación) y
+ * prueba de envío. Por aquí salen las credenciales, contraseñas temporales y
+ * códigos de verificación de los asociados.
+ */
 export const GoogleEmailConfigModal = ({ isOpen, onClose, onConfigSaved }) => {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
@@ -63,7 +57,7 @@ export const GoogleEmailConfigModal = ({ isOpen, onClose, onConfigSaved }) => {
   const handleSaveConfig = async (e) => {
     e.preventDefault();
     if (!gmailUser.trim() || !gmailAppPassword.trim()) {
-      toast.warning('Ingresa la cuenta de Google y la Contraseña de Aplicación de 16 caracteres.');
+      toast.warning('Escriba la cuenta de Gmail y la contraseña de aplicación de 16 caracteres.');
       return;
     }
 
@@ -80,7 +74,7 @@ export const GoogleEmailConfigModal = ({ isOpen, onClose, onConfigSaved }) => {
       });
 
       if (res.data?.success) {
-        toast.success('¡Servicio de Google Mail conectado y verificado exitosamente!');
+        toast.success('Gmail quedó conectado y verificado.');
         setServiceStatus(res.data.data);
         setGmailAppPassword(''); // Limpiar contraseña del formulario por seguridad
         if (onConfigSaved) onConfigSaved(res.data.data);
@@ -98,7 +92,7 @@ export const GoogleEmailConfigModal = ({ isOpen, onClose, onConfigSaved }) => {
   const handleSendTest = async (e) => {
     e.preventDefault();
     if (!testRecipient.trim() || !testRecipient.includes('@')) {
-      toast.warning('Ingresa un correo electrónico de destino válido.');
+      toast.warning('Escriba un correo de destino válido.');
       return;
     }
 
@@ -111,10 +105,10 @@ export const GoogleEmailConfigModal = ({ isOpen, onClose, onConfigSaved }) => {
 
       if (res.data?.success) {
         setTestResult(res.data);
-        toast.success(res.data.message || 'Correo de prueba despachado.');
+        toast.success(res.data.message || 'Correo de prueba enviado.');
       }
     } catch (err) {
-      const errorMsg = err.response?.data?.message || 'Error al enviar correo de prueba.';
+      const errorMsg = err.response?.data?.message || 'No se pudo enviar el correo de prueba.';
       toast.error(errorMsg);
       setTestResult({
         success: false,
@@ -125,279 +119,143 @@ export const GoogleEmailConfigModal = ({ isOpen, onClose, onConfigSaved }) => {
     }
   };
 
-  return createPortal(
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-2xl max-h-[90vh] overflow-y-auto transform transition-all flex flex-col">
-        {/* Cabecera */}
-        <div className="flex items-center justify-between p-6 border-b border-slate-100 bg-gradient-to-r from-emerald-900 to-teal-950 text-white rounded-t-2xl">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center border border-white/20">
-              <Mail className="w-5 h-5 text-emerald-300" />
-            </div>
-            <div>
-              <h2 className="text-lg font-bold">Servicio de Correo Google (Gmail)</h2>
-              <p className="text-xs text-emerald-200/80">
-                Despacho automatizado de credenciales, contraseñas temporales y códigos 2FA
-              </p>
-            </div>
+  const conectado = serviceStatus?.provider === 'google' && serviceStatus?.verified;
+  const sinVerificar = serviceStatus?.provider === 'google' && !serviceStatus?.verified;
+  const pruebaSimulada = testResult?.success && (testResult.simulado || testResult.data?.simulado);
+
+  return (
+    <Modal
+      isOpen
+      onClose={onClose}
+      size="lg"
+      title="Correo de notificaciones"
+      description="Cuenta de Google desde la que el sistema envía credenciales, contraseñas temporales y códigos de verificación."
+      footer={<Button variant="secondary" onClick={onClose}>Cerrar</Button>}
+    >
+      <div className="space-y-6">
+        {/* Estado actual del servicio */}
+        <section aria-labelledby="correo-estado" className="space-y-3 rounded-md border border-line p-4">
+          <div className="flex items-center justify-between gap-3">
+            <h3 id="correo-estado" className="text-sm font-semibold text-ink">Estado</h3>
+            <Button size="sm" variant="ghost" icon={RefreshCw} onClick={fetchStatus} loading={fetchingStatus} loadingText="Consultando…">
+              Actualizar
+            </Button>
           </div>
-          <button
-            onClick={onClose}
-            className="text-white/70 hover:text-white p-2 rounded-lg hover:bg-white/10 transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
-        <div className="p-6 space-y-6">
-          {/* Tarjeta de Estado del Servicio */}
-          <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                Estado Actual del Servicio
-              </span>
-              {fetchingStatus ? (
-                <Loader2 className="w-4 h-4 text-slate-400 animate-spin" />
-              ) : (
-                <button
-                  type="button"
-                  onClick={fetchStatus}
-                  className="text-xs text-emerald-700 hover:text-emerald-800 font-medium underline"
-                >
-                  Actualizar Estado
-                </button>
-              )}
-            </div>
-
-            <div className="mt-3 flex items-center gap-3">
-              {serviceStatus?.provider === 'google' && serviceStatus?.verified ? (
-                <div className="flex items-center gap-2 text-emerald-700 font-bold text-sm bg-emerald-50 px-3 py-1.5 rounded-lg border border-emerald-200">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                  Google Mail Activo y Conectado
-                </div>
-              ) : serviceStatus?.provider === 'google' && !serviceStatus?.verified ? (
-                <div className="flex items-center gap-2 text-amber-700 font-bold text-sm bg-amber-50 px-3 py-1.5 rounded-lg border border-amber-200">
-                  <AlertCircle className="w-4 h-4 text-amber-600" />
-                  Google Mail Configurado (Requiere Verificación)
-                </div>
-              ) : (
-                <div className="flex items-center gap-2 text-slate-700 font-bold text-sm bg-slate-200/70 px-3 py-1.5 rounded-lg border border-slate-300">
-                  <Sparkles className="w-4 h-4 text-slate-600" />
-                  Modo Demostrativo / Local (Sin credenciales externas)
-                </div>
-              )}
-            </div>
-
-            {serviceStatus?.userMasked && (
-              <div className="mt-2 text-xs text-slate-600">
-                Cuenta remitente: <code className="font-mono bg-white px-2 py-0.5 rounded border border-slate-200">{serviceStatus.userMasked}</code>
-              </div>
-            )}
-
-            {serviceStatus?.lastError && (
-              <div className="mt-2 text-xs text-rose-600 bg-rose-50 p-2 rounded border border-rose-200">
-                <strong>Advertencia previa:</strong> {serviceStatus.lastError}
-              </div>
-            )}
-          </div>
-
-          {/* Formulario de Configuración de Google */}
-          <form onSubmit={handleSaveConfig} className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
-                <ShieldCheck className="w-4 h-4 text-emerald-600" />
-                Configurar Credenciales de Google
-              </h3>
-              <button
-                type="button"
-                onClick={() => setShowHelp(!showHelp)}
-                className="text-xs text-emerald-700 hover:text-emerald-800 flex items-center gap-1 font-medium"
-              >
-                <HelpCircle className="w-3.5 h-3.5" />
-                {showHelp ? 'Ocultar Guía' : '¿Cómo obtener la contraseña de aplicación?'}
-              </button>
-            </div>
-
-            {/* Guía Explicativa */}
-            {showHelp && (
-              <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 text-xs text-emerald-950 space-y-2 animate-in fade-in duration-150">
-                <p className="font-semibold text-emerald-900">
-                  Pasos para habilitar el envío con tu cuenta de Google (Gmail):
-                </p>
-                <ol className="list-decimal pl-4 space-y-1.5 text-emerald-800">
-                  <li>
-                    Ingresa a tu cuenta Google y asegúrate de tener activada la <strong>Verificación en 2 pasos</strong>.
-                  </li>
-                  <li>
-                    Visita:{' '}
-                    <a
-                      href="https://myaccount.google.com/apppasswords"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-emerald-700 font-bold underline inline-flex items-center gap-1"
-                    >
-                      myaccount.google.com/apppasswords <ExternalLink className="w-3 h-3" />
-                    </a>
-                  </li>
-                  <li>En el campo <em>"Nombre de la app"</em> escribe: <strong>Cooperativa</strong> y presiona <em>Crear</em>.</li>
-                  <li>Google te mostrará un código amarillo de <strong>16 caracteres</strong> (ej. <code>abcd efgh ijkl mnop</code>).</li>
-                  <li>Copia esa clave y pégala en el campo <em>"Contraseña de Aplicación"</em> a continuación.</li>
-                </ol>
-              </div>
-            )}
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Cuenta de Google (Gmail) *
-                </label>
-                <div className="relative">
-                  <input
-                    type="email"
-                    value={gmailUser}
-                    onChange={(e) => setGmailUser(e.target.value)}
-                    placeholder="ej. mi-cooperativa@gmail.com"
-                    required
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 transition-all"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Contraseña de Aplicación (16 dígitos) *
-                </label>
-                <div className="relative">
-                  <input
-                    type={showPassword ? 'text' : 'password'}
-                    value={gmailAppPassword}
-                    onChange={(e) => setGmailAppPassword(e.target.value)}
-                    placeholder="16 caracteres de Google"
-                    required
-                    className="w-full pl-3.5 pr-10 py-2.5 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 transition-all font-mono"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600"
-                  >
-                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Nombre de Remitente Visible (Opcional)
-              </label>
-              <input
-                type="text"
-                value={senderName}
-                onChange={(e) => setSenderName(e.target.value)}
-                placeholder="ej. Cooperativa Corporativa Financiera"
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 transition-all"
-              />
-            </div>
-
-            <div className="flex justify-end pt-2">
-              <button
-                type="submit"
-                disabled={loading}
-                className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold shadow-md shadow-emerald-600/20 flex items-center gap-2 transition-all disabled:opacity-50"
-              >
-                {loading ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    Validando con Google...
-                  </>
-                ) : (
-                  <>
-                    <KeyRound className="w-4 h-4" />
-                    Guardar y Conectar con Google
-                  </>
-                )}
-              </button>
-            </div>
-          </form>
-
-          {/* Sección de Prueba de Envío */}
-          <div className="pt-4 border-t border-slate-200">
-            <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2 mb-2">
-              <Send className="w-4 h-4 text-teal-600" />
-              Probar Despacho de Correo en Vivo
-            </h3>
-            <p className="text-xs text-slate-500 mb-3">
-              Ingresa una dirección de correo para enviar un mensaje de comprobación y certificar que la entrega funciona correctamente.
+          {conectado ? (
+            <Badge tone="success" dot>Conectado con Google</Badge>
+          ) : sinVerificar ? (
+            <Badge tone="warning" dot>Configurado, pero sin verificar</Badge>
+          ) : (
+            <Alert tone="warning" title="Los correos no se están enviando">
+              No hay una cuenta de Google configurada. Mientras tanto, los asociados nuevos no reciben su contraseña
+              temporal por correo.
+            </Alert>
+          )}
+          {serviceStatus?.userMasked && (
+            <p className="text-sm text-ink-muted">
+              Remitente: <span className="font-mono text-ink">{serviceStatus.userMasked}</span>
             </p>
+          )}
+          {serviceStatus?.lastError && <Alert tone="danger" title="Último error">{serviceStatus.lastError}</Alert>}
+        </section>
 
-            <form onSubmit={handleSendTest} className="flex flex-col sm:flex-row gap-2">
-              <input
+        {/* Credenciales de Google */}
+        <form id={CONFIG_FORM_ID} onSubmit={handleSaveConfig} aria-labelledby="correo-config" className="space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h3 id="correo-config" className="text-sm font-semibold text-ink">Cuenta de Google</h3>
+            <Button size="sm" variant="link" onClick={() => setShowHelp(!showHelp)} aria-expanded={showHelp}>
+              {showHelp ? 'Ocultar guía' : '¿Cómo obtengo la contraseña de aplicación?'}
+            </Button>
+          </div>
+
+          {showHelp && (
+            <ol className="list-decimal space-y-1.5 rounded-md border border-line bg-surface-muted p-4 pl-8 text-sm text-ink-soft">
+              <li>En la cuenta de Google, active la verificación en dos pasos.</li>
+              <li>
+                Entre a{' '}
+                <a
+                  href="https://myaccount.google.com/apppasswords"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 font-medium text-brand-700 underline-offset-4 hover:underline"
+                >
+                  myaccount.google.com/apppasswords
+                  <ExternalLink className="w-3.5 h-3.5" aria-hidden="true" />
+                </a>
+                .
+              </li>
+              <li>Escriba «Cooperativa» como nombre de la app y pulse Crear.</li>
+              <li>Copie la clave de 16 caracteres que muestra Google (por ejemplo, abcd efgh ijkl mnop) y péguela abajo.</li>
+            </ol>
+          )}
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <Field label="Correo de Gmail" required>
+              <Input type="email" value={gmailUser} onChange={(e) => setGmailUser(e.target.value)} placeholder="cooperativa@gmail.com" required />
+            </Field>
+            <Field label="Contraseña de aplicación" hint="16 caracteres generados por Google." required>
+              <PasswordInput
+                value={gmailAppPassword}
+                onChange={(e) => setGmailAppPassword(e.target.value)}
+                visible={showPassword}
+                onVisibleChange={setShowPassword}
+                autoComplete="off"
+                className="font-mono"
+                required
+              />
+            </Field>
+          </div>
+          <Field label="Nombre del remitente" hint="Opcional. Es el nombre que verá quien reciba el correo.">
+            <Input value={senderName} onChange={(e) => setSenderName(e.target.value)} placeholder="Cooperativa" />
+          </Field>
+          <div className="flex justify-end">
+            <Button type="submit" loading={loading} loadingText="Verificando con Google…">
+              Guardar y conectar
+            </Button>
+          </div>
+        </form>
+
+        {/* Prueba de envío */}
+        <section aria-labelledby="correo-prueba" className="space-y-3 border-t border-line pt-5">
+          <div>
+            <h3 id="correo-prueba" className="text-sm font-semibold text-ink">Enviar un correo de prueba</h3>
+            <p className="text-sm text-ink-muted">Compruebe que los correos llegan antes de afiliar asociados.</p>
+          </div>
+          <form id={TEST_FORM_ID} onSubmit={handleSendTest} className="flex flex-col gap-2 sm:flex-row">
+            <div className="flex-1">
+              <Input
                 type="email"
                 value={testRecipient}
                 onChange={(e) => setTestRecipient(e.target.value)}
-                placeholder="ej. usuario@dominio.com"
+                placeholder="usuario@dominio.com"
+                aria-label="Correo de destino para la prueba"
                 required
-                className="flex-1 px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-600"
               />
-              <button
-                type="submit"
-                disabled={sendingTest}
-                className="px-5 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-sm font-bold shadow-md shadow-teal-600/20 flex items-center justify-center gap-2 transition-all disabled:opacity-50"
-              >
-                {sendingTest ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    Despachando...
-                  </>
-                ) : (
-                  <>
-                    <Send className="w-4 h-4" />
-                    Enviar Correo de Prueba
-                  </>
-                )}
-              </button>
-            </form>
+            </div>
+            <Button type="submit" variant="secondary" icon={Send} loading={sendingTest} loadingText="Enviando…">
+              Enviar prueba
+            </Button>
+          </form>
 
-            {testResult && (
-              <div
-                className={`mt-3 p-3.5 rounded-xl border text-xs ${
-                  testResult.success
-                    ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
-                    : 'bg-rose-50 border-rose-200 text-rose-900'
-                }`}
-              >
-                <div className="font-semibold flex items-center gap-1.5">
-                  {testResult.success ? (
-                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                  ) : (
-                    <AlertCircle className="w-4 h-4 text-rose-600" />
-                  )}
-                  {testResult.message}
-                </div>
+          {testResult &&
+            (pruebaSimulada ? (
+              <Alert tone="warning" title="El correo no salió">
+                El servicio está en modo de prueba, así que el mensaje no llegó a un buzón real. Configure la cuenta de
+                Google arriba.
+              </Alert>
+            ) : (
+              <Alert tone={testResult.success ? 'success' : 'danger'}>
+                {testResult.message}
                 {testResult.data?.messageId && (
-                  <div className="mt-1 text-slate-600">
-                    ID de Transacción SMTP: <code className="font-mono">{testResult.data.messageId}</code>
-                  </div>
+                  <span className="mt-1 block text-xs">
+                    Identificador del envío: <span className="font-mono">{testResult.data.messageId}</span>
+                  </span>
                 )}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Pie */}
-        <div className="p-4 bg-slate-50 border-t border-slate-100 flex justify-end rounded-b-2xl">
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-800 hover:bg-slate-200/60 rounded-xl transition-colors"
-          >
-            Cerrar
-          </button>
-        </div>
+              </Alert>
+            ))}
+        </section>
       </div>
-    </div>,
-    document.body
+    </Modal>
   );
 };
 

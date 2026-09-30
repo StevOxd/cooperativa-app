@@ -29,7 +29,7 @@ const obtenerEvaluacionCredito = async (idSolicitud) => {
     return {
       status: 404,
       success: false,
-      message: 'Solicitud de crédito no encontrada.',
+      message: 'No encontramos esa solicitud.',
     };
   }
 
@@ -58,7 +58,7 @@ const elevarCredito = async ({ idSolicitud, idOperador, dictamen_operador, docum
     return {
       status: 400,
       success: false,
-      message: 'Debe ingresar un dictamen u observaciones operativas antes de elevar la solicitud al Ejecutivo.',
+      message: 'Escriba su dictamen antes de enviar la solicitud al ejecutivo.',
     };
   }
 
@@ -75,7 +75,7 @@ const elevarCredito = async ({ idSolicitud, idOperador, dictamen_operador, docum
     return {
       status: 404,
       success: false,
-      message: 'Solicitud de crédito no encontrada.',
+      message: 'No encontramos esa solicitud.',
     };
   }
 
@@ -85,7 +85,7 @@ const elevarCredito = async ({ idSolicitud, idOperador, dictamen_operador, docum
     return {
       status: 400,
       success: false,
-      message: `La solicitud no puede ser elevada al Ejecutivo en su estado actual ("${sol.estado}").`,
+      message: `Esa solicitud no se puede enviar al ejecutivo en su estado actual.`,
     };
   }
 
@@ -93,7 +93,7 @@ const elevarCredito = async ({ idSolicitud, idOperador, dictamen_operador, docum
     return {
       status: 400,
       success: false,
-      message: 'Es obligatorio adjuntar el archivo PDF firmado por el Operador para poder aceptar la solicitud y elevarla a la Gerencia Ejecutiva.',
+      message: 'Adjunte el PDF firmado por usted para enviar la solicitud al ejecutivo.',
     };
   }
 
@@ -152,7 +152,7 @@ const elevarCredito = async ({ idSolicitud, idOperador, dictamen_operador, docum
   return {
     status: 200,
     success: true,
-    message: `Solicitud de crédito #${idSolicitud} elevada exitosamente al Ejecutivo con su dictamen operativo.`,
+    message: `La solicitud #${idSolicitud} se envió al ejecutivo con su dictamen.`,
     data: updateRes.rows[0],
   };
 };
@@ -187,7 +187,7 @@ const resolverCredito = async ({ idSolicitud, idOperador, accion, observaciones 
       return {
         status: 404,
         success: false,
-        message: 'Solicitud de crédito no encontrada.',
+        message: 'No encontramos esa solicitud.',
       };
     }
 
@@ -199,7 +199,7 @@ const resolverCredito = async ({ idSolicitud, idOperador, accion, observaciones 
       return {
         status: 400,
         success: false,
-        message: `La solicitud ya ha sido resuelta previamente con estado "${sol.estado}".`,
+        message: `Esa solicitud ya fue resuelta.`,
       };
     }
 
@@ -222,7 +222,7 @@ const resolverCredito = async ({ idSolicitud, idOperador, accion, observaciones 
       return {
         status: 200,
         success: true,
-        message: `Solicitud de crédito #${idSolicitud} rechazada correctamente.`,
+        message: `Se rechazó la solicitud #${idSolicitud}.`,
         data: updateRes.rows[0],
       };
     }
@@ -233,7 +233,7 @@ const resolverCredito = async ({ idSolicitud, idOperador, accion, observaciones 
       return {
         status: 400,
         success: false,
-        message: 'Es obligatorio adjuntar el archivo PDF firmado por el Operador para poder aceptar y aprobar la solicitud de crédito.',
+        message: 'Adjunte el PDF firmado por usted para aprobar la solicitud.',
       };
     }
     const monto = parseFloat(sol.monto_solicitado);
@@ -356,7 +356,7 @@ const resolverCredito = async ({ idSolicitud, idOperador, accion, observaciones 
     return {
       status: 200,
       success: true,
-      message: `Solicitud de crédito #${idSolicitud} aprobada exitosamente. Se han acreditado Q${monto.toFixed(2)} a ${destinoInfo}.`,
+      message: `Se aprobó la solicitud #${idSolicitud} y se acreditaron Q${monto.toFixed(2)} a ${destinoInfo}.`,
       data: updateRes.rows[0],
     };
   } catch (error) {

@@ -28,7 +28,7 @@ const login = async (req, res) => {
     if (!loginIdentifier || !password) {
       return res.status(400).json({
         success: false,
-        message: 'Por favor proporcione su código corporativo o correo electrónico y contraseña.',
+        message: 'Escriba su usuario o correo y su contraseña.',
       });
     }
 
@@ -70,7 +70,7 @@ const login = async (req, res) => {
     if (result.rows.length === 0) {
       return res.status(401).json({
         success: false,
-        message: 'Credenciales inválidas. Verifique su código corporativo/correo o contraseña.',
+        message: 'El usuario o la contraseña no son correctos.',
       });
     }
 
@@ -85,7 +85,7 @@ const login = async (req, res) => {
           success: false,
           bloqueado: true,
           bloqueado_hasta: user.bloqueado_hasta,
-          message: 'Cuenta temporalmente bloqueada por seguridad tras múltiples intentos fallidos. Intente más tarde o contacte al administrador.',
+          message: 'Su cuenta está bloqueada por varios intentos fallidos. Intente más tarde o pida al administrador que la desbloquee.',
         });
       }
     }
@@ -118,7 +118,7 @@ const login = async (req, res) => {
         return res.status(423).json({
           success: false,
           bloqueado: true,
-          message: 'Cuenta temporalmente bloqueada por seguridad tras múltiples intentos fallidos. Intente más tarde o contacte al administrador.',
+          message: 'Su cuenta está bloqueada por varios intentos fallidos. Intente más tarde o pida al administrador que la desbloquee.',
         });
       } else {
         await db.query(
@@ -130,7 +130,7 @@ const login = async (req, res) => {
           success: false,
           intentos_fallidos: nuevosIntentos,
           intentos_restantes: intentosRestantes,
-          message: `Credenciales inválidas. Te quedan ${intentosRestantes} intento(s) antes del bloqueo.`,
+          message: `El usuario o la contraseña no son correctos. Le quedan ${intentosRestantes} intento(s) antes de que se bloquee la cuenta.`,
         });
       }
     }
@@ -149,7 +149,7 @@ const login = async (req, res) => {
     if (user.estado !== 'ACTIVO') {
       return res.status(403).json({
         success: false,
-        message: 'Acceso denegado. Su cuenta se encuentra inactiva. Por favor contacte al administrador.',
+        message: 'Su cuenta está inactiva. Comuníquese con el administrador.',
       });
     }
 
@@ -164,7 +164,7 @@ const login = async (req, res) => {
         success: true,
         mfa_required: true,
         temp_token: tempToken,
-        message: 'Autenticación de dos factores requerida. Ingrese el código de 6 dígitos de Google Authenticator.',
+        message: 'Escriba el código de 6 dígitos de su aplicación de autenticación.',
         user: {
           id: user.id_persona,
           codigo_corporativo: user.codigo_corporativo,
@@ -189,7 +189,7 @@ const login = async (req, res) => {
       return res.status(409).json({
         success: false,
         sesion_concurrente: true,
-        message: 'Acceso denegado: Este usuario ya cuenta con una sesión activa en otro dispositivo. Cierre la sesión previa para continuar.',
+        message: 'Ya hay una sesión abierta con este usuario en otro dispositivo. Ciérrela para entrar aquí.',
       });
     }
 
@@ -231,7 +231,7 @@ const login = async (req, res) => {
     // 9. Retornar respuesta exitosa consolidada
     return res.status(200).json({
       success: true,
-      message: 'Inicio de sesión exitoso.',
+      message: 'Sesión iniciada.',
       token,
       sesion_activa_id: nuevaSesionId,
       user: {
@@ -257,7 +257,7 @@ const login = async (req, res) => {
     console.error('Error en authController.login:', error);
     return res.status(500).json({
       success: false,
-      message: 'Ocurrió un error interno en el servidor al procesar el inicio de sesión.',
+      message: 'No se pudo iniciar sesión. Intente de nuevo.',
     });
   }
 };
@@ -287,13 +287,13 @@ const logout = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: 'Sesión cerrada exitosamente.',
+      message: 'Sesión cerrada.',
     });
   } catch (error) {
     console.error('Error en authController.logout:', error);
     return res.status(500).json({
       success: false,
-      message: 'Error al cerrar sesión en el servidor.',
+      message: 'No se pudo cerrar la sesión en el servidor.',
     });
   }
 };
@@ -362,7 +362,7 @@ const getProfile = async (req, res) => {
     console.error('Error en authController.getProfile:', error);
     return res.status(500).json({
       success: false,
-      message: 'Error al obtener el perfil del usuario.',
+      message: 'No se pudo cargar su perfil. Intente de nuevo.',
     });
   }
 };
@@ -385,7 +385,7 @@ const updateProfile = async (req, res) => {
     if (telefono === undefined) {
       return res.status(400).json({
         success: false,
-        message: 'Debe proporcionar el campo teléfono a actualizar.',
+        message: 'Escriba su número de teléfono.',
       });
     }
 
@@ -403,13 +403,13 @@ const updateProfile = async (req, res) => {
     if (result.rows.length === 0) {
       return res.status(404).json({
         success: false,
-        message: 'No se encontró la persona asociada a este usuario.',
+        message: 'No encontramos sus datos personales.',
       });
     }
 
     return res.status(200).json({
       success: true,
-      message: 'Datos de contacto actualizados exitosamente.',
+      message: 'Teléfono actualizado.',
       data: {
         telefono: result.rows[0].telefono,
       },
@@ -418,7 +418,7 @@ const updateProfile = async (req, res) => {
     console.error('Error en authController.updateProfile:', error);
     return res.status(500).json({
       success: false,
-      message: 'Error al actualizar los datos de contacto en el servidor.',
+      message: 'No se pudo actualizar el teléfono. Intente de nuevo.',
     });
   }
 };
@@ -443,7 +443,7 @@ const changePassword = async (req, res) => {
     if (!password_actual || !nueva_password) {
       return res.status(400).json({
         success: false,
-        message: 'Por favor proporcione la contraseña actual y la nueva contraseña.',
+        message: 'Escriba su contraseña actual y la nueva.',
       });
     }
 
@@ -462,7 +462,7 @@ const changePassword = async (req, res) => {
     if (!hasLetters || !hasNumbers || !hasSpecial) {
       return res.status(400).json({
         success: false,
-        message: 'La nueva contraseña debe ser fuerte: combinar letras, números y al menos un carácter especial (!@#$%^&*...).',
+        message: 'La nueva contraseña debe tener letras, números y al menos un símbolo (!@#$…).',
       });
     }
 
@@ -470,7 +470,7 @@ const changePassword = async (req, res) => {
     if (confirmar_password && nueva_password !== confirmar_password) {
       return res.status(400).json({
         success: false,
-        message: 'La nueva contraseña y su confirmación no coinciden.',
+        message: 'Las contraseñas nuevas no coinciden.',
       });
     }
 
@@ -478,7 +478,7 @@ const changePassword = async (req, res) => {
     if (password_actual === nueva_password) {
       return res.status(400).json({
         success: false,
-        message: 'La nueva contraseña debe ser diferente a la contraseña actual.',
+        message: 'La nueva contraseña debe ser distinta de la actual.',
       });
     }
 
@@ -489,7 +489,7 @@ const changePassword = async (req, res) => {
     if (userRes.rows.length === 0) {
       return res.status(404).json({
         success: false,
-        message: 'Usuario no encontrado en el sistema.',
+        message: 'Usuario no encontrado.',
       });
     }
 
@@ -500,7 +500,7 @@ const changePassword = async (req, res) => {
     if (!isCurrentValid) {
       return res.status(400).json({
         success: false,
-        message: 'La contraseña actual ingresada es incorrecta.',
+        message: 'La contraseña actual no es correcta.',
       });
     }
 
@@ -515,14 +515,14 @@ const changePassword = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: 'Contraseña actualizada exitosamente.',
+      message: 'Contraseña actualizada.',
       debe_cambiar_password: false,
     });
   } catch (error) {
     console.error('Error en authController.changePassword:', error);
     return res.status(500).json({
       success: false,
-      message: 'Error interno del servidor al cambiar la contraseña.',
+      message: 'No se pudo cambiar la contraseña. Intente de nuevo.',
     });
   }
 };
@@ -543,7 +543,7 @@ const verifyMfa = async (req, res) => {
     if (!temp_token || !totp_code) {
       return res.status(400).json({
         success: false,
-        message: 'El token temporal de sesión y el código de 6 dígitos son obligatorios.',
+        message: 'Escriba el código de 6 dígitos.',
       });
     }
 
@@ -556,7 +556,7 @@ const verifyMfa = async (req, res) => {
     } catch (err) {
       return res.status(401).json({
         success: false,
-        message: 'La sesión temporal de verificación ha expirado. Inicie sesión nuevamente.',
+        message: 'Pasó demasiado tiempo. Inicie sesión de nuevo.',
       });
     }
 
@@ -602,7 +602,7 @@ const verifyMfa = async (req, res) => {
     if (!isValid) {
       return res.status(401).json({
         success: false,
-        message: 'Código de seguridad incorrecto o expirado. Verifique la hora de su dispositivo e intente de nuevo.',
+        message: 'El código no es correcto o ya venció. Revise que la hora de su teléfono sea la correcta e intente de nuevo.',
       });
     }
 
@@ -617,7 +617,7 @@ const verifyMfa = async (req, res) => {
       return res.status(409).json({
         success: false,
         sesion_concurrente: true,
-        message: 'Acceso denegado: Este usuario ya cuenta con una sesión activa en otro dispositivo. Cierre la sesión previa para continuar.',
+        message: 'Ya hay una sesión abierta con este usuario en otro dispositivo. Ciérrela para entrar aquí.',
       });
     }
 
@@ -655,7 +655,7 @@ const verifyMfa = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: 'Autenticación de dos factores exitosa. Bienvenido al sistema.',
+      message: 'Sesión iniciada.',
       token,
       sesion_activa_id: nuevaSesionId,
       user: {
@@ -681,7 +681,7 @@ const verifyMfa = async (req, res) => {
     console.error('Error en authController.verifyMfa:', error);
     return res.status(500).json({
       success: false,
-      message: 'Error interno al validar el código de dos factores.',
+      message: 'No se pudo verificar el código. Intente de nuevo.',
     });
   }
 };
@@ -712,7 +712,7 @@ const get2faStatus = async (req, res) => {
     console.error('Error en authController.get2faStatus:', error);
     return res.status(500).json({
       success: false,
-      message: 'Error al consultar el estado de 2FA.',
+      message: 'No se pudo consultar la verificación en dos pasos.',
     });
   }
 };
@@ -748,7 +748,7 @@ const setup2fa = async (req, res) => {
     console.error('Error en authController.setup2fa:', error);
     return res.status(500).json({
       success: false,
-      message: 'Error al generar la configuración de 2FA.',
+      message: 'No se pudo iniciar la verificación en dos pasos. Intente de nuevo.',
     });
   }
 };
@@ -764,7 +764,7 @@ const enable2fa = async (req, res) => {
     if (!secret || !totp_code) {
       return res.status(400).json({
         success: false,
-        message: 'Debe ingresar el secreto y el código de 6 dígitos generado por la aplicación.',
+        message: 'Escriba el código de 6 dígitos que muestra su aplicación.',
       });
     }
 
@@ -772,7 +772,7 @@ const enable2fa = async (req, res) => {
     if (!isValid) {
       return res.status(400).json({
         success: false,
-        message: 'El código de seguridad ingresado es incorrecto o ha expirado. Verifique que la hora de su teléfono esté sincronizada e intente nuevamente.',
+        message: 'El código no es correcto o ya venció. Revise que la hora de su teléfono sea la correcta e intente de nuevo.',
       });
     }
 
@@ -783,13 +783,13 @@ const enable2fa = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: 'Factor de doble autenticación (2FA) activado exitosamente.',
+      message: 'Verificación en dos pasos activada.',
     });
   } catch (error) {
     console.error('Error en authController.enable2fa:', error);
     return res.status(500).json({
       success: false,
-      message: 'Error al activar el doble factor de autenticación.',
+      message: 'No se pudo activar la verificación en dos pasos. Intente de nuevo.',
     });
   }
 };
@@ -805,7 +805,7 @@ const disable2fa = async (req, res) => {
     if (!password) {
       return res.status(400).json({
         success: false,
-        message: 'Debe ingresar su contraseña actual para confirmar la desactivación del 2FA.',
+        message: 'Escriba su contraseña actual para confirmar.',
       });
     }
 
@@ -825,7 +825,7 @@ const disable2fa = async (req, res) => {
     if (!passwordValida) {
       return res.status(401).json({
         success: false,
-        message: 'La contraseña ingresada es incorrecta.',
+        message: 'La contraseña no es correcta.',
       });
     }
 
@@ -836,13 +836,13 @@ const disable2fa = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: 'Doble factor de autenticación desactivado correctamente.',
+      message: 'Verificación en dos pasos desactivada.',
     });
   } catch (error) {
     console.error('Error en authController.disable2fa:', error);
     return res.status(500).json({
       success: false,
-      message: 'Error al desactivar el doble factor de autenticación.',
+      message: 'No se pudo desactivar la verificación en dos pasos. Intente de nuevo.',
     });
   }
 };

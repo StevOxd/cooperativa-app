@@ -120,7 +120,7 @@ const getUsers = async (req, res) => {
     console.error('Error en userController.getUsers:', error);
     return res.status(500).json({
       success: false,
-      message: 'Error al obtener la lista de usuarios.',
+      message: 'No se pudo cargar la lista de usuarios. Intente de nuevo.',
     });
   }
 };
@@ -179,7 +179,7 @@ const getUserById = async (req, res) => {
     console.error('Error en userController.getUserById:', error);
     return res.status(500).json({
       success: false,
-      message: 'Error al obtener el usuario.',
+      message: 'No se pudo cargar el usuario. Intente de nuevo.',
     });
   }
 };
@@ -214,7 +214,7 @@ const getNextCode = async (req, res) => {
     console.error('Error en userController.getNextCode:', error);
     return res.status(500).json({
       success: false,
-      message: 'Error al consultar el siguiente código correlativo.',
+      message: 'No se pudo calcular el siguiente código de usuario.',
     });
   }
 };
@@ -248,7 +248,7 @@ const createUser = async (req, res) => {
     if (!email || !rol || (!nombre && !primer_nombre)) {
       return res.status(400).json({
         success: false,
-        message: 'Todos los campos obligatorios deben ser proporcionados: nombre/primer_nombre, email, rol.',
+        message: 'Faltan datos: nombre, correo o rol.',
       });
     }
 
@@ -257,7 +257,7 @@ const createUser = async (req, res) => {
     if (!emailRegex.test(email.trim())) {
       return res.status(400).json({
         success: false,
-        message: 'El formato del correo electrónico ingresado no es válido.',
+        message: 'Revise el correo. Debe verse así: nombre@correo.com.',
       });
     }
 
@@ -266,7 +266,7 @@ const createUser = async (req, res) => {
       if (!/^\d{13}$/.test(cleanCui)) {
         return res.status(400).json({
           success: false,
-          message: 'El DPI / CUI debe contener exactamente 13 dígitos numéricos.',
+          message: 'El DPI debe tener 13 dígitos.',
         });
       }
     }
@@ -276,7 +276,7 @@ const createUser = async (req, res) => {
       if (cleanTel.length !== 8) {
         return res.status(400).json({
           success: false,
-          message: 'El número de teléfono debe contener exactamente 8 dígitos numéricos.',
+          message: 'El teléfono debe tener 8 dígitos.',
         });
       }
     }
@@ -285,25 +285,25 @@ const createUser = async (req, res) => {
     if (primer_nombre && (!nameRegex.test(primer_nombre.trim()) || primer_nombre.trim().length < 2)) {
       return res.status(400).json({
         success: false,
-        message: 'El primer nombre es obligatorio (mínimo 2 letras, solo caracteres alfabéticos).',
+        message: 'Escriba el primer nombre (al menos 2 letras, solo letras).',
       });
     }
     if (segundo_nombre && !nameRegex.test(segundo_nombre.trim())) {
       return res.status(400).json({
         success: false,
-        message: 'El segundo nombre solo puede contener letras y espacios.',
+        message: 'El segundo nombre solo puede llevar letras.',
       });
     }
     if (primer_apellido && (!nameRegex.test(primer_apellido.trim()) || primer_apellido.trim().length < 2)) {
       return res.status(400).json({
         success: false,
-        message: 'El primer apellido es obligatorio (mínimo 2 letras, solo caracteres alfabéticos).',
+        message: 'Escriba el primer apellido (al menos 2 letras, solo letras).',
       });
     }
     if (segundo_apellido && !nameRegex.test(segundo_apellido.trim())) {
       return res.status(400).json({
         success: false,
-        message: 'El segundo apellido solo puede contener letras y espacios.',
+        message: 'El segundo apellido solo puede llevar letras.',
       });
     }
 
@@ -312,7 +312,7 @@ const createUser = async (req, res) => {
       if (isNaN(birth.getTime())) {
         return res.status(400).json({
           success: false,
-          message: 'La fecha de nacimiento no tiene un formato válido.',
+          message: 'La fecha de nacimiento no es válida.',
         });
       }
       const today = new Date();
@@ -324,7 +324,7 @@ const createUser = async (req, res) => {
       if (age < 18) {
         return res.status(400).json({
           success: false,
-          message: `El usuario debe ser mayor de edad (18 años cumplidos). Edad calculada: ${age >= 0 ? age : 0} años.`,
+          message: `La persona debe ser mayor de edad (18 años cumplidos). Tiene ${age >= 0 ? age : 0} años.`,
         });
       }
     }
@@ -362,7 +362,7 @@ const createUser = async (req, res) => {
       if (rolUpper !== 'EJECUTIVO' && rolUpper !== 'OPERADOR') {
         return res.status(403).json({
           success: false,
-          message: 'Por políticas de auditoría y segregación de funciones, el Administrador únicamente puede crear usuarios con rol EJECUTIVO u OPERADOR.',
+          message: 'Desde aquí solo se crean operadores y ejecutivos. Los asociados se registran desde Asociados.',
         });
       }
     }
@@ -378,7 +378,7 @@ const createUser = async (req, res) => {
     // 3. Obtener id_rol correspondiente
     const roleResult = await client.query('SELECT id_rol, codigo, nombre FROM roles WHERE codigo = $1', [rolUpper]);
     if (roleResult.rows.length === 0) {
-      return res.status(400).json({ success: false, message: 'Rol especificado no existe.' });
+      return res.status(400).json({ success: false, message: 'Ese rol no existe.' });
     }
     const roleData = roleResult.rows[0];
     const rolId = roleData.id_rol;
@@ -417,7 +417,7 @@ const createUser = async (req, res) => {
 
       return res.status(409).json({
         success: false,
-        message: `Ya existe un usuario registrado con ese ${field}.`,
+        message: `Ya hay un usuario con ese ${field}.`,
       });
     }
 
@@ -539,7 +539,7 @@ const createUser = async (req, res) => {
 
     return res.status(201).json({
       success: true,
-      message: `Usuario creado exitosamente con código ${createdUser.codigo_corporativo}. Las credenciales de acceso fueron enviadas al correo institucional ${createdUser.email}.`,
+      message: `Se creó el usuario ${createdUser.codigo_corporativo}. Enviamos su contraseña temporal a ${createdUser.email}.`,
       password_generada: passwordFueAutogenerada ? rawPassword : null,
       data: {
         id: createdUser.id_persona,
@@ -575,7 +575,7 @@ const createUser = async (req, res) => {
     console.error('Error en userController.createUser:', error);
     return res.status(500).json({
       success: false,
-      message: 'Error interno del servidor al crear el usuario.',
+      message: 'No se pudo crear el usuario. Intente de nuevo.',
     });
   } finally {
     client.release();
@@ -662,7 +662,7 @@ const updateUser = async (req, res) => {
     if (codigo_corporativo && !/^(AD|OP|EJ|EX|EB)-[0-9]+$/i.test(updatedCodigoCorp) && !/^[0-9]{4}$/.test(updatedCodigoCorp)) {
       return res.status(400).json({
         success: false,
-        message: 'El código corporativo debe ser un identificador institucional válido (ej. AD-1, EJ-1, OP-1, EX-1, EB-1).',
+        message: 'El código de usuario no es válido (por ejemplo: OP-1, EJ-1).',
       });
     }
 
@@ -687,21 +687,20 @@ const updateUser = async (req, res) => {
 
       return res.status(409).json({
         success: false,
-        message: `El ${field} ya está en uso por otro usuario.`,
+        message: `Ese ${field} ya lo usa otro usuario.`,
       });
     }
 
-    // 5. Manejo de contraseña (actualizar solo si se envía una nueva)
-    let password_hash = currentUser.password_hash;
+    // 5. La contraseña no se cambia al editar: el administrador no debe conocer la de otra
+    //    persona. Se usa POST /:id/reset-password, que genera una temporal, la envía por correo
+    //    y obliga a cambiarla en el siguiente ingreso.
+    const password_hash = currentUser.password_hash;
     if (password && password.trim() !== '') {
-      if (password.length < 6 || !/[a-zA-Z]/.test(password) || !/[0-9]/.test(password)) {
-        return res.status(400).json({
-          success: false,
-          message: 'La nueva contraseña debe tener al menos 6 caracteres y combinar obligatoriamente letras y números por política de seguridad bancaria.',
-          error: 'PASSWORD_COMPLEXITY_REQUIRED',
-        });
-      }
-      password_hash = await bcrypt.hash(password, 10);
+      return res.status(400).json({
+        success: false,
+        message: 'La contraseña no se cambia al editar un usuario. Use «Reiniciar contraseña».',
+        error: 'PASSWORD_CHANGE_NOT_ALLOWED',
+      });
     }
 
     // INICIAR TRANSACCIÓN SQL
@@ -822,7 +821,7 @@ const updateUser = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: 'Usuario actualizado exitosamente.',
+      message: 'Cambios guardados.',
       data: updatedUserRes.rows[0],
     });
   } catch (error) {
@@ -830,7 +829,7 @@ const updateUser = async (req, res) => {
     console.error('Error en userController.updateUser:', error);
     return res.status(500).json({
       success: false,
-      message: 'Error interno del servidor al actualizar el usuario.',
+      message: 'No se pudieron guardar los cambios. Intente de nuevo.',
     });
   } finally {
     client.release();
@@ -912,7 +911,7 @@ const deleteUser = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: 'Usuario desactivado exitosamente (borrado lógico auditado).',
+      message: 'Usuario desactivado.',
       data: result.rows[0],
     });
   } catch (error) {
@@ -920,7 +919,7 @@ const deleteUser = async (req, res) => {
     console.error('Error en userController.deleteUser:', error);
     return res.status(500).json({
       success: false,
-      message: 'Error interno del servidor al desactivar el usuario.',
+      message: 'No se pudo desactivar el usuario. Intente de nuevo.',
     });
   } finally {
     client.release();
@@ -972,13 +971,13 @@ const desbloquearUsuario = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: `Usuario ${targetUser.codigo_corporativo} desbloqueado exitosamente.`,
+      message: `Se desbloqueó a ${targetUser.codigo_corporativo}.`,
     });
   } catch (error) {
     console.error('Error en userController.desbloquearUsuario:', error);
     return res.status(500).json({
       success: false,
-      message: 'Error al desbloquear el usuario.',
+      message: 'No se pudo desbloquear al usuario. Intente de nuevo.',
     });
   }
 };
@@ -1030,7 +1029,7 @@ const getRecentSecurityEvents = async (req, res) => {
     console.error('Error en userController.getRecentSecurityEvents:', error);
     return res.status(500).json({
       success: false,
-      message: 'Error al obtener los eventos recientes de auditoría.',
+      message: 'No se pudieron cargar los eventos de seguridad.',
     });
   }
 };
@@ -1081,7 +1080,7 @@ const getRolesAndPermissions = async (req, res) => {
     console.error('Error en getRolesAndPermissions:', error);
     return res.status(500).json({
       success: false,
-      message: 'Error al consultar roles y permisos.',
+      message: 'No se pudieron cargar los roles.',
     });
   }
 };
@@ -1120,14 +1119,14 @@ const assignPermissionsToRole = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: 'Permisos del rol actualizados exitosamente.',
+      message: 'Permisos guardados.',
     });
   } catch (error) {
     await client.query('ROLLBACK');
     console.error('Error en assignPermissionsToRole:', error);
     return res.status(500).json({
       success: false,
-      message: 'Error al actualizar permisos del rol.',
+      message: 'No se pudieron guardar los permisos. Intente de nuevo.',
     });
   } finally {
     client.release();
@@ -1159,7 +1158,7 @@ const cambiarEstadoUsuario = async (req, res) => {
     if (nuevoEstado === 'INACTIVO' && (!motivo || motivo.trim().length === 0)) {
       return res.status(400).json({
         success: false,
-        message: 'Es obligatorio indicar el motivo por el cual se cambia el estado a INACTIVO.',
+        message: 'Escriba el motivo para desactivar al usuario.',
       });
     }
 
@@ -1223,7 +1222,7 @@ const cambiarEstadoUsuario = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: `Estado del usuario actualizado a ${nuevoEstado} exitosamente.`,
+      message: `Estado actualizado.`,
       data: {
         id_persona: targetUserPersonaId,
         estado: nuevoEstado,
@@ -1234,7 +1233,7 @@ const cambiarEstadoUsuario = async (req, res) => {
     console.error('Error en cambiarEstadoUsuario:', error);
     return res.status(500).json({
       success: false,
-      message: 'Error interno al actualizar el estado del usuario.',
+      message: 'No se pudo cambiar el estado. Intente de nuevo.',
     });
   } finally {
     client.release();
@@ -1331,7 +1330,7 @@ const resetPasswordUsuario = async (req, res) => {
     // Por protocolos de seguridad bancaria, la contraseña temporal NO se devuelve en la respuesta al Administrador
     return res.status(200).json({
       success: true,
-      message: `Contraseña reiniciada exitosamente. Se ha enviado una contraseña temporal segura al correo registrado (${current.email}).`,
+      message: `Contraseña reiniciada. Enviamos una temporal a ${current.email}.`,
       data: {
         id_persona: targetUserPersonaId,
         codigo_corporativo: current.codigo_corporativo,
@@ -1344,7 +1343,7 @@ const resetPasswordUsuario = async (req, res) => {
     console.error('Error en resetPasswordUsuario:', error);
     return res.status(500).json({
       success: false,
-      message: 'Error interno al reiniciar la contraseña.',
+      message: 'No se pudo reiniciar la contraseña. Intente de nuevo.',
     });
   } finally {
     client.release();
@@ -1365,7 +1364,7 @@ const getEmailServiceStatus = async (req, res) => {
     console.error('Error en getEmailServiceStatus:', error);
     return res.status(500).json({
       success: false,
-      message: 'Error al consultar estado del servicio de correo.',
+      message: 'No se pudo consultar el estado del correo.',
     });
   }
 };
@@ -1380,7 +1379,7 @@ const updateEmailServiceConfig = async (req, res) => {
     if (!gmail_user || !gmail_app_password) {
       return res.status(400).json({
         success: false,
-        message: 'Debe ingresar la cuenta de Google y la Contraseña de Aplicación de 16 caracteres.',
+        message: 'Escriba la cuenta de Gmail y la contraseña de aplicación de 16 caracteres.',
       });
     }
 
@@ -1400,7 +1399,7 @@ const updateEmailServiceConfig = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: 'Servicio de Google Mail configurado y verificado exitosamente.',
+      message: 'Gmail quedó conectado y verificado.',
       data: result.status,
     });
   } catch (error) {
@@ -1421,7 +1420,7 @@ const sendTestEmail = async (req, res) => {
     if (!to || !to.includes('@')) {
       return res.status(400).json({
         success: false,
-        message: 'Debe ingresar una dirección de correo válida.',
+        message: 'Escriba un correo válido.',
       });
     }
 

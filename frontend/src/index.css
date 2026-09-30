@@ -4,48 +4,26 @@
 
 @layer base {
   body {
-    @apply bg-slate-50 text-slate-900;
+    @apply bg-surface-muted text-ink;
+    /* Cifras de ancho fijo: montos, DPI y cuentas quedan alineados en tablas. */
+    font-variant-numeric: tabular-nums;
   }
 }
 
-/* Glassmorphism utilities */
-.glass-card {
-  background: rgba(255, 255, 255, 0.85);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.4);
-}
-
-.glass-dark {
-  background: rgba(15, 23, 42, 0.85);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-/* Custom transitions */
-.transition-smooth {
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-/* Animaciones para Notificaciones Tipo Socket con Auto-Dismiss de 4s */
+/* Avisos flotantes: entran desde la derecha y una barra marca el tiempo antes de cerrarse. */
 @keyframes slideInRight {
-  0% {
-    transform: translateX(120%) scale(0.95);
+  from {
+    transform: translateX(1rem);
     opacity: 0;
   }
-  70% {
-    transform: translateX(-4px) scale(1.01);
-    opacity: 1;
-  }
-  100% {
-    transform: translateX(0) scale(1);
+  to {
+    transform: translateX(0);
     opacity: 1;
   }
 }
 
 .animate-slide-in-right {
-  animation: slideInRight 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: slideInRight 0.2s ease-out both;
 }
 
 @keyframes toastProgress {
@@ -59,6 +37,12 @@
 
 .animate-toast-progress {
   animation: toastProgress 4000ms linear forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-slide-in-right {
+    animation: none;
+  }
 }
 
 /* Reglas de Impresión Corporativa de Constancias y Documentos */
@@ -79,6 +63,11 @@
   }
 
   .print\:hidden {
+    display: none !important;
+  }
+
+  /* Modal imprimible (p. ej. expediente): solo se imprime el modal, no la aplicación de fondo. */
+  body:has(> [data-print-dialog]) > #root {
     display: none !important;
   }
 

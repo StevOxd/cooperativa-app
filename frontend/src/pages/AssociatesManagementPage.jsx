@@ -1,36 +1,51 @@
 import React, { useState, useEffect } from 'react';
 import api from '../services/api';
-import {
-  Users,
-  UserPlus,
-  Search,
-  Filter,
-  Download,
-  Eye,
-  CreditCard,
-  HeartHandshake,
-  CheckCircle,
-  AlertTriangle,
-  FileSpreadsheet,
-  Building2,
-  RefreshCw,
-  Loader2,
-  UserCheck,
-  Ban,
-  MoreVertical,
-} from 'lucide-react';
+import { Ban, CreditCard, Eye, FileSpreadsheet, HeartHandshake, UserCheck, UserPlus, Users } from 'lucide-react';
 import NewAssociateModal from '../components/associates/NewAssociateModal';
 import OpenAccountModal from '../components/associates/OpenAccountModal';
 import BeneficiariesModal from '../components/associates/BeneficiariesModal';
 import AssociateExpedienteModal from '../components/associates/AssociateExpedienteModal';
 import ConfirmModal from '../components/common/ConfirmModal';
-import TableSkeleton from '../components/common/TableSkeleton';
+import {
+  Badge,
+  Button,
+  Card,
+  EmptyState,
+  LoadingState,
+  PageHeader,
+  SearchInput,
+  Select,
+  StatCard,
+  StatGroup,
+  Table,
+  TBody,
+  TD,
+  TH,
+  THead,
+  TR,
+} from '../components/ui';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
+import { formatQ, humanize } from '../utils/format';
+
+/** Estado del asociado → etiqueta y tono. Los valores de la base no cambian. */
+const ESTADOS = {
+  ACTIVO: { label: 'Activo', tone: 'success' },
+  SUSPENDIDO: { label: 'Suspendido', tone: 'danger' },
+  INACTIVO: { label: 'Inactivo', tone: 'neutral' },
+};
+const estadoAsociado = (estado) => ESTADOS[estado] || { label: humanize(estado), tone: 'neutral' };
+
+/** Botón de ícono de la columna de acciones: el texto va en `title` y `aria-label`. */
+const RowAction = ({ icon: Icon, label, onClick, variant = 'ghost' }) => (
+  <Button size="icon" variant={variant} onClick={onClick} title={label} aria-label={label}>
+    <Icon className="w-4 h-4" aria-hidden="true" />
+  </Button>
+);
 
 export const AssociatesManagementPage = () => {
   const { user } = useAuth();
-  const toast = useToast();
+  const { toast } = useToast();
   const canCreateAssociate = user?.rol === 'OPERADOR';
   const [asociados, setAsociados] = useState([]);
   const [pagination, setPagination] = useState({ total: 0, page: 1, limit: 10, totalPages: 1 });
@@ -106,11 +121,11 @@ export const AssociatesManagementPage = () => {
         estado: nuevoEstado,
       });
       if (res.data?.success) {
-        toast.success(`Estado de ${asociado.nombre_completo} actualizado a ${nuevoEstado}.`);
+        toast.success(`${asociado.nombre_completo} quedó ${nuevoEstado === 'SUSPENDIDO' ? 'suspendido' : 'activo'}.`);
         fetchAsociados(pagination.page);
       }
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Error al cambiar estado del asociado.');
+      toast.error(err.response?.data?.message || 'No se pudo cambiar el estado. Intente de nuevo.');
     } finally {
       setConfirmModalData({
         isOpen: false,
@@ -171,278 +186,202 @@ export const AssociatesManagementPage = () => {
   // Métricas rápidas del padrón
   const totalActivos = asociados.filter((a) => a.estado_asociado === 'ACTIVO').length;
 
+  const hasFilters = Boolean(search || estadoFilter);
+  const nuevoEstadoLabel = estadoAsociado(confirmModalData.nuevoEstado).label.toLowerCase();
+  const suspendiendo = confirmModalData.nuevoEstado === 'SUSPENDIDO';
+
   return (
-    <div className="space-y-6">
-      {/* Header Institucional */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-2 border-b border-slate-200">
-        <div>
-          <h1 className="text-2xl font-black text-slate-800 tracking-tight flex items-center space-x-3">
-            <div className="w-9 h-9 rounded-xl bg-emerald-600 flex items-center justify-center text-white shadow-xs">
-              <Users className="w-5 h-5" />
-            </div>
-            <span>Gestión de Asociados y Cuentas</span>
-          </h1>
-          <p className="text-xs text-slate-500 mt-1">
-            Módulo 1: Padrón General de Asociados, Ficha de Afiliación, Aperturas y Beneficiarios
-          </p>
-        </div>
-
-        {/* Acciones Superiores */}
-        <div className="flex items-center space-x-3">
-          <button
-            onClick={handleExportCSV}
-            className="px-3.5 py-2.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded-xl text-xs font-bold shadow-2xs flex items-center space-x-2 transition-all cursor-pointer"
-            title="Exportar Reporte 1.2 en CSV compatible con Excel"
-          >
-            <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
-            <span>Exportar Padrón (CSV)</span>
-          </button>
-
-          {canCreateAssociate && (
-            <button
-              onClick={() => setIsNewModalOpen(true)}
-              className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-md flex items-center space-x-2 transition-all cursor-pointer"
+    <div>
+      <PageHeader
+        title="Asociados"
+        description="Padrón de asociados: expediente, apertura de cuentas y beneficiarios."
+        actions={
+          <>
+            <Button
+              variant="secondary"
+              icon={FileSpreadsheet}
+              onClick={handleExportCSV}
+              disabled={asociados.length === 0}
+              title="Descarga los asociados de esta página en un archivo CSV que abre en Excel"
             >
-              <UserPlus className="w-4 h-4" />
-              <span>+ Nuevo Asociado (Ventanilla)</span>
-            </button>
-          )}
-        </div>
-      </div>
+              Exportar CSV
+            </Button>
+            {canCreateAssociate && (
+              <Button icon={UserPlus} onClick={() => setIsNewModalOpen(true)}>
+                Nuevo asociado
+              </Button>
+            )}
+          </>
+        }
+      />
 
-      {/* Tarjetas de Métricas de Resumen */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div className="p-4 bg-white rounded-2xl border border-slate-200 shadow-2xs">
-          <span className="text-xs font-semibold text-slate-500 block">Total en Padrón</span>
-          <span className="text-2xl font-black text-slate-800 font-mono mt-1 block">
-            {pagination.total}
-          </span>
-          <span className="text-[11px] text-emerald-600 font-medium">Asociados registrados</span>
-        </div>
+      <div className="space-y-6">
+        <StatGroup columns={2}>
+          <StatCard label="Asociados en el padrón" value={pagination.total} hint={hasFilters ? 'Con los filtros aplicados' : 'Todos los registros'} />
+          <StatCard label="Activos" value={totalActivos} hint={`De ${asociados.length} en esta página`} />
+        </StatGroup>
 
-        <div className="p-4 bg-white rounded-2xl border border-slate-200 shadow-2xs">
-          <span className="text-xs font-semibold text-slate-500 block">Asociados Activos</span>
-          <span className="text-2xl font-black text-emerald-600 font-mono mt-1 block">
-            {totalActivos}
-          </span>
-          <span className="text-[11px] text-slate-400 font-medium">En esta vista</span>
-        </div>
-      </div>
-
-      {/* Barra de Filtros y Búsqueda */}
-      <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs">
-        <form onSubmit={handleSearchSubmit} className="flex flex-col sm:flex-row gap-3">
-          <div className="relative flex-1">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
-            <input
-              type="text"
+        <Card>
+          <form
+            onSubmit={handleSearchSubmit}
+            className="flex flex-col gap-3 border-b border-line px-5 py-4 sm:flex-row sm:items-center"
+            role="search"
+          >
+            <SearchInput
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Buscar por DPI, Nombre, Usuario o Correo..."
-              className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-600"
+              onChange={setSearch}
+              label="Buscar asociados"
+              placeholder="DPI, nombre, usuario o correo"
+              className="w-full sm:max-w-sm"
             />
-          </div>
-
-          <div className="flex items-center space-x-2">
-            <select
+            <Select
               value={estadoFilter}
               onChange={(e) => setEstadoFilter(e.target.value)}
-              className="px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-800 focus:ring-2 focus:ring-emerald-600"
+              aria-label="Filtrar por estado"
+              className="sm:w-44"
             >
-              <option value="">Todos los Estados</option>
+              <option value="">Todos los estados</option>
               <option value="ACTIVO">Activos</option>
               <option value="INACTIVO">Inactivos</option>
               <option value="SUSPENDIDO">Suspendidos</option>
-            </select>
+            </Select>
+            <div className="flex gap-2">
+              <Button type="submit" variant="secondary">Buscar</Button>
+              {hasFilters && (
+                <Button
+                  variant="ghost"
+                  onClick={() => {
+                    setSearch('');
+                    setEstadoFilter('');
+                    fetchAsociados(1);
+                  }}
+                >
+                  Limpiar filtros
+                </Button>
+              )}
+            </div>
+          </form>
 
-            <button
-              type="submit"
-              className="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer"
-            >
-              Filtrar
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setSearch('');
-                setEstadoFilter('');
-                fetchAsociados(1);
-              }}
-              className="p-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl transition-colors cursor-pointer"
-              title="Restablecer filtros"
-            >
-              <RefreshCw className="w-4 h-4" />
-            </button>
-          </div>
-        </form>
-      </div>
-
-      {/* Tabla del Padrón General de Asociados */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-2xs overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-slate-50 border-b border-slate-200 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-                <th className="py-3.5 px-4">Asociado / Titular</th>
-                <th className="py-3.5 px-4">CUI / DPI</th>
-                <th className="py-3.5 px-4">Usuario</th>
-                <th className="py-3.5 px-4 text-center">Cuentas</th>
-                <th className="py-3.5 px-4 text-right">Saldo Total</th>
-                <th className="py-3.5 px-4 text-right">Aportaciones</th>
-                <th className="py-3.5 px-4 text-center">Estado</th>
-                <th className="py-3.5 px-4 text-center">Acciones</th>
-              </tr>
-            </thead>
-            {loading ? (
-              <TableSkeleton rows={5} columns={8} />
-            ) : (
-              <tbody className="divide-y divide-slate-100 text-xs text-slate-700">
-                {asociados.length === 0 ? (
-                  <tr>
-                    <td colSpan={8} className="py-12 text-center text-slate-400">
-                      No se encontraron asociados con los filtros especificados.
-                    </td>
-                  </tr>
-                ) : (
-                  asociados.map((a) => (
-                    <tr key={a.id_asociado} className="hover:bg-slate-50/70 transition-colors">
-                      <td className="py-3.5 px-4">
-                        <div className="font-bold text-slate-900">{a.nombre_completo}</div>
-                        <div className="text-[11px] text-slate-400">
-                          {a.email || 'Sin correo'} • Tel: {a.telefono || 'N/A'}
+          {loading ? (
+            <LoadingState label="Cargando asociados…" />
+          ) : asociados.length === 0 ? (
+            <EmptyState
+              icon={Users}
+              title={hasFilters ? 'Sin resultados' : 'Aún no hay asociados'}
+              description={
+                hasFilters
+                  ? 'Revise el DPI, nombre, usuario o correo, o cambie el estado.'
+                  : 'Los asociados registrados en ventanilla o por afiliación en línea aparecerán aquí.'
+              }
+            />
+          ) : (
+            <Table bordered={false} caption="Padrón de asociados">
+              <THead>
+                <TR>
+                  <TH>Asociado</TH>
+                  <TH>DPI y usuario</TH>
+                  <TH numeric>Cuentas</TH>
+                  <TH numeric>Saldo disponible</TH>
+                  <TH numeric>Aportaciones</TH>
+                  <TH>Estado</TH>
+                  <TH sticky><span className="sr-only">Acciones</span></TH>
+                </TR>
+              </THead>
+              <TBody>
+                {asociados.map((a) => {
+                  const st = estadoAsociado(a.estado_asociado);
+                  const activo = a.estado_asociado === 'ACTIVO';
+                  return (
+                    <TR key={a.id_asociado} interactive>
+                      <TD className="min-w-[13rem]">
+                        <div className="font-medium text-ink">{a.nombre_completo}</div>
+                        <div className="text-xs text-ink-subtle">
+                          {a.email || 'Sin correo'}
+                          {a.telefono && <span className="tabular-nums"> · {a.telefono}</span>}
                         </div>
-                      </td>
-                      <td className="py-3.5 px-4 font-mono font-medium text-slate-800">
-                        {a.cui_dpi}
-                      </td>
-                      <td className="py-3.5 px-4 font-mono font-bold text-emerald-700">
-                        {a.codigo_corporativo || (
-                          <span className="text-slate-400 font-normal">Sin cuenta</span>
-                        )}
-                      </td>
-                      <td className="py-3.5 px-4 text-center">
-                        <span className="inline-block px-2 py-0.5 rounded-full text-[11px] font-bold bg-slate-100 text-slate-700">
-                          {a.total_cuentas}
-                        </span>
-                      </td>
-                      <td className="py-3.5 px-4 text-right font-mono font-bold text-slate-900">
-                        Q{a.saldo_total_disponible.toFixed(2)}
-                      </td>
-                      <td className="py-3.5 px-4 text-right font-mono font-bold text-emerald-600">
-                        Q{a.saldo_aportaciones.toFixed(2)}
-                      </td>
-                      <td className="py-3.5 px-4 text-center">
-                        <span
-                          className={`inline-block px-2.5 py-1 rounded-full text-[10px] font-bold ${
-                            a.estado_asociado === 'ACTIVO'
-                              ? 'bg-emerald-100 text-emerald-800'
-                              : a.estado_asociado === 'SUSPENDIDO'
-                              ? 'bg-red-100 text-red-800'
-                              : 'bg-slate-100 text-slate-600'
-                          }`}
-                        >
-                          {a.estado_asociado}
-                        </span>
-                      </td>
-                      <td className="py-3.5 px-4 text-center">
-                        <div className="flex items-center justify-center space-x-1.5">
-                          {/* Ver Expediente 360° / Ficha */}
-                          <button
-                            type="button"
+                      </TD>
+                      <TD className="whitespace-nowrap">
+                        <div className="font-mono text-ink">{a.cui_dpi}</div>
+                        <div className="text-xs text-ink-subtle">
+                          {a.codigo_corporativo ? <span className="font-mono">{a.codigo_corporativo}</span> : 'Sin usuario'}
+                        </div>
+                      </TD>
+                      <TD numeric>{a.total_cuentas}</TD>
+                      <TD numeric className="font-medium text-ink">{formatQ(a.saldo_total_disponible)}</TD>
+                      <TD numeric>{formatQ(a.saldo_aportaciones)}</TD>
+                      <TD className="whitespace-nowrap"><Badge tone={st.tone}>{st.label}</Badge></TD>
+                      <TD sticky className="whitespace-nowrap text-center">
+                        <div className="flex items-center justify-center gap-0.5">
+                          <RowAction
+                            icon={Eye}
+                            label={`Ver expediente de ${a.nombre_completo}`}
                             onClick={() => {
                               setSelectedAsociado(a);
                               setIsExpedienteModalOpen(true);
                             }}
-                            className="p-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-lg transition-colors cursor-pointer"
-                            title="Ver Expediente 360° (Reporte 1.1)"
-                            aria-label={`Ver Expediente 360° de ${a.nombre_completo}`}
-                          >
-                            <Eye className="w-4 h-4" />
-                          </button>
-
-                          {/* Aperturar Nueva Cuenta (Formulario 2) */}
-                          <button
-                            type="button"
+                          />
+                          <RowAction
+                            icon={CreditCard}
+                            label={`Abrir cuenta para ${a.nombre_completo}`}
                             onClick={() => {
                               setSelectedAsociado(a);
                               setIsOpenAccountModalOpen(true);
                             }}
-                            className="p-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg transition-colors cursor-pointer"
-                            title="Aperturar Cuenta Financiera (Formulario 2)"
-                            aria-label={`Aperturar Cuenta Financiera para ${a.nombre_completo}`}
-                          >
-                            <CreditCard className="w-4 h-4" />
-                          </button>
-
-                          {/* Gestionar Beneficiarios (Formulario 3) */}
-                          <button
-                            type="button"
+                          />
+                          <RowAction
+                            icon={HeartHandshake}
+                            label={`Beneficiarios de ${a.nombre_completo}`}
                             onClick={() => {
                               setSelectedAsociado(a);
                               setIsBeneficiariesModalOpen(true);
                             }}
-                            className="p-1.5 bg-purple-50 hover:bg-purple-100 text-purple-700 rounded-lg transition-colors cursor-pointer"
-                            title="Declarar / Distribuir Beneficiarios (Formulario 3)"
-                            aria-label={`Declarar o Distribuir Beneficiarios de ${a.nombre_completo}`}
-                          >
-                            <HeartHandshake className="w-4 h-4" />
-                          </button>
-
-                          {/* Suspender / Activar */}
-                          <button
-                            type="button"
+                          />
+                          <RowAction
+                            icon={activo ? Ban : UserCheck}
+                            label={activo ? `Suspender a ${a.nombre_completo}` : `Activar a ${a.nombre_completo}`}
                             onClick={() => promptToggleEstado(a)}
-                            className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
-                              a.estado_asociado === 'ACTIVO'
-                                ? 'bg-amber-50 hover:bg-amber-100 text-amber-700'
-                                : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700'
-                            }`}
-                            title={a.estado_asociado === 'ACTIVO' ? 'Suspender Asociado' : 'Activar Asociado'}
-                            aria-label={a.estado_asociado === 'ACTIVO' ? `Suspender Asociado ${a.nombre_completo}` : `Activar Asociado ${a.nombre_completo}`}
-                          >
-                            {a.estado_asociado === 'ACTIVO' ? (
-                              <Ban className="w-4 h-4" />
-                            ) : (
-                              <UserCheck className="w-4 h-4" />
-                            )}
-                          </button>
+                            variant={activo ? 'ghostDanger' : 'ghostSuccess'}
+                          />
                         </div>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            )}
-          </table>
-        </div>
+                      </TD>
+                    </TR>
+                  );
+                })}
+              </TBody>
+            </Table>
+          )}
 
-        {/* Paginador */}
-        {pagination.totalPages > 1 && (
-          <div className="px-6 py-3 bg-slate-50 border-t border-slate-200 flex items-center justify-between text-xs text-slate-500">
-            <span>
-              Mostrando página {pagination.page} de {pagination.totalPages} ({pagination.total} registros)
-            </span>
-            <div className="flex space-x-1">
-              <button
-                disabled={pagination.page <= 1}
-                onClick={() => fetchAsociados(pagination.page - 1)}
-                className="px-3 py-1 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-50 cursor-pointer"
-              >
-                Anterior
-              </button>
-              <button
-                disabled={pagination.page >= pagination.totalPages}
-                onClick={() => fetchAsociados(pagination.page + 1)}
-                className="px-3 py-1 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-50 cursor-pointer"
-              >
-                Siguiente
-              </button>
-            </div>
-          </div>
-        )}
+          {pagination.totalPages > 1 && (
+            <nav
+              aria-label="Paginación del padrón"
+              className="flex flex-col gap-3 border-t border-line px-5 py-3 text-sm text-ink-muted sm:flex-row sm:items-center sm:justify-between"
+            >
+              <span className="tabular-nums">
+                Página {pagination.page} de {pagination.totalPages} · {pagination.total} asociados
+              </span>
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  disabled={pagination.page <= 1 || loading}
+                  onClick={() => fetchAsociados(pagination.page - 1)}
+                >
+                  Anterior
+                </Button>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  disabled={pagination.page >= pagination.totalPages || loading}
+                  onClick={() => fetchAsociados(pagination.page + 1)}
+                >
+                  Siguiente
+                </Button>
+              </div>
+            </nav>
+          )}
+        </Card>
       </div>
 
-      {/* Modales de Formularios y Reportes */}
       <NewAssociateModal
         isOpen={isNewModalOpen}
         onClose={() => setIsNewModalOpen(false)}
@@ -488,16 +427,19 @@ export const AssociatesManagementPage = () => {
         }}
       />
 
-      {/* Modal de Confirmación Estilizado (H-02) */}
       <ConfirmModal
         isOpen={confirmModalData.isOpen}
         onClose={() => setConfirmModalData({ isOpen: false, asociado: null, nuevoEstado: '', loading: false })}
         onConfirm={handleConfirmToggleEstado}
-        title="Confirmación de Cambio de Estado"
-        subtitle={`Asociado: ${confirmModalData.asociado?.nombre_completo || ''}`}
-        message={`¿Está seguro de cambiar el estado operativo del asociado a ${confirmModalData.nuevoEstado}?`}
-        variant={confirmModalData.nuevoEstado === 'SUSPENDIDO' ? 'danger' : 'primary'}
-        confirmText={`Cambiar a ${confirmModalData.nuevoEstado}`}
+        title={suspendiendo ? '¿Suspender al asociado?' : '¿Activar al asociado?'}
+        subtitle={confirmModalData.asociado?.nombre_completo || ''}
+        message={
+          suspendiendo
+            ? 'Mientras esté suspendido no podrá operar en sus cuentas. Puede activarlo de nuevo cuando lo necesite.'
+            : `El asociado quedará ${nuevoEstadoLabel} y podrá operar en sus cuentas.`
+        }
+        variant={suspendiendo ? 'danger' : 'primary'}
+        confirmText={suspendiendo ? 'Suspender' : 'Activar'}
         loading={confirmModalData.loading}
       />
     </div>

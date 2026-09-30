@@ -1,22 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import {
-  Lock,
-  Mail,
-  Eye,
-  EyeOff,
-  Building2,
-  ArrowRight,
-  AlertCircle,
-  ShieldAlert,
-  Loader2,
-  Smartphone,
-  KeyRound,
-  ShieldCheck,
-} from 'lucide-react';
+import { Eye, EyeOff, ShieldAlert } from 'lucide-react';
+import { Alert, Button, Field, Input } from '../components/ui';
+import { Wordmark } from '../components/layout/Wordmark';
+import { ParticleField } from '../components/login/ParticleField';
 
 export const LoginPage = () => {
+  // Tarjeta de inicio de sesión: el fondo animado no actúa dentro de ella.
+  const cardRef = useRef(null);
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -44,10 +36,10 @@ export const LoginPage = () => {
     const teniaToken = Boolean(localStorage.getItem('coop_token'));
 
     if (motivo === 'inactividad') {
-      setInfoMessage('Su sesión ha expirado automáticamente por inactividad (10 minutos) para proteger su cuenta.');
+      setInfoMessage('Cerramos su sesión porque pasaron 10 minutos sin actividad.');
       logout();
     } else if (teniaToken) {
-      setInfoMessage('Sesión cerrada por seguridad bancaria al regresar a la pantalla de acceso.');
+      setInfoMessage('Por seguridad, cerramos su sesión al volver a esta pantalla.');
       logout();
     }
 
@@ -57,7 +49,7 @@ export const LoginPage = () => {
 
     const handleBackForward = () => {
       if (localStorage.getItem('coop_token')) {
-        setInfoMessage('Sesión cerrada por seguridad bancaria al regresar a la pantalla de acceso.');
+        setInfoMessage('Por seguridad, cerramos su sesión al volver a esta pantalla.');
         logout();
       }
       setIdentifier('');
@@ -80,7 +72,7 @@ export const LoginPage = () => {
     setInfoMessage('');
 
     if (!identifier.trim() || !password) {
-      setErrorMessage('Por favor ingrese su usuario o correo electrónico y contraseña.');
+      setErrorMessage('Escriba su usuario o correo y su contraseña.');
       return;
     }
 
@@ -103,13 +95,13 @@ export const LoginPage = () => {
         // Login directo exitoso
         navigate('/dashboard');
       } else {
-        setErrorMessage(result.message || 'Credenciales inválidas.');
+        setErrorMessage(result.message || 'El usuario o la contraseña no son correctos.');
         setIdentifier('');
         setPassword('');
         identifierInputRef.current?.focus();
       }
     } catch (err) {
-      setErrorMessage('Ocurrió un error inesperado. Por favor intente nuevamente.');
+      setErrorMessage('Ocurrió un error inesperado. Intente de nuevo.');
       setIdentifier('');
       setPassword('');
       identifierInputRef.current?.focus();
@@ -124,7 +116,7 @@ export const LoginPage = () => {
 
     const cleanCode = totpCode.trim().replace(/\s+/g, '');
     if (!cleanCode || cleanCode.length !== 6 || !/^\d{6}$/.test(cleanCode)) {
-      setErrorMessage('Ingrese exactamente los 6 dígitos numéricos del autenticador.');
+      setErrorMessage('Escriba los 6 dígitos que muestra su aplicación.');
       return;
     }
 
@@ -134,12 +126,12 @@ export const LoginPage = () => {
       if (result.success) {
         navigate('/dashboard');
       } else {
-        setErrorMessage(result.message || 'Código de seguridad incorrecto.');
+        setErrorMessage(result.message || 'El código no es correcto.');
         setTotpCode('');
         mfaInputRef.current?.focus();
       }
     } catch (err) {
-      setErrorMessage('Error al verificar el código de seguridad. Intente nuevamente.');
+      setErrorMessage('No se pudo verificar el código. Intente de nuevo.');
     } finally {
       setIsSubmitting(false);
     }
@@ -156,81 +148,55 @@ export const LoginPage = () => {
     setTimeout(() => identifierInputRef.current?.focus(), 100);
   };
 
+
+  const year = new Date().getFullYear();
+
   return (
-    <div 
-      className="min-h-screen bg-slate-100 flex items-center justify-center p-4 sm:p-6 lg:p-8 relative"
-      style={{
-        backgroundImage: 'radial-gradient(circle, #cbd5e1 1px, transparent 1px)',
-        backgroundSize: '24px 24px'
-      }}
-    >
-      <div className="w-full max-w-5xl grid grid-cols-1 lg:grid-cols-12 rounded-2xl overflow-hidden shadow-xl border border-slate-200 bg-white">
-        {/* Panel lateral izquierdo - Branding Institucional */}
-        <div className="lg:col-span-5 bg-emerald-900 p-8 lg:p-12 text-white flex flex-col justify-between relative">
-          <div className="relative z-10">
-            <div className="flex items-center space-x-3 mb-10">
-              <div className="w-12 h-12 rounded-xl bg-white/10 flex items-center justify-center border border-white/20 shadow-sm">
-                <Building2 className="w-7 h-7 text-emerald-300" />
-              </div>
-              <div>
-                <span className="text-xl font-bold tracking-tight block">COOPERATIVA</span>
-                <span className="text-xs text-emerald-300 tracking-wider font-semibold uppercase">Portal Institucional</span>
-              </div>
+    <div className="relative isolate min-h-screen flex flex-col bg-surface-muted">
+      {/* Fondo animado decorativo: solo en escritorio y fuera de la tarjeta */}
+      <ParticleField excludeRef={cardRef} />
+      <main className="relative z-10 flex-1 flex items-center justify-center px-4 py-10 sm:px-6">
+        <div ref={cardRef} className="w-full max-w-4xl grid lg:grid-cols-2 bg-white border border-line rounded-lg overflow-hidden">
+          {/* Panel institucional: solo en pantallas grandes */}
+          <aside className="hidden lg:flex flex-col justify-between gap-10 bg-brand-900 p-10 text-white">
+            <Wordmark inverse />
+            <div>
+              <p className="text-sm font-semibold">Antes de ingresar</p>
+              <ul className="mt-4 space-y-3 text-sm leading-relaxed text-brand-100 list-disc pl-4 marker:text-brand-300">
+                <li>Verifique que la dirección en su navegador sea la del portal de la cooperativa.</li>
+                <li>No comparta su contraseña ni su código de verificación con nadie, tampoco con personal de la cooperativa.</li>
+                <li>Por su seguridad, la sesión se cierra después de 10 minutos sin actividad.</li>
+              </ul>
+            </div>
+            <p className="text-xs text-brand-200">© {year} Cooperativa</p>
+          </aside>
+
+          <section className="px-6 py-8 sm:px-10 sm:py-12">
+            <div className="lg:hidden mb-8">
+              <Wordmark />
             </div>
 
-            <div className="space-y-4">
-              <h2 className="text-2xl lg:text-3xl font-bold leading-tight">
-                Sistema de Gestión Financiera y Autogestión
-              </h2>
-              <p className="text-emerald-100/90 text-sm leading-relaxed">
-                Plataforma corporativa centralizada para la administración de asociados, operaciones financieras e informes institucionales.
-              </p>
-            </div>
-          </div>
-
-          {/* Sutil resplandor de fondo institucional */}
-          <div className="absolute -right-20 -bottom-20 w-64 h-64 bg-emerald-700/20 rounded-full blur-3xl pointer-events-none" />
-        </div>
-
-        {/* Panel derecho - Formulario de Login */}
-        <div className="lg:col-span-7 p-8 lg:p-12 flex flex-col justify-center bg-white">
-          <div className="max-w-md w-full mx-auto">
             {mfaRequired ? (
-              /* Vista de Doble Factor de Autenticación (MFA / 2FA TOTP) */
-              <div>
-                <div className="mb-6 text-center">
-                  <div className="w-14 h-14 bg-sky-100 text-sky-700 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-xs">
-                    <Smartphone className="w-7 h-7" />
-                  </div>
-                  <h2 className="text-2xl font-bold text-slate-800 tracking-tight">Verificación de Seguridad</h2>
-                  <p className="text-xs text-slate-500 mt-1">
-                    Doble Factor de Autenticación (MFA / 2FA) Requerido
-                  </p>
-                </div>
+              /* Segundo paso: código del autenticador (2FA TOTP) */
+              <>
+                <h1 className="text-2xl font-semibold text-ink">Verificación en dos pasos</h1>
+                <p className="mt-1 text-sm text-ink-muted">
+                  Ingrese el código de 6 dígitos que muestra su aplicación de autenticación.
+                </p>
+                <p className="mt-4 text-sm text-ink-soft">
+                  Cuenta:{' '}
+                  <span className="font-medium text-ink">
+                    {mfaUser?.nombre_completo || mfaUser?.codigo_corporativo || mfaUser?.email || 'Usuario'}
+                  </span>
+                </p>
 
-                <div className="mb-6 p-4 rounded-xl bg-sky-50 border border-sky-200 text-xs text-sky-900 leading-relaxed">
-                  <p className="font-bold text-sky-950 mb-0.5">
-                    Usuario: {mfaUser?.nombre_completo || mfaUser?.codigo_corporativo || mfaUser?.email || 'Usuario'}
-                  </p>
-                  <p className="text-sky-800">
-                    Abre tu aplicación autenticadora (Google Authenticator, Microsoft Authenticator) e ingresa el código numérico de 6 dígitos.
-                  </p>
-                </div>
-
-                {/* Mensaje de Error */}
                 {errorMessage && (
-                  <div className="mb-6 p-4 rounded-xl bg-red-50 border border-red-200 flex items-start space-x-3 text-red-700 text-sm">
-                    <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5 text-red-600" />
-                    <span className="leading-snug">{errorMessage}</span>
-                  </div>
+                  <Alert tone="danger" className="mt-6">{errorMessage}</Alert>
                 )}
 
-                <form onSubmit={handleVerifyMfa} className="space-y-6">
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2 text-center">
-                      Código de Seguridad (6 dígitos)
-                    </label>
-                    <input
+                <form onSubmit={handleVerifyMfa} className="mt-6 space-y-5">
+                  <Field label="Código de verificación" hint="El código cambia cada 30 segundos.">
+                    <Input
                       ref={mfaInputRef}
                       type="text"
                       inputMode="numeric"
@@ -246,166 +212,103 @@ export const LoginPage = () => {
                       autoFocus
                       disabled={isSubmitting}
                       autoComplete="one-time-code"
-                      className="w-full text-center tracking-[0.4em] font-mono text-2xl py-3.5 bg-slate-50 border-2 border-sky-500/60 rounded-xl text-slate-900 placeholder-slate-300 focus:outline-none focus:ring-4 focus:ring-sky-500/20 focus:border-sky-600 focus:bg-white transition-all disabled:opacity-50"
+                      className="h-14 text-center font-mono text-2xl tracking-[0.4em]"
                     />
-                    <p className="text-[11px] text-slate-400 text-center mt-2">
-                      El código se actualiza dinámicamente cada 30 segundos.
-                    </p>
-                  </div>
+                  </Field>
 
-                  <div className="space-y-2.5">
-                    <button
+                  <div className="space-y-2">
+                    <Button
                       type="submit"
-                      disabled={isSubmitting || totpCode.trim().length !== 6}
-                      className="w-full py-3.5 px-6 rounded-xl bg-sky-700 hover:bg-sky-800 text-white font-bold text-sm shadow-md flex items-center justify-center space-x-2 transition-all transform active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                      size="lg"
+                      fullWidth
+                      loading={isSubmitting}
+                      loadingText="Verificando…"
+                      disabled={totpCode.trim().length !== 6}
                     >
-                      {isSubmitting ? (
-                        <>
-                          <Loader2 className="w-5 h-5 animate-spin" />
-                          <span>Validando código...</span>
-                        </>
-                      ) : (
-                        <>
-                          <ShieldCheck className="w-5 h-5" />
-                          <span>Verificar y Acceder</span>
-                        </>
-                      )}
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={handleCancelMfa}
-                      disabled={isSubmitting}
-                      className="w-full py-2.5 px-4 text-xs font-semibold text-slate-500 hover:text-slate-800 transition-colors cursor-pointer"
-                    >
-                      ← Cancelar y volver al inicio
-                    </button>
+                      Verificar
+                    </Button>
+                    <Button variant="ghost" fullWidth onClick={handleCancelMfa} disabled={isSubmitting}>
+                      Volver al inicio de sesión
+                    </Button>
                   </div>
                 </form>
-              </div>
+              </>
             ) : (
-              /* Vista Principal de Acceso */
+              /* Primer paso: usuario y contraseña */
               <>
-                <div className="mb-8">
-                  <h2 className="text-2xl font-bold text-slate-800 tracking-tight">Acceso de Personal</h2>
-                  <p className="text-sm text-slate-500 mt-1">
-                    Ingrese sus credenciales corporativas autorizadas
-                  </p>
-                </div>
+                <h1 className="text-2xl font-semibold text-ink">Iniciar sesión</h1>
+                <p className="mt-1 text-sm text-ink-muted">
+                  Ingrese con su código de usuario o su correo electrónico.
+                </p>
 
-                {/* Mensaje Informativo o de Seguridad Bancaria */}
                 {infoMessage && (
-                  <div className="mb-6 p-4 rounded-xl bg-amber-50 border border-amber-200 flex items-start space-x-3 text-amber-800 text-sm shadow-xs">
-                    <ShieldAlert className="w-5 h-5 flex-shrink-0 mt-0.5 text-amber-600" />
-                    <span className="leading-snug font-medium">{infoMessage}</span>
-                  </div>
+                  <Alert tone="warning" icon={ShieldAlert} className="mt-6">{infoMessage}</Alert>
                 )}
 
-                {/* Mensaje de Error */}
                 {errorMessage && (
-                  <div className="mb-6 p-4 rounded-xl bg-red-50 border border-red-200 flex items-start space-x-3 text-red-700 text-sm">
-                    <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5 text-red-600" />
-                    <span className="leading-snug">{errorMessage}</span>
-                  </div>
+                  <Alert tone="danger" className="mt-6">{errorMessage}</Alert>
                 )}
 
-                <form onSubmit={handleSubmit} className="space-y-5">
-                  {/* Campo Usuario */}
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2">
-                      Usuario
-                    </label>
-                    <div className="relative">
-                      <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-                        <Mail className="w-5 h-5" />
-                      </div>
-                      <input
-                        ref={identifierInputRef}
-                        type="text"
-                        value={identifier}
-                        onChange={(e) => setIdentifier(e.target.value)}
-                        placeholder="Ingrese su usuario"
-                        required
-                        disabled={isSubmitting}
-                        autoComplete="off"
-                        className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-600 focus:border-sky-600 focus:bg-white transition-all text-sm disabled:opacity-50"
-                      />
-                    </div>
-                  </div>
+                <form onSubmit={handleSubmit} className="mt-6 space-y-5">
+                  <Field label="Código de usuario o correo">
+                    <Input
+                      ref={identifierInputRef}
+                      type="text"
+                      value={identifier}
+                      onChange={(e) => setIdentifier(e.target.value)}
+                      required
+                      disabled={isSubmitting}
+                      autoComplete="off"
+                    />
+                  </Field>
 
-                  {/* Campo Contraseña */}
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2">
-                      Contraseña
-                    </label>
-                    <div className="relative">
-                      <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-                        <Lock className="w-5 h-5" />
-                      </div>
-                      <input
-                        type={showPassword ? 'text' : 'password'}
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        placeholder="••••••••••••"
-                        required
-                        disabled={isSubmitting}
-                        autoComplete="current-password"
-                        className="w-full pl-11 pr-11 py-3 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-600 focus:border-sky-600 focus:bg-white transition-all text-sm disabled:opacity-50"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowPassword(!showPassword)}
-                        tabIndex={-1}
-                        className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
-                      >
-                        {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                      </button>
-                    </div>
-                  </div>
+                  <Field label="Contraseña">
+                    <Input
+                      type={showPassword ? 'text' : 'password'}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      required
+                      disabled={isSubmitting}
+                      autoComplete="current-password"
+                      trailing={
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                          aria-pressed={showPassword}
+                          className="rounded-md p-2 text-ink-subtle hover:text-ink-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 cursor-pointer"
+                        >
+                          {showPassword ? (
+                            <EyeOff className="w-4 h-4" aria-hidden="true" />
+                          ) : (
+                            <Eye className="w-4 h-4" aria-hidden="true" />
+                          )}
+                        </button>
+                      }
+                    />
+                  </Field>
 
-                  {/* Botón de Submit */}
-                  <button
-                    type="submit"
-                    disabled={isSubmitting}
-                    className="w-full mt-2 py-3.5 px-6 rounded-xl bg-sky-700 hover:bg-sky-800 text-white font-bold text-sm shadow-md flex items-center justify-center space-x-2 transition-all transform active:scale-[0.99] disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
-                  >
-                    {isSubmitting ? (
-                      <>
-                        <Loader2 className="w-5 h-5 animate-spin" />
-                        <span>Validando credenciales...</span>
-                      </>
-                    ) : (
-                      <>
-                        <span>Ingresar al Sistema</span>
-                        <ArrowRight className="w-4 h-4" />
-                      </>
-                    )}
-                  </button>
+                  <Button type="submit" size="lg" fullWidth loading={isSubmitting} loadingText="Ingresando…">
+                    Ingresar
+                  </Button>
                 </form>
 
-                {/* Enlace a Afiliación en Línea */}
-                <div className="mt-6 p-4 rounded-xl bg-emerald-50/70 border border-emerald-200/80 flex items-center justify-between">
-                  <div>
-                    <p className="text-xs font-bold text-emerald-950">¿Deseas ser asociado?</p>
-                  </div>
+                <p className="mt-8 pt-6 border-t border-line text-sm text-ink-muted">
+                  ¿Todavía no es asociado?{' '}
                   <Link
                     to="/registro-asociado"
-                    className="px-3.5 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg shadow-xs transition-all cursor-pointer"
+                    className="font-medium text-brand-700 underline-offset-4 hover:text-brand-800 hover:underline rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600"
                   >
-                    Afiliarme
+                    Solicite su afiliación en línea
                   </Link>
-                </div>
+                </p>
               </>
             )}
-
-            <div className="mt-8 pt-6 border-t border-slate-100 text-center">
-              <p className="text-[11px] text-slate-400 font-medium leading-relaxed">
-                © 2026 Cooperativa. Todos los derechos reservados. Acceso restringido únicamente a personal autorizado.
-              </p>
-            </div>
-          </div>
+          </section>
         </div>
-      </div>
+      </main>
+
+      <footer className="relative z-10 lg:hidden pb-6 text-center text-xs text-ink-subtle">© {year} Cooperativa</footer>
     </div>
   );
 };

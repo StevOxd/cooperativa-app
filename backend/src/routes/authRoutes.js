@@ -14,7 +14,7 @@ const loginLimiter = rateLimit({
   legacyHeaders: false,
   message: {
     success: false,
-    message: '[SECURITY ERROR] Demasiadas solicitudes de acceso desde esta dirección IP. Por favor espere 15 minutos antes de reintentar.',
+    message: 'Demasiados intentos desde esta conexión. Espere 15 minutos e intente de nuevo.',
     error: 'RATE_LIMIT_EXCEEDED',
   },
 });

@@ -51,7 +51,7 @@ const verifyToken = async (req, res, next) => {
       if (userCheck.rows.length === 0) {
         return res.status(401).json({
           success: false,
-          message: '[SECURITY ERROR] El usuario asociado a la sesión no existe en el sistema.',
+          message: 'Su sesión no es válida. Inicie sesión de nuevo.',
         });
       }
 
@@ -59,7 +59,7 @@ const verifyToken = async (req, res, next) => {
       if (dbUser.estado !== 'ACTIVO') {
         return res.status(403).json({
           success: false,
-          message: '[SECURITY ERROR] La cuenta se encuentra inactiva. Contacte al Administrador.',
+          message: 'Su cuenta está inactiva. Comuníquese con el administrador.',
         });
       }
 
@@ -67,7 +67,7 @@ const verifyToken = async (req, res, next) => {
       if (decoded.sesion_activa_id && (!dbUser.sesion_activa_id || dbUser.sesion_activa_id !== decoded.sesion_activa_id)) {
         return res.status(401).json({
           success: false,
-          message: '[SECURITY ERROR] La sesión bancaria ha expirado o fue revocada en otro dispositivo.',
+          message: 'Su sesión terminó o se abrió en otro dispositivo. Inicie sesión de nuevo.',
           sesion_revocada: true,
         });
       }
@@ -85,7 +85,7 @@ const verifyToken = async (req, res, next) => {
             success: false,
             debe_cambiar_password: true,
             error: 'CAMBIO_PASSWORD_OBLIGATORIO',
-            message: 'Por motivos de seguridad institucional, debe cambiar su contraseña temporal antes de continuar realizando operaciones.',
+            message: 'Antes de continuar, cambie su contraseña temporal.',
           });
         }
       }
@@ -100,13 +100,13 @@ const verifyToken = async (req, res, next) => {
     if (error.name === 'TokenExpiredError') {
       return res.status(401).json({
         success: false,
-        message: 'El token de autenticación ha expirado. Por favor inicie sesión nuevamente.',
+        message: 'Su sesión venció. Inicie sesión de nuevo.',
       });
     }
 
     return res.status(403).json({
       success: false,
-      message: 'Token de autenticación inválido.',
+      message: 'Su sesión no es válida. Inicie sesión de nuevo.',
     });
   }
 };

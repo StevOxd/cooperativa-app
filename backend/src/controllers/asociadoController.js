@@ -49,7 +49,7 @@ const getPerfil = async (req, res) => {
     if (result.rows.length === 0) {
       return res.status(404).json({
         success: false,
-        message: 'Datos de asociado no encontrados.',
+        message: 'No encontramos sus datos de asociado.',
       });
     }
 
@@ -61,7 +61,7 @@ const getPerfil = async (req, res) => {
     console.error('Error en asociadoController.getPerfil:', error);
     return res.status(500).json({
       success: false,
-      message: 'Error al obtener el perfil del asociado.',
+      message: 'No se pudo cargar su perfil. Intente de nuevo.',
     });
   }
 };
@@ -101,7 +101,7 @@ const getCuentas = async (req, res) => {
     console.error('Error en asociadoController.getCuentas:', error);
     return res.status(500).json({
       success: false,
-      message: 'Error al obtener las cuentas del asociado.',
+      message: 'No se pudieron cargar sus cuentas. Intente de nuevo.',
     });
   }
 };
@@ -172,13 +172,13 @@ const getTransacciones = async (req, res) => {
 
     return res.status(403).json({
       success: false,
-      message: 'Acceso denegado: Esta cuenta no le pertenece o no existe.',
+      message: 'Esa cuenta no existe o no es suya.',
     });
   } catch (error) {
     console.error('Error en asociadoController.getTransacciones:', error);
     return res.status(500).json({
       success: false,
-      message: 'Error al obtener las transacciones de la cuenta.',
+      message: 'No se pudieron cargar los movimientos. Intente de nuevo.',
     });
   }
 };
@@ -232,7 +232,7 @@ const getCreditos = async (req, res) => {
     console.error('Error en asociadoController.getCreditos:', error);
     return res.status(500).json({
       success: false,
-      message: 'Error al obtener las solicitudes de crédito.',
+      message: 'No se pudieron cargar sus solicitudes. Intente de nuevo.',
     });
   }
 };
@@ -291,7 +291,7 @@ const getCuentasAcreditacionCredito = async (req, res) => {
     console.error('Error en asociadoController.getCuentasAcreditacionCredito:', error);
     return res.status(500).json({
       success: false,
-      message: 'Error al obtener las cuentas de acreditación.',
+      message: 'No se pudieron cargar sus cuentas del banco. Intente de nuevo.',
     });
   }
 };
@@ -317,14 +317,14 @@ const iniciarCredito = async (req, res) => {
     if (isNaN(monto) || monto <= 0 || isNaN(plazo) || plazo <= 0) {
       return res.status(400).json({
         success: false,
-        message: 'Por favor ingrese un monto y plazo en meses válidos mayores a cero.',
+        message: 'Escriba un monto y un plazo mayores que cero.',
       });
     }
 
     if (!id_cuenta_bancaria_destino) {
       return res.status(400).json({
         success: false,
-        message: 'Debe seleccionar una cuenta bancaria de destino (Ahorro o Monetaria) para el desembolso.',
+        message: 'Elija la cuenta del banco que recibirá el dinero.',
       });
     }
 
@@ -333,7 +333,7 @@ const iniciarCredito = async (req, res) => {
     if (assocRes.rows.length === 0) {
       return res.status(404).json({
         success: false,
-        message: 'No se encontró un registro de asociado para este usuario.',
+        message: 'No encontramos sus datos de asociado.',
       });
     }
     const idAsociado = assocRes.rows[0].id_asociado;
@@ -367,7 +367,7 @@ const iniciarCredito = async (req, res) => {
     if (totalPendientes >= 2) {
       return res.status(400).json({
         success: false,
-        message: 'Ha alcanzado el límite máximo de 2 solicitudes de crédito activas en evaluación. Debe esperar la resolución definitiva del comité para solicitar un nuevo crédito.',
+        message: 'Ya tiene 2 solicitudes en trámite, que es el máximo. Podrá pedir otra cuando se resuelva alguna.',
       });
     }
 
@@ -395,12 +395,12 @@ const iniciarCredito = async (req, res) => {
     const personaCuiRes = await db.query('SELECT cui_dpi FROM personas WHERE id_persona = $1', [idPersona]);
     const userCui = personaCuiRes.rows[0]?.cui_dpi;
     if (!userCui) {
-      return res.status(400).json({ success: false, message: 'DPI de la persona no encontrado.' });
+      return res.status(400).json({ success: false, message: 'No encontramos su DPI.' });
     }
 
     const bcoRes = await bancoApiService.obtenerCuentasCliente(userCui);
     if (!bcoRes.success || !Array.isArray(bcoRes.data)) {
-      return res.status(502).json({ success: false, message: 'Error de comunicación con el Core Bancario al validar la cuenta.' });
+      return res.status(502).json({ success: false, message: 'No pudimos comunicarnos con el banco. Intente de nuevo en unos minutos.' });
     }
 
     const bco = bcoRes.data.find(c => 
@@ -412,7 +412,7 @@ const iniciarCredito = async (req, res) => {
     if (!bco) {
       return res.status(400).json({
         success: false,
-        message: 'La cuenta bancaria seleccionada no es válida, no está activa o no pertenece al titular.',
+        message: 'Esa cuenta del banco no está activa o no es suya. Elija otra.',
       });
     }
 
@@ -468,14 +468,14 @@ const iniciarCredito = async (req, res) => {
 
     return res.status(201).json({
       success: true,
-      message: 'Solicitud de crédito registrada con éxito. Proceda a descargar el formulario oficial para firmarlo y cargarlo.',
+      message: 'Solicitud registrada. Descargue el formulario, fírmelo y adjúntelo.',
       data: result.rows[0],
     });
   } catch (error) {
     console.error('Error en asociadoController.iniciarCredito:', error);
     return res.status(500).json({
       success: false,
-      message: 'Error al iniciar la solicitud de crédito.',
+      message: 'No se pudo registrar la solicitud. Intente de nuevo.',
     });
   }
 };
@@ -494,7 +494,7 @@ const subirExpedienteFirmado = async (req, res) => {
     if (!documento_firmado) {
       return res.status(400).json({
         success: false,
-        message: 'Debe adjuntar el archivo firmado en formato PDF o imagen.',
+        message: 'Adjunte el formulario firmado (PDF o imagen).',
       });
     }
 
@@ -514,7 +514,7 @@ const subirExpedienteFirmado = async (req, res) => {
     if (solRes.rows.length === 0) {
       return res.status(404).json({
         success: false,
-        message: 'Solicitud de crédito no encontrada para este asociado.',
+        message: 'No encontramos esa solicitud.',
       });
     }
 
@@ -522,7 +522,7 @@ const subirExpedienteFirmado = async (req, res) => {
     if (!['PENDIENTE_FIRMA', 'DEVUELTA_OPERADOR'].includes(sol.estado)) {
       return res.status(400).json({
         success: false,
-        message: `La solicitud #${id} se encuentra en estado "${sol.estado}" y no admite carga de expediente en esta etapa.`,
+        message: `La solicitud #${id} ya no espera el formulario firmado.`,
       });
     }
 
@@ -562,7 +562,7 @@ const subirExpedienteFirmado = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: '¡Expediente firmado cargado exitosamente! Su solicitud ha sido enviada al comité de créditos para revisión.',
+      message: 'Solicitud enviada. El comité de créditos la revisará.',
       data: updateRes.rows[0],
     });
   } catch (error) {
@@ -664,7 +664,7 @@ const getCuentaPlanilla = async (req, res) => {
     if (!cuentaData) {
       return res.status(404).json({
         success: false,
-        message: 'No posee una Cuenta de Ahorro, Planilla o Cuenta Bancaria activa vinculada.',
+        message: 'No tiene una cuenta activa vinculada.',
       });
     }
 
@@ -676,7 +676,7 @@ const getCuentaPlanilla = async (req, res) => {
     console.error('Error en asociadoController.getCuentaPlanilla:', error);
     return res.status(500).json({
       success: false,
-      message: 'Error al obtener la cuenta de planilla.',
+      message: 'No se pudo cargar su cuenta de planilla. Intente de nuevo.',
     });
   }
 };
@@ -747,7 +747,7 @@ const getMisCuentasDestino = async (req, res) => {
     console.error('Error en asociadoController.getMisCuentasDestino:', error);
     return res.status(500).json({
       success: false,
-      message: 'Error al obtener opciones de cuentas destino.',
+      message: 'No se pudieron cargar las cuentas de destino. Intente de nuevo.',
     });
   }
 };
@@ -770,14 +770,14 @@ const createSolicitudTraslado = async (req, res) => {
     if (isNaN(parsedMonto) || parsedMonto <= 0) {
       return res.status(400).json({
         success: false,
-        message: 'Por favor ingrese un monto de traslado válido mayor a cero.',
+        message: 'Escriba un monto mayor que cero.',
       });
     }
 
     if (!['TRASLADO_DIRECTO', 'APERTURA_Y_TRASLADO'].includes(tipo_operacion)) {
       return res.status(400).json({
         success: false,
-        message: 'Tipo de operación de traslado no válido.',
+        message: 'Tipo de traslado no válido.',
       });
     }
 
@@ -796,7 +796,7 @@ const createSolicitudTraslado = async (req, res) => {
     );
 
     if (assocCuiRes.rows.length === 0) {
-      return res.status(403).json({ success: false, message: 'No se encontró registro de asociado.' });
+      return res.status(403).json({ success: false, message: 'No encontramos sus datos de asociado.' });
     }
     const userCui = assocCuiRes.rows[0].cui_dpi;
     id_asociado = assocCuiRes.rows[0].id_asociado;
@@ -824,7 +824,7 @@ const createSolicitudTraslado = async (req, res) => {
       if (originRes.rows.length === 0) {
         return res.status(403).json({
           success: false,
-          message: 'Acceso denegado: Cuenta de origen no válida o inactiva.',
+          message: 'La cuenta de origen no está activa.',
         });
       }
       saldo_disponible = originRes.rows[0].saldo_disponible;
@@ -835,7 +835,7 @@ const createSolicitudTraslado = async (req, res) => {
     if (parsedMonto > parseFloat(saldo_disponible)) {
       return res.status(400).json({
         success: false,
-        message: `Saldo insuficiente. Su cuenta de origen dispone de Q${parseFloat(saldo_disponible).toFixed(2)}.`,
+        message: `No tiene saldo suficiente. Disponible: Q${parseFloat(saldo_disponible).toFixed(2)}.`,
       });
     }
 
@@ -846,13 +846,13 @@ const createSolicitudTraslado = async (req, res) => {
       if (!id_cuenta_destino) {
         return res.status(400).json({
           success: false,
-          message: 'Debe especificar la cuenta de destino para traslados directos.',
+          message: 'Elija la cuenta de destino.',
         });
       }
       if (!isBanco && String(id_cuenta_origen) === String(id_cuenta_destino)) {
         return res.status(400).json({
           success: false,
-          message: 'La cuenta de destino no puede ser la misma cuenta de origen. Seleccione otra cuenta o elija la apertura de un nuevo producto (ej. Plazo Fijo o Metas).',
+          message: 'La cuenta de destino no puede ser la misma de origen. Elija otra o abra una cuenta nueva.',
         });
       }
       // Verificar propiedad de la cuenta destino y obtener su id_tipo_cuenta
@@ -865,7 +865,7 @@ const createSolicitudTraslado = async (req, res) => {
       if (destRes.rows.length === 0) {
         return res.status(403).json({
           success: false,
-          message: 'Acceso denegado: La cuenta de destino no le pertenece o está inactiva.',
+          message: 'La cuenta de destino no está activa o no es suya.',
         });
       }
       finalTipoCuentaDestino = destRes.rows[0].id_tipo_cuenta;
@@ -874,7 +874,7 @@ const createSolicitudTraslado = async (req, res) => {
       if (!id_tipo_cuenta_destino) {
         return res.status(400).json({
           success: false,
-          message: 'Debe especificar el tipo de cuenta a abrir.',
+          message: 'Elija el tipo de cuenta que quiere abrir.',
         });
       }
       // Validar monto mínimo de apertura
@@ -883,14 +883,14 @@ const createSolicitudTraslado = async (req, res) => {
       if (typeRes.rows.length === 0) {
         return res.status(404).json({
           success: false,
-          message: 'El tipo de cuenta destino especificado no existe.',
+          message: 'Ese tipo de cuenta no existe.',
         });
       }
       const { monto_minimo_apertura, nombre: tipoNombre } = typeRes.rows[0];
       if (parsedMonto < parseFloat(monto_minimo_apertura)) {
         return res.status(400).json({
           success: false,
-          message: `El monto solicitado de Q${parsedMonto.toFixed(2)} es inferior al mínimo de apertura para la cuenta ${tipoNombre} (Mínimo: Q${parseFloat(monto_minimo_apertura).toFixed(2)}).`,
+          message: `Para abrir una cuenta ${tipoNombre} el mínimo es Q${parseFloat(monto_minimo_apertura).toFixed(2)}.`,
         });
       }
     }
@@ -922,14 +922,14 @@ const createSolicitudTraslado = async (req, res) => {
 
     return res.status(201).json({
       success: true,
-      message: 'Solicitud de traslado de fondos registrada para revisión.',
+      message: 'Solicitud de traslado enviada. Un operador la revisará.',
       data: result.rows[0],
     });
   } catch (error) {
     console.error('Error en asociadoController.createSolicitudTraslado:', error);
     return res.status(500).json({
       success: false,
-      message: 'Error al procesar la solicitud de traslado.',
+      message: 'No se pudo enviar la solicitud de traslado. Intente de nuevo.',
     });
   }
 };
@@ -991,7 +991,7 @@ const getMisSolicitudesTraslado = async (req, res) => {
     console.error('Error en asociadoController.getMisSolicitudesTraslado:', error);
     return res.status(500).json({
       success: false,
-      message: 'Error al obtener sus solicitudes de traslado.',
+      message: 'No se pudieron cargar sus traslados. Intente de nuevo.',
     });
   }
 };
@@ -1007,7 +1007,7 @@ const getCapacidadCrediticia = async (req, res) => {
     if (assocRes.rows.length === 0) {
       return res.status(404).json({
         success: false,
-        message: 'No se encontró registro de asociado para este usuario.',
+        message: 'No encontramos sus datos de asociado.',
       });
     }
     const idAsociado = assocRes.rows[0].id_asociado;
@@ -1049,7 +1049,7 @@ const getCapacidadCrediticia = async (req, res) => {
     console.error('Error en asociadoController.getCapacidadCrediticia:', error);
     return res.status(500).json({
       success: false,
-      message: 'Error al consultar la capacidad crediticia del asociado.',
+      message: 'No se pudo calcular su capacidad de crédito. Intente de nuevo.',
     });
   }
 };
@@ -1078,7 +1078,7 @@ const cancelarCredito = async (req, res) => {
     );
 
     if (solRes.rows.length === 0) {
-      return res.status(404).json({ success: false, message: 'Solicitud de crédito no encontrada.' });
+      return res.status(404).json({ success: false, message: 'No encontramos esa solicitud.' });
     }
 
     const sol = solRes.rows[0];
@@ -1086,7 +1086,7 @@ const cancelarCredito = async (req, res) => {
     if (!estadosCancelables.includes(sol.estado)) {
       return res.status(400).json({
         success: false,
-        message: `No es posible cancelar una solicitud con estado actual "${sol.estado}".`,
+        message: `Esa solicitud ya no se puede cancelar.`,
       });
     }
 
@@ -1101,11 +1101,11 @@ const cancelarCredito = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: 'Solicitud de crédito cancelada exitosamente.',
+      message: 'Solicitud cancelada.',
     });
   } catch (error) {
     console.error('Error en asociadoController.cancelarCredito:', error);
-    return res.status(500).json({ success: false, message: 'Error al cancelar la solicitud de crédito.' });
+    return res.status(500).json({ success: false, message: 'No se pudo cancelar la solicitud. Intente de nuevo.' });
   }
 };
 
@@ -1171,7 +1171,7 @@ const getMisBeneficiarios = async (req, res) => {
     console.error('Error en asociadoController.getMisBeneficiarios:', error);
     return res.status(500).json({
       success: false,
-      message: 'Error al consultar sus beneficiarios.',
+      message: 'No se pudieron cargar sus beneficiarios. Intente de nuevo.',
     });
   }
 };
@@ -1190,7 +1190,7 @@ const guardarMisBeneficiarios = async (req, res) => {
     if (!Array.isArray(beneficiarios) || beneficiarios.length === 0) {
       return res.status(400).json({
         success: false,
-        message: 'Debe ingresar al menos un beneficiario para la cuenta.',
+        message: 'Agregue al menos un beneficiario.',
       });
     }
 
@@ -1207,7 +1207,7 @@ const guardarMisBeneficiarios = async (req, res) => {
     if (ctaCheck.rows.length === 0) {
       return res.status(403).json({
         success: false,
-        message: 'No tiene permisos para modificar los beneficiarios de esta cuenta bancaria.',
+        message: 'No puede cambiar los beneficiarios de esa cuenta.',
       });
     }
 
@@ -1219,14 +1219,14 @@ const guardarMisBeneficiarios = async (req, res) => {
       if (!ben.nombre_completo || !ben.parentesco || ben.porcentaje === undefined) {
         return res.status(400).json({
           success: false,
-          message: 'Cada beneficiario debe contener Nombre Completo, Parentesco y Porcentaje asignado.',
+          message: 'Cada beneficiario necesita nombre, parentesco y porcentaje.',
         });
       }
       const pct = parseFloat(ben.porcentaje);
       if (isNaN(pct) || pct <= 0 || pct > 100) {
         return res.status(400).json({
           success: false,
-          message: `El porcentaje de ${ben.nombre_completo} (${ben.porcentaje}%) debe ser mayor a 0 y menor o igual a 100%.`,
+          message: `El porcentaje de ${ben.nombre_completo} debe ser mayor que 0 % y no pasar de 100 %.`,
         });
       }
       if (ben.telefono && ben.telefono.trim().length > 0) {
@@ -1234,7 +1234,7 @@ const guardarMisBeneficiarios = async (req, res) => {
         if (cleanTel.length !== 8) {
           return res.status(400).json({
             success: false,
-            message: `El número de teléfono de "${ben.nombre_completo}" debe tener exactamente 8 dígitos numéricos.`,
+            message: `El teléfono de ${ben.nombre_completo} debe tener 8 dígitos.`,
           });
         }
       }
@@ -1244,7 +1244,7 @@ const guardarMisBeneficiarios = async (req, res) => {
     if (Math.abs(sumaPorcentajes - 100.00) > 0.01) {
       return res.status(400).json({
         success: false,
-        message: `La suma de los porcentajes asignados debe ser exactamente el 100.00%. Suma actual: ${sumaPorcentajes.toFixed(2)}%.`,
+        message: `Los porcentajes deben sumar 100.00%. Ahora suman ${sumaPorcentajes.toFixed(2)}%.`,
       });
     }
 
@@ -1272,7 +1272,7 @@ const guardarMisBeneficiarios = async (req, res) => {
     if (prevNorm.length > 0 && JSON.stringify(prevNorm) === JSON.stringify(newNorm)) {
       return res.status(400).json({
         success: false,
-        message: 'No se detectaron modificaciones en los datos o porcentajes de los beneficiarios.',
+        message: 'No hay cambios por guardar.',
       });
     }
 
@@ -1316,14 +1316,14 @@ const guardarMisBeneficiarios = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: 'Beneficiarios actualizados exitosamente (100.00% distribuido).',
+      message: 'Beneficiarios guardados.',
     });
   } catch (error) {
     await client.query('ROLLBACK');
     console.error('Error en asociadoController.guardarMisBeneficiarios:', error);
     return res.status(500).json({
       success: false,
-      message: 'Error al actualizar sus beneficiarios: ' + error.message,
+      message: 'No se pudieron guardar sus beneficiarios: ' + error.message,
     });
   } finally {
     client.release();

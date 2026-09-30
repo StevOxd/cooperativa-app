@@ -82,7 +82,7 @@ const server = app.listen(0, async () => {
     if (noExisteRes.status !== 200 || noExisteRes.body.pertenece_banco !== false) {
       throw new Error('DPI no existente debería retornar pertenece_banco = false: ' + JSON.stringify(noExisteRes.body));
     }
-    const expectedMsg = 'DPI no registrado en la Entidad Bancaria. La Cooperativa forma parte de la Corporación Bancaria, emitiremos tu solicitud para apertura de cuenta de ahorro y membresía.';
+    const expectedMsg = 'No encontramos una cuenta del banco con este DPI. Complete sus datos y le daremos un número de caso para terminar la afiliación en una agencia.';
     if (noExisteRes.body.message !== expectedMsg) {
       throw new Error(`Mensaje no coincide.\nEsperado: "${expectedMsg}"\nRecibido: "${noExisteRes.body.message}"`);
     }

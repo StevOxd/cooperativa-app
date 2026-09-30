@@ -10,11 +10,11 @@
  */
 const validateCui = (cui) => {
   if (!cui || typeof cui !== 'string') {
-    return { valid: false, message: 'El CUI / DPI es obligatorio.' };
+    return { valid: false, message: 'Escriba el número de DPI.' };
   }
   const clean = cui.trim().replace(/\s+/g, '');
   if (!/^\d{13}$/.test(clean)) {
-    return { valid: false, message: 'El CUI / DPI debe contener exactamente 13 dígitos numéricos.' };
+    return { valid: false, message: 'El DPI debe tener 13 dígitos, sin espacios ni guiones.' };
   }
   return { valid: true, clean };
 };
@@ -26,11 +26,11 @@ const validateCui = (cui) => {
  */
 const validateAge18 = (fechaNacimiento) => {
   if (!fechaNacimiento) {
-    return { valid: false, message: 'La fecha de nacimiento es obligatoria.' };
+    return { valid: false, message: 'Escriba la fecha de nacimiento.' };
   }
   const birth = new Date(fechaNacimiento);
   if (isNaN(birth.getTime())) {
-    return { valid: false, message: 'La fecha de nacimiento no tiene un formato válido.' };
+    return { valid: false, message: 'La fecha de nacimiento no es válida.' };
   }
   const today = new Date();
   let age = today.getFullYear() - birth.getFullYear();
@@ -39,7 +39,7 @@ const validateAge18 = (fechaNacimiento) => {
     age--;
   }
   if (age < 18) {
-    return { valid: false, message: 'El solicitante debe ser mayor de edad (18 años cumplidos).' };
+    return { valid: false, message: 'La persona debe ser mayor de edad (18 años cumplidos).' };
   }
   return { valid: true, age };
 };
@@ -69,13 +69,13 @@ const validatePositiveAmount = (monto, min = 0, fieldName = 'monto') => {
  */
 const validateBeneficiarios = (beneficiarios) => {
   if (!Array.isArray(beneficiarios) || beneficiarios.length === 0) {
-    return { valid: false, message: 'Debe ingresar al menos un beneficiario.' };
+    return { valid: false, message: 'Agregue al menos un beneficiario.' };
   }
   const total = beneficiarios.reduce((acc, b) => acc + (parseFloat(b.porcentaje) || 0), 0);
   if (Math.abs(total - 100) > 0.01) {
     return {
       valid: false,
-      message: `El porcentaje total de beneficiarios debe sumar exactamente 100% (suma actual: ${total}%).`,
+      message: `Los porcentajes deben sumar 100.00%. Ahora suman ${total}%.`,
     };
   }
   return { valid: true, total };
