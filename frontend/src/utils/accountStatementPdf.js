@@ -25,7 +25,7 @@ const TIPOS = {
   CREDITO_ACH: 'Crédito ACH',
 };
 
-/** Mismo criterio que el modal de movimientos (ver C-17 en CORRECCIONES.md). */
+/** Mismo criterio que el modal de movimientos. Pendiente: los traslados que entran se ven como egreso (issue #8). */
 const TIPOS_INGRESO = ['DEPOSITO', 'PAGO_CREDITO', 'CREDITO', 'CREDITO_ACH'];
 
 const tipoLabel = (tipo) =>

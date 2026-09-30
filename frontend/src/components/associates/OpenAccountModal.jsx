@@ -174,7 +174,7 @@ export const OpenAccountModal = ({ isOpen, onClose, asociado, onSuccess }) => {
   const handleDownloadPdf = () => {
     if (!successData || !asociado) return;
     try {
-      // El generador ya descarga el archivo (antes se guardaba dos veces, C-18).
+      // El generador ya descarga el archivo; no volver a llamar a doc.save() aquí (se descargaba dos veces).
       generateAccountOpeningReceiptPdf({
         data: {
           asociado: {
