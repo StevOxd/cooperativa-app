@@ -1,0 +1,7 @@
+# Configuración de la pantalla "New issue".
+# Sin issues en blanco: todo reporte usa un formulario para que tenga la misma información.
+blank_issues_enabled: false
+contact_links:
+  - name: Reportar un problema de seguridad (privado)
+    url: https://github.com/StevOxd/cooperativa-app/security/advisories/new
+    about: Contraseñas, códigos 2FA, permisos o datos de otras personas. Se revisa en privado; no abra un issue público.

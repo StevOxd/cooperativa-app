@@ -1,0 +1,53 @@
+# Formulario de GitHub para proponer mejoras (Issues → New issue → "Proponer una mejora").
+name: Proponer una mejora
+description: Una idea para que algo funcione o se vea mejor.
+title: "[Mejora] "
+labels: ["mejora"]
+body:
+  - type: textarea
+    id: problema
+    attributes:
+      label: Qué se quiere mejorar y por qué
+      description: Explique la situación actual y a quién le afecta.
+      placeholder: Las pestañas del portal del asociado se ven muy simples y cuesta distinguir lo importante.
+    validations:
+      required: true
+
+  - type: textarea
+    id: propuesta
+    attributes:
+      label: Propuesta
+      description: Cómo debería verse o funcionar. Puede incluir bocetos o ejemplos.
+    validations:
+      required: true
+
+  - type: textarea
+    id: criterios
+    attributes:
+      label: Cómo sabremos que está listo
+      description: Condiciones concretas que debe cumplir el resultado.
+      placeholder: |
+        - Cada pestaña muestra un resumen arriba.
+        - Los estados vacíos explican qué hacer.
+    validations:
+      required: false
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Área
+      options:
+        - Frontend (pantallas)
+        - Backend (API)
+        - Documentos PDF
+        - Infraestructura / CI
+        - Otra
+    validations:
+      required: true
+
+  - type: textarea
+    id: evidencia
+    attributes:
+      label: Capturas o referencias
+    validations:
+      required: false
