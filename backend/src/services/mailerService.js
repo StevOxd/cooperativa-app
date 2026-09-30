@@ -8,7 +8,6 @@ const { pool } = require('../config/db');
 class MailerService {
   constructor() {
     this.transporter = null;
-    this.lastEmails = [];
     this.isConfigured = false;
     this.isVerified = false;
     this.activeProvider = 'demo';
@@ -138,7 +137,7 @@ class MailerService {
       this.activeProvider = 'demo';
       this.currentUser = null;
       this.lastError = null;
-      console.log('[MAILER] Modo demostrativo activo (sin credenciales de Google/SMTP configuradas). Los correos se registrarán en memoria y consola.');
+      console.log('[MAILER] Modo demostrativo activo (sin credenciales de Google/SMTP configuradas). Los correos no se envían; solo se registra en consola que no salieron.');
     } catch (err) {
       console.warn('[MAILER] Advertencia al configurar transporte de correo:', err.message);
       this.lastError = err.message;
@@ -416,18 +415,6 @@ class MailerService {
       html: htmlContent,
     };
 
-    // Guardar copia en el historial demostrativo en memoria
-    const record = {
-      to: mailOptions.to,
-      subject: mailOptions.subject,
-      codigoCorporativo,
-      secretBase32,
-      fecha: new Date().toISOString(),
-      simulado: !this.transporter || !this.isVerified,
-      provider: this.activeProvider,
-    };
-    this.lastEmails.unshift(record);
-    if (this.lastEmails.length > 20) this.lastEmails.pop();
 
     if (this.transporter && this.isVerified) {
       try {
@@ -435,11 +422,11 @@ class MailerService {
         console.log(`[MAILER] Correo 2FA enviado exitosamente vía ${this.activeProvider} a ${to}: ${info.messageId}`);
         return { success: true, messageId: info.messageId, simulado: false, provider: this.activeProvider };
       } catch (error) {
-        console.warn(`[MAILER WARNING] No se pudo enviar por ${this.activeProvider} (${error.message}). Registro guardado en historial.`);
+        console.warn(`[MAILER WARNING] No se pudo enviar por ${this.activeProvider} (${error.message}).`);
         return { success: true, simulado: true, error: error.message, provider: this.activeProvider };
       }
     } else {
-      console.log(`[MAILER DEMO] Correo con Código QR 2FA despachado para ${to} (Código: ${codigoCorporativo}).`);
+      console.log(`[MAILER DEMO] Correo de verificación en dos pasos NO enviado (modo demostrativo) para ${to} (usuario ${codigoCorporativo}).`);
       return { success: true, simulado: true, provider: 'demo' };
     }
   }
@@ -535,18 +522,6 @@ class MailerService {
       html: htmlContent,
     };
 
-    // Guardar copia en el historial demostrativo en memoria
-    const record = {
-      to: mailOptions.to,
-      subject: mailOptions.subject,
-      codigoCorporativo,
-      passwordGenerada: password,
-      fecha: new Date().toISOString(),
-      simulado: !this.transporter || !this.isVerified,
-      provider: this.activeProvider,
-    };
-    this.lastEmails.unshift(record);
-    if (this.lastEmails.length > 20) this.lastEmails.pop();
 
     if (this.transporter && this.isVerified) {
       try {
@@ -554,11 +529,11 @@ class MailerService {
         console.log(`[MAILER] Correo de credenciales enviado vía ${this.activeProvider} a ${to}: ${info.messageId}`);
         return { success: true, messageId: info.messageId, simulado: false, provider: this.activeProvider };
       } catch (error) {
-        console.warn(`[MAILER WARNING] No se pudo enviar por ${this.activeProvider} (${error.message}). Registro guardado en historial.`);
+        console.warn(`[MAILER WARNING] No se pudo enviar por ${this.activeProvider} (${error.message}).`);
         return { success: true, simulado: true, error: error.message, provider: this.activeProvider };
       }
     } else {
-      console.log(`[MAILER DEMO] Correo de credenciales despachado para ${to} (Usuario: ${codigoCorporativo}, Pass: ${password}).`);
+      console.log(`[MAILER DEMO] Correo de credenciales NO enviado (modo demostrativo) para ${to} (usuario ${codigoCorporativo}).`);
       return { success: true, simulado: true, provider: 'demo' };
     }
   }
@@ -648,17 +623,6 @@ class MailerService {
       html: htmlContent,
     };
 
-    const record = {
-      to: mailOptions.to,
-      subject: mailOptions.subject,
-      codigoCorporativo,
-      passwordGenerada: password,
-      fecha: new Date().toISOString(),
-      simulado: !this.transporter || !this.isVerified,
-      provider: this.activeProvider,
-    };
-    this.lastEmails.unshift(record);
-    if (this.lastEmails.length > 20) this.lastEmails.pop();
 
     if (this.transporter && this.isVerified) {
       try {
@@ -666,11 +630,11 @@ class MailerService {
         console.log(`[MAILER] Correo de reinicio de contraseña enviado vía ${this.activeProvider} a ${to}: ${info.messageId}`);
         return { success: true, messageId: info.messageId, simulado: false, provider: this.activeProvider };
       } catch (error) {
-        console.warn(`[MAILER WARNING] No se pudo enviar por ${this.activeProvider} (${error.message}). Registro guardado en historial.`);
+        console.warn(`[MAILER WARNING] No se pudo enviar por ${this.activeProvider} (${error.message}).`);
         return { success: true, simulado: true, error: error.message, provider: this.activeProvider };
       }
     } else {
-      console.log(`[MAILER DEMO] Correo de reinicio de contraseña despachado para ${to} (Usuario: ${codigoCorporativo}, Pass: ${password}).`);
+      console.log(`[MAILER DEMO] Correo de reinicio de contraseña NO enviado (modo demostrativo) para ${to} (usuario ${codigoCorporativo}).`);
       return { success: true, simulado: true, provider: 'demo' };
     }
   }
@@ -763,17 +727,6 @@ class MailerService {
       html: htmlContent,
     };
 
-    const record = {
-      to: mailOptions.to,
-      subject: mailOptions.subject,
-      numeroCuenta,
-      monto: montoApertura,
-      fecha: new Date().toISOString(),
-      simulado: !this.transporter || !this.isVerified,
-      provider: this.activeProvider,
-    };
-    this.lastEmails.unshift(record);
-    if (this.lastEmails.length > 20) this.lastEmails.pop();
 
     if (this.transporter && this.isVerified) {
       try {
@@ -785,16 +738,9 @@ class MailerService {
         return { success: true, simulado: true, error: error.message, provider: this.activeProvider };
       }
     } else {
-      console.log(`[MAILER DEMO] Boleta de apertura despachada para ${to} (Cuenta: ${numeroCuenta}).`);
+      console.log(`[MAILER DEMO] Boleta de apertura NO enviada (modo demostrativo) para ${to} (cuenta ${numeroCuenta}).`);
       return { success: true, simulado: true, provider: 'demo' };
     }
-  }
-
-  /**
-   * Retorna los últimos correos despachados para soporte de auditoría o pruebas
-   */
-  getLastSentEmails() {
-    return this.lastEmails;
   }
 }
 
