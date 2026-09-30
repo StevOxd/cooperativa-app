@@ -267,14 +267,14 @@ export const OpenAccountModal = ({ isOpen, onClose, asociado, onSuccess }) => {
             {[
               ['Titular', asociado.nombre_completo],
               ['Producto', successData.tipo_cuenta],
-              ['Número de cuenta', <span className="font-mono">{successData.numero_cuenta}</span>],
-              ['Saldo inicial', <span className="font-medium tabular-nums">{formatQ(successData.saldo_disponible)}</span>],
+              ['Número de cuenta', successData.numero_cuenta, 'font-mono'],
+              ['Saldo inicial', formatQ(successData.saldo_disponible), 'font-medium tabular-nums'],
               ['Origen de los fondos', formData.origen_fondos === 'EFECTIVO_VENTANILLA' ? 'Efectivo en ventanilla' : 'Otra cuenta del asociado'],
               ['Fecha de apertura', formatDateTime(successData.fecha_apertura)],
-            ].map(([label, value]) => (
+            ].map(([label, value, valueClass]) => (
               <div key={label} className="flex justify-between gap-4 px-4 py-2.5">
                 <dt className="text-ink-muted">{label}</dt>
-                <dd className="text-right text-ink">{value}</dd>
+                <dd className={cn('text-right text-ink', valueClass)}>{value}</dd>
               </div>
             ))}
           </dl>

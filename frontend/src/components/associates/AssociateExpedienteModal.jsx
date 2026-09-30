@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { PlusCircle, Printer, Users } from 'lucide-react';
 import api from '../../services/api';
-import { Alert, Badge, Button, LoadingState, Modal, StatCard, StatGroup } from '../ui';
+import { Alert, Badge, Button, LoadingState, Modal, StatCard, StatGroup, cn } from '../ui';
 import { formatDate, formatQ, humanize } from '../../utils/format';
 import { parentescoLabel } from '../../utils/parentesco';
 
@@ -102,15 +102,15 @@ export const AssociateExpedienteModal = ({
             <dl className="grid grid-cols-1 gap-x-6 gap-y-3 text-sm sm:grid-cols-3">
               {[
                 ['Nombre', a.nombre_completo],
-                ['DPI', <span className="font-mono">{a.cui_dpi}</span>],
-                ['Código de usuario', a.codigo_corporativo ? <span className="font-mono">{a.codigo_corporativo}</span> : 'Sin acceso al portal'],
-                ['Teléfono', a.telefono ? <span className="font-mono">{a.telefono}</span> : 'No registrado'],
+                ['DPI', a.cui_dpi, 'font-mono'],
+                ['Código de usuario', a.codigo_corporativo || 'Sin acceso al portal', a.codigo_corporativo && 'font-mono'],
+                ['Teléfono', a.telefono || 'No registrado', a.telefono && 'font-mono'],
                 ['Correo', a.email || 'No registrado'],
                 ['Asociado desde', formatDate(a.fecha_ingreso)],
-              ].map(([label, value]) => (
+              ].map(([label, value, valueClass]) => (
                 <div key={label}>
                   <dt className="text-xs text-ink-muted">{label}</dt>
-                  <dd className="mt-0.5 break-words text-ink">{value}</dd>
+                  <dd className={cn('mt-0.5 break-words text-ink', valueClass)}>{value}</dd>
                 </div>
               ))}
               <div className="sm:col-span-3">

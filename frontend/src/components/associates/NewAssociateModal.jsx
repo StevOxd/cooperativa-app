@@ -659,20 +659,20 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess }) => {
       >
         <dl className="divide-y divide-line rounded-md border border-line text-sm">
           {[
-            ['Código de usuario', <span className="font-mono">{successData.codigo_corporativo}</span>],
+            ['Código de usuario', successData.codigo_corporativo, 'font-mono'],
             ['Nombre', successData.nombre_completo],
             ['Tipo de asociado', successData.tipo_asociado === 'EB' ? 'Empleado del banco (EB)' : 'Externo (EX)'],
-            ['Cuenta de aportaciones', <span className="font-mono">{successData.cuenta_ahorro || successData.cuenta_aportaciones}</span>],
-            successData.cuenta_bancaria_creada && ['Cuenta de ahorro abierta en el banco', <span className="font-mono">{successData.cuenta_bancaria_creada}</span>],
-            successData.numero_cuenta_bancaria_asociada && ['Cuenta bancaria vinculada', <span className="font-mono">{successData.numero_cuenta_bancaria_asociada}</span>],
-            ['Depósito inicial', <span className="font-medium tabular-nums">{formatQ(successData.saldo_inicial)}</span>],
+            ['Cuenta de aportaciones', successData.cuenta_ahorro || successData.cuenta_aportaciones, 'font-mono'],
+            successData.cuenta_bancaria_creada && ['Cuenta de ahorro abierta en el banco', successData.cuenta_bancaria_creada, 'font-mono'],
+            successData.numero_cuenta_bancaria_asociada && ['Cuenta bancaria vinculada', successData.numero_cuenta_bancaria_asociada, 'font-mono'],
+            ['Depósito inicial', formatQ(successData.saldo_inicial), 'font-medium tabular-nums'],
             ['Forma de pago', 'Efectivo en ventanilla'],
           ]
             .filter(Boolean)
-            .map(([label, value]) => (
+            .map(([label, value, valueClass]) => (
               <div key={label} className="flex justify-between gap-4 px-4 py-2.5">
                 <dt className="text-ink-muted">{label}</dt>
-                <dd className="text-right text-ink">{value}</dd>
+                <dd className={cn('text-right text-ink', valueClass)}>{value}</dd>
               </div>
             ))}
         </dl>
