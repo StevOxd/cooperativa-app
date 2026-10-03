@@ -1,3 +1,6 @@
+// Las pruebas nunca envían correo real (ver mailerService): debe ir antes de cargar los servicios.
+process.env.MAIL_ENABLED = 'false';
+
 const assert = require('assert');
 const {
   validateCui,

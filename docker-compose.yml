@@ -90,6 +90,7 @@ services:
       JWT_SECRET: ${JWT_SECRET:-super_secret_jwt_key_cooperativa_2026}
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-8h}
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
+      MAIL_ENABLED: ${MAIL_ENABLED:-true}
       MAIL_SERVICE: ${MAIL_SERVICE:-google}
       GMAIL_USER: ${GMAIL_USER:-}
       GMAIL_APP_PASSWORD: ${GMAIL_APP_PASSWORD:-}
