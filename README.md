@@ -236,15 +236,21 @@ El proyecto incluye un conjunto completo de scripts de prueba automatizados en l
 | `testForcedPasswordChange.js` | Validacion del ciclo de cambio de contrasena en primer ingreso y cierre de sesion. |
 | `testGoogleMailer.js` | Prueba de conectividad y autenticacion con el servicio SMTP de Google. |
 
-### Ejecucion de Pruebas:
+### Ejecucion de Pruebas
+
+Las pruebas se ejecutan dentro de la red de Docker, con las mismas variables que el backend. La imagen no incluye los archivos `test*.js`, por eso se montan al ejecutarlas:
+
 ```bash
-node backend/testCybersecurity.js && \
-node backend/testDatabaseIntegrity.js && \
-node backend/testArchitectureImprovements.js && \
-node backend/testBandejaAfiliaciones.js && \
-node backend/testTraslados.js && \
-node backend/testModulo1Completo.js
+docker compose --env-file docker.env run --rm --no-deps -e MAIL_ENABLED=false \
+  -v "$(pwd)/backend/testModulo1Completo.js:/app/testModulo1Completo.js:ro" \
+  backend node testModulo1Completo.js
 ```
+
+Cambie `testModulo1Completo.js` por el nombre de la prueba que quiera ejecutar.
+
+**Correo en las pruebas.** Las pruebas que cargan el servidor fijan `MAIL_ENABLED=false` al inicio, así que no envían correos aunque haya una cuenta de Gmail configurada. `testBandejaAfiliaciones.js` y `testForcedPasswordChange.js` se conectan al backend que ya está corriendo (puerto 5001): ejecútelas solo con ese backend levantado con `MAIL_ENABLED=false` en `docker.env`. `testGoogleMailer.js` envía un correo real a propósito.
+
+**Datos.** `testModulo1Completo.js` borra y vuelve a crear el asociado del cliente de prueba del banco (DPI `4000000000001`) y debita su cuenta de prueba.
 
 ---
 

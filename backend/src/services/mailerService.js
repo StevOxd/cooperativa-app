@@ -5,6 +5,13 @@ const { pool } = require('../config/db');
  * Servicio Institucional de Despacho de Correo Electrónico
  * Soporta Google Mail (Gmail SMTP / Google Workspace), SMTP estándar y modo demostrativo bancario.
  */
+/**
+ * Interruptor general: con `MAIL_ENABLED=false` no se envía ningún correo, aunque haya
+ * credenciales en las variables de entorno o en `configuracion_sistema`. Pensado para
+ * pruebas automáticas y entornos donde no debe salir correo real.
+ */
+const isMailDisabled = () => String(process.env.MAIL_ENABLED || '').trim().toLowerCase() === 'false';
+
 class MailerService {
   constructor() {
     this.transporter = null;
@@ -25,6 +32,16 @@ class MailerService {
    * Carga la configuración desde PostgreSQL (tabla configuracion_sistema) o variables de entorno
    */
   async initTransporter() {
+    if (isMailDisabled()) {
+      this.transporter = null;
+      this.isConfigured = false;
+      this.isVerified = false;
+      this.activeProvider = 'demo';
+      this.currentUser = null;
+      this.lastError = null;
+      console.log('[MAILER] Envío de correos desactivado (MAIL_ENABLED=false). Ningún correo saldrá de este proceso.');
+      return;
+    }
     try {
       let gmailUser = process.env.GMAIL_USER || null;
       let gmailPass = process.env.GMAIL_APP_PASSWORD || null;
@@ -148,6 +165,12 @@ class MailerService {
    * Configura dinámicamente el servicio de Google Mail y valida las credenciales en vivo
    */
   async configureGoogleService({ user, appPassword, from }) {
+    if (isMailDisabled()) {
+      return {
+        success: false,
+        message: 'El envío de correos está desactivado en este entorno (MAIL_ENABLED=false).',
+      };
+    }
     if (!user || !user.includes('@')) {
       throw new Error('Debe proporcionar una cuenta de correo de Google válida.');
     }
@@ -245,6 +268,7 @@ class MailerService {
       rawUser: this.currentUser,
       from: this.from,
       lastError: this.lastError,
+      disabled: isMailDisabled(),
     };
   }
 

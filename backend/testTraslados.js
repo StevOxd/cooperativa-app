@@ -1,3 +1,6 @@
+// Las pruebas nunca envían correo real (ver mailerService): debe ir antes de cargar el servidor.
+process.env.MAIL_ENABLED = 'false';
+
 /**
  * @file testTraslados.js
  * @description Suite automatizada de pruebas de traslados y apertura de subcuentas (3FN y ACID).

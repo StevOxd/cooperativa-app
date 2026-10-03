@@ -1,3 +1,6 @@
+// Las pruebas nunca envían correo real (ver mailerService): debe ir antes de cargar el servidor.
+process.env.MAIL_ENABLED = 'false';
+
 const http = require('http');
 const { app } = require('./src/server');
 const { pool } = require('./src/config/db');
@@ -99,7 +102,7 @@ const server = app.listen(0, async () => {
     const empleadoAuthRes = await request('/api/afiliacion/validar-credenciales-banco', 'POST', {
       cui_dpi: '1000000000001',
       nombre_usuario: 'steven.ortiz',
-      codigo: 'AD-1',
+      codigo: 'CLI-102', // código del colaborador en banco-backend/src/config/initBancoDb.js
       password: 'Banco123!',
     });
     if (empleadoAuthRes.status !== 200 || empleadoAuthRes.body.tipo_sujeto !== 'EMPLEADO_BANCO') {
@@ -156,7 +159,7 @@ const server = app.listen(0, async () => {
     console.log('✓ Rechazo exitoso por aportación inferior al mínimo estatutario de Q100.00.');
 
     // 2.3 Procesar afiliación exitosa de cliente bancario
-    const emailNuevoSocio = `marcos.castillo.${Date.now()}@banco.com`;
+    const emailNuevoSocio = `marcos.castillo.${Date.now()}@example.com`;
     const afiliacionExitosa = await request('/api/afiliacion/procesar-existente', 'POST', {
       cui_dpi: '4000000000001',
       id_cuenta_bancaria: cuentaBcoCliente.id_cuenta_bancaria,
@@ -231,7 +234,7 @@ const server = app.listen(0, async () => {
       fecha_nacimiento: '1998-04-12',
       telefono: '55559876',
       direccion: 'Mixco, Guatemala',
-      email: 'gabriela.alvarado@correo.com',
+      email: 'gabriela.alvarado@example.com',
       monto_estimado: 350.00,
     });
     if (solicitudRes.status !== 201 || !solicitudRes.body.success) {
@@ -310,7 +313,7 @@ const server = app.listen(0, async () => {
       fecha_nacimiento: '1985-11-10',
       telefono: '33332222',
       direccion: 'Antigua Guatemala, Sacatepéquez',
-      email: `juan.ramirez.${Date.now()}@correo.com`,
+      email: `juan.ramirez.${Date.now()}@example.com`,
       monto_aportacion: 500.00,
       metodo_pago: 'EFECTIVO_VENTANILLA',
       crear_acceso_portal: true,

@@ -1,3 +1,6 @@
+// Las pruebas nunca envían correo real (ver mailerService): debe ir antes de cargar el servidor.
+process.env.MAIL_ENABLED = 'false';
+
 const http = require('http');
 const { app, server } = require('./src/server');
 
