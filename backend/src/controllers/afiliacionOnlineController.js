@@ -3,7 +3,8 @@ const { pool } = require('../config/db');
 const mfaService = require('../services/mfaService');
 const mailerService = require('../services/mailerService');
 const bancoApiService = require('../services/bancoApiService');
-const { getNextCorporateCode, resolvePrefix, generateSecureRandomPassword } = require('../utils/codeGenerator');
+const { getNextCorporateCode, resolvePrefix } = require('../utils/codeGenerator');
+const { validatePassword } = require('../utils/passwordPolicy');
 
 /**
  * 1. Valida el DPI del solicitante consultando al Core Banking API (banco-backend).
@@ -216,6 +217,15 @@ const procesarAfiliacionExistente = async (req, res) => {
       });
     }
 
+    // La contraseña la elige el solicitante en el portal: se valida antes de debitar.
+    const passwordError = validatePassword(password);
+    if (passwordError) {
+      return res.status(400).json({
+        success: false,
+        message: passwordError,
+      });
+    }
+
     await client.query('BEGIN');
 
     // 1. Buscar o registrar a la persona en la base de datos de la cooperativa
@@ -340,31 +350,27 @@ const procesarAfiliacionExistente = async (req, res) => {
       [persona.id_persona]
     );
 
+    // La contraseña es la que eligió el solicitante, así que no se le obliga a cambiarla al entrar.
+    const hash = await bcrypt.hash(password, 10);
     if (userExistRes.rows.length > 0) {
       usuarioFinal = userExistRes.rows[0];
-      if (password && password.length >= 6) {
-        const hash = await bcrypt.hash(password, 10);
-        await client.query(
-          'UPDATE usuarios SET password_hash = $1, debe_cambiar_password = TRUE WHERE id_persona = $2',
-          [hash, persona.id_persona]
-        );
-      }
+      await client.query(
+        'UPDATE usuarios SET password_hash = $1, debe_cambiar_password = FALSE WHERE id_persona = $2',
+        [hash, persona.id_persona]
+      );
     } else {
       // Cliente o colaborador que no tenía usuario: crear rol ASOCIADO (3) con código EB-X o EX-X
       const prefix = resolvePrefix('ASOCIADO', req.body.tipo_asociado || (persona.cui_dpi?.startsWith('1000') ? 'EB' : 'EX'));
       const nextCod = await getNextCorporateCode(client, prefix);
-      const passFinal = generateSecureRandomPassword(12);
-      const hash = await bcrypt.hash(passFinal, 10);
       const userEmail = (email && email.trim()) ? email.trim().toLowerCase() : `socio.${nextCod.toLowerCase()}@cooperativa.com`;
 
       const userInsert = await client.query(
         `INSERT INTO usuarios (id_persona, id_rol, codigo_corporativo, email, password_hash, estado, debe_cambiar_password)
-         VALUES ($1, 3, $2, $3, $4, 'ACTIVO', TRUE)
+         VALUES ($1, 3, $2, $3, $4, 'ACTIVO', FALSE)
          RETURNING id_persona, codigo_corporativo, email`,
         [persona.id_persona, nextCod, userEmail, hash]
       );
       usuarioFinal = userInsert.rows[0];
-      usuarioFinal.passwordGenerada = passFinal;
     }
 
     // 8.1 Generar secreto y Código QR para Doble Factor de Autenticación (MFA / 2FA TOTP RFC 6238)
@@ -381,7 +387,8 @@ const procesarAfiliacionExistente = async (req, res) => {
       to: usuarioFinal.email,
       nombre: persona.nombre_completo,
       codigoCorporativo: usuarioFinal.codigo_corporativo,
-      password: usuarioFinal.passwordGenerada || password || 'Contraseña configurada en portal',
+      // Sin contraseña: el correo no repite la que eligió el solicitante.
+      password: null,
       rolNombre: 'ASOCIADO COOPERATIVISTA',
       qrDataUrl: mfaData.qr_code_url,
       secretBase32: mfaData.base32,

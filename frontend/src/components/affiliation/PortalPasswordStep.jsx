@@ -2,6 +2,8 @@ import React from 'react';
 import { AlertCircle, ArrowLeft, CheckCircle2, Loader2 } from 'lucide-react';
 import { Button, Field, Input, PasswordInput } from '../ui';
 import { formatQ } from '../../utils/format';
+import { checkPassword } from '../../utils/passwordPolicy';
+import { PasswordRequirement } from '../auth/PasswordRequirement';
 import { StepActions, StepHeader } from './StepHeader';
 
 /** Ícono a la derecha del correo según la verificación de disponibilidad. */
@@ -38,6 +40,7 @@ export const PortalPasswordStep = ({
 }) => {
   const emailError = credEmailStatus.disponible === false ? credEmailStatus.message : undefined;
   const emailHint = credEmailStatus.message && !emailError ? credEmailStatus.message : 'Aquí recibirá sus datos de acceso.';
+  const { hasMinLength, hasLetters, hasNumbers, hasSpecial } = checkPassword(credenciales.password);
 
   return (
     <form onSubmit={handleSubmitExistente}>
@@ -61,11 +64,12 @@ export const PortalPasswordStep = ({
         </Field>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <Field label="Contraseña" hint="Al menos 6 caracteres." required>
+          <Field label="Contraseña" required>
             <PasswordInput
               autoComplete="new-password"
               value={credenciales.password}
               onChange={(e) => setCredenciales((prev) => ({ ...prev, password: e.target.value }))}
+              aria-describedby="requisitos-password-portal"
               required
             />
           </Field>
@@ -78,6 +82,12 @@ export const PortalPasswordStep = ({
             />
           </Field>
         </div>
+        <ul id="requisitos-password-portal" className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs" aria-label="Requisitos de la contraseña">
+          <PasswordRequirement met={hasMinLength}>Al menos 8 caracteres</PasswordRequirement>
+          <PasswordRequirement met={hasLetters}>Letras</PasswordRequirement>
+          <PasswordRequirement met={hasNumbers}>Números</PasswordRequirement>
+          <PasswordRequirement met={hasSpecial}>Un símbolo (!@#$…)</PasswordRequirement>
+        </ul>
       </div>
 
       {/* Lo que se va a debitar al confirmar */}

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../services/api';
+import { checkPassword } from '../utils/passwordPolicy';
 import { Alert } from '../components/ui';
 import { Wordmark } from '../components/layout/Wordmark';
 import {
@@ -362,8 +363,8 @@ export const PublicAffiliationPage = () => {
     e.preventDefault();
     setErrorMsg('');
 
-    if (credenciales.password.length < 6) {
-      setErrorMsg('La contraseña debe tener al menos 6 caracteres.');
+    if (!checkPassword(credenciales.password).isValid) {
+      setErrorMsg('La contraseña debe tener al menos 8 caracteres, con letras, números y un símbolo (!@#$…).');
       return;
     }
     if (credenciales.password !== credenciales.confirmPassword) {

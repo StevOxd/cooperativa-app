@@ -458,6 +458,7 @@ class MailerService {
   /**
    * Envía el correo formal de bienvenida con las credenciales de acceso institucional:
    * Código de Usuario, Contraseña Generada Criptográficamente y (si aplica) Código QR de 2FA.
+   * Si `password` viene vacío (el usuario la eligió él mismo), el correo no la incluye.
    */
   async sendAccountCredentialsEmail({
     to,
@@ -469,6 +470,7 @@ class MailerService {
     secretBase32,
   }) {
     const subject = `[CREDENCIALES DE ACCESO] Cuenta Institucional - Cooperativa Corporativa (${codigoCorporativo})`;
+    const passwordTemporal = Boolean(password);
     
     const htmlContent = `
       <!DOCTYPE html>
@@ -505,17 +507,20 @@ class MailerService {
             <p>Estimado(a) <strong>${nombre || 'Colaborador'}</strong>,</p>
             <p>Se ha creado exitosamente su cuenta de acceso en el sistema institucional con el perfil: <span class="badge">${rolNombre || 'USUARIO'}</span>.</p>
             
-            <p>Por políticas de seguridad informática bancaria, su contraseña temporal ha sido generada aleatoriamente por el sistema:</p>
+            <p>${passwordTemporal
+              ? 'Por políticas de seguridad informática bancaria, su contraseña temporal ha sido generada aleatoriamente por el sistema:'
+              : 'Para entrar al portal use su código de usuario y la contraseña que eligió al afiliarse:'}</p>
 
             <div class="creds-card">
               <div class="cred-row">
                 <span class="cred-label">Usuario / Código:</span>
                 <span class="cred-val">${codigoCorporativo}</span>
               </div>
+              ${passwordTemporal ? `
               <div class="cred-row">
                 <span class="cred-label">Contraseña Temporal:</span>
                 <span class="cred-val" style="color: #0369a1; letter-spacing: 1px;">${password}</span>
-              </div>
+              </div>` : ''}
               <div class="cred-row">
                 <span class="cred-label">Correo Registrado:</span>
                 <span style="font-size: 13px; color: #334155;">${to}</span>
@@ -523,7 +528,9 @@ class MailerService {
             </div>
 
             <div class="alert-box">
-              <strong>Importante por Seguridad:</strong> Esta contraseña es de uso personal y confidencial. Por protocolo de ciberseguridad, el sistema le solicitará cambiarla obligatoriamente en su primer inicio de sesión.
+              ${passwordTemporal
+                ? '<strong>Importante por Seguridad:</strong> Esta contraseña es de uso personal y confidencial. Por protocolo de ciberseguridad, el sistema le solicitará cambiarla obligatoriamente en su primer inicio de sesión.'
+                : '<strong>Importante por Seguridad:</strong> La cooperativa nunca le pedirá su contraseña por correo ni por teléfono. Si no reconoce esta afiliación, comuníquese con nosotros.'}
             </div>
 
             <a href="http://localhost:3000/login" class="btn-portal">

@@ -67,11 +67,9 @@ export const DirectAffiliationSuccess = ({ afiliacionExitosa }) => {
           <h3 id="afiliacion-ingreso" className="font-medium">Cómo ingresar por primera vez</h3>
           <ol className="mt-2 list-decimal space-y-1 pl-5">
             <li>
-              Revise su correo{email && <> <span className="font-medium">{email}</span></>}: ahí le enviamos su usuario y su
-              contraseña.
+              Revise su correo{email && <> <span className="font-medium">{email}</span></>}: ahí le enviamos su usuario.
             </li>
-            <li>Inicie sesión con su usuario o su correo y esa contraseña.</li>
-            <li>El sistema le pedirá crear una contraseña nueva antes de entrar.</li>
+            <li>Inicie sesión con su usuario o su correo y la contraseña que acaba de elegir.</li>
           </ol>
         </section>
 
