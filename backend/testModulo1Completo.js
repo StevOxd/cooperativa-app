@@ -141,6 +141,7 @@ const server = app.listen(0, async () => {
       cui_dpi: '4000000000001',
       id_cuenta_bancaria: cuentaBcoCliente.id_cuenta_bancaria,
       monto_aportacion: 9999999.00,
+      password: 'Password123!',
     });
     if (saldoInsufRes.status !== 400 || !saldoInsufRes.body.message.includes('Fondos insuficientes')) {
       throw new Error('Debería rechazar por saldo insuficiente en cuenta bancaria: ' + JSON.stringify(saldoInsufRes.body));
@@ -157,6 +158,18 @@ const server = app.listen(0, async () => {
       throw new Error('Debería rechazar por aportación < Q100: ' + JSON.stringify(montoMinRes.body));
     }
     console.log('✓ Rechazo exitoso por aportación inferior al mínimo estatutario de Q100.00.');
+
+    // 2.2.1 Rechazo por contraseña que no cumple la política (antes de debitar)
+    const passDebilRes = await request('/api/afiliacion/procesar-existente', 'POST', {
+      cui_dpi: '4000000000001',
+      id_cuenta_bancaria: cuentaBcoCliente.id_cuenta_bancaria,
+      monto_aportacion: 250.00,
+      password: 'abc123',
+    });
+    if (passDebilRes.status !== 400 || !passDebilRes.body.message.includes('contraseña')) {
+      throw new Error('Debería rechazar una contraseña que no cumple la política: ' + JSON.stringify(passDebilRes.body));
+    }
+    console.log('✓ Rechazo exitoso de contraseña débil antes de debitar la cuenta bancaria.');
 
     // 2.3 Procesar afiliación exitosa de cliente bancario
     const emailNuevoSocio = `marcos.castillo.${Date.now()}@example.com`;
