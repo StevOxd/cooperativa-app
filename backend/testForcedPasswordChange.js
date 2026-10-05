@@ -56,8 +56,10 @@ async function testForcedPasswordChange() {
     assert(adminLogin.status === 200 && adminLogin.data?.token, 'Login del Administrador (AD-1) exitoso');
     const adminToken = adminLogin.data.token;
 
-    // 2. Crear un nuevo usuario Operador usando código correlativo y sin contraseña manual
+    // 2. Crear un nuevo usuario Operador con una contraseña temporal indicada por la prueba.
+    //    La API no devuelve la contraseña temporal (solo viaja por correo), así que la prueba la fija.
     const userTimestamp = Date.now().toString().slice(-4);
+    const tempPassword = `Temporal${userTimestamp}A1`;
     const createRes = await httpRequest({
       hostname: 'localhost',
       port: 5001,
@@ -72,14 +74,17 @@ async function testForcedPasswordChange() {
       primer_apellido: 'Forzado',
       email: `test.forzado.${userTimestamp}@cooperativa.com`,
       rol: 'OPERADOR',
-      cui_dpi: `9999${userTimestamp}101`,
+      cui_dpi: `9999${userTimestamp}00101`, // 13 dígitos
+      fecha_nacimiento: '1995-01-01',
+      password: tempPassword,
     });
 
     assert(createRes.status === 201 && createRes.data?.success, 'Operador creado exitosamente por Admin');
     const newUser = createRes.data?.data;
     assert(newUser?.debe_cambiar_password === true, 'El nuevo usuario tiene debe_cambiar_password = TRUE en BD');
-    const tempPassword = createRes.data?.password_generada;
-    assert(tempPassword && tempPassword.length >= 10, 'Contraseña temporal aleatoria generada criptográficamente');
+    const respuestaTexto = JSON.stringify(createRes.data);
+    assert(!respuestaTexto.includes(tempPassword) && !('password_generada' in (createRes.data || {})) && !newUser?.mfa?.secret,
+      'La respuesta no incluye la contraseña temporal ni el secreto 2FA');
 
     // 3. Iniciar sesión con el nuevo usuario usando su contraseña temporal
     const newUserLogin = await httpRequest({
@@ -109,7 +114,7 @@ async function testForcedPasswordChange() {
     assert(blockedRes.data?.error === 'CAMBIO_PASSWORD_OBLIGATORIO', 'Error retornado es CAMBIO_PASSWORD_OBLIGATORIO');
 
     // 5. El usuario cambia su contraseña usando POST /api/auth/cambiar-password
-    const newPersonalPass = 'NuevaPassSegura2026';
+    const newPersonalPass = 'NuevaPassSegura2026!'; // la política exige letras, números y un símbolo
     const changeRes = await httpRequest({
       hostname: 'localhost',
       port: 5001,
@@ -155,11 +160,17 @@ async function testForcedPasswordChange() {
 
     console.log('\n===============================================================');
     console.log(` [RESULTADOS] PRUEBAS SUPERADAS: ${passed} / ${total}`);
-    console.log(' [SUCCESS] CICLO DE CAMBIO OBLIGATORIO DE CONTRASEÑA VERIFICADO');
+    if (passed === total) {
+      console.log(' [SUCCESS] CICLO DE CAMBIO OBLIGATORIO DE CONTRASEÑA VERIFICADO');
+    } else {
+      console.log(' [FALLO] Hay pruebas que no pasaron.');
+      process.exitCode = 1;
+    }
     console.log('===============================================================\n');
 
   } catch (error) {
     console.error('Error durante testForcedPasswordChange:', error);
+    process.exitCode = 1;
   }
 }
 

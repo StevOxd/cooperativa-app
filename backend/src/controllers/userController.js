@@ -540,7 +540,7 @@ const createUser = async (req, res) => {
     return res.status(201).json({
       success: true,
       message: `Se creó el usuario ${createdUser.codigo_corporativo}. Enviamos su contraseña temporal a ${createdUser.email}.`,
-      password_generada: passwordFueAutogenerada ? rawPassword : null,
+      // La contraseña temporal y el secreto 2FA solo viajan por correo al usuario: nunca en la respuesta.
       data: {
         id: createdUser.id_persona,
         id_persona: createdUser.id_persona,
@@ -561,11 +561,8 @@ const createUser = async (req, res) => {
         estado: createdUser.estado,
         fecha_creacion: createdUser.fecha_creacion,
         password_autogenerada: passwordFueAutogenerada,
-        password_generada: passwordFueAutogenerada ? rawPassword : null,
         debe_cambiar_password: Boolean(createdUser.debe_cambiar_password),
         mfa: {
-          qr_code_url: mfaData.qr_code_url,
-          secret: mfaData.base32,
           enabled: false,
         },
       },
