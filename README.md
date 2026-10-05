@@ -172,10 +172,17 @@ cd cooperativa-app
 ```
 
 ### 9.2 Configuracion del Archivo de Entorno
-Copie la plantilla de variables de entorno y ajuste las credenciales segun corresponda:
+Copie la plantilla de variables de entorno. Docker Compose lee el archivo `.env` de la raíz automáticamente, sin `--env-file`:
 ```bash
-cp docker.env.example docker.env
+cp .env.example .env
 ```
+
+Complete las tres claves obligatorias (`DB_PASSWORD`, `JWT_SECRET` y `BANCO_INTERNAL_API_KEY`) con valores propios. Para generar cada una:
+```bash
+openssl rand -hex 32
+```
+
+Las claves no tienen valor por defecto: si falta alguna, `docker compose` se detiene e indica cuál. `DB_PASSWORD` se usa al crear la base por primera vez; si la cambia después, recree el volumen con `docker compose down -v` (borra los datos).
 
 ### 9.3 Despliegue de los Servicios
 Construya y ejecute los 4 contenedores en segundo plano:
@@ -192,7 +199,9 @@ docker compose ps
 Puntos de acceso en el entorno local:
 - Portal Web (Frontend): http://localhost:3000
 - API Cooperativa Backend: http://localhost:5001/api/health
-- API Core Banking: http://localhost:5002/api/banco/health
+- API Core Banking: http://localhost:5002/api/banco/health (solo desde esta máquina)
+
+La base de datos (5432) y el Core Banking (5002) se publican solo en `127.0.0.1`: se puede llegar a ellos desde la misma máquina, para las pruebas, pero no desde la red.
 
 ### 9.5 Detencion de los Servicios
 Para detener los contenedores preservando los datos:
@@ -204,20 +213,26 @@ docker compose down
 
 ## 10. Configuracion de Variables de Entorno
 
-El archivo `docker.env` centraliza los parametros de configuracion para los contenedores:
+El archivo `.env` de la raíz (copia de `.env.example`) centraliza los parametros de configuracion para los contenedores:
 
 | Variable | Descripcion | Valor Predeterminado / Ejemplo |
 |:---|:---|:---|
-| `POSTGRES_DB` | Nombre de la base de datos principal | `cooperativa_db` |
-| `POSTGRES_USER` | Usuario de conexion PostgreSQL | `postgres` |
-| `POSTGRES_PASSWORD` | Contrasena segura de base de datos | *(Definir valor seguro)* |
-| `JWT_SECRET` | Clave secreta para firma de tokens JWT | *(Cadena criptografica segura)* |
+| `DB_NAME` | Nombre de la base de datos principal | `cooperativa_db` |
+| `DB_USER` | Usuario de conexion PostgreSQL | `cooperativa_user` |
+| `DB_PASSWORD` | Contrasena de la base de datos (**obligatoria**) | *(Generar con `openssl rand -hex 32`)* |
+| `DB_PORT` | Puerto de PostgreSQL en esta máquina | `5432` |
+| `BACKEND_PORT` | Puerto del backend en esta máquina | `5001` |
+| `JWT_SECRET` | Clave secreta para firma de tokens JWT (**obligatoria**) | *(Generar con `openssl rand -hex 32`)* |
 | `JWT_EXPIRES_IN` | Tiempo de vida del token de acceso | `8h` |
-| `BANCO_API_URL` | URL de comunicacion interna con Core Banking | `http://banco-backend:5002` |
-| `BANCO_INTERNAL_API_KEY` | Token secreto de cabecera inter-servicio | *(Clave alfanumerica segura)* |
-| `GOOGLE_EMAIL_USER` | Cuenta de correo para notificaciones SMTP | `notificaciones@cooperativa.edu.gt` |
-| `GOOGLE_EMAIL_APP_PASSWORD` | Contrasena de aplicacion de Google | *(Contrasena de 16 caracteres)* |
+| `BANCO_INTERNAL_API_KEY` | Clave entre la cooperativa y el Core Banking (**obligatoria**) | *(Generar con `openssl rand -hex 32`)* |
+| `FRONTEND_PORT` | Puerto del portal web en esta máquina | `3000` |
 | `FRONTEND_URL` | Origen autorizado para CORS y WebSockets | `http://localhost:3000` |
+| `MAIL_ENABLED` | `false` apaga todo envío de correo | `true` |
+| `GMAIL_USER` | Cuenta de Gmail para las notificaciones | *(Opcional)* |
+| `GMAIL_APP_PASSWORD` | Contrasena de aplicacion de Google | *(16 caracteres, opcional)* |
+| `EMAIL_FROM` | Remitente de los correos | `Cooperativa Financiera <notificaciones@cooperativa.com>` |
+
+Para ejecutar el backend o el banco fuera de Docker, `backend/.env` y `banco-backend/.env` (copias de sus `.env.example`) deben tener la misma `BANCO_INTERNAL_API_KEY`.
 
 ---
 
@@ -241,14 +256,14 @@ El proyecto incluye un conjunto completo de scripts de prueba automatizados en l
 Las pruebas se ejecutan dentro de la red de Docker, con las mismas variables que el backend. La imagen no incluye los archivos `test*.js`, por eso se montan al ejecutarlas:
 
 ```bash
-docker compose --env-file docker.env run --rm --no-deps -e MAIL_ENABLED=false \
+docker compose run --rm --no-deps -e MAIL_ENABLED=false \
   -v "$(pwd)/backend/testModulo1Completo.js:/app/testModulo1Completo.js:ro" \
   backend node testModulo1Completo.js
 ```
 
 Cambie `testModulo1Completo.js` por el nombre de la prueba que quiera ejecutar.
 
-**Correo en las pruebas.** Las pruebas que cargan el servidor fijan `MAIL_ENABLED=false` al inicio, así que no envían correos aunque haya una cuenta de Gmail configurada. `testBandejaAfiliaciones.js` y `testForcedPasswordChange.js` se conectan al backend que ya está corriendo (puerto 5001): ejecútelas solo con ese backend levantado con `MAIL_ENABLED=false` en `docker.env`. `testGoogleMailer.js` envía un correo real a propósito.
+**Correo en las pruebas.** Las pruebas que cargan el servidor fijan `MAIL_ENABLED=false` al inicio, así que no envían correos aunque haya una cuenta de Gmail configurada. `testBandejaAfiliaciones.js` y `testForcedPasswordChange.js` se conectan al backend que ya está corriendo (puerto 5001): ejecútelas solo con ese backend levantado con `MAIL_ENABLED=false` en `.env`. `testGoogleMailer.js` envía un correo real a propósito.
 
 **Datos.** `testModulo1Completo.js` borra y vuelve a crear el asociado del cliente de prueba del banco (DPI `4000000000001`) y debita su cuenta de prueba.
 

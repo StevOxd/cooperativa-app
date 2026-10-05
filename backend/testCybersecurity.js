@@ -13,8 +13,12 @@ const db = require('./src/config/db');
 
 const BANCO_URL = process.env.BANCO_API_URL || 'http://localhost:5002';
 const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:5001';
-const BANCO_INTERNAL_API_KEY = process.env.BANCO_INTERNAL_API_KEY || 'banco_internal_secret_key_2026';
-const JWT_SECRET = process.env.JWT_SECRET || 'super_secret_jwt_key_cooperativa_2026';
+const BANCO_INTERNAL_API_KEY = process.env.BANCO_INTERNAL_API_KEY;
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!BANCO_INTERNAL_API_KEY || !JWT_SECRET) {
+  console.error('Faltan BANCO_INTERNAL_API_KEY o JWT_SECRET en backend/.env (vea backend/.env.example).');
+  process.exit(1);
+}
 
 // Helper HTTP Request
 function httpRequest(options, postData = null) {

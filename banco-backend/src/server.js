@@ -5,7 +5,7 @@ const helmet = require('helmet');
 require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
 
 // 1. Verificación Fail-Fast de variables requeridas para el Core Bancario
-const REQUIRED_BANCO_ENV = ['DB_USER', 'DB_PASSWORD', 'DB_NAME'];
+const REQUIRED_BANCO_ENV = ['DB_USER', 'DB_PASSWORD', 'DB_NAME', 'BANCO_INTERNAL_API_KEY'];
 const missingBancoEnv = REQUIRED_BANCO_ENV.filter((key) => !process.env[key] || process.env[key].trim() === '');
 if (missingBancoEnv.length > 0) {
   console.error(`[CRITICAL SECURITY ERROR] Variables de entorno críticas ausentes en banco-backend: ${missingBancoEnv.join(', ')}`);

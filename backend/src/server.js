@@ -6,7 +6,7 @@ const helmet = require('helmet');
 require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
 
 // 1. Verificación Fail-Fast de variables de entorno críticas (CWE-798 Hardening)
-const REQUIRED_ENV_VARS = ['JWT_SECRET', 'DB_USER', 'DB_NAME'];
+const REQUIRED_ENV_VARS = ['JWT_SECRET', 'DB_USER', 'DB_NAME', 'BANCO_INTERNAL_API_KEY'];
 const missingEnv = REQUIRED_ENV_VARS.filter((key) => !process.env[key] || process.env[key].trim() === '');
 if (missingEnv.length > 0) {
   console.error(`[CRITICAL SECURITY ERROR] Variables de entorno requeridas ausentes en .env: ${missingEnv.join(', ')}.`);

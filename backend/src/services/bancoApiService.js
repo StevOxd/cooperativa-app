@@ -19,7 +19,8 @@ const fetchWithTimeout = async (url, options = {}, timeoutMs = DEFAULT_TIMEOUT_M
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
   const headers = {
-    'x-banco-api-key': process.env.BANCO_INTERNAL_API_KEY || 'banco_internal_secret_key_2026',
+    // Sin valor por defecto: server.js no arranca si falta BANCO_INTERNAL_API_KEY.
+    'x-banco-api-key': process.env.BANCO_INTERNAL_API_KEY,
     ...(options.headers || {}),
   };
 
