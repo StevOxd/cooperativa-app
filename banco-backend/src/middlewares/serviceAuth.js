@@ -6,9 +6,10 @@
 
 const requireServiceAuth = (req, res, next) => {
   const apiKey = req.headers['x-banco-api-key'];
-  const expectedKey = process.env.BANCO_INTERNAL_API_KEY || 'banco_internal_secret_key_2026';
+  // Sin valor por defecto: server.js no arranca si falta BANCO_INTERNAL_API_KEY.
+  const expectedKey = process.env.BANCO_INTERNAL_API_KEY;
 
-  if (!apiKey || apiKey !== expectedKey) {
+  if (!expectedKey || !apiKey || apiKey !== expectedKey) {
     return res.status(401).json({
       success: false,
       message: '[SECURITY ERROR] Acceso denegado al Core Bancario: API Key inter-servicio inválida o ausente.',

@@ -18,7 +18,7 @@ const dbConfigCoop = {
   host: process.env.DB_HOST || 'localhost',
   port: parseInt(process.env.DB_PORT || '5432', 10),
   user: process.env.DB_USER || 'cooperativa_user',
-  password: process.env.DB_PASSWORD || 'cooperativa_secure_password_2026',
+  password: process.env.DB_PASSWORD,
   database: 'cooperativa_db',
 };
 
