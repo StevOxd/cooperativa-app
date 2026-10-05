@@ -69,7 +69,7 @@ const consultarCuenta = async (req, res) => {
 const debitar = async (req, res) => {
   const client = await pool.connect();
   try {
-    const { numero_cuenta, id_cuenta_bancaria, monto, concepto, referencia } = req.body;
+    const { numero_cuenta, id_cuenta_bancaria, cui_dpi, monto, concepto, referencia } = req.body;
 
     if ((!numero_cuenta && !id_cuenta_bancaria) || !monto) {
       return res.status(400).json({
@@ -95,10 +95,11 @@ const debitar = async (req, res) => {
       : (!isNaN(parseInt(numStr, 10)) && !numStr.startsWith('CTA-') ? parseInt(numStr, 10) : -1);
 
     const ctaRes = await client.query(
-      `SELECT id_cuenta_bancaria, numero_cuenta, saldo_disponible, estado
-       FROM cuentas_bancarias
-       WHERE (LOWER(TRIM(numero_cuenta)) = LOWER(TRIM($1)) OR id_cuenta_bancaria = $2)
-       FOR UPDATE`,
+      `SELECT cb.id_cuenta_bancaria, cb.numero_cuenta, cb.saldo_disponible, cb.estado, c.cui_dpi
+       FROM cuentas_bancarias cb
+       JOIN clientes_banco c ON c.id_cliente = cb.id_cliente
+       WHERE (LOWER(TRIM(cb.numero_cuenta)) = LOWER(TRIM($1)) OR cb.id_cuenta_bancaria = $2)
+       FOR UPDATE OF cb`,
       [numStr, idCta]
     );
 
@@ -111,6 +112,15 @@ const debitar = async (req, res) => {
     }
 
     const cta = ctaRes.rows[0];
+
+    // Si quien llama indica el DPI del titular, la cuenta tiene que ser suya.
+    if (cui_dpi && String(cui_dpi).trim() !== cta.cui_dpi) {
+      await client.query('ROLLBACK');
+      return res.status(403).json({
+        success: false,
+        message: 'La cuenta bancaria no pertenece al DPI indicado.',
+      });
+    }
     if (cta.estado !== 'ACTIVA') {
       await client.query('ROLLBACK');
       return res.status(400).json({

@@ -5,6 +5,15 @@ const mailerService = require('../services/mailerService');
 const bancoApiService = require('../services/bancoApiService');
 const { getNextCorporateCode, resolvePrefix } = require('../utils/codeGenerator');
 const { validatePassword } = require('../utils/passwordPolicy');
+const { firmarAfiliacionToken, verificarAfiliacionToken } = require('../utils/afiliacionToken');
+
+// id_rol del asociado en la tabla roles (el mismo que se usa al crear su usuario).
+const ID_ROL_ASOCIADO = 3;
+
+// Un usuario tiene un solo rol: si es personal (operador, ejecutivo o administrador) y se afiliara
+// en línea, quedaría como asociado sin poder ver su cuenta en el portal.
+const MENSAJE_PERSONAL_NO_AFILIA_EN_LINEA =
+  'Usted ya tiene un usuario del personal de la cooperativa. Para afiliarse, acérquese a un ejecutivo.';
 
 /**
  * 1. Valida el DPI del solicitante consultando al Core Banking API (banco-backend).
@@ -150,6 +159,20 @@ const validarCredencialesBanco = async (req, res) => {
     const cliente = bancoAuthRes.cliente;
     const cuentas = bancoAuthRes.cuentas || [];
 
+    // Si ya tiene usuario en el portal, conserva su acceso actual; si es personal, no se afilia en línea.
+    const usuarioRes = await client.query(
+      `SELECT u.codigo_corporativo, u.id_rol FROM usuarios u JOIN personas p ON u.id_persona = p.id_persona WHERE p.cui_dpi = $1`,
+      [cuiLimpio]
+    );
+    const usuarioExistente = usuarioRes.rows[0] || null;
+    if (usuarioExistente && usuarioExistente.id_rol !== ID_ROL_ASOCIADO) {
+      return res.status(409).json({
+        success: false,
+        es_personal: true,
+        message: MENSAJE_PERSONAL_NO_AFILIA_EN_LINEA,
+      });
+    }
+
     const tipoSujeto = cliente.tipo_cliente === 'EMPLEADO_PLANILLA' ? 'EMPLEADO_BANCO' : 'CLIENTE_BANCO';
     const tipoSujetoDescripcion = cliente.tipo_cliente === 'EMPLEADO_PLANILLA'
       ? 'Colaborador / Empleado de la Corporación Bancaria'
@@ -173,6 +196,10 @@ const validarCredencialesBanco = async (req, res) => {
         nombre_usuario: cliente.nombre_usuario,
       },
       cuentas_bancarias: cuentas,
+      tiene_usuario_portal: Boolean(usuarioExistente),
+      codigo_corporativo_portal: usuarioExistente ? usuarioExistente.codigo_corporativo : null,
+      // Comprobante para /procesar-existente: solo sirve para este DPI y estas cuentas.
+      afiliacion_token: firmarAfiliacionToken({ cui_dpi: cuiLimpio, cuentas }),
     });
   } catch (error) {
     console.error('[VALIDAR CREDENCIALES BANCO ERROR]:', error);
@@ -200,6 +227,7 @@ const procesarAfiliacionExistente = async (req, res) => {
       monto_aportacion,
       email,
       password,
+      afiliacion_token,
     } = req.body;
 
     if (!cui_dpi || (!id_cuenta_bancaria && !numero_cuenta_bancaria) || !monto_aportacion) {
@@ -217,19 +245,58 @@ const procesarAfiliacionExistente = async (req, res) => {
       });
     }
 
-    // La contraseña la elige el solicitante en el portal: se valida antes de debitar.
-    const passwordError = validatePassword(password);
-    if (passwordError) {
-      return res.status(400).json({
+    const cuiLimpio = String(cui_dpi).trim().replace(/\s+/g, '');
+
+    // Solo puede afiliarse quien acaba de validar su Banca en Línea, y solo con ese DPI.
+    // 403 y no 401: el interceptor del frontend trata cualquier 401 como sesión vencida.
+    const comprobante = verificarAfiliacionToken(afiliacion_token);
+    if (!comprobante || comprobante.cui_dpi !== cuiLimpio) {
+      return res.status(403).json({
         success: false,
-        message: passwordError,
+        message: 'Su validación con la Banca en Línea venció o no es válida. Vuelva a ingresar sus datos del banco.',
       });
+    }
+
+    // La cuenta a debitar tiene que ser una de las que el banco devolvió para ese DPI.
+    const cuentaDebito = comprobante.cuentas.find((c) =>
+      (numero_cuenta_bancaria && c.numero === String(numero_cuenta_bancaria).trim())
+      || (id_cuenta_bancaria && String(c.id) === String(id_cuenta_bancaria))
+    );
+    if (!cuentaDebito) {
+      return res.status(403).json({
+        success: false,
+        message: 'La cuenta seleccionada no pertenece a su DPI.',
+      });
+    }
+
+    // Quien ya tiene usuario en el portal conserva su acceso: no se cambia su contraseña, rol ni 2FA.
+    const usuarioPrevioRes = await client.query(
+      `SELECT u.id_persona, u.id_rol FROM usuarios u JOIN personas p ON u.id_persona = p.id_persona WHERE p.cui_dpi = $1`,
+      [cuiLimpio]
+    );
+    const tieneUsuarioPrevio = usuarioPrevioRes.rows.length > 0;
+    if (tieneUsuarioPrevio && usuarioPrevioRes.rows[0].id_rol !== ID_ROL_ASOCIADO) {
+      return res.status(409).json({
+        success: false,
+        es_personal: true,
+        message: MENSAJE_PERSONAL_NO_AFILIA_EN_LINEA,
+      });
+    }
+
+    // La contraseña la elige el solicitante sin usuario previo: se valida antes de debitar.
+    if (!tieneUsuarioPrevio) {
+      const passwordError = validatePassword(password);
+      if (passwordError) {
+        return res.status(400).json({
+          success: false,
+          message: passwordError,
+        });
+      }
     }
 
     await client.query('BEGIN');
 
     // 1. Buscar o registrar a la persona en la base de datos de la cooperativa
-    const cuiLimpio = cui_dpi.trim().replace(/\s+/g, '');
     let personaRes = await client.query(
       `SELECT id_persona, cui_dpi, primer_nombre, segundo_nombre, primer_apellido, segundo_apellido, nombre_completo, fecha_nacimiento
        FROM personas WHERE cui_dpi = $1`,
@@ -280,7 +347,7 @@ const procesarAfiliacionExistente = async (req, res) => {
     }
 
     // Verificar que el correo electrónico no esté registrado por otro usuario
-    if (email && email.trim()) {
+    if (!tieneUsuarioPrevio && email && email.trim()) {
       const emailLimpio = email.trim().toLowerCase();
       const checkEmail = await client.query(
         'SELECT id_persona FROM usuarios WHERE LOWER(email) = $1 AND id_persona != $2',
@@ -296,11 +363,12 @@ const procesarAfiliacionExistente = async (req, res) => {
     }
 
     // 2. Ejecutar débito atómico en la Entidad Bancaria vía Banco API
-    const targetNumeroCuenta = numero_cuenta_bancaria || (id_cuenta_bancaria ? String(id_cuenta_bancaria) : '');
+    const targetNumeroCuenta = cuentaDebito.numero;
     const refMovimiento = 'AFIL-COOP-' + Date.now();
-    
+
     const debitRes = await bancoApiService.debitarCuenta({
       numero_cuenta: targetNumeroCuenta,
+      cui_dpi: cuiLimpio,
       monto: monto,
       concepto: 'Débito por aportación inicial de membresía cooperativa',
       referencia: refMovimiento,
@@ -350,15 +418,14 @@ const procesarAfiliacionExistente = async (req, res) => {
       [persona.id_persona]
     );
 
-    // La contraseña es la que eligió el solicitante, así que no se le obliga a cambiarla al entrar.
-    const hash = await bcrypt.hash(password, 10);
-    if (userExistRes.rows.length > 0) {
+    const accesoExistente = userExistRes.rows.length > 0;
+    let mfaData = null;
+    if (accesoExistente) {
+      // Conserva su contraseña, su rol y su 2FA: entra al portal con su acceso de siempre.
       usuarioFinal = userExistRes.rows[0];
-      await client.query(
-        'UPDATE usuarios SET password_hash = $1, debe_cambiar_password = FALSE WHERE id_persona = $2',
-        [hash, persona.id_persona]
-      );
     } else {
+      // La contraseña es la que eligió el solicitante, así que no se le obliga a cambiarla al entrar.
+      const hash = await bcrypt.hash(password, 10);
       // Cliente o colaborador que no tenía usuario: crear rol ASOCIADO (3) con código EB-X o EX-X
       const prefix = resolvePrefix('ASOCIADO', req.body.tipo_asociado || (persona.cui_dpi?.startsWith('1000') ? 'EB' : 'EX'));
       const nextCod = await getNextCorporateCode(client, prefix);
@@ -373,26 +440,28 @@ const procesarAfiliacionExistente = async (req, res) => {
       usuarioFinal = userInsert.rows[0];
     }
 
-    // 8.1 Generar secreto y Código QR para Doble Factor de Autenticación (MFA / 2FA TOTP RFC 6238)
-    const mfaData = await mfaService.generateMfaSecret(usuarioFinal.codigo_corporativo);
-    await client.query(
-      `UPDATE usuarios 
-       SET mfa_secret = $1, mfa_enabled = FALSE, mfa_qr_url = $2 
-       WHERE id_persona = $3`,
-      [mfaData.base32, mfaData.qr_code_url, persona.id_persona]
-    );
+    if (!accesoExistente) {
+      // 8.1 Generar secreto y Código QR para Doble Factor de Autenticación (MFA / 2FA TOTP RFC 6238)
+      mfaData = await mfaService.generateMfaSecret(usuarioFinal.codigo_corporativo);
+      await client.query(
+        `UPDATE usuarios 
+         SET mfa_secret = $1, mfa_enabled = FALSE, mfa_qr_url = $2 
+         WHERE id_persona = $3`,
+        [mfaData.base32, mfaData.qr_code_url, persona.id_persona]
+      );
 
-    // 8.2 Despachar correo electrónico institucional con credenciales de acceso y Código QR
-    await mailerService.sendAccountCredentialsEmail({
-      to: usuarioFinal.email,
-      nombre: persona.nombre_completo,
-      codigoCorporativo: usuarioFinal.codigo_corporativo,
-      // Sin contraseña: el correo no repite la que eligió el solicitante.
-      password: null,
-      rolNombre: 'ASOCIADO COOPERATIVISTA',
-      qrDataUrl: mfaData.qr_code_url,
-      secretBase32: mfaData.base32,
-    });
+      // 8.2 Despachar correo electrónico institucional con credenciales de acceso y Código QR
+      await mailerService.sendAccountCredentialsEmail({
+        to: usuarioFinal.email,
+        nombre: persona.nombre_completo,
+        codigoCorporativo: usuarioFinal.codigo_corporativo,
+        // Sin contraseña: el correo no repite la que eligió el solicitante.
+        password: null,
+        rolNombre: 'ASOCIADO COOPERATIVISTA',
+        qrDataUrl: mfaData.qr_code_url,
+        secretBase32: mfaData.base32,
+      });
+    }
 
     await client.query('COMMIT');
 
@@ -409,6 +478,7 @@ const procesarAfiliacionExistente = async (req, res) => {
           id_persona: usuarioFinal.id_persona,
           codigo_corporativo: usuarioFinal.codigo_corporativo,
           email: usuarioFinal.email,
+          acceso_existente: accesoExistente,
         },
         cuenta_bancaria_origen: {
           numero_cuenta_bancaria: numCtaFinal,
@@ -426,10 +496,12 @@ const procesarAfiliacionExistente = async (req, res) => {
           numero_cuenta: cuentaCoop.numero_cuenta,
           saldo_disponible: cuentaCoop.saldo_disponible,
         },
-        mfa: {
-          secret: mfaData.base32,
-          qr_code_url: mfaData.qr_code_url,
-        },
+        mfa: mfaData
+          ? {
+            secret: mfaData.base32,
+            qr_code_url: mfaData.qr_code_url,
+          }
+          : null,
       },
     });
   } catch (error) {
