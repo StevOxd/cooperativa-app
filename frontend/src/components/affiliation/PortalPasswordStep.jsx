@@ -1,6 +1,6 @@
 import React from 'react';
 import { AlertCircle, ArrowLeft, CheckCircle2, Loader2 } from 'lucide-react';
-import { Button, Field, Input, PasswordInput } from '../ui';
+import { Alert, Button, Field, Input, PasswordInput } from '../ui';
 import { formatQ } from '../../utils/format';
 import { checkPassword } from '../../utils/passwordPolicy';
 import { PasswordRequirement } from '../auth/PasswordRequirement';
@@ -22,6 +22,7 @@ const EmailStatusIcon = ({ status }) => {
  * @param {Object} props.credenciales
  * @param {Function} props.setCredenciales
  * @param {Object} props.credEmailStatus - Verificación del correo en tiempo real.
+ * @param {string|null} props.codigoPortalExistente - Código del usuario que ya tiene; si viene, no se pide correo ni contraseña.
  * @param {Object|null} props.cuentaSeleccionadaObj - Cuenta del banco a debitar.
  * @param {string} props.montoAportacion
  * @param {Function} props.handleSubmitExistente - Envío del formulario.
@@ -32,6 +33,7 @@ export const PortalPasswordStep = ({
   credenciales,
   setCredenciales,
   credEmailStatus,
+  codigoPortalExistente,
   cuentaSeleccionadaObj,
   montoAportacion,
   handleSubmitExistente,
@@ -48,47 +50,58 @@ export const PortalPasswordStep = ({
         step={3}
         total={3}
         title="Su acceso al portal"
-        description="Con este correo y esta contraseña consultará sus cuentas y solicitará créditos en línea."
+        description={
+          codigoPortalExistente
+            ? 'Revise el débito del aporte inicial y confirme la afiliación.'
+            : 'Con este correo y esta contraseña consultará sus cuentas y solicitará créditos en línea.'
+        }
       />
 
-      <div className="space-y-4">
-        <Field label="Correo electrónico" hint={emailHint} error={emailError} required>
-          <Input
-            type="email"
-            autoComplete="email"
-            value={credenciales.email}
-            onChange={(e) => setCredenciales((prev) => ({ ...prev, email: e.target.value }))}
-            trailing={<EmailStatusIcon status={credEmailStatus} />}
-            required
-          />
-        </Field>
+      {codigoPortalExistente ? (
+        <Alert tone="info" title="Ya tiene acceso al portal">
+          Seguirá entrando con su usuario <span className="font-mono font-medium">{codigoPortalExistente}</span> y su
+          contraseña de siempre. No cambia nada de su acceso.
+        </Alert>
+      ) : (
+        <div className="space-y-4">
+          <Field label="Correo electrónico" hint={emailHint} error={emailError} required>
+            <Input
+              type="email"
+              autoComplete="email"
+              value={credenciales.email}
+              onChange={(e) => setCredenciales((prev) => ({ ...prev, email: e.target.value }))}
+              trailing={<EmailStatusIcon status={credEmailStatus} />}
+              required
+            />
+          </Field>
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <Field label="Contraseña" required>
-            <PasswordInput
-              autoComplete="new-password"
-              value={credenciales.password}
-              onChange={(e) => setCredenciales((prev) => ({ ...prev, password: e.target.value }))}
-              aria-describedby="requisitos-password-portal"
-              required
-            />
-          </Field>
-          <Field label="Repita la contraseña" required>
-            <PasswordInput
-              autoComplete="new-password"
-              value={credenciales.confirmPassword}
-              onChange={(e) => setCredenciales((prev) => ({ ...prev, confirmPassword: e.target.value }))}
-              required
-            />
-          </Field>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <Field label="Contraseña" required>
+              <PasswordInput
+                autoComplete="new-password"
+                value={credenciales.password}
+                onChange={(e) => setCredenciales((prev) => ({ ...prev, password: e.target.value }))}
+                aria-describedby="requisitos-password-portal"
+                required
+              />
+            </Field>
+            <Field label="Repita la contraseña" required>
+              <PasswordInput
+                autoComplete="new-password"
+                value={credenciales.confirmPassword}
+                onChange={(e) => setCredenciales((prev) => ({ ...prev, confirmPassword: e.target.value }))}
+                required
+              />
+            </Field>
+          </div>
+          <ul id="requisitos-password-portal" className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs" aria-label="Requisitos de la contraseña">
+            <PasswordRequirement met={hasMinLength}>Al menos 8 caracteres</PasswordRequirement>
+            <PasswordRequirement met={hasLetters}>Letras</PasswordRequirement>
+            <PasswordRequirement met={hasNumbers}>Números</PasswordRequirement>
+            <PasswordRequirement met={hasSpecial}>Un símbolo (!@#$…)</PasswordRequirement>
+          </ul>
         </div>
-        <ul id="requisitos-password-portal" className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs" aria-label="Requisitos de la contraseña">
-          <PasswordRequirement met={hasMinLength}>Al menos 8 caracteres</PasswordRequirement>
-          <PasswordRequirement met={hasLetters}>Letras</PasswordRequirement>
-          <PasswordRequirement met={hasNumbers}>Números</PasswordRequirement>
-          <PasswordRequirement met={hasSpecial}>Un símbolo (!@#$…)</PasswordRequirement>
-        </ul>
-      </div>
+      )}
 
       {/* Lo que se va a debitar al confirmar */}
       <section aria-labelledby="resumen-debito" className="mt-6 rounded-md border border-line">
@@ -115,7 +128,7 @@ export const PortalPasswordStep = ({
           type="submit"
           loading={loading}
           loadingText="Afiliando…"
-          disabled={loading || credEmailStatus.disponible === false || credEmailStatus.checking}
+          disabled={loading || (!codigoPortalExistente && (credEmailStatus.disponible === false || credEmailStatus.checking))}
         >
           Confirmar afiliación
         </Button>

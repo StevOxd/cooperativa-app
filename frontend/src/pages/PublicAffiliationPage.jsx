@@ -223,7 +223,8 @@ export const PublicAffiliationPage = () => {
   // Verificación en tiempo real del correo para colaboradores/clientes del banco (Escenario 1)
   useEffect(() => {
     const rawEmail = credenciales.email ? credenciales.email.trim() : '';
-    if (!rawEmail || phase !== 'EXISTENTE_CREDENCIALES') {
+    // Quien ya tiene usuario en el portal no elige correo: conserva el suyo.
+    if (!rawEmail || phase !== 'EXISTENTE_CREDENCIALES' || bancoData?.tiene_usuario_portal) {
       setCredEmailStatus({ checking: false, disponible: null, message: '' });
       return;
     }
@@ -265,7 +266,7 @@ export const PublicAffiliationPage = () => {
     }, 400);
 
     return () => clearTimeout(timer);
-  }, [credenciales.email, phase, bancoData?.persona?.id_persona]);
+  }, [credenciales.email, phase, bancoData?.persona?.id_persona, bancoData?.tiene_usuario_portal]);
 
   // 1. Validar DPI en la base de datos de la Corporación Bancaria
   const handleConsultarDpi = async (e) => {
@@ -363,13 +364,16 @@ export const PublicAffiliationPage = () => {
     e.preventDefault();
     setErrorMsg('');
 
-    if (!checkPassword(credenciales.password).isValid) {
-      setErrorMsg('La contraseña debe tener al menos 8 caracteres, con letras, números y un símbolo (!@#$…).');
-      return;
-    }
-    if (credenciales.password !== credenciales.confirmPassword) {
-      setErrorMsg('Las contraseñas no coinciden.');
-      return;
+    const accesoExistente = Boolean(bancoData?.tiene_usuario_portal);
+    if (!accesoExistente) {
+      if (!checkPassword(credenciales.password).isValid) {
+        setErrorMsg('La contraseña debe tener al menos 8 caracteres, con letras, números y un símbolo (!@#$…).');
+        return;
+      }
+      if (credenciales.password !== credenciales.confirmPassword) {
+        setErrorMsg('Las contraseñas no coinciden.');
+        return;
+      }
     }
 
     const monto = parseFloat(montoAportacion);
@@ -385,8 +389,8 @@ export const PublicAffiliationPage = () => {
         id_cuenta_bancaria: parseInt(selectedCuentaBancariaId, 10),
         numero_cuenta_bancaria: cuentaSeleccionadaObj?.numero_cuenta_bancaria || '',
         monto_aportacion: monto,
-        email: credenciales.email,
-        password: credenciales.password,
+        ...(accesoExistente ? {} : { email: credenciales.email, password: credenciales.password }),
+        afiliacion_token: bancoData.afiliacion_token,
       });
 
       if (response.data?.success) {
@@ -605,6 +609,7 @@ export const PublicAffiliationPage = () => {
                 credenciales={credenciales}
                 setCredenciales={setCredenciales}
                 credEmailStatus={credEmailStatus}
+                codigoPortalExistente={bancoData.tiene_usuario_portal ? bancoData.codigo_corporativo_portal : null}
                 cuentaSeleccionadaObj={cuentaSeleccionadaObj}
                 montoAportacion={montoAportacion}
                 handleSubmitExistente={handleSubmitExistente}

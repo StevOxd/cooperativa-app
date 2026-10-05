@@ -151,12 +151,13 @@ const consultarCuenta = async (numero_cuenta) => {
 /**
  * 5. Ejecuta un débito atómico en una cuenta bancaria (ej. aportación inicial a la cooperativa o traslados)
  */
-const debitarCuenta = async ({ numero_cuenta, monto, concepto, referencia }) => {
+const debitarCuenta = async ({ numero_cuenta, cui_dpi, monto, concepto, referencia }) => {
   try {
     const res = await fetchWithTimeout(`${getBaseUrl()}/api/banco/v1/cuentas/debitar`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ numero_cuenta, monto, concepto, referencia }),
+      // cui_dpi (opcional): el banco rechaza el débito si la cuenta no es de ese DPI.
+      body: JSON.stringify({ numero_cuenta, cui_dpi, monto, concepto, referencia }),
     });
 
     const data = await res.json();

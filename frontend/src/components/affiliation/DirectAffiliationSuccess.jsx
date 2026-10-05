@@ -26,6 +26,7 @@ export const DirectAffiliationSuccess = ({ afiliacionExitosa }) => {
   const cuenta = afiliacionExitosa.cuenta_ahorro || afiliacionExitosa.cuenta_aportaciones;
   const origen = afiliacionExitosa.cuenta_bancaria_origen;
   const email = afiliacionExitosa.usuario.email;
+  const accesoExistente = Boolean(afiliacionExitosa.usuario.acceso_existente);
 
   return (
     <div>
@@ -64,13 +65,23 @@ export const DirectAffiliationSuccess = ({ afiliacionExitosa }) => {
         </section>
 
         <section aria-labelledby="afiliacion-ingreso" className="rounded-md border border-brand-200 bg-brand-50 px-4 py-3 text-sm text-brand-900">
-          <h3 id="afiliacion-ingreso" className="font-medium">Cómo ingresar por primera vez</h3>
-          <ol className="mt-2 list-decimal space-y-1 pl-5">
-            <li>
-              Revise su correo{email && <> <span className="font-medium">{email}</span></>}: ahí le enviamos su usuario.
-            </li>
-            <li>Inicie sesión con su usuario o su correo y la contraseña que acaba de elegir.</li>
-          </ol>
+          <h3 id="afiliacion-ingreso" className="font-medium">
+            {accesoExistente ? 'Cómo ingresar' : 'Cómo ingresar por primera vez'}
+          </h3>
+          {accesoExistente ? (
+            <p className="mt-2">
+              Entre al portal con su usuario{' '}
+              <span className="font-mono font-medium">{afiliacionExitosa.usuario.codigo_corporativo}</span> y su contraseña
+              de siempre.
+            </p>
+          ) : (
+            <ol className="mt-2 list-decimal space-y-1 pl-5">
+              <li>
+                Revise su correo{email && <> <span className="font-medium">{email}</span></>}: ahí le enviamos su usuario.
+              </li>
+              <li>Inicie sesión con su usuario o su correo y la contraseña que acaba de elegir.</li>
+            </ol>
+          )}
         </section>
 
         {afiliacionExitosa.mfa?.qr_code_url && (

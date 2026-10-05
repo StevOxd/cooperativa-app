@@ -5,6 +5,8 @@ const http = require('http');
 const { app } = require('./src/server');
 const { pool } = require('./src/config/db');
 const speakeasy = require('speakeasy');
+const bancoApiService = require('./src/services/bancoApiService');
+const { firmarAfiliacionToken } = require('./src/utils/afiliacionToken');
 
 const server = app.listen(0, async () => {
   const testPort = server.address().port;
@@ -60,6 +62,15 @@ const server = app.listen(0, async () => {
       await pool.query("DELETE FROM usuarios WHERE id_persona = $1", [idMarcos]);
     }
 
+    // Quitar una afiliación previa de María Gutiérrez (OP-2, 2000000000002), conservando su usuario de operadora
+    const pOp2 = await pool.query("SELECT id_persona FROM personas WHERE cui_dpi = '2000000000002'");
+    if (pOp2.rows.length > 0) {
+      const idOp2 = pOp2.rows[0].id_persona;
+      await pool.query("DELETE FROM transacciones WHERE id_cuenta IN (SELECT id_cuenta FROM cuentas WHERE id_asociado IN (SELECT id_asociado FROM asociados WHERE id_persona = $1))", [idOp2]);
+      await pool.query("DELETE FROM cuentas WHERE id_asociado IN (SELECT id_asociado FROM asociados WHERE id_persona = $1)", [idOp2]);
+      await pool.query("DELETE FROM asociados WHERE id_persona = $1", [idOp2]);
+    }
+
     // Limpiar solicitud de agencia previa para Gabriela Alvarado (7777666655551)
     await pool.query("DELETE FROM solicitudes_afiliacion_agencia WHERE cui_dpi = '7777666655551'");
 
@@ -92,17 +103,18 @@ const server = app.listen(0, async () => {
     console.log('✓ Escenario 2 identificado correctamente para DPI no registrado con el mensaje institucional exacto:');
     console.log(`  "${noExisteRes.body.message}"`);
 
-    // 1.3 DPI registrado: Colaborador / Empleado de la Corporación Bancaria (1000000000001 - Steven Ortiz)
+    // 1.3 DPI registrado: Colaborador / Empleado de la Corporación Bancaria sin usuario en la cooperativa
+    //     (1000000000003 - Fernando Herrera)
     const empleadoDpiRes = await request('/api/afiliacion/validar-dpi', 'POST', {
-      cui_dpi: '1000000000001',
+      cui_dpi: '1000000000003',
     });
     if (empleadoDpiRes.status !== 200 || !empleadoDpiRes.body.requiere_autenticacion_banco) {
       throw new Error('Fallo al validar DPI de colaborador del banco: ' + JSON.stringify(empleadoDpiRes.body));
     }
     const empleadoAuthRes = await request('/api/afiliacion/validar-credenciales-banco', 'POST', {
-      cui_dpi: '1000000000001',
-      nombre_usuario: 'steven.ortiz',
-      codigo: 'CLI-102', // código del colaborador en banco-backend/src/config/initBancoDb.js
+      cui_dpi: '1000000000003',
+      nombre_usuario: 'fernando.herrera',
+      codigo: 'CLI-104', // código del colaborador en banco-backend/src/config/initBancoDb.js
       password: 'Banco123!',
     });
     if (empleadoAuthRes.status !== 200 || empleadoAuthRes.body.tipo_sujeto !== 'EMPLEADO_BANCO') {
@@ -136,10 +148,66 @@ const server = app.listen(0, async () => {
     // =========================================================================
     console.log('\n--- 2. Escenario 1: Afiliación con Débito de Cuenta Bancaria ---');
 
+    const tokenMarcos = clienteAuthRes.body.afiliacion_token;
+    if (!tokenMarcos) {
+      throw new Error('validar-credenciales-banco debería devolver afiliacion_token: ' + JSON.stringify(clienteAuthRes.body));
+    }
+
+    // 2.0 Sin validar la Banca en Línea no se puede afiliar ni tocar cuentas ajenas
+    const sinTokenRes = await request('/api/afiliacion/procesar-existente', 'POST', {
+      cui_dpi: '4000000000001',
+      id_cuenta_bancaria: cuentaBcoCliente.id_cuenta_bancaria,
+      monto_aportacion: 250.00,
+      password: 'Password123!',
+    });
+    if (sinTokenRes.status !== 403) {
+      throw new Error('Debería rechazar la afiliación sin comprobante de la Banca en Línea: ' + JSON.stringify(sinTokenRes.body));
+    }
+    console.log('✓ Rechazo de afiliación sin validar la Banca en Línea.');
+
+    const otroDpiRes = await request('/api/afiliacion/procesar-existente', 'POST', {
+      cui_dpi: '2000000000002',
+      numero_cuenta_bancaria: cuentaBcoCliente.numero_cuenta_bancaria,
+      monto_aportacion: 250.00,
+      password: 'Password123!',
+      afiliacion_token: tokenMarcos,
+    });
+    if (otroDpiRes.status !== 403) {
+      throw new Error('Debería rechazar el comprobante de otro DPI: ' + JSON.stringify(otroDpiRes.body));
+    }
+    console.log('✓ Rechazo del comprobante usado con un DPI distinto.');
+
+    const cuentaAjena = empleadoAuthRes.body.cuentas_bancarias[0];
+    const cuentaAjenaRes = await request('/api/afiliacion/procesar-existente', 'POST', {
+      cui_dpi: '4000000000001',
+      numero_cuenta_bancaria: cuentaAjena.numero_cuenta_bancaria,
+      monto_aportacion: 250.00,
+      password: 'Password123!',
+      afiliacion_token: tokenMarcos,
+    });
+    if (cuentaAjenaRes.status !== 403 || !cuentaAjenaRes.body.message.includes('no pertenece')) {
+      throw new Error('Debería rechazar el débito de una cuenta de otra persona: ' + JSON.stringify(cuentaAjenaRes.body));
+    }
+    console.log('✓ Rechazo del débito de una cuenta bancaria que no es del DPI.');
+
+    // El banco también rechaza el débito si la cuenta no es del DPI indicado
+    const debitoAjenoRes = await bancoApiService.debitarCuenta({
+      numero_cuenta: cuentaAjena.numero_cuenta_bancaria,
+      cui_dpi: '4000000000001',
+      monto: 1,
+      concepto: 'Prueba de titularidad',
+      referencia: 'TEST-TITULARIDAD-' + Date.now(),
+    });
+    if (debitoAjenoRes.status !== 403) {
+      throw new Error('El banco debería rechazar el débito de una cuenta de otro DPI: ' + JSON.stringify(debitoAjenoRes));
+    }
+    console.log('✓ El banco rechaza el débito de una cuenta que no pertenece al DPI.');
+
     // 2.1 Rechazo por saldo insuficiente en cuenta bancaria corporativa
     const saldoInsufRes = await request('/api/afiliacion/procesar-existente', 'POST', {
       cui_dpi: '4000000000001',
       id_cuenta_bancaria: cuentaBcoCliente.id_cuenta_bancaria,
+      afiliacion_token: tokenMarcos,
       monto_aportacion: 9999999.00,
       password: 'Password123!',
     });
@@ -152,6 +220,7 @@ const server = app.listen(0, async () => {
     const montoMinRes = await request('/api/afiliacion/procesar-existente', 'POST', {
       cui_dpi: '4000000000001',
       id_cuenta_bancaria: cuentaBcoCliente.id_cuenta_bancaria,
+      afiliacion_token: tokenMarcos,
       monto_aportacion: 50.00,
     });
     if (montoMinRes.status !== 400 || !montoMinRes.body.message.includes('Q100.00')) {
@@ -163,6 +232,7 @@ const server = app.listen(0, async () => {
     const passDebilRes = await request('/api/afiliacion/procesar-existente', 'POST', {
       cui_dpi: '4000000000001',
       id_cuenta_bancaria: cuentaBcoCliente.id_cuenta_bancaria,
+      afiliacion_token: tokenMarcos,
       monto_aportacion: 250.00,
       password: 'abc123',
     });
@@ -176,6 +246,7 @@ const server = app.listen(0, async () => {
     const afiliacionExitosa = await request('/api/afiliacion/procesar-existente', 'POST', {
       cui_dpi: '4000000000001',
       id_cuenta_bancaria: cuentaBcoCliente.id_cuenta_bancaria,
+      afiliacion_token: tokenMarcos,
       monto_aportacion: 250.00,
       email: emailNuevoSocio,
       password: 'Password123!',
@@ -215,6 +286,43 @@ const server = app.listen(0, async () => {
       }
       console.log(`✓ Acceso al portal confirmado para el socio con código ${dataAfiliado.usuario.codigo_corporativo}.`);
     }
+
+    // 2.5 Personal con usuario en el portal (OP-2): no se afilia en línea y su acceso no cambia
+    const accesoOp2Query = `SELECT u.password_hash, u.id_rol, u.mfa_secret, u.mfa_enabled, u.debe_cambiar_password
+       FROM usuarios u JOIN personas p ON u.id_persona = p.id_persona WHERE p.cui_dpi = '2000000000002'`;
+    const accesoOp2Antes = (await pool.query(accesoOp2Query)).rows[0];
+
+    const op2AuthRes = await request('/api/afiliacion/validar-credenciales-banco', 'POST', {
+      cui_dpi: '2000000000002',
+      nombre_usuario: 'maria.gutierrez',
+      codigo: 'CLI-202',
+      password: 'Banco123!',
+    });
+    if (op2AuthRes.status !== 409 || !op2AuthRes.body.es_personal || op2AuthRes.body.afiliacion_token) {
+      throw new Error('Debería rechazar la afiliación en línea del personal sin emitir comprobante: ' + JSON.stringify(op2AuthRes.body));
+    }
+    console.log('✓ Personal de la cooperativa (OP-2) rechazado al validar la Banca en Línea.');
+
+    // Aunque llegara con un comprobante válido, el servidor tampoco lo afilia
+    const tokenOp2 = firmarAfiliacionToken({
+      cui_dpi: '2000000000002',
+      cuentas: [{ id_cuenta_bancaria: 0, numero_cuenta_bancaria: 'CTA-BCO-MONET-2002' }],
+    });
+    const afiliacionOp2Res = await request('/api/afiliacion/procesar-existente', 'POST', {
+      cui_dpi: '2000000000002',
+      numero_cuenta_bancaria: 'CTA-BCO-MONET-2002',
+      monto_aportacion: 100.00,
+      password: 'OtraClave123!',
+      afiliacion_token: tokenOp2,
+    });
+    if (afiliacionOp2Res.status !== 409 || !afiliacionOp2Res.body.es_personal) {
+      throw new Error('Debería rechazar la afiliación del personal en procesar-existente: ' + JSON.stringify(afiliacionOp2Res.body));
+    }
+    const accesoOp2Despues = (await pool.query(accesoOp2Query)).rows[0];
+    if (JSON.stringify(accesoOp2Antes) !== JSON.stringify(accesoOp2Despues)) {
+      throw new Error('La afiliación no debería modificar la contraseña, el rol ni el 2FA del personal.');
+    }
+    console.log('✓ Personal rechazado también en procesar-existente, sin cambios en su contraseña, rol ni 2FA.');
 
     // =========================================================================
     // 3. ESCENARIO 2: SOLICITUD PARA PERSONA SIN REGISTRO BANCARIO
