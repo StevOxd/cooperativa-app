@@ -110,6 +110,11 @@ const server = app.listen(0, async () => {
     if (empleadoDpiRes.status !== 200 || !empleadoDpiRes.body.requiere_autenticacion_banco) {
       throw new Error('Fallo al validar DPI de colaborador del banco: ' + JSON.stringify(empleadoDpiRes.body));
     }
+    // La consulta pública del DPI no revela datos de la persona (nombre, tipo de cliente, id interno)
+    if ('cliente' in empleadoDpiRes.body || JSON.stringify(empleadoDpiRes.body).includes('Fernando')) {
+      throw new Error('validar-dpi no debería devolver datos personales: ' + JSON.stringify(empleadoDpiRes.body));
+    }
+    console.log('✓ La consulta pública del DPI no devuelve datos personales.');
     const empleadoAuthRes = await request('/api/afiliacion/validar-credenciales-banco', 'POST', {
       cui_dpi: '1000000000003',
       nombre_usuario: 'fernando.herrera',
@@ -300,6 +305,22 @@ const server = app.listen(0, async () => {
       throw new Error('El nuevo asociado no pudo autenticarse con su código corporativo: ' + JSON.stringify(loginRes.body));
     }
     console.log(`✓ Acceso al portal confirmado para el socio con código ${dataAfiliado.usuario.codigo_corporativo}.`);
+
+    // 2.4.2 Con solo el DPI no se puede saber que ya es asociado; se informa tras validar la Banca en Línea
+    const dpiAsociadoRes = await request('/api/afiliacion/validar-dpi', 'POST', { cui_dpi: '4000000000001' });
+    if (dpiAsociadoRes.status !== 200 || dpiAsociadoRes.body.ya_es_asociado || !dpiAsociadoRes.body.requiere_autenticacion_banco) {
+      throw new Error('validar-dpi no debería revelar que el DPI ya es asociado: ' + JSON.stringify(dpiAsociadoRes.body));
+    }
+    const credsAsociadoRes = await request('/api/afiliacion/validar-credenciales-banco', 'POST', {
+      cui_dpi: '4000000000001',
+      nombre_usuario: 'marcos.castillo',
+      codigo: 'CLI-4001',
+      password: 'Banco123!',
+    });
+    if (credsAsociadoRes.status !== 400 || !credsAsociadoRes.body.ya_es_asociado) {
+      throw new Error('Tras validar la Banca en Línea debería indicar que ya es asociado: ' + JSON.stringify(credsAsociadoRes.body));
+    }
+    console.log('✓ «Ya es asociado» solo se informa después de validar la Banca en Línea.');
 
     // 2.5 Personal con usuario en el portal (OP-2): no se afilia en línea y su acceso no cambia
     const accesoOp2Query = `SELECT u.password_hash, u.id_rol, u.mfa_secret, u.mfa_enabled, u.debe_cambiar_password

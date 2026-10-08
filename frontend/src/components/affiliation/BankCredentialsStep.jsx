@@ -26,9 +26,9 @@ export const BankCredentialsStep = ({
   return (
     <div>
       <IdentityBar
-        nombre={bancoData.cliente?.nombre_completo || 'Cliente del banco'}
+        nombre="Cliente del banco"
         dpi={bancoData.cui_dpi}
-        detalle={bancoData.cliente?.tipo_cliente === 'EMPLEADO_PLANILLA' ? 'Colaborador del banco' : 'Cliente del banco'}
+        detalle="Sus datos aparecerán después de confirmar la Banca en Línea"
         onChange={handleReset}
         disabled={bancoAuthLoading}
       />
