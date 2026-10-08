@@ -6,6 +6,7 @@ const { getNextCorporateCode, resolvePrefix } = require('../utils/codeGenerator'
 const { validatePassword } = require('../utils/passwordPolicy');
 const { firmarAfiliacionToken, verificarAfiliacionToken } = require('../utils/afiliacionToken');
 const codigoVerificacion = require('../services/codigoVerificacionService');
+const { verificarDominioCorreo } = require('../utils/correoDominio');
 
 // id_rol del asociado en la tabla roles (el mismo que se usa al crear su usuario).
 const ID_ROL_ASOCIADO = 3;
@@ -823,7 +824,7 @@ const registrarSolicitudAgencia = async (req, res) => {
  * GET/POST /api/afiliacion/verificar-email
  */
 const verificarEmail = async (req, res) => {
-  const client = await pool.connect();
+  // Sin cliente dedicado: la consulta DNS del dominio no debe tener una conexión del pool ocupada.
   try {
     const rawEmail = req.body.email || req.query.email;
     const excluirIdPersona = req.body.excluir_id_persona || req.query.excluir_id_persona;
@@ -855,7 +856,7 @@ const verificarEmail = async (req, res) => {
       userQuery += ' AND id_persona != $2';
       userParams.push(excluirIdPersona);
     }
-    const userCheck = await client.query(userQuery, userParams);
+    const userCheck = await pool.query(userQuery, userParams);
 
     if (userCheck.rows.length > 0) {
       return res.status(200).json({
@@ -877,7 +878,7 @@ const verificarEmail = async (req, res) => {
       solQuery += ' AND id_solicitud != $2';
       solParams.push(excluirIdSolicitud);
     }
-    const solCheck = await client.query(solQuery, solParams);
+    const solCheck = await pool.query(solQuery, solParams);
 
     if (solCheck.rows.length > 0) {
       return res.status(200).json({
@@ -885,6 +886,17 @@ const verificarEmail = async (req, res) => {
         disponible: false,
         motivo: 'SOLICITUD_PENDIENTE',
         message: `Ya hay una solicitud en trámite con este correo (caso ${solCheck.rows[0].numero_caso}).`,
+      });
+    }
+
+    // 3. El dominio debe existir y recibir correo (issue #26)
+    const dominio = await verificarDominioCorreo(email);
+    if (!dominio.valido) {
+      return res.status(200).json({
+        success: true,
+        disponible: false,
+        motivo: 'DOMINIO_INVALIDO',
+        message: dominio.message,
       });
     }
 
@@ -901,8 +913,6 @@ const verificarEmail = async (req, res) => {
       message: 'No se pudo revisar el correo. Intente de nuevo.',
       error: process.env.NODE_ENV === 'development' ? error.message : undefined,
     });
-  } finally {
-    client.release();
   }
 };
 

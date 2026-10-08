@@ -259,10 +259,13 @@ const crearAfiliacionPresencial = async (req, res) => {
 
     return res.status(201).json({
       success: true,
-      message: data.correo_enviado
-        ? 'Asociado registrado y cuenta de ahorro abierta. Enviamos su acceso al portal por correo.'
-        : 'Asociado registrado y cuenta de ahorro abierta, pero el correo con el usuario y la contraseña no se pudo enviar.',
+      message: !data.acceso_portal
+        ? 'Asociado registrado y cuenta de ahorro abierta, sin acceso al portal. Se puede activar después desde su expediente.'
+        : data.correo_enviado
+          ? 'Asociado registrado y cuenta de ahorro abierta. Enviamos su acceso al portal por correo.'
+          : 'Asociado registrado y cuenta de ahorro abierta, pero el correo con el usuario y la contraseña no se pudo enviar.',
       data: {
+        acceso_portal: data.acceso_portal,
         correo_enviado: data.correo_enviado,
         id_asociado: data.id_asociado,
         id_persona: data.id_persona,
@@ -284,6 +287,8 @@ const crearAfiliacionPresencial = async (req, res) => {
     const status = error.statusCode || 500;
     return res.status(status).json({
       success: false,
+      // Solo los códigos propios del acceso al portal (CORREO_*), nunca códigos internos de la base o del sistema.
+      error: typeof error.code === 'string' && error.code.startsWith('CORREO_') ? error.code : undefined,
       message: error.message || 'Error al procesar la afiliación presencial.',
     });
   }

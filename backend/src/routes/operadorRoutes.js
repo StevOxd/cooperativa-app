@@ -8,6 +8,12 @@ router.use(verifyToken);
 router.use(checkRole('OPERADOR', 'ADMINISTRADOR'));
 
 /**
+ * @route   GET /api/operador/correo-estado
+ * @desc    Si el correo de la cooperativa funciona (para ofrecer o no el acceso al portal al afiliar)
+ */
+router.get('/correo-estado', operadorController.getEstadoCorreo);
+
+/**
  * @route   GET /api/operador/bandeja-solicitudes
  * @desc    Obtener lista de solicitudes pendientes de traslado/apertura
  * @access  Privado (Operador)

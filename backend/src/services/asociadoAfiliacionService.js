@@ -11,6 +11,7 @@ const mailerService = require('./mailerService');
 const bancoApiService = require('./bancoApiService');
 const { getNextCorporateCode, resolvePrefix, generateSecureRandomPassword } = require('../utils/codeGenerator');
 const { validateCui, validateAge18, validatePositiveAmount } = require('../middlewares/validationMiddleware');
+const { decidirAccesoPortal } = require('../utils/accesoPortal');
 
 class AsociadoAfiliacionService {
   /**
@@ -39,6 +40,7 @@ class AsociadoAfiliacionService {
       banco_nombre,
       numero_cuenta_bancaria,
       tipo_asociado,
+      crear_acceso_portal,
     } = payload;
 
     // 1. Validaciones perimetrales
@@ -102,18 +104,9 @@ class AsociadoAfiliacionService {
       throw error;
     }
 
-    if (!email || !email.trim()) {
-      const error = new Error('El correo electrónico es obligatorio.');
-      error.statusCode = 400;
-      throw error;
-    }
-    const cleanEmail = email.trim().toLowerCase();
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(cleanEmail)) {
-      const error = new Error('El formato del correo electrónico ingresado no es válido.');
-      error.statusCode = 400;
-      throw error;
-    }
+    // Acceso al portal (issue #26): solo si el correo de la cooperativa funciona. Sin acceso, el correo es opcional.
+    const acceso = await decidirAccesoPortal(crear_acceso_portal, email);
+    const cleanEmail = acceso.email;
 
     const montoCheck = validatePositiveAmount(monto_aportacion, constants.FINANCIERO.MONTO_MINIMO_APORTACION, 'monto_aportacion');
     if (!montoCheck.valid) {
@@ -131,23 +124,25 @@ class AsociadoAfiliacionService {
       throw error;
     }
 
-    // 2.1 Verificar unicidad de Correo Electrónico en usuarios
-    const checkEmail = await pool.query('SELECT email FROM usuarios WHERE LOWER(email) = LOWER($1)', [cleanEmail]);
-    if (checkEmail.rows.length > 0) {
-      const error = new Error('El correo electrónico ya se encuentra registrado en el sistema. Ingrese un correo diferente.');
-      error.statusCode = 409;
-      throw error;
-    }
+    // 2.1 Verificar unicidad de Correo Electrónico en usuarios (solo si se crea el acceso: sin usuario no se guarda)
+    if (acceso.crear) {
+      const checkEmail = await pool.query('SELECT email FROM usuarios WHERE LOWER(email) = LOWER($1)', [cleanEmail]);
+      if (checkEmail.rows.length > 0) {
+        const error = new Error('El correo electrónico ya se encuentra registrado en el sistema. Ingrese un correo diferente.');
+        error.statusCode = 409;
+        throw error;
+      }
 
-    // 2.2 Verificar si existe solicitud en trámite con este correo
-    const checkSolEmail = await pool.query(
-      "SELECT numero_caso FROM solicitudes_afiliacion_agencia WHERE LOWER(email) = LOWER($1) AND estado IN ('PENDIENTE_AGENCIA', 'EN_PROCESO')",
-      [cleanEmail]
-    );
-    if (checkSolEmail.rows.length > 0) {
-      const error = new Error(`Ya existe una solicitud de afiliación en trámite con este correo (${checkSolEmail.rows[0].numero_caso}).`);
-      error.statusCode = 409;
-      throw error;
+      // 2.2 Verificar si existe solicitud en trámite con este correo
+      const checkSolEmail = await pool.query(
+        "SELECT numero_caso FROM solicitudes_afiliacion_agencia WHERE LOWER(email) = LOWER($1) AND estado IN ('PENDIENTE_AGENCIA', 'EN_PROCESO')",
+        [cleanEmail]
+      );
+      if (checkSolEmail.rows.length > 0) {
+        const error = new Error(`Ya existe una solicitud de afiliación en trámite con este correo (${checkSolEmail.rows[0].numero_caso}).`);
+        error.statusCode = 409;
+        throw error;
+      }
     }
 
     // 3. Transacción ACID para persistir el asociado completo
@@ -221,21 +216,25 @@ class AsociadoAfiliacionService {
       );
       const asociado = asociadoRes.rows[0];
 
-      // 4.4 Aprovisionamiento de Usuario y Credenciales
+      // 4.4 Aprovisionamiento de Usuario y Credenciales (solo con acceso al portal)
       const emailFinal = cleanEmail;
-      const prefix = resolvePrefix('ASOCIADO', tipoAsociadoDeterminado);
-      const nextCode = await getNextCorporateCode(client, prefix);
+      let nextCode = null;
+      let generatedPassword = null;
+      if (acceso.crear) {
+        const prefix = resolvePrefix('ASOCIADO', tipoAsociadoDeterminado);
+        nextCode = await getNextCorporateCode(client, prefix);
 
-      const generatedPassword = generateSecureRandomPassword(12);
-      const defaultSalt = await bcrypt.genSalt(10);
-      const defaultPasswordHash = await bcrypt.hash(generatedPassword, defaultSalt);
+        generatedPassword = generateSecureRandomPassword(12);
+        const defaultSalt = await bcrypt.genSalt(10);
+        const defaultPasswordHash = await bcrypt.hash(generatedPassword, defaultSalt);
 
-      await client.query(
-        `INSERT INTO usuarios (id_persona, id_rol, codigo_corporativo, email, password_hash, estado, debe_cambiar_password)
-         VALUES ($1, 3, $2, $3, $4, 'ACTIVO', TRUE)
-         ON CONFLICT (id_persona) DO UPDATE SET password_hash = $4, debe_cambiar_password = TRUE`,
-        [persona.id_persona, nextCode, emailFinal, defaultPasswordHash]
-      );
+        await client.query(
+          `INSERT INTO usuarios (id_persona, id_rol, codigo_corporativo, email, password_hash, estado, debe_cambiar_password)
+           VALUES ($1, 3, $2, $3, $4, 'ACTIVO', TRUE)
+           ON CONFLICT (id_persona) DO UPDATE SET password_hash = $4, debe_cambiar_password = TRUE`,
+          [persona.id_persona, nextCode, emailFinal, defaultPasswordHash]
+        );
+      }
 
       // 4.7 Apertura de Cuenta de Ahorro a la Vista (id_tipo_cuenta = 2)
       const randomSuffix = Math.floor(100 + Math.random() * 900);
@@ -265,7 +264,7 @@ class AsociadoAfiliacionService {
       // 4.9 Despacho de Correo Institucional con Credenciales y QR de 2FA, después del COMMIT:
       // si no sale, el asociado queda registrado y se avisa al operador.
       let correoEnviado = false;
-      try {
+      if (acceso.crear) try {
         const mailRes = await mailerService.sendAccountCredentialsEmail({
           to: emailFinal,
           nombre: persona.nombre_completo,
@@ -279,6 +278,7 @@ class AsociadoAfiliacionService {
       }
 
       return {
+        acceso_portal: acceso.crear,
         correo_enviado: correoEnviado,
         id_asociado: asociado.id_asociado,
         id_persona: persona.id_persona,

@@ -1,6 +1,7 @@
 import React from 'react';
 import { Lock } from 'lucide-react';
-import { Alert, Button, Field, Input, Modal, Textarea } from '../../ui';
+import { Button, Field, Input, Modal, Textarea } from '../../ui';
+import { PortalAccessOption } from '../../common/PortalAccessOption';
 
 const FORM_ID = 'formalizar-afiliacion';
 const REJECT_FORM_ID = 'cancelar-afiliacion';
@@ -42,6 +43,9 @@ const OperatorAffiliationModal = ({
   editDireccion,
   setEditDireccion,
   operatorEmailStatus,
+  correoDisponible,
+  crearAccesoPortal,
+  setCrearAccesoPortal,
   montoAportacion,
   setMontoAportacion,
   observacionesAfiliacion,
@@ -50,11 +54,14 @@ const OperatorAffiliationModal = ({
 }) => {
   if (!selectedAfiliacion) return null;
 
-  const emailHint = operatorEmailStatus.checking
-    ? 'Verificando que el correo esté disponible…'
-    : operatorEmailStatus.disponible === true
-    ? operatorEmailStatus.message
-    : 'A este correo se enviarán el usuario y la contraseña temporal.';
+  const emailHint = !crearAccesoPortal
+    ? 'Opcional: sin acceso al portal no se le envía nada.'
+    : operatorEmailStatus.checking
+      ? 'Verificando que el correo esté disponible…'
+      : operatorEmailStatus.disponible === true
+        ? operatorEmailStatus.message
+        : 'A este correo se enviarán el usuario y la contraseña temporal.';
+  const correoEnUso = crearAccesoPortal && operatorEmailStatus.disponible === false;
 
   const footer = showRechazarAfiliacion ? (
     <>
@@ -80,7 +87,7 @@ const OperatorAffiliationModal = ({
         form={FORM_ID}
         loading={formalizando}
         loadingText="Formalizando…"
-        disabled={operatorEmailStatus.disponible === false || operatorEmailStatus.checking}
+        disabled={correoEnUso || (crearAccesoPortal && operatorEmailStatus.checking)}
       >
         Formalizar afiliación
       </Button>
@@ -176,7 +183,8 @@ const OperatorAffiliationModal = ({
               <Field
                 label="Correo electrónico"
                 hint={emailHint}
-                error={operatorEmailStatus.disponible === false ? operatorEmailStatus.message : undefined}
+                error={correoEnUso ? operatorEmailStatus.message : undefined}
+                required={crearAccesoPortal}
               >
                 <Input type="email" value={editEmail} onChange={(e) => setEditEmail(e.target.value)} />
               </Field>
@@ -215,10 +223,12 @@ const OperatorAffiliationModal = ({
                 />
               </Field>
             </div>
-            <Alert tone="info">
-              La contraseña temporal se genera automáticamente y se envía al correo del asociado junto con su
-              usuario. Al entrar por primera vez deberá cambiarla.
-            </Alert>
+            <PortalAccessOption
+              correoDisponible={correoDisponible}
+              checked={crearAccesoPortal}
+              onChange={setCrearAccesoPortal}
+              disabled={formalizando}
+            />
           </section>
         </form>
       )}

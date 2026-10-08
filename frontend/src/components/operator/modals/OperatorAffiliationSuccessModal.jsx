@@ -55,15 +55,28 @@ const OperatorAffiliationSuccessModal = ({ formalizadoResult, onClose }) => {
             <dd className="font-medium text-ink tabular-nums">{formatQ(formalizadoResult.saldo_inicial)}</dd>
           </div>
           <div className="flex justify-between gap-4 px-4 py-2.5">
-            <dt className="text-ink-muted">Contraseña temporal</dt>
+            <dt className="text-ink-muted">Acceso al portal</dt>
             <dd className="text-right text-ink">
-              {formalizadoResult.correo_enviado ? 'Enviada por correo' : 'No se pudo enviar'}
+              {!formalizadoResult.acceso_portal
+                ? 'Sin acceso'
+                : formalizadoResult.acceso_existente
+                  ? 'Conserva su acceso'
+                  : formalizadoResult.correo_enviado
+                    ? 'Contraseña enviada por correo'
+                    : 'No se pudo enviar'}
               {formalizadoResult.email && <span className="block text-xs text-ink-subtle">{formalizadoResult.email}</span>}
             </dd>
           </div>
         </dl>
 
-        {!formalizadoResult.correo_enviado && (
+        {!formalizadoResult.acceso_portal && (
+          <Alert tone="info" title="Afiliado sin acceso al portal">
+            Sus cuentas ya están abiertas. Cuando el correo de la cooperativa funcione, el acceso al portal se activa
+            desde su expediente.
+          </Alert>
+        )}
+
+        {formalizadoResult.acceso_portal && !formalizadoResult.acceso_existente && !formalizadoResult.correo_enviado && (
           <Alert tone="warning" title="El asociado no recibió su acceso al portal">
             La afiliación quedó registrada, pero el correo con su usuario y su contraseña temporal no se pudo
             enviar, así que todavía no puede entrar al portal. Cuando el correo de la cooperativa funcione, pida al
