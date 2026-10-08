@@ -523,23 +523,33 @@ const createUser = async (req, res) => {
       [mfaData.base32, mfaData.qr_code_url, createdUser.id_persona]
     );
 
-    // Despachar correo electrónico institucional con las credenciales de acceso (Usuario, Password) y Código QR
-    await mailerService.sendAccountCredentialsEmail({
-      to: createdUser.email,
-      nombre: fullName,
-      codigoCorporativo: createdUser.codigo_corporativo,
-      password: rawPassword,
-      rolNombre: roleData.nombre,
-      qrDataUrl: mfaData.qr_code_url,
-      secretBase32: mfaData.base32,
-    });
-
     // CONFIRMAR TRANSACCIÓN
     await client.query('COMMIT');
 
+    // Despachar correo electrónico institucional con las credenciales de acceso (Usuario, Password) y Código QR,
+    // después del COMMIT. Si no sale, el usuario queda creado y se avisa al administrador.
+    let correoEnviado = false;
+    try {
+      const mailRes = await mailerService.sendAccountCredentialsEmail({
+        to: createdUser.email,
+        nombre: fullName,
+        codigoCorporativo: createdUser.codigo_corporativo,
+        password: rawPassword,
+        rolNombre: roleData.nombre,
+        qrDataUrl: mfaData.qr_code_url,
+        secretBase32: mfaData.base32,
+      });
+      correoEnviado = mailerService.wasSent(mailRes);
+    } catch (mailErr) {
+      console.warn('Aviso: No se pudo enviar el correo de credenciales:', mailErr.message);
+    }
+
     return res.status(201).json({
       success: true,
-      message: `Se creó el usuario ${createdUser.codigo_corporativo}. Enviamos su contraseña temporal a ${createdUser.email}.`,
+      message: correoEnviado
+        ? `Se creó el usuario ${createdUser.codigo_corporativo}. Enviamos su contraseña temporal a ${createdUser.email}.`
+        : `Se creó el usuario ${createdUser.codigo_corporativo}, pero el correo con su contraseña temporal no se pudo enviar.`,
+      correo_enviado: correoEnviado,
       // La contraseña temporal y el secreto 2FA solo viajan por correo al usuario: nunca en la respuesta.
       data: {
         id: createdUser.id_persona,
@@ -1266,6 +1276,16 @@ const resetPasswordUsuario = async (req, res) => {
     const current = checkUser.rows[0];
     const targetUserPersonaId = current.id_persona;
 
+    // La temporal solo viaja por correo: sin correo funcionando, el usuario perdería su contraseña
+    // actual sin recibir otra. En ese caso no se cambia nada.
+    if (!mailerService.isAvailable()) {
+      return res.status(503).json({
+        success: false,
+        error: 'CORREO_NO_DISPONIBLE',
+        message: 'No se puede reiniciar la contraseña porque el correo de la cooperativa no está funcionando. Configúrelo en «Correo de notificaciones» y vuelva a intentarlo. La contraseña actual no se cambió.',
+      });
+    }
+
     // Generar contraseña temporal segura criptográficamente
     const plainPassword = generateSecureRandomPassword(12);
     const passwordHash = await bcrypt.hash(plainPassword, 10);
@@ -1302,7 +1322,7 @@ const resetPasswordUsuario = async (req, res) => {
       ]
     );
 
-    // Despacho confidencial por correo electrónico institucional
+    // Despacho confidencial por correo electrónico institucional. Si no sale, se deshace el reinicio.
     let emailStatus = { sent: false, simulado: true, provider: 'demo' };
     try {
       const mailRes = await mailerService.sendPasswordResetEmail({
@@ -1313,13 +1333,21 @@ const resetPasswordUsuario = async (req, res) => {
         rolNombre: current.rol_nombre || 'USUARIO',
       });
       emailStatus = {
-        sent: !!mailRes.success,
+        sent: mailerService.wasSent(mailRes),
         simulado: !!mailRes.simulado,
         provider: mailRes.provider || 'demo',
       };
     } catch (mailErr) {
       console.warn('Aviso: No se pudo enviar el correo de reinicio:', mailErr.message);
-      emailStatus = { sent: false, error: mailErr.message, simulado: true, provider: 'demo' };
+    }
+
+    if (!emailStatus.sent) {
+      await client.query('ROLLBACK');
+      return res.status(502).json({
+        success: false,
+        error: 'CORREO_NO_ENVIADO',
+        message: `No se pudo enviar el correo a ${current.email}. La contraseña actual no se cambió; intente de nuevo en unos minutos.`,
+      });
     }
 
     await client.query('COMMIT');

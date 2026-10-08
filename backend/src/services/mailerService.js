@@ -246,6 +246,25 @@ class MailerService {
   }
 
   /**
+   * Indica si hay un correo configurado y verificado, listo para enviar.
+   * Justo al arrancar puede ser false mientras termina la verificación (initTransporter es asíncrono).
+   */
+  isAvailable() {
+    return Boolean(this.transporter && this.isVerified) && !isMailDisabled();
+  }
+
+  /**
+   * Indica si un envío salió de verdad. Los métodos send* responden success: true también en
+   * modo demostrativo o cuando el envío falla; solo un envío real trae simulado: false.
+   *
+   * @param {Object} result - Respuesta de un método send*.
+   * @returns {boolean}
+   */
+  wasSent(result) {
+    return Boolean(result && result.success && result.simulado === false);
+  }
+
+  /**
    * Obtiene el estado actual del servicio de correo con sanitización de datos
    */
   getStatus() {

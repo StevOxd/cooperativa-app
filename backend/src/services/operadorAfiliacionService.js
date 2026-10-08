@@ -395,30 +395,6 @@ const formalizarAfiliacion = async ({ idSolicitud, idOperador, rolUsuario, datos
       `, [mfaData.base32, mfaData.qr_code_url, idPersona]);
     }
 
-    // Despacho de credenciales por correo electrónico institucional
-    let emailStatus = { sent: false, simulado: true, provider: 'demo' };
-    try {
-      const userMfa = await client.query('SELECT mfa_secret, mfa_qr_url FROM usuarios WHERE id_persona = $1', [idPersona]);
-      const mfaRow = userMfa.rows[0] || {};
-      const mailRes = await mailerService.sendAccountCredentialsEmail({
-        to: emailUsuario,
-        nombre: personaNombreCompleto,
-        codigoCorporativo: codigoUsuarioFinal,
-        password: rawPass,
-        rolNombre: 'ASOCIADO COOPERATIVISTA',
-        qrDataUrl: mfaRow.mfa_qr_url || null,
-        secretBase32: mfaRow.mfa_secret || null,
-      });
-      emailStatus = {
-        sent: !!mailRes.success,
-        simulado: !!mailRes.simulado,
-        provider: mailRes.provider || 'demo',
-      };
-    } catch (mailErr) {
-      console.warn('Aviso: No se pudo enviar el correo de credenciales (despacho no crítico):', mailErr.message);
-      emailStatus = { sent: false, error: mailErr.message, simulado: true, provider: 'demo' };
-    }
-
     // 4. Apertura de Cuenta Bancaria de Ahorro en la Entidad Bancaria (Core Banking)
     // El nuevo asociado formaliza su membresía en la cooperativa, y su aportación/depósito inicial
     // se apertura y acredita en una cuenta de ahorro en la Entidad Bancaria.
@@ -474,10 +450,37 @@ const formalizarAfiliacion = async ({ idSolicitud, idOperador, rolUsuario, datos
 
     await client.query('COMMIT');
 
+    // Las credenciales se envían después del COMMIT: así nunca llega un correo de una afiliación que se deshizo.
+    // Si el correo no sale, la afiliación queda hecha y se avisa al operador.
+    let emailStatus = { sent: false, simulado: true, provider: 'demo' };
+    try {
+      const userMfa = await client.query('SELECT mfa_secret, mfa_qr_url FROM usuarios WHERE id_persona = $1', [idPersona]);
+      const mfaRow = userMfa.rows[0] || {};
+      const mailRes = await mailerService.sendAccountCredentialsEmail({
+        to: emailUsuario,
+        nombre: personaNombreCompleto,
+        codigoCorporativo: codigoUsuarioFinal,
+        password: rawPass,
+        rolNombre: 'ASOCIADO COOPERATIVISTA',
+        qrDataUrl: mfaRow.mfa_qr_url || null,
+        secretBase32: mfaRow.mfa_secret || null,
+      });
+      emailStatus = {
+        sent: mailerService.wasSent(mailRes),
+        simulado: !!mailRes.simulado,
+        provider: mailRes.provider || 'demo',
+      };
+    } catch (mailErr) {
+      console.warn('Aviso: No se pudo enviar el correo de credenciales:', mailErr.message);
+    }
+    const correoEnviado = emailStatus.sent;
+
     return {
       status: 200,
       success: true,
-      message: `Afiliación del caso ${sol.numero_caso} completada. Se abrió la cuenta de ahorro y se creó el acceso al portal.`,
+      message: correoEnviado
+        ? `Afiliación del caso ${sol.numero_caso} completada. Se abrió la cuenta de ahorro y se envió el acceso al portal por correo.`
+        : `Afiliación del caso ${sol.numero_caso} completada, pero el correo con el usuario y la contraseña no se pudo enviar.`,
       data: {
         id_asociado: idAsociado,
         nombre_completo: personaNombreCompleto,
@@ -492,6 +495,7 @@ const formalizarAfiliacion = async ({ idSolicitud, idOperador, rolUsuario, datos
         numero_caso: sol.numero_caso,
         operador_nombre: nombreOperador || (sol.id_operador_resuelve ? `Operador #${sol.id_operador_resuelve}` : 'Operador en Ventanilla'),
         email_status: emailStatus,
+        correo_enviado: correoEnviado,
       },
     };
   } catch (error) {

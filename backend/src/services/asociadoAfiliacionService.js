@@ -247,17 +247,6 @@ class AsociadoAfiliacionService {
         [mfaData.base32, mfaData.qr_code_url, persona.id_persona]
       );
 
-      // 4.6 Despacho de Correo Institucional con Credenciales y QR de 2FA
-      await mailerService.sendAccountCredentialsEmail({
-        to: emailFinal,
-        nombre: persona.nombre_completo,
-        codigoCorporativo: nextCode,
-        password: generatedPassword,
-        rolNombre: 'ASOCIADO COOPERATIVISTA',
-        qrDataUrl: mfaData.qr_code_url,
-        secretBase32: mfaData.base32,
-      });
-
       // 4.7 Apertura de Cuenta de Ahorro a la Vista (id_tipo_cuenta = 2)
       const randomSuffix = Math.floor(100 + Math.random() * 900);
       const numeroCuentaAhorro = `CTA-AHORR-${String(asociado.id_asociado).padStart(3, '0')}${randomSuffix}`;
@@ -283,7 +272,26 @@ class AsociadoAfiliacionService {
 
       await client.query('COMMIT');
 
+      // 4.9 Despacho de Correo Institucional con Credenciales y QR de 2FA, después del COMMIT:
+      // si no sale, el asociado queda registrado y se avisa al operador.
+      let correoEnviado = false;
+      try {
+        const mailRes = await mailerService.sendAccountCredentialsEmail({
+          to: emailFinal,
+          nombre: persona.nombre_completo,
+          codigoCorporativo: nextCode,
+          password: generatedPassword,
+          rolNombre: 'ASOCIADO COOPERATIVISTA',
+          qrDataUrl: mfaData.qr_code_url,
+          secretBase32: mfaData.base32,
+        });
+        correoEnviado = mailerService.wasSent(mailRes);
+      } catch (mailErr) {
+        console.warn('Aviso: No se pudo enviar el correo de credenciales:', mailErr.message);
+      }
+
       return {
+        correo_enviado: correoEnviado,
         id_asociado: asociado.id_asociado,
         id_persona: persona.id_persona,
         cui_dpi: cuiLimpio,
