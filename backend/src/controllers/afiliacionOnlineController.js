@@ -1,6 +1,5 @@
 const bcrypt = require('bcryptjs');
 const { pool } = require('../config/db');
-const mfaService = require('../services/mfaService');
 const mailerService = require('../services/mailerService');
 const bancoApiService = require('../services/bancoApiService');
 const { getNextCorporateCode, resolvePrefix } = require('../utils/codeGenerator');
@@ -419,7 +418,6 @@ const procesarAfiliacionExistente = async (req, res) => {
     );
 
     const accesoExistente = userExistRes.rows.length > 0;
-    let mfaData = null;
     if (accesoExistente) {
       // Conserva su contraseña, su rol y su 2FA: entra al portal con su acceso de siempre.
       usuarioFinal = userExistRes.rows[0];
@@ -440,17 +438,10 @@ const procesarAfiliacionExistente = async (req, res) => {
       usuarioFinal = userInsert.rows[0];
     }
 
+    // La verificación en dos pasos no se prepara aquí: el asociado la activa desde «Seguridad» (menú del usuario),
+    // que genera su propio secreto y lo confirma con un código antes de activarla.
     if (!accesoExistente) {
-      // 8.1 Generar secreto y Código QR para Doble Factor de Autenticación (MFA / 2FA TOTP RFC 6238)
-      mfaData = await mfaService.generateMfaSecret(usuarioFinal.codigo_corporativo);
-      await client.query(
-        `UPDATE usuarios 
-         SET mfa_secret = $1, mfa_enabled = FALSE, mfa_qr_url = $2 
-         WHERE id_persona = $3`,
-        [mfaData.base32, mfaData.qr_code_url, persona.id_persona]
-      );
-
-      // 8.2 Despachar correo electrónico institucional con credenciales de acceso y Código QR
+      // 8.1 Despachar correo electrónico institucional con el usuario de acceso
       await mailerService.sendAccountCredentialsEmail({
         to: usuarioFinal.email,
         nombre: persona.nombre_completo,
@@ -458,8 +449,6 @@ const procesarAfiliacionExistente = async (req, res) => {
         // Sin contraseña: el correo no repite la que eligió el solicitante.
         password: null,
         rolNombre: 'ASOCIADO COOPERATIVISTA',
-        qrDataUrl: mfaData.qr_code_url,
-        secretBase32: mfaData.base32,
       });
     }
 
@@ -496,12 +485,6 @@ const procesarAfiliacionExistente = async (req, res) => {
           numero_cuenta: cuentaCoop.numero_cuenta,
           saldo_disponible: cuentaCoop.saldo_disponible,
         },
-        mfa: mfaData
-          ? {
-            secret: mfaData.base32,
-            qr_code_url: mfaData.qr_code_url,
-          }
-          : null,
       },
     });
   } catch (error) {

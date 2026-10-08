@@ -830,7 +830,7 @@ const disable2fa = async (req, res) => {
     }
 
     await db.query(
-      'UPDATE usuarios SET mfa_enabled = false, mfa_secret = NULL WHERE id_persona = $1',
+      'UPDATE usuarios SET mfa_enabled = false, mfa_secret = NULL, mfa_qr_url = NULL WHERE id_persona = $1',
       [userPersonaId]
     );
 

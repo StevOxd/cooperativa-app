@@ -441,6 +441,13 @@ const runMigrations = async () => {
     `;
     await pool.query(dbaOptimizationsQuery);
 
+    // 7. Secretos 2FA que se generaban al afiliar o crear usuarios y nunca se activaban: se borran.
+    //    El 2FA solo se guarda cuando el usuario lo activa desde «Seguridad» (menú del usuario).
+    await pool.query(`
+      UPDATE usuarios SET mfa_secret = NULL, mfa_qr_url = NULL
+      WHERE mfa_enabled = FALSE AND (mfa_secret IS NOT NULL OR mfa_qr_url IS NOT NULL)
+    `);
+
     console.log('[MIGRATION] Esquema, cuenta_bancaria corporativa, MFA TOTP, roles, beneficiarios y optimizaciones DBA aplicadas exitosamente.');
     return true;
   } catch (error) {

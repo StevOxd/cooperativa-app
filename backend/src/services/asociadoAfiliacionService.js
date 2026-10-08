@@ -7,7 +7,6 @@
 const bcrypt = require('bcryptjs');
 const { pool } = require('../config/db');
 const constants = require('../config/constants');
-const mfaService = require('./mfaService');
 const mailerService = require('./mailerService');
 const bancoApiService = require('./bancoApiService');
 const { getNextCorporateCode, resolvePrefix, generateSecureRandomPassword } = require('../utils/codeGenerator');
@@ -238,15 +237,6 @@ class AsociadoAfiliacionService {
         [persona.id_persona, nextCode, emailFinal, defaultPasswordHash]
       );
 
-      // 4.5 Generación de Secreto TOTP para MFA
-      const mfaData = await mfaService.generateMfaSecret(nextCode);
-      await client.query(
-        `UPDATE usuarios 
-         SET mfa_secret = $1, mfa_enabled = FALSE, mfa_qr_url = $2 
-         WHERE id_persona = $3`,
-        [mfaData.base32, mfaData.qr_code_url, persona.id_persona]
-      );
-
       // 4.7 Apertura de Cuenta de Ahorro a la Vista (id_tipo_cuenta = 2)
       const randomSuffix = Math.floor(100 + Math.random() * 900);
       const numeroCuentaAhorro = `CTA-AHORR-${String(asociado.id_asociado).padStart(3, '0')}${randomSuffix}`;
@@ -282,8 +272,6 @@ class AsociadoAfiliacionService {
           codigoCorporativo: nextCode,
           password: generatedPassword,
           rolNombre: 'ASOCIADO COOPERATIVISTA',
-          qrDataUrl: mfaData.qr_code_url,
-          secretBase32: mfaData.base32,
         });
         correoEnviado = mailerService.wasSent(mailRes);
       } catch (mailErr) {

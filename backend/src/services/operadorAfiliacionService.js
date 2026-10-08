@@ -6,7 +6,6 @@
 const db = require('../config/db');
 const bcrypt = require('bcryptjs');
 const { getNextCorporateCode, generateSecureRandomPassword } = require('../utils/codeGenerator');
-const mfaService = require('./mfaService');
 const mailerService = require('./mailerService');
 const bancoApiService = require('./bancoApiService');
 const { validateCui, validateAge18 } = require('../middlewares/validationMiddleware');
@@ -378,7 +377,8 @@ const formalizarAfiliacion = async ({ idSolicitud, idOperador, rolUsuario, datos
       codigoUsuarioFinal = checkUser.rows[0].codigo_corporativo;
       await client.query(`
         UPDATE usuarios 
-        SET id_rol = 3, estado = 'ACTIVO', email = $1, password_hash = $2, debe_cambiar_password = TRUE, mfa_enabled = FALSE
+        SET id_rol = 3, estado = 'ACTIVO', email = $1, password_hash = $2, debe_cambiar_password = TRUE,
+            mfa_enabled = FALSE, mfa_secret = NULL, mfa_qr_url = NULL
         WHERE id_persona = $3
       `, [emailUsuario, passwordHash, idPersona]);
     } else {
@@ -386,13 +386,6 @@ const formalizarAfiliacion = async ({ idSolicitud, idOperador, rolUsuario, datos
         INSERT INTO usuarios (id_persona, id_rol, codigo_corporativo, email, password_hash, estado, mfa_enabled, debe_cambiar_password)
         VALUES ($1, 3, $2, $3, $4, 'ACTIVO', FALSE, TRUE)
       `, [idPersona, nextCode, emailUsuario, passwordHash]);
-
-      const mfaData = await mfaService.generateMfaSecret(nextCode);
-      await client.query(`
-        UPDATE usuarios 
-        SET mfa_secret = $1, mfa_enabled = FALSE, mfa_qr_url = $2 
-        WHERE id_persona = $3
-      `, [mfaData.base32, mfaData.qr_code_url, idPersona]);
     }
 
     // 4. Apertura de Cuenta Bancaria de Ahorro en la Entidad Bancaria (Core Banking)
@@ -454,16 +447,12 @@ const formalizarAfiliacion = async ({ idSolicitud, idOperador, rolUsuario, datos
     // Si el correo no sale, la afiliación queda hecha y se avisa al operador.
     let emailStatus = { sent: false, simulado: true, provider: 'demo' };
     try {
-      const userMfa = await client.query('SELECT mfa_secret, mfa_qr_url FROM usuarios WHERE id_persona = $1', [idPersona]);
-      const mfaRow = userMfa.rows[0] || {};
       const mailRes = await mailerService.sendAccountCredentialsEmail({
         to: emailUsuario,
         nombre: personaNombreCompleto,
         codigoCorporativo: codigoUsuarioFinal,
         password: rawPass,
         rolNombre: 'ASOCIADO COOPERATIVISTA',
-        qrDataUrl: mfaRow.mfa_qr_url || null,
-        secretBase32: mfaRow.mfa_secret || null,
       });
       emailStatus = {
         sent: mailerService.wasSent(mailRes),

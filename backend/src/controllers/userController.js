@@ -1,7 +1,6 @@
 const bcrypt = require('bcryptjs');
 const db = require('../config/db');
 const socketService = require('../services/socketService');
-const mfaService = require('../services/mfaService');
 const mailerService = require('../services/mailerService');
 const { getNextCorporateCode, resolvePrefix, generateSecureRandomPassword } = require('../utils/codeGenerator');
 
@@ -513,15 +512,8 @@ const createUser = async (req, res) => {
       userAgent,
     ]);
 
-    // Generar secreto y Código QR para Doble Factor de Autenticación
+    // La verificación en dos pasos la activa el propio usuario desde «Seguridad» (menú del usuario).
     const fullName = TRIM_NAME(pNombre, sNombre, pApellido, sApellido);
-    const mfaData = await mfaService.generateMfaSecret(createdUser.codigo_corporativo);
-    await client.query(
-      `UPDATE usuarios 
-       SET mfa_secret = $1, mfa_enabled = FALSE, mfa_qr_url = $2 
-       WHERE id_persona = $3`,
-      [mfaData.base32, mfaData.qr_code_url, createdUser.id_persona]
-    );
 
     // CONFIRMAR TRANSACCIÓN
     await client.query('COMMIT');
@@ -536,8 +528,6 @@ const createUser = async (req, res) => {
         codigoCorporativo: createdUser.codigo_corporativo,
         password: rawPassword,
         rolNombre: roleData.nombre,
-        qrDataUrl: mfaData.qr_code_url,
-        secretBase32: mfaData.base32,
       });
       correoEnviado = mailerService.wasSent(mailRes);
     } catch (mailErr) {
