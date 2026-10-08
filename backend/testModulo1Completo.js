@@ -1,5 +1,8 @@
 // Las pruebas nunca envían correo real (ver mailerService): debe ir antes de cargar el servidor.
 process.env.MAIL_ENABLED = 'false';
+// Sin correo real, los códigos de verificación usan este código fijo (solo fuera de producción).
+const CODIGO_DEV = '246810';
+process.env.CODIGO_VERIFICACION_DEV = CODIGO_DEV;
 
 const http = require('http');
 const { app } = require('./src/server');
@@ -48,6 +51,15 @@ const server = app.listen(0, async () => {
       if (payload) req.write(payload);
       req.end();
     });
+  };
+
+  // Pide el código de verificación del correo (con CODIGO_VERIFICACION_DEV siempre es CODIGO_DEV)
+  const pedirCodigo = async (email) => {
+    const r = await request('/api/afiliacion/codigo-correo', 'POST', { email });
+    if (r.status !== 200 || !r.body.success) {
+      throw new Error('No se pudo pedir el código para ' + email + ': ' + JSON.stringify(r.body));
+    }
+    return CODIGO_DEV;
   };
 
   try {
@@ -225,14 +237,64 @@ const server = app.listen(0, async () => {
     }
     console.log('✓ El banco rechaza el débito de una cuenta que no pertenece al DPI.');
 
-    // 2.1 Rechazo por saldo insuficiente en cuenta bancaria corporativa
-    const saldoInsufRes = await request('/api/afiliacion/procesar-existente', 'POST', {
+    // 2.0.1 Verificación del correo con código (issue #25)
+    const afiliarConCodigo = (email, codigo, extra = {}) => request('/api/afiliacion/procesar-existente', 'POST', {
       cui_dpi: '4000000000001',
       id_cuenta_bancaria: cuentaBcoCliente.id_cuenta_bancaria,
       afiliacion_token: tokenMarcos,
-      monto_aportacion: 9999999.00,
+      monto_aportacion: 250.00,
       password: 'Password123!',
+      email,
+      codigo_verificacion: codigo,
+      ...extra,
     });
+
+    const sinCodigoRes = await afiliarConCodigo(`sin.codigo.${Date.now()}@example.com`, undefined);
+    if (sinCodigoRes.status !== 400 || sinCodigoRes.body.error !== 'CODIGO_VENCIDO') {
+      throw new Error('Sin código no debería poder afiliarse: ' + JSON.stringify(sinCodigoRes.body));
+    }
+    console.log('✓ Sin código de verificación del correo la afiliación se rechaza.');
+
+    const emailBloqueo = `bloqueo.codigo.${Date.now()}@example.com`;
+    await pedirCodigo(emailBloqueo);
+    const hashGuardado = (await pool.query('SELECT codigo_hash FROM codigos_verificacion_correo WHERE email = $1', [emailBloqueo])).rows[0].codigo_hash;
+    if (hashGuardado.includes(CODIGO_DEV)) {
+      throw new Error('El código no debería guardarse en claro.');
+    }
+    const reenvioRapido = await request('/api/afiliacion/codigo-correo', 'POST', { email: emailBloqueo });
+    if (reenvioRapido.status !== 429 || reenvioRapido.body.error !== 'CODIGO_ESPERE_REENVIO') {
+      throw new Error('Debería pedir esperar 60 segundos para reenviar: ' + JSON.stringify(reenvioRapido.body));
+    }
+    let ultimoIntento;
+    for (let i = 0; i < 5; i++) {
+      ultimoIntento = await afiliarConCodigo(emailBloqueo, '000000');
+    }
+    const conCodigoCorrecto = await afiliarConCodigo(emailBloqueo, CODIGO_DEV);
+    if (ultimoIntento.body.error !== 'CODIGO_BLOQUEADO' || conCodigoCorrecto.body.error !== 'CODIGO_BLOQUEADO') {
+      throw new Error('Tras 5 intentos fallidos el código ya no debería servir: ' + JSON.stringify(conCodigoCorrecto.body));
+    }
+    console.log('✓ El código se guarda cifrado, el reenvío espera 60 s y tras 5 intentos fallidos deja de servir.');
+
+    await pool.query("UPDATE codigos_verificacion_correo SET expira_en = CURRENT_TIMESTAMP - INTERVAL '1 minute', enviado_en = CURRENT_TIMESTAMP - INTERVAL '2 minutes' WHERE email = $1", [emailBloqueo]);
+    await pool.query('UPDATE codigos_verificacion_correo SET intentos = 0 WHERE email = $1', [emailBloqueo]);
+    const codigoVencidoRes = await afiliarConCodigo(emailBloqueo, CODIGO_DEV);
+    if (codigoVencidoRes.body.error !== 'CODIGO_VENCIDO') {
+      throw new Error('Un código vencido no debería servir: ' + JSON.stringify(codigoVencidoRes.body));
+    }
+    console.log('✓ Un código vencido ya no sirve.');
+
+    const verificarEmailPublico = await request('/api/afiliacion/verificar-email', 'POST', { email: 'admin@cooperativa.com' });
+    if (verificarEmailPublico.status !== 401) {
+      throw new Error('verificar-email no debería ser pública: ' + JSON.stringify(verificarEmailPublico.body));
+    }
+    console.log('✓ La consulta de disponibilidad de correo ya no es pública.');
+
+    // El correo del socio se verifica una vez; el código sirve hasta que una afiliación se complete.
+    const emailNuevoSocio = `marcos.castillo.${Date.now()}@example.com`;
+    const codigoMarcos = await pedirCodigo(emailNuevoSocio);
+
+    // 2.1 Rechazo por saldo insuficiente en cuenta bancaria corporativa (el código sigue vigente)
+    const saldoInsufRes = await afiliarConCodigo(emailNuevoSocio, codigoMarcos, { monto_aportacion: 9999999.00 });
     if (saldoInsufRes.status !== 400 || !saldoInsufRes.body.message.includes('Fondos insuficientes')) {
       throw new Error('Debería rechazar por saldo insuficiente en cuenta bancaria: ' + JSON.stringify(saldoInsufRes.body));
     }
@@ -264,17 +326,13 @@ const server = app.listen(0, async () => {
     console.log('✓ Rechazo exitoso de contraseña débil antes de debitar la cuenta bancaria.');
 
     // 2.3 Procesar afiliación exitosa de cliente bancario
-    const emailNuevoSocio = `marcos.castillo.${Date.now()}@example.com`;
-    const afiliacionExitosa = await request('/api/afiliacion/procesar-existente', 'POST', {
-      cui_dpi: '4000000000001',
-      id_cuenta_bancaria: cuentaBcoCliente.id_cuenta_bancaria,
-      afiliacion_token: tokenMarcos,
-      monto_aportacion: 250.00,
-      email: emailNuevoSocio,
-      password: 'Password123!',
-    });
+    const afiliacionExitosa = await afiliarConCodigo(emailNuevoSocio, codigoMarcos);
     if (afiliacionExitosa.status !== 201 || !afiliacionExitosa.body.success) {
       throw new Error('Fallo al procesar afiliación de cliente existente: ' + JSON.stringify(afiliacionExitosa.body));
+    }
+    const codigoUsado = await pool.query('SELECT 1 FROM codigos_verificacion_correo WHERE email = $1', [emailNuevoSocio]);
+    if (codigoUsado.rows.length !== 0) {
+      throw new Error('El código debería borrarse al completar la afiliación.');
     }
     const dataAfiliado = afiliacionExitosa.body.data;
     console.log('✓ Afiliación inmediata completada con éxito para cliente de la entidad bancaria!');
@@ -373,14 +431,30 @@ const server = app.listen(0, async () => {
       fecha_nacimiento: '2012-05-10', // 14 años
       telefono: '55551234',
       direccion: 'Ciudad de Guatemala',
+      email: 'santiago.morales@example.com',
     });
     if (menorRes.status !== 400 || !menorRes.body.message.includes('mayor de edad')) {
       throw new Error('Debería rechazar a menores de edad: ' + JSON.stringify(menorRes.body));
     }
     console.log('✓ Rechazo estricto verificado para menores de edad (< 18 años cumplidos).');
 
-    // 3.2 Registro válido de solicitud para persona nueva
+    // 3.2 Registro válido de solicitud para persona nueva (sin código se rechaza)
     const dpiNuevoValido = '7777666655551';
+    const solicitudSinCodigoRes = await request('/api/afiliacion/solicitar-nuevo', 'POST', {
+      cui_dpi: dpiNuevoValido,
+      primer_nombre: 'Gabriela',
+      primer_apellido: 'Alvarado',
+      fecha_nacimiento: '1998-04-12',
+      telefono: '55559876',
+      email: `gabriela.sin.codigo.${Date.now()}@example.com`,
+    });
+    if (solicitudSinCodigoRes.status !== 400 || !String(solicitudSinCodigoRes.body.error).startsWith('CODIGO_')) {
+      throw new Error('Sin código no debería crearse el caso: ' + JSON.stringify(solicitudSinCodigoRes.body));
+    }
+    console.log('✓ Sin código de verificación no se crea el caso.');
+
+    const emailGabriela = `gabriela.alvarado.${Date.now()}@example.com`;
+    const codigoGabriela = await pedirCodigo(emailGabriela);
     const solicitudRes = await request('/api/afiliacion/solicitar-nuevo', 'POST', {
       cui_dpi: dpiNuevoValido,
       primer_nombre: 'Gabriela',
@@ -390,8 +464,9 @@ const server = app.listen(0, async () => {
       fecha_nacimiento: '1998-04-12',
       telefono: '55559876',
       direccion: 'Mixco, Guatemala',
-      email: 'gabriela.alvarado@example.com',
+      email: emailGabriela,
       monto_estimado: 350.00,
+      codigo_verificacion: codigoGabriela,
     });
     if (solicitudRes.status !== 201 || !solicitudRes.body.success) {
       throw new Error('Fallo al emitir solicitud de caso para agencia: ' + JSON.stringify(solicitudRes.body));
@@ -406,12 +481,16 @@ const server = app.listen(0, async () => {
     console.log(`  - Estado: ${dataCaso.estado}`);
 
     // 3.3 Reintento con el mismo DPI devuelve el caso existente sin duplicar
+    const emailReintento = `gabriela.reintento.${Date.now()}@example.com`;
+    const codigoReintento = await pedirCodigo(emailReintento);
     const reintentoCasoRes = await request('/api/afiliacion/solicitar-nuevo', 'POST', {
       cui_dpi: dpiNuevoValido,
       primer_nombre: 'Gabriela',
       primer_apellido: 'Alvarado',
       fecha_nacimiento: '1998-04-12',
       telefono: '55559876',
+      email: emailReintento,
+      codigo_verificacion: codigoReintento,
     });
     if (reintentoCasoRes.status !== 200 || reintentoCasoRes.body.data.numero_caso !== dataCaso.numero_caso) {
       throw new Error('Debería retornar el número de caso existente sin duplicar registro.');
