@@ -5,3 +5,4 @@ export { PortalPasswordStep } from './PortalPasswordStep';
 export { DirectAffiliationSuccess } from './DirectAffiliationSuccess';
 export { AgencyApplicationForm } from './AgencyApplicationForm';
 export { AgencyReceiptStep } from './AgencyReceiptStep';
+export { EmailCodeModal } from './EmailCodeModal';

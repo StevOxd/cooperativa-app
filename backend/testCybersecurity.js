@@ -288,14 +288,14 @@ async function runTests() {
     const errorSanitizeRes = await httpRequest({
       hostname: 'localhost',
       port: 5001,
-      path: '/api/afiliacion/verificar-email',
+      path: '/api/afiliacion/codigo-correo',
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-    }, { email: 'test@cooperativa.com' });
+    }, { email: 'correo-invalido' });
 
-    assert(errorSanitizeRes.status === 200 || errorSanitizeRes.status === 400 || errorSanitizeRes.status === 500, 'Endpoint verificar-email responde con código HTTP controlado');
+    assert(errorSanitizeRes.status === 400 || errorSanitizeRes.status === 500, 'Endpoint público codigo-correo responde con código HTTP controlado');
     if (process.env.NODE_ENV !== 'development' && errorSanitizeRes.status === 500) {
       assert(errorSanitizeRes.data?.error === undefined, 'No se filtra el detalle técnico de error.message en entornos de producción');
     } else {

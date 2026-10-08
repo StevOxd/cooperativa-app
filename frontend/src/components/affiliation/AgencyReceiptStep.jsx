@@ -31,7 +31,10 @@ export const AgencyReceiptStep = ({ casoGenerado }) => {
 
       <div className="print:hidden">
         <h2 className="text-lg font-semibold text-ink">Su solicitud quedó registrada</h2>
-        <p className="mt-1 text-sm text-ink-muted">Guarde este número: lo necesitará en la agencia.</p>
+        <p className="mt-1 text-sm text-ink-muted">
+          Guarde este número: lo necesitará en la agencia.
+          {casoGenerado.correo_enviado && ' También se lo enviamos por correo.'}
+        </p>
       </div>
 
       <div className="mt-6 rounded-md border border-line-strong px-4 py-5 text-center">

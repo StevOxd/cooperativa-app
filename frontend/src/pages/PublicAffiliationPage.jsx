@@ -12,6 +12,7 @@ import {
   DirectAffiliationSuccess,
   AgencyApplicationForm,
   AgencyReceiptStep,
+  EmailCodeModal,
 } from '../components/affiliation';
 
 /**
@@ -21,6 +22,11 @@ import {
  *
  * @component
  */
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+/** Errores del servidor que se muestran dentro de la ventana del código (el resto, en la página). */
+const esErrorDeCodigo = (codigoError) => typeof codigoError === 'string' && codigoError.startsWith('CODIGO_');
+
 export const PublicAffiliationPage = () => {
   // Fases del flujo:
   // 'CONSULTAR_DPI': Pantalla de inicio con input obligatorio de CUI/DPI
@@ -73,6 +79,9 @@ export const PublicAffiliationPage = () => {
   // Estados de retroalimentación
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+
+  // Verificación del correo con código (issue #25): camino 'EXISTENTE' (cliente del banco) o 'NUEVO' (agencia)
+  const [codigoModal, setCodigoModal] = useState({ abierto: false, email: '', camino: null, error: '', espera: 60 });
 
   // Selectores de fecha de nacimiento (Día / Mes / Año)
   const [birthDay, setBirthDay] = useState('');
@@ -177,96 +186,26 @@ export const PublicAffiliationPage = () => {
   });
 
   // Verificación en tiempo real del correo para nuevo solicitante (Escenario 2)
+  // Revisión del formato del correo mientras se escribe. No se consulta al servidor si el correo ya
+  // está registrado: eso se informa después de verificar el código, para que solo lo sepa su dueño.
+  const estadoFormatoCorreo = (rawEmail) => {
+    const email = rawEmail ? rawEmail.trim() : '';
+    if (!email || EMAIL_REGEX.test(email)) return { checking: false, disponible: null, message: '' };
+    return { checking: false, disponible: false, message: 'Revise el formato del correo.' };
+  };
+
   useEffect(() => {
-    const rawEmail = nuevoForm.email ? nuevoForm.email.trim() : '';
-    if (!rawEmail) {
-      setEmailStatus({ checking: false, disponible: null, message: '' });
-      return;
-    }
-
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(rawEmail)) {
-      setEmailStatus({
-        checking: false,
-        disponible: false,
-        message: 'Revise el formato del correo.',
-      });
-      return;
-    }
-
-    setEmailStatus({ checking: true, disponible: null, message: 'Revisando el correo…' });
-
-    const timer = setTimeout(async () => {
-      try {
-        const res = await api.post('/afiliacion/verificar-email', { email: rawEmail });
-        if (res.data.disponible) {
-          setEmailStatus({
-            checking: false,
-            disponible: true,
-            message: 'Correo disponible.',
-          });
-        } else {
-          setEmailStatus({
-            checking: false,
-            disponible: false,
-            message: res.data.message || 'Ese correo ya está registrado.',
-          });
-        }
-      } catch (err) {
-        setEmailStatus({ checking: false, disponible: null, message: '' });
-      }
-    }, 400);
-
-    return () => clearTimeout(timer);
+    setEmailStatus(estadoFormatoCorreo(nuevoForm.email));
   }, [nuevoForm.email]);
 
-  // Verificación en tiempo real del correo para colaboradores/clientes del banco (Escenario 1)
   useEffect(() => {
-    const rawEmail = credenciales.email ? credenciales.email.trim() : '';
     // Quien ya tiene usuario en el portal no elige correo: conserva el suyo.
-    if (!rawEmail || phase !== 'EXISTENTE_CREDENCIALES' || bancoData?.tiene_usuario_portal) {
+    if (phase !== 'EXISTENTE_CREDENCIALES' || bancoData?.tiene_usuario_portal) {
       setCredEmailStatus({ checking: false, disponible: null, message: '' });
       return;
     }
-
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(rawEmail)) {
-      setCredEmailStatus({
-        checking: false,
-        disponible: false,
-        message: 'Revise el formato del correo.',
-      });
-      return;
-    }
-
-    setCredEmailStatus({ checking: true, disponible: null, message: 'Revisando el correo…' });
-
-    const timer = setTimeout(async () => {
-      try {
-        const res = await api.post('/afiliacion/verificar-email', {
-          email: rawEmail,
-          excluir_id_persona: bancoData?.persona?.id_persona,
-        });
-        if (res.data.disponible) {
-          setCredEmailStatus({
-            checking: false,
-            disponible: true,
-            message: 'Correo disponible.',
-          });
-        } else {
-          setCredEmailStatus({
-            checking: false,
-            disponible: false,
-            message: res.data.message || 'Ese correo ya está registrado.',
-          });
-        }
-      } catch (err) {
-        setCredEmailStatus({ checking: false, disponible: null, message: '' });
-      }
-    }, 400);
-
-    return () => clearTimeout(timer);
-  }, [credenciales.email, phase, bancoData?.persona?.id_persona, bancoData?.tiene_usuario_portal]);
+    setCredEmailStatus(estadoFormatoCorreo(credenciales.email));
+  }, [credenciales.email, phase, bancoData?.tiene_usuario_portal]);
 
   // 1. Validar DPI en la base de datos de la Corporación Bancaria
   const handleConsultarDpi = async (e) => {
@@ -382,28 +321,94 @@ export const PublicAffiliationPage = () => {
       return;
     }
 
+    // Quien ya tiene acceso no elige correo: no hay nada que verificar.
+    if (accesoExistente) {
+      await enviarAfiliacionExistente(null);
+      return;
+    }
+
+    if (!EMAIL_REGEX.test(credenciales.email.trim())) {
+      setErrorMsg('Revise el correo. Debe verse así: nombre@correo.com.');
+      return;
+    }
+    await abrirVerificacionCorreo(credenciales.email.trim(), 'EXISTENTE');
+  };
+
+  const enviarAfiliacionExistente = async (codigo) => {
+    const accesoExistente = Boolean(bancoData?.tiene_usuario_portal);
     setLoading(true);
     try {
       const response = await api.post('/afiliacion/procesar-existente', {
         cui_dpi: bancoData.persona.cui_dpi,
         id_cuenta_bancaria: parseInt(selectedCuentaBancariaId, 10),
         numero_cuenta_bancaria: cuentaSeleccionadaObj?.numero_cuenta_bancaria || '',
-        monto_aportacion: monto,
-        ...(accesoExistente ? {} : { email: credenciales.email, password: credenciales.password }),
+        monto_aportacion: parseFloat(montoAportacion),
+        ...(accesoExistente
+          ? {}
+          : { email: credenciales.email.trim(), password: credenciales.password, codigo_verificacion: codigo }),
         afiliacion_token: bancoData.afiliacion_token,
       });
 
       if (response.data?.success) {
+        cerrarVerificacionCorreo();
         setAfiliacionExitosa(response.data.data);
         setPhase('EXISTENTE_EXITO');
       } else {
+        cerrarVerificacionCorreo();
         setErrorMsg(response.data?.message || 'No se pudo completar la afiliación. Intente de nuevo.');
       }
     } catch (err) {
-      setErrorMsg(err.response?.data?.message || 'No hay conexión con el servidor. Intente de nuevo.');
+      manejarErrorConCodigo(err, 'No hay conexión con el servidor. Intente de nuevo.');
     } finally {
       setLoading(false);
     }
+  };
+
+  // --- Verificación del correo con código (issue #25) ---
+  const pedirCodigoCorreo = async (email) => {
+    try {
+      const res = await api.post('/afiliacion/codigo-correo', { email });
+      return res.data?.reenviar_en || 60;
+    } catch (err) {
+      const error = new Error(err.response?.data?.message || 'No se pudo enviar el código. Intente de nuevo.');
+      error.reenviarEn = err.response?.data?.reenviar_en;
+      throw error;
+    }
+  };
+
+  const abrirVerificacionCorreo = async (email, camino) => {
+    setLoading(true);
+    try {
+      const espera = await pedirCodigoCorreo(email);
+      setCodigoModal({ abierto: true, email, camino, error: '', espera });
+    } catch (err) {
+      // Si ya hay un código vigente (reenvío antes de tiempo), se puede usar ese.
+      if (err.reenviarEn) {
+        setCodigoModal({ abierto: true, email, camino, error: '', espera: err.reenviarEn });
+      } else {
+        setErrorMsg(err.message);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const cerrarVerificacionCorreo = () => setCodigoModal((prev) => ({ ...prev, abierto: false, error: '' }));
+
+  const manejarErrorConCodigo = (err, mensajePorDefecto) => {
+    const data = err.response?.data;
+    if (esErrorDeCodigo(data?.error)) {
+      setCodigoModal((prev) => ({ ...prev, error: data.message }));
+      return;
+    }
+    cerrarVerificacionCorreo();
+    setErrorMsg(data?.message || mensajePorDefecto);
+  };
+
+  const confirmarCodigoCorreo = (codigo) => {
+    setCodigoModal((prev) => ({ ...prev, error: '' }));
+    if (codigoModal.camino === 'EXISTENTE') enviarAfiliacionExistente(codigo);
+    else enviarSolicitudNuevo(codigo);
   };
 
   // 3. Registrar Solicitud para quien NO pertenece al banco (Escenario 2)
@@ -464,16 +469,11 @@ export const PublicAffiliationPage = () => {
       return;
     }
 
-    if (emailStatus.disponible === false) {
-      setErrorMsg(emailStatus.message || 'Ese correo ya lo usa otra persona. Escriba otro.');
-      return;
-    }
+    await abrirVerificacionCorreo(nuevoForm.email.trim(), 'NUEVO');
+  };
 
-    if (emailStatus.checking) {
-      setErrorMsg('Estamos revisando el correo. Espere un momento.');
-      return;
-    }
-
+  const enviarSolicitudNuevo = async (codigo) => {
+    const cleanTel = nuevoForm.telefono.replace(/\D/g, '');
     setLoading(true);
     try {
       const response = await api.post('/afiliacion/solicitar-nuevo', {
@@ -487,17 +487,19 @@ export const PublicAffiliationPage = () => {
         fecha_nacimiento: nuevoForm.fecha_nacimiento,
         email: nuevoForm.email.trim(),
         monto_estimado: parseFloat(nuevoForm.monto_estimado) || 100.0,
+        codigo_verificacion: codigo,
       });
 
       if (response.data?.success) {
+        cerrarVerificacionCorreo();
         setCasoGenerado(response.data.data);
         setPhase('NUEVO_CASO_EXITO');
       } else {
+        cerrarVerificacionCorreo();
         setErrorMsg(response.data?.message || 'No se pudo registrar su solicitud. Intente de nuevo.');
       }
     } catch (err) {
-      const backendError = err.response?.data?.message || err.response?.data?.error;
-      setErrorMsg(backendError || 'No se pudo registrar su solicitud. Revise sus datos e intente de nuevo.');
+      manejarErrorConCodigo(err, 'No se pudo registrar su solicitud. Revise sus datos e intente de nuevo.');
     } finally {
       setLoading(false);
     }
@@ -644,6 +646,18 @@ export const PublicAffiliationPage = () => {
             )}
 
             {phase === 'NUEVO_CASO_EXITO' && casoGenerado && <AgencyReceiptStep casoGenerado={casoGenerado} />}
+
+            <EmailCodeModal
+              isOpen={codigoModal.abierto}
+              email={codigoModal.email}
+              initialWait={codigoModal.espera}
+              error={codigoModal.error}
+              loading={loading}
+              confirmLabel={codigoModal.camino === 'EXISTENTE' ? 'Confirmar afiliación' : 'Obtener número de caso'}
+              onConfirm={confirmarCodigoCorreo}
+              onResend={() => pedirCodigoCorreo(codigoModal.email)}
+              onClose={cerrarVerificacionCorreo}
+            />
           </div>
         </div>
       </main>

@@ -5,6 +5,7 @@ const bancoApiService = require('../services/bancoApiService');
 const { getNextCorporateCode, resolvePrefix } = require('../utils/codeGenerator');
 const { validatePassword } = require('../utils/passwordPolicy');
 const { firmarAfiliacionToken, verificarAfiliacionToken } = require('../utils/afiliacionToken');
+const codigoVerificacion = require('../services/codigoVerificacionService');
 
 // id_rol del asociado en la tabla roles (el mismo que se usa al crear su usuario).
 const ID_ROL_ASOCIADO = 3;
@@ -207,6 +208,7 @@ const procesarAfiliacionExistente = async (req, res) => {
       email,
       password,
       afiliacion_token,
+      codigo_verificacion,
     } = req.body;
 
     if (!cui_dpi || (!id_cuenta_bancaria && !numero_cuenta_bancaria) || !monto_aportacion) {
@@ -271,9 +273,38 @@ const procesarAfiliacionExistente = async (req, res) => {
           message: passwordError,
         });
       }
+
+      // El correo del nuevo usuario se confirma con el código antes de debitar (issue #25).
+      if (!email || !email.trim()) {
+        return res.status(400).json({
+          success: false,
+          message: 'Escriba su correo electrónico.',
+        });
+      }
+      try {
+        await codigoVerificacion.verificarCodigo(email, codigo_verificacion);
+      } catch (codigoError) {
+        if (codigoError instanceof codigoVerificacion.CodigoVerificacionError) {
+          return codigoVerificacion.responderError(res, codigoError);
+        }
+        throw codigoError;
+      }
     }
 
     await client.query('BEGIN');
+
+    // El código se consume en la misma transacción: si la afiliación se deshace, sigue vigente.
+    if (!tieneUsuarioPrevio) {
+      try {
+        await codigoVerificacion.consumirCodigo(client, email);
+      } catch (codigoError) {
+        await client.query('ROLLBACK');
+        if (codigoError instanceof codigoVerificacion.CodigoVerificacionError) {
+          return codigoVerificacion.responderError(res, codigoError);
+        }
+        throw codigoError;
+      }
+    }
 
     // 1. Buscar o registrar a la persona en la base de datos de la cooperativa
     let personaRes = await client.query(
@@ -407,7 +438,7 @@ const procesarAfiliacionExistente = async (req, res) => {
       // Cliente o colaborador que no tenía usuario: crear rol ASOCIADO (3) con código EB-X o EX-X
       const prefix = resolvePrefix('ASOCIADO', req.body.tipo_asociado || (persona.cui_dpi?.startsWith('1000') ? 'EB' : 'EX'));
       const nextCod = await getNextCorporateCode(client, prefix);
-      const userEmail = (email && email.trim()) ? email.trim().toLowerCase() : `socio.${nextCod.toLowerCase()}@cooperativa.com`;
+      const userEmail = email.trim().toLowerCase();
 
       const userInsert = await client.query(
         `INSERT INTO usuarios (id_persona, id_rol, codigo_corporativo, email, password_hash, estado, debe_cambiar_password)
@@ -481,6 +512,30 @@ const procesarAfiliacionExistente = async (req, res) => {
 };
 
 /**
+ * 2.1 Envía un código de 6 dígitos al correo del solicitante (issue #25). Responde igual esté o no
+ * registrado el correo: si ya está en uso, se informa después de verificar el código.
+ */
+const solicitarCodigoCorreo = async (req, res) => {
+  try {
+    const { reenviar_en } = await codigoVerificacion.enviarCodigo(req.body.email);
+    return res.status(200).json({
+      success: true,
+      reenviar_en,
+      message: 'Le enviamos un código de 6 dígitos. Revise su correo, también la carpeta de spam.',
+    });
+  } catch (error) {
+    if (error instanceof codigoVerificacion.CodigoVerificacionError) {
+      return codigoVerificacion.responderError(res, error);
+    }
+    console.error('[CODIGO CORREO ERROR]:', error.message);
+    return res.status(500).json({
+      success: false,
+      message: 'No se pudo enviar el código. Intente de nuevo.',
+    });
+  }
+};
+
+/**
  * 3. Registra una solicitud para personas que NO pertenecen a la entidad bancaria (Escenario 2).
  * Emite un número de caso oficial para que el solicitante acuda a una agencia bancaria a formalizar.
  */
@@ -498,12 +553,13 @@ const registrarSolicitudAgencia = async (req, res) => {
       fecha_nacimiento,
       email,
       monto_estimado,
+      codigo_verificacion,
     } = req.body;
 
-    if (!cui_dpi || !primer_nombre || !primer_apellido || !fecha_nacimiento) {
+    if (!cui_dpi || !primer_nombre || !primer_apellido || !fecha_nacimiento || !email || !email.trim()) {
       return res.status(400).json({
         success: false,
-        message: 'Faltan datos: DPI, primer nombre, primer apellido o fecha de nacimiento.',
+        message: 'Faltan datos: DPI, primer nombre, primer apellido, fecha de nacimiento o correo.',
       });
     }
 
@@ -597,7 +653,7 @@ const registrarSolicitudAgencia = async (req, res) => {
     }
 
     // Validación estricta de correo electrónico único
-    if (email && email.trim()) {
+    {
       const emailLimpio = email.trim().toLowerCase();
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(emailLimpio)) {
@@ -605,6 +661,17 @@ const registrarSolicitudAgencia = async (req, res) => {
           success: false,
           message: 'Revise el correo. Debe verse así: nombre@correo.com.',
         });
+      }
+
+      // Primero se confirma el correo con el código (issue #25): así, si el correo ya está en uso,
+      // solo se entera su dueño.
+      try {
+        await codigoVerificacion.verificarCodigo(emailLimpio, codigo_verificacion);
+      } catch (codigoError) {
+        if (codigoError instanceof codigoVerificacion.CodigoVerificacionError) {
+          return codigoVerificacion.responderError(res, codigoError);
+        }
+        throw codigoError;
       }
 
       const checkUserEmail = await client.query(
@@ -656,6 +723,17 @@ const registrarSolicitudAgencia = async (req, res) => {
       });
     }
 
+    await client.query('BEGIN');
+    try {
+      await codigoVerificacion.consumirCodigo(client, email);
+    } catch (codigoError) {
+      await client.query('ROLLBACK');
+      if (codigoError instanceof codigoVerificacion.CodigoVerificacionError) {
+        return codigoVerificacion.responderError(res, codigoError);
+      }
+      throw codigoError;
+    }
+
     // Generar correlativo atómico CASO-AFIL-YYYY-XXXX
     const nextValRes = await client.query("SELECT nextval('seq_numero_caso_afiliacion') AS val");
     const year = today.getFullYear();
@@ -680,18 +758,33 @@ const registrarSolicitudAgencia = async (req, res) => {
         telefono ? telefono.trim() : null,
         direccion ? direccion.trim() : null,
         fecha_nacimiento,
-        email ? email.trim().toLowerCase() : null,
+        email.trim().toLowerCase(),
         montoEst,
         'Registro digital previo. Pendiente depósito y formalización en agencia bancaria.',
       ]
     );
 
     const solicitud = insertCaseRes.rows[0];
+    await client.query('COMMIT');
+
+    // El número de caso también se envía por correo; si no sale, la solicitud igual queda registrada.
+    let correoEnviado = false;
+    try {
+      const mailRes = await mailerService.sendCaseNumberEmail({
+        to: solicitud.email,
+        nombre: `${solicitud.primer_nombre} ${solicitud.primer_apellido}`,
+        numeroCaso: solicitud.numero_caso,
+      });
+      correoEnviado = mailerService.wasSent(mailRes);
+    } catch (mailErr) {
+      console.warn('Aviso: No se pudo enviar el correo con el número de caso:', mailErr.message);
+    }
 
     return res.status(201).json({
       success: true,
       message: 'Solicitud registrada. Preséntese en una agencia del banco para terminar la afiliación.',
       data: {
+        correo_enviado: correoEnviado,
         id_solicitud: solicitud.id_solicitud,
         numero_caso: solicitud.numero_caso,
         cui_dpi: solicitud.cui_dpi,
@@ -704,6 +797,7 @@ const registrarSolicitudAgencia = async (req, res) => {
       },
     });
   } catch (error) {
+    await client.query('ROLLBACK').catch(() => {});
     console.error('[REGISTRAR SOLICITUD AGENCIA ERROR]:', error);
     let errorMsg = 'Error al registrar solicitud de afiliación para agencia.';
     if (error.code === '22001') {
@@ -816,6 +910,7 @@ module.exports = {
   validarDpi,
   validarCredencialesBanco,
   procesarAfiliacionExistente,
+  solicitarCodigoCorreo,
   registrarSolicitudAgencia,
   verificarEmail,
 };

@@ -392,6 +392,75 @@ class MailerService {
   }
 
   /**
+   * Envía un correo con el mismo manejo que los demás: real si hay transporte verificado,
+   * simulado si no. Nunca escribe el contenido en los registros.
+   */
+  async enviarCorreo({ to, subject, html, etiqueta }) {
+    const mailOptions = {
+      from: this.from || `Cooperativa Corporativa <${this.currentUser || 'notificaciones@cooperativa.com'}>`,
+      to,
+      subject,
+      html,
+    };
+
+    if (this.transporter && this.isVerified && !isMailDisabled()) {
+      try {
+        const info = await this.transporter.sendMail(mailOptions);
+        console.log(`[MAILER] Correo de ${etiqueta} enviado vía ${this.activeProvider} a ${to}: ${info.messageId}`);
+        return { success: true, messageId: info.messageId, simulado: false, provider: this.activeProvider };
+      } catch (error) {
+        console.warn(`[MAILER WARNING] No se pudo enviar el correo de ${etiqueta} por ${this.activeProvider} (${error.message}).`);
+        return { success: true, simulado: true, error: error.message, provider: this.activeProvider };
+      }
+    }
+    console.log(`[MAILER DEMO] Correo de ${etiqueta} NO enviado (modo demostrativo) para ${to}.`);
+    return { success: true, simulado: true, provider: 'demo' };
+  }
+
+  /**
+   * Código de 6 dígitos para verificar el correo en la afiliación en línea.
+   */
+  async sendVerificationCodeEmail({ to, codigo, minutos }) {
+    const html = `
+      <!DOCTYPE html>
+      <html>
+      <head><meta charset="utf-8"></head>
+      <body style="font-family: 'Segoe UI', Helvetica, Arial, sans-serif; background-color: #f1f5f9; margin: 0; padding: 20px; color: #1e293b;">
+        <div style="max-width: 520px; margin: 0 auto; background: #ffffff; border-radius: 12px; padding: 28px;">
+          <h1 style="margin: 0 0 12px 0; font-size: 18px;">Su código de verificación</h1>
+          <p style="font-size: 14px;">Escriba este código en la página de afiliación para confirmar su correo:</p>
+          <p style="font-size: 32px; font-weight: bold; letter-spacing: 8px; text-align: center; margin: 24px 0; font-family: 'Courier New', monospace;">${codigo}</p>
+          <p style="font-size: 13px; color: #475569;">Vence en ${minutos} minutos. Si usted no está haciendo una afiliación en la cooperativa, ignore este correo; nadie podrá usar su correo sin este código.</p>
+          <p style="font-size: 12px; color: #64748b; margin-top: 24px;">La cooperativa nunca le pedirá este código por teléfono.</p>
+        </div>
+      </body>
+      </html>
+    `;
+    return this.enviarCorreo({ to, subject: `Su código de verificación: ${codigo}`, html, etiqueta: 'código de verificación' });
+  }
+
+  /**
+   * Número de caso de una solicitud de afiliación para terminar en agencia.
+   */
+  async sendCaseNumberEmail({ to, nombre, numeroCaso }) {
+    const html = `
+      <!DOCTYPE html>
+      <html>
+      <head><meta charset="utf-8"></head>
+      <body style="font-family: 'Segoe UI', Helvetica, Arial, sans-serif; background-color: #f1f5f9; margin: 0; padding: 20px; color: #1e293b;">
+        <div style="max-width: 520px; margin: 0 auto; background: #ffffff; border-radius: 12px; padding: 28px;">
+          <h1 style="margin: 0 0 12px 0; font-size: 18px;">Su solicitud de afiliación</h1>
+          <p style="font-size: 14px;">Estimado(a) <strong>${nombre || 'solicitante'}</strong>, registramos su solicitud. Su número de caso es:</p>
+          <p style="font-size: 22px; font-weight: bold; text-align: center; margin: 24px 0; font-family: 'Courier New', monospace;">${numeroCaso}</p>
+          <p style="font-size: 14px;">Preséntese en cualquier agencia del banco con su DPI original y este número para hacer su depósito inicial y terminar la afiliación.</p>
+        </div>
+      </body>
+      </html>
+    `;
+    return this.enviarCorreo({ to, subject: `Su número de caso de afiliación: ${numeroCaso}`, html, etiqueta: 'número de caso' });
+  }
+
+  /**
    * Envía el correo con el Código QR y las instrucciones para vincular Google Authenticator
    */
   async sendMfaEnrollmentEmail({ to, nombre, codigoCorporativo, qrDataUrl, secretBase32 }) {

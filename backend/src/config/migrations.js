@@ -448,6 +448,19 @@ const runMigrations = async () => {
       WHERE mfa_enabled = FALSE AND (mfa_secret IS NOT NULL OR mfa_qr_url IS NOT NULL)
     `);
 
+    // 8. Códigos de verificación de correo de la afiliación en línea (issue #25). Solo se guarda el hash.
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS codigos_verificacion_correo (
+        email VARCHAR(150) PRIMARY KEY,
+        codigo_hash CHAR(64) NOT NULL,
+        expira_en TIMESTAMP WITH TIME ZONE NOT NULL,
+        intentos INT NOT NULL DEFAULT 0,
+        enviado_en TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        envios_hora INT NOT NULL DEFAULT 1,
+        ventana_inicio TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
     console.log('[MIGRATION] Esquema, cuenta_bancaria corporativa, MFA TOTP, roles, beneficiarios y optimizaciones DBA aplicadas exitosamente.');
     return true;
   } catch (error) {
