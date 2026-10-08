@@ -4,7 +4,6 @@ process.env.MAIL_ENABLED = 'false';
 const http = require('http');
 const { app } = require('./src/server');
 const { pool } = require('./src/config/db');
-const speakeasy = require('speakeasy');
 const bancoApiService = require('./src/services/bancoApiService');
 const { firmarAfiliacionToken } = require('./src/utils/afiliacionToken');
 
@@ -261,31 +260,28 @@ const server = app.listen(0, async () => {
     console.log(`  - Cuenta Bancaria Origen debitada: ${dataAfiliado.cuenta_bancaria_origen.numero_cuenta_bancaria} (Nuevo Saldo: Q${dataAfiliado.cuenta_bancaria_origen.nuevo_saldo})`);
     console.log(`  - Cuenta de Aportaciones Cooperativa: ${dataAfiliado.cuenta_aportaciones.numero_cuenta} (Saldo: Q${dataAfiliado.cuenta_aportaciones.saldo_disponible})`);
 
-    // 2.4 Login del nuevo asociado con su código corporativo y verificación 2FA (MFA)
+    // 2.4 La afiliación no genera ni expone un secreto 2FA: el asociado lo activa desde «Seguridad»
+    if ('mfa' in dataAfiliado) {
+      throw new Error('La respuesta de la afiliación no debería incluir datos de 2FA: ' + JSON.stringify(dataAfiliado.mfa));
+    }
+    const mfaMarcos = (await pool.query(
+      'SELECT mfa_secret, mfa_qr_url, mfa_enabled FROM usuarios WHERE codigo_corporativo = $1',
+      [dataAfiliado.usuario.codigo_corporativo]
+    )).rows[0];
+    if (mfaMarcos.mfa_secret !== null || mfaMarcos.mfa_qr_url !== null || mfaMarcos.mfa_enabled !== false) {
+      throw new Error('La afiliación no debería guardar un secreto 2FA sin activar: ' + JSON.stringify(mfaMarcos));
+    }
+    console.log('✓ La afiliación no genera, guarda ni expone un secreto 2FA.');
+
+    // 2.4.1 Login del nuevo asociado con su código corporativo y la contraseña que eligió
     const loginRes = await request('/api/auth/login', 'POST', {
       email: dataAfiliado.usuario.codigo_corporativo,
       password: 'Password123!',
     });
-    if (loginRes.body.mfa_required) {
-      console.log('✓ Desafío de Doble Factor de Autenticación (MFA) detectado en el login del nuevo asociado.');
-      const validCode = speakeasy.totp({
-        secret: dataAfiliado.mfa.secret,
-        encoding: 'base32',
-      });
-      const verifyRes = await request('/api/auth/verify-mfa', 'POST', {
-        temp_token: loginRes.body.temp_token,
-        totp_code: validCode,
-      });
-      if (verifyRes.status !== 200 || !verifyRes.body.token) {
-        throw new Error('El nuevo asociado no pudo verificar su 2FA: ' + JSON.stringify(verifyRes.body));
-      }
-      console.log(`✓ Verificación 2FA completada y acceso confirmado para el socio con código ${dataAfiliado.usuario.codigo_corporativo}.`);
-    } else {
-      if (loginRes.status !== 200 || !loginRes.body.token) {
-        throw new Error('El nuevo asociado no pudo autenticarse con su código corporativo: ' + JSON.stringify(loginRes.body));
-      }
-      console.log(`✓ Acceso al portal confirmado para el socio con código ${dataAfiliado.usuario.codigo_corporativo}.`);
+    if (loginRes.status !== 200 || !loginRes.body.token) {
+      throw new Error('El nuevo asociado no pudo autenticarse con su código corporativo: ' + JSON.stringify(loginRes.body));
     }
+    console.log(`✓ Acceso al portal confirmado para el socio con código ${dataAfiliado.usuario.codigo_corporativo}.`);
 
     // 2.5 Personal con usuario en el portal (OP-2): no se afilia en línea y su acceso no cambia
     const accesoOp2Query = `SELECT u.password_hash, u.id_rol, u.mfa_secret, u.mfa_enabled, u.debe_cambiar_password

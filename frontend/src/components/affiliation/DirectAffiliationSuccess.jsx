@@ -84,25 +84,10 @@ export const DirectAffiliationSuccess = ({ afiliacionExitosa }) => {
           )}
         </section>
 
-        {afiliacionExitosa.mfa?.qr_code_url && (
-          <section aria-labelledby="afiliacion-2fa" className="rounded-md border border-line px-4 py-4">
-            <h3 id="afiliacion-2fa" className="text-sm font-medium text-ink">Verificación en dos pasos</h3>
-            <p className="mt-1 text-sm text-ink-muted">
-              Código generado para su usuario. También se lo enviamos por correo.
-            </p>
-            <div className="mt-3 flex flex-col items-center gap-3 sm:flex-row sm:items-start">
-              <img
-                src={afiliacionExitosa.mfa.qr_code_url}
-                alt="Código QR para configurar la verificación en dos pasos"
-                className="h-36 w-36 shrink-0 rounded border border-line bg-white p-1"
-              />
-              <div className="min-w-0 text-sm">
-                <p className="text-ink-muted">Si no puede escanearlo, use esta clave en su aplicación de autenticación:</p>
-                <p className="mt-1 break-all font-mono text-ink select-all">{afiliacionExitosa.mfa.secret}</p>
-              </div>
-            </div>
-          </section>
-        )}
+        <p className="text-sm text-ink-muted">
+          Para proteger más su cuenta, después de entrar active la verificación en dos pasos desde{' '}
+          <span className="font-medium text-ink">Seguridad</span>, en el menú de su usuario.
+        </p>
       </div>
 
       <Button as={Link} to="/login" fullWidth size="lg" className="mt-8">

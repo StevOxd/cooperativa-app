@@ -476,7 +476,8 @@ class MailerService {
 
   /**
    * Envía el correo formal de bienvenida con las credenciales de acceso institucional:
-   * Código de Usuario, Contraseña Generada Criptográficamente y (si aplica) Código QR de 2FA.
+   * Código de Usuario y Contraseña Generada Criptográficamente. No incluye datos de 2FA: el usuario
+   * la activa desde «Seguridad» (menú del usuario).
    * Si `password` viene vacío (el usuario la eligió él mismo), el correo no la incluye.
    */
   async sendAccountCredentialsEmail({
@@ -485,8 +486,6 @@ class MailerService {
     codigoCorporativo,
     password,
     rolNombre,
-    qrDataUrl,
-    secretBase32,
   }) {
     const subject = `[CREDENCIALES DE ACCESO] Cuenta Institucional - Cooperativa Corporativa (${codigoCorporativo})`;
     const passwordTemporal = Boolean(password);
