@@ -160,6 +160,8 @@ const resolverSolicitud = async (req, res) => {
 
         const debitRes = await bancoApiService.debitarCuenta({
           numero_cuenta: numCuentaBco,
+          // El banco rechaza el débito si la cuenta no es del asociado.
+          cui_dpi: assocCui.rows[0]?.cui_dpi,
           monto,
           concepto: `Traslado a Cuenta Cooperativa - Caso ${solicitud.numero_caso}`,
           referencia: `CASO-${solicitud.numero_caso}`,

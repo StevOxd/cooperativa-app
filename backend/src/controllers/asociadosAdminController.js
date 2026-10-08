@@ -321,7 +321,12 @@ const aperturarCuenta = async (req, res) => {
     }
 
     // 1. Validar asociado
-    const asociadoRes = await client.query('SELECT id_asociado, estado_asociado FROM asociados WHERE id_asociado = $1', [idAsociado]);
+    const asociadoRes = await client.query(
+      `SELECT a.id_asociado, a.estado_asociado, p.cui_dpi
+       FROM asociados a JOIN personas p ON p.id_persona = a.id_persona
+       WHERE a.id_asociado = $1`,
+      [idAsociado]
+    );
     if (asociadoRes.rows.length === 0) {
       return res.status(404).json({ success: false, message: 'Asociado no encontrado.' });
     }
@@ -414,19 +419,23 @@ const aperturarCuenta = async (req, res) => {
         return res.status(400).json({ success: false, message: 'La cuenta del banco no tiene saldo suficiente.' });
       }
 
-      // Débito en Core Banking API (banco_db)
-      try {
-        await bancoApiService.debitarCuenta({
-          numero_cuenta: ctaBco.numero_cuenta_bancaria,
-          monto: montoInicial,
-          concepto: 'Débito por Apertura de Cuenta Cooperativa',
-          referencia: 'APERTURA-VENTANILLA',
-        });
-      } catch (bcoErr) {
+      // Débito en Core Banking API (banco_db). Con cui_dpi el banco rechaza cuentas de otra persona.
+      // debitarCuenta no lanza errores: devuelve success false, así que hay que revisar el resultado.
+      const debitRes = await bancoApiService.debitarCuenta({
+        numero_cuenta: ctaBco.numero_cuenta_bancaria,
+        cui_dpi: asociadoRes.rows[0].cui_dpi,
+        monto: montoInicial,
+        concepto: 'Débito por Apertura de Cuenta Cooperativa',
+        referencia: `APERTURA-VENTANILLA-${Date.now()}`,
+      });
+      if (!debitRes.success || debitRes.status !== 200) {
         await client.query('ROLLBACK');
-        return res.status(400).json({
+        const status = debitRes.status === 403 ? 403 : 400;
+        return res.status(status).json({
           success: false,
-          message: bcoErr.response?.data?.message || 'Error al debitar la cuenta en la entidad bancaria: ' + bcoErr.message,
+          message: debitRes.status === 403
+            ? 'La cuenta del banco no pertenece a este asociado.'
+            : debitRes.message || 'No se pudo debitar la cuenta del banco.',
         });
       }
 

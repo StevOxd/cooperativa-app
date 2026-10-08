@@ -593,6 +593,42 @@ const server = app.listen(0, async () => {
     }
     console.log('✓ Validación correcta de monto mínimo de apertura rechazada según política.');
 
+    // 5.0 Las operaciones con el banco desde la ventanilla requieren sesión de operador
+    const bancoSinSesion = await request('/api/banco-externo/cuentas-cliente/4000000000002');
+    const acreditarSinSesion = await request('/api/banco-externo/acreditar', 'POST', { numero_cuenta: 'CTA-BCO-AHORRO-4002', monto: 1 });
+    const bancoConOperador = await request('/api/banco-externo/cuentas-cliente/4000000000002', 'GET', null, operatorToken);
+    if (bancoSinSesion.status !== 401 || acreditarSinSesion.status !== 401 || bancoConOperador.status !== 200) {
+      throw new Error(`Las rutas del banco deberían exigir sesión de operador (sin sesión: ${bancoSinSesion.status}/${acreditarSinSesion.status}, operador: ${bancoConOperador.status})`);
+    }
+    console.log('✓ Las rutas del banco rechazan el acceso sin sesión y responden al operador.');
+
+    // 5.0.1 Abrir una cuenta con fondos del banco exige que la cuenta sea del asociado
+    const saldoAjenoAntes = await bancoApiService.consultarCuenta('CTA-BCO-AHORRO-4002');
+    const aperturaAjena = await request('/api/admin/asociados/aperturar-cuenta', 'POST', {
+      id_asociado: dataAfiliado.asociado.id_asociado, // Marcos
+      id_tipo_cuenta: 2,
+      monto_apertura: 100.00,
+      origen_fondos: 'BANCO_EXTERNO',
+      numero_cuenta_bancaria: 'CTA-BCO-AHORRO-4002', // cuenta de Sofía Reyes
+    }, operatorToken);
+    const saldoAjenoDespues = await bancoApiService.consultarCuenta('CTA-BCO-AHORRO-4002');
+    if (aperturaAjena.status !== 403 || saldoAjenoAntes.data.saldo_disponible !== saldoAjenoDespues.data.saldo_disponible) {
+      throw new Error('No debería abrirse una cuenta con fondos de otra persona: ' + JSON.stringify(aperturaAjena.body));
+    }
+    const saldoPropioAntes = await bancoApiService.consultarCuenta(cuentaBcoCliente.numero_cuenta_bancaria);
+    const aperturaPropia = await request('/api/admin/asociados/aperturar-cuenta', 'POST', {
+      id_asociado: dataAfiliado.asociado.id_asociado,
+      id_tipo_cuenta: 2,
+      monto_apertura: 100.00,
+      origen_fondos: 'BANCO_EXTERNO',
+      numero_cuenta_bancaria: cuentaBcoCliente.numero_cuenta_bancaria, // cuenta de Marcos
+    }, operatorToken);
+    const saldoPropioDespues = await bancoApiService.consultarCuenta(cuentaBcoCliente.numero_cuenta_bancaria);
+    if (aperturaPropia.status !== 201 || saldoPropioAntes.data.saldo_disponible - saldoPropioDespues.data.saldo_disponible !== 100) {
+      throw new Error('La apertura con fondos de su propia cuenta debería debitar Q100: ' + JSON.stringify(aperturaPropia.body));
+    }
+    console.log('✓ La apertura con fondos del banco solo acepta cuentas del asociado y debita el monto.');
+
     // Apertura válida de cuenta de ahorro corriente (tipo 2)
     const buenaApertura = await request('/api/admin/asociados/aperturar-cuenta', 'POST', {
       id_asociado: socioPresencial.id_asociado,
