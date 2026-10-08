@@ -459,9 +459,17 @@ export const UsersPage = () => {
         const response = await api.post('/usuarios', payload);
         if (response.data?.success) {
           const codAsignado = response.data.data?.codigo_corporativo || previewCode || '';
-          setSuccessMessage(
-            `Se creó el usuario ${codAsignado}. Enviamos su contraseña temporal a ${formData.email}.`
-          );
+          if (response.data.correo_enviado) {
+            setSuccessMessage(
+              `Se creó el usuario ${codAsignado}. Enviamos su contraseña temporal a ${formData.email}.`
+            );
+          } else {
+            toast.warning(
+              `Se creó el usuario ${codAsignado}, pero el correo con su contraseña temporal no se pudo enviar. Cuando el correo funcione, reinicie su contraseña para enviarle una nueva.`,
+              'El correo no salió',
+              10000
+            );
+          }
           setIsModalOpen(false);
           fetchUsers();
         }

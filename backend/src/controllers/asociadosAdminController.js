@@ -259,8 +259,11 @@ const crearAfiliacionPresencial = async (req, res) => {
 
     return res.status(201).json({
       success: true,
-      message: 'Asociado registrado y cuenta de ahorro abierta.',
+      message: data.correo_enviado
+        ? 'Asociado registrado y cuenta de ahorro abierta. Enviamos su acceso al portal por correo.'
+        : 'Asociado registrado y cuenta de ahorro abierta, pero el correo con el usuario y la contraseña no se pudo enviar.',
       data: {
+        correo_enviado: data.correo_enviado,
         id_asociado: data.id_asociado,
         id_persona: data.id_persona,
         nombre_completo: data.nombre_completo,

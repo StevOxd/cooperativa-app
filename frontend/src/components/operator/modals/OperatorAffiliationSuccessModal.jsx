@@ -6,7 +6,7 @@ import { formatQ } from '../../../utils/format';
 
 /**
  * Resumen de una afiliación formalizada, con descarga del comprobante (ARQ-04).
- * Por seguridad, nunca muestra la contraseña temporal: solo indica que se envió por correo.
+ * Por seguridad, nunca muestra la contraseña temporal: solo indica si se envió por correo.
  */
 const OperatorAffiliationSuccessModal = ({ formalizadoResult, onClose }) => {
   if (!formalizadoResult) return null;
@@ -57,16 +57,17 @@ const OperatorAffiliationSuccessModal = ({ formalizadoResult, onClose }) => {
           <div className="flex justify-between gap-4 px-4 py-2.5">
             <dt className="text-ink-muted">Contraseña temporal</dt>
             <dd className="text-right text-ink">
-              Enviada por correo
+              {formalizadoResult.correo_enviado ? 'Enviada por correo' : 'No se pudo enviar'}
               {formalizadoResult.email && <span className="block text-xs text-ink-subtle">{formalizadoResult.email}</span>}
             </dd>
           </div>
         </dl>
 
-        {formalizadoResult.email_status?.simulado && (
-          <Alert tone="warning" title="El correo está en modo de prueba">
-            La contraseña no llegó a un buzón real. El administrador puede activar el envío desde
-            "Correo de notificaciones".
+        {!formalizadoResult.correo_enviado && (
+          <Alert tone="warning" title="El asociado no recibió su acceso al portal">
+            La afiliación quedó registrada, pero el correo con su usuario y su contraseña temporal no se pudo
+            enviar, así que todavía no puede entrar al portal. Cuando el correo de la cooperativa funcione, pida al
+            administrador que reinicie su contraseña desde Usuarios para enviarle una nueva.
           </Alert>
         )}
       </div>

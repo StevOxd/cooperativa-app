@@ -676,6 +676,14 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess }) => {
               </div>
             ))}
         </dl>
+
+        {!successData.correo_enviado && (
+          <Alert tone="warning" title="El asociado no recibió su acceso al portal" className="mt-4">
+            El asociado quedó registrado, pero el correo con su usuario y su contraseña temporal no se pudo
+            enviar, así que todavía no puede entrar al portal. Cuando el correo de la cooperativa funcione, pida al
+            administrador que reinicie su contraseña desde Usuarios para enviarle una nueva.
+          </Alert>
+        )}
       </Modal>
     );
   }

@@ -436,7 +436,11 @@ export const OperatorDashboard = () => {
 
       if (response.data?.success) {
         const resData = response.data.data;
-        toast.success(`${resData.nombre_completo} ya es asociado.`);
+        if (resData.correo_enviado) {
+          toast.success(`${resData.nombre_completo} ya es asociado.`);
+        } else {
+          toast.warning(`${resData.nombre_completo} ya es asociado, pero no recibió su acceso al portal por correo.`);
+        }
         setFormalizadoResult(resData);
         setSelectedAfiliacion(null);
         fetchAfiliaciones(searchAfiliacion);

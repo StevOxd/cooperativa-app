@@ -449,6 +449,22 @@ const server = app.listen(0, async () => {
     console.log(`  - No. Cuenta: ${socioPresencial.cuenta_aportaciones}`);
     console.log(`  - Depósito Inicial: Q${socioPresencial.saldo_inicial}`);
 
+    // 4.1 Sin correo (MAIL_ENABLED=false en esta suite) la respuesta avisa que las credenciales no salieron
+    if (socioPresencial.correo_enviado !== false || !presencialRes.body.message.includes('no se pudo enviar')) {
+      throw new Error('La afiliación presencial debería indicar que el correo no se envió: ' + JSON.stringify(presencialRes.body));
+    }
+    console.log('✓ La afiliación presencial avisa que el correo con las credenciales no se envió.');
+
+    // 4.2 Sin correo, el administrador no puede reiniciar la contraseña: la actual no cambia
+    const hashQuery = 'SELECT password_hash FROM usuarios WHERE codigo_corporativo = $1';
+    const hashAntes = (await pool.query(hashQuery, [socioPresencial.codigo_corporativo])).rows[0].password_hash;
+    const resetSinCorreoRes = await request(`/api/usuarios/${socioPresencial.codigo_corporativo}/reset-password`, 'POST', {}, adminToken);
+    const hashDespues = (await pool.query(hashQuery, [socioPresencial.codigo_corporativo])).rows[0].password_hash;
+    if (resetSinCorreoRes.status !== 503 || resetSinCorreoRes.body.error !== 'CORREO_NO_DISPONIBLE' || hashAntes !== hashDespues) {
+      throw new Error('Sin correo, el reinicio de contraseña debería rechazarse sin cambiar la contraseña: ' + JSON.stringify(resetSinCorreoRes.body));
+    }
+    console.log('✓ Sin correo, el reinicio de contraseña se rechaza y la contraseña actual no cambia.');
+
     // 5. FORMULARIO 2: Apertura de Cuentas Financieras
     console.log('\n--- 5. Formulario 2: Apertura de Cuenta Adicional ---');
     // Validar monto inferior al mínimo de cuenta de ahorro (ej. cuenta de ahorro id_tipo_cuenta = 2, min Q100)
