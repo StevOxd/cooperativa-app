@@ -7,6 +7,14 @@ const mfaService = require('../services/mfaService');
 require('dotenv').config();
 
 const JWT_SECRET = process.env.JWT_SECRET;
+
+// Los fallos de inicio de sesión responden igual exista o no la cuenta, para que no se pueda averiguar
+// qué usuarios existen: mismo estado, mismo mensaje y un tiempo parecido (siempre se compara un hash).
+const MENSAJE_CREDENCIALES_INVALIDAS =
+  'El usuario o la contraseña no son correctos. Después de 3 intentos fallidos seguidos, la cuenta se bloquea 15 minutos.';
+const HASH_DE_RELLENO = bcrypt.hashSync('cuenta-inexistente', 10);
+const responderCredencialesInvalidas = (res) =>
+  res.status(401).json({ success: false, message: MENSAJE_CREDENCIALES_INVALIDAS });
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '8h';
 
 /**
@@ -68,30 +76,28 @@ const login = async (req, res) => {
     const result = await db.query(userQuery, [loginIdentifier]);
 
     if (result.rows.length === 0) {
-      return res.status(401).json({
-        success: false,
-        message: 'El usuario o la contraseña no son correctos.',
-      });
+      await bcrypt.compare(password, HASH_DE_RELLENO);
+      return responderCredencialesInvalidas(res);
     }
 
     const user = result.rows[0];
 
-    // 3. Verificar si el usuario se encuentra temporalmente bloqueado por fuerza bruta
-    if (user.bloqueado_hasta) {
-      const bloqueoHasta = new Date(user.bloqueado_hasta);
-      const now = new Date();
-      if (bloqueoHasta > now) {
-        return res.status(423).json({
-          success: false,
-          bloqueado: true,
-          bloqueado_hasta: user.bloqueado_hasta,
-          message: 'Su cuenta está bloqueada por varios intentos fallidos. Intente más tarde o pida al administrador que la desbloquee.',
-        });
-      }
+    // 3. Validar contraseña con bcrypt
+    const isPasswordValid = await bcrypt.compare(password, user.password_hash);
+
+    // 4. Cuenta bloqueada temporalmente por fuerza bruta: solo se le dice a quien sabe la contraseña.
+    //    Con una contraseña incorrecta responde igual que siempre y no suma intentos.
+    const bloqueada = user.bloqueado_hasta && new Date(user.bloqueado_hasta) > new Date();
+    if (bloqueada) {
+      if (!isPasswordValid) return responderCredencialesInvalidas(res);
+      return res.status(423).json({
+        success: false,
+        bloqueado: true,
+        bloqueado_hasta: user.bloqueado_hasta,
+        message: 'Su cuenta está bloqueada por varios intentos fallidos. Intente más tarde o pida al administrador que la desbloquee.',
+      });
     }
 
-    // 4. Validar contraseña con bcrypt
-    const isPasswordValid = await bcrypt.compare(password, user.password_hash);
     if (!isPasswordValid) {
       const nuevosIntentos = (user.intentos_fallidos || 0) + 1;
 
@@ -115,24 +121,13 @@ const login = async (req, res) => {
           [user.id_persona, user.estado, user.id_rol, clientIp, userAgent]
         );
 
-        return res.status(423).json({
-          success: false,
-          bloqueado: true,
-          message: 'Su cuenta está bloqueada por varios intentos fallidos. Intente más tarde o pida al administrador que la desbloquee.',
-        });
       } else {
         await db.query(
           'UPDATE usuarios SET intentos_fallidos = $1 WHERE id_persona = $2',
           [nuevosIntentos, user.id_persona]
         );
-        const intentosRestantes = 3 - nuevosIntentos;
-        return res.status(401).json({
-          success: false,
-          intentos_fallidos: nuevosIntentos,
-          intentos_restantes: intentosRestantes,
-          message: `El usuario o la contraseña no son correctos. Le quedan ${intentosRestantes} intento(s) antes de que se bloquee la cuenta.`,
-        });
       }
+      return responderCredencialesInvalidas(res);
     }
 
     // Si la contraseña es válida, reiniciar contador de intentos fallidos inmediatamente en base de datos

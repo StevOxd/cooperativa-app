@@ -1,4 +1,7 @@
 const bcrypt = require('bcryptjs');
+
+// Hash de relleno: se compara cuando el DPI no existe para que la respuesta tarde lo mismo.
+const HASH_DE_RELLENO = bcrypt.hashSync('cuenta-inexistente', 10);
 const { pool } = require('../config/db');
 
 /**
@@ -33,44 +36,28 @@ const validarCredenciales = async (req, res) => {
     `;
     const result = await client.query(query, [cleanCui]);
 
-    if (result.rows.length === 0) {
+    // 2-4. Usuario, código y contraseña se validan juntos y fallan con el mismo mensaje: así no se puede
+    //      averiguar, dato por dato, si el DPI tiene Banca en Línea ni cuál de los tres está mal.
+    //      Si el DPI no existe se compara un hash de relleno para que la respuesta tarde lo mismo.
+    const record = result.rows[0];
+    const passwordValida = await bcrypt.compare(password, record ? record.password_hash : HASH_DE_RELLENO);
+    const credencialesValidas = Boolean(record)
+      && record.nombre_usuario.toLowerCase() === cleanUser
+      && record.codigo_bancario.toUpperCase() === cleanCod
+      && passwordValida;
+
+    if (!credencialesValidas) {
       return res.status(401).json({
         success: false,
-        message: 'El CUI / DPI ingresado no cuenta con un usuario registrado en la Banca en Línea de la Entidad Bancaria.',
+        message: 'Los datos de la Banca en Línea no son correctos. Revise su usuario, su código y su contraseña.',
       });
     }
 
-    const record = result.rows[0];
-
+    // El estado solo se informa a quien ya demostró ser el titular.
     if (record.estado_cliente !== 'ACTIVO' || record.estado_usuario !== 'ACTIVO') {
       return res.status(403).json({
         success: false,
         message: 'El usuario o cliente bancario se encuentra bloqueado o inactivo. Comuníquese con la Entidad Bancaria.',
-      });
-    }
-
-    // 2. Validar coincidencia de Usuario Bancario
-    if (record.nombre_usuario.toLowerCase() !== cleanUser) {
-      return res.status(401).json({
-        success: false,
-        message: 'El nombre de usuario bancario ingresado no coincide con el registrado para este DPI.',
-      });
-    }
-
-    // 3. Validar coincidencia de Código Bancario
-    if (record.codigo_bancario.toUpperCase() !== cleanCod) {
-      return res.status(401).json({
-        success: false,
-        message: 'El código de cliente o colaborador ingresado es incorrecto.',
-      });
-    }
-
-    // 4. Validar contraseña con Bcrypt
-    const passwordValida = await bcrypt.compare(password, record.password_hash);
-    if (!passwordValida) {
-      return res.status(401).json({
-        success: false,
-        message: 'La contraseña de la Banca en Línea ingresada es incorrecta.',
       });
     }
 

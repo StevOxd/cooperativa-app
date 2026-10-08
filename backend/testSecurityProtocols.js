@@ -56,12 +56,12 @@ const testServer = server.listen(0, async () => {
   };
 
   try {
-    // 0. Preparar usuario de prueba: Operador 2001 (operador@cooperativa.com)
+    // 0. Preparar usuario de prueba: Operador OP-1 (operador@cooperativa.com)
     // Desbloquearlo y limpiar sesiones previas antes del test
     await db.query(`
       UPDATE usuarios 
       SET intentos_fallidos = 0, bloqueado_hasta = NULL, sesion_activa_id = NULL 
-      WHERE codigo_corporativo = '2001'
+      WHERE codigo_corporativo = 'OP-1'
     `);
 
     // =========================================================================
@@ -71,34 +71,57 @@ const testServer = server.listen(0, async () => {
 
     // Intento 1: Contraseña incorrecta
     const r1 = await request('/api/auth/login', 'POST', {
-      identifier: '2001',
+      identifier: 'OP-1',
       password: 'wrong_password_1',
     });
     assert(r1.status === 401, 'Intento 1 incorrecto retorna status 401');
-    assert(r1.body.intentos_restantes === 2, 'Informa que quedan 2 intentos restantes');
+    assert(!('intentos_restantes' in r1.body), 'No informa intentos restantes (delataría que la cuenta existe)');
+
+    // Una cuenta que no existe responde exactamente igual que una que existe con contraseña incorrecta
+    const rInexistente = await request('/api/auth/login', 'POST', {
+      identifier: 'NO-EXISTE-999',
+      password: 'wrong_password_1',
+    });
+    assert(
+      rInexistente.status === r1.status && JSON.stringify(rInexistente.body) === JSON.stringify(r1.body),
+      'Cuenta inexistente y contraseña incorrecta responden igual (no se puede averiguar si la cuenta existe)'
+    );
 
     // Intento 2: Contraseña incorrecta
     const r2 = await request('/api/auth/login', 'POST', {
-      identifier: '2001',
+      identifier: 'OP-1',
       password: 'wrong_password_2',
     });
     assert(r2.status === 401, 'Intento 2 incorrecto retorna status 401');
-    assert(r2.body.intentos_restantes === 1, 'Informa que queda 1 intento restante');
 
     // Intento 3: Contraseña incorrecta -> Debe disparar bloqueo por 15 minutos
     const r3 = await request('/api/auth/login', 'POST', {
-      identifier: '2001',
+      identifier: 'OP-1',
       password: 'wrong_password_3',
     });
-    assert(r3.status === 423, 'Intento 3 bloquea la cuenta y retorna status 423');
-    assert(r3.body.bloqueado === true, 'Respuesta incluye flag bloqueado: true');
+    assert(
+      r3.status === 401 && JSON.stringify(r3.body) === JSON.stringify(r1.body),
+      'Intento 3 bloquea la cuenta pero responde igual que los anteriores'
+    );
+    const bloqueoCheck = await db.query("SELECT bloqueado_hasta FROM usuarios WHERE codigo_corporativo = 'OP-1'");
+    assert(new Date(bloqueoCheck.rows[0].bloqueado_hasta) > new Date(), 'La cuenta quedó bloqueada 15 minutos en la base');
+
+    // Con la cuenta bloqueada, una contraseña incorrecta sigue respondiendo igual que siempre
+    const rBloqueadaIncorrecta = await request('/api/auth/login', 'POST', {
+      identifier: 'OP-1',
+      password: 'wrong_password_4',
+    });
+    assert(
+      rBloqueadaIncorrecta.status === 401 && JSON.stringify(rBloqueadaIncorrecta.body) === JSON.stringify(r1.body),
+      'Cuenta bloqueada con contraseña incorrecta responde igual (no revela el bloqueo)'
+    );
 
     // Intento 4: Con contraseña correcta pero la cuenta está bloqueada
     const r4 = await request('/api/auth/login', 'POST', {
-      identifier: '2001',
+      identifier: 'OP-1',
       password: 'admin123', // Contraseña real
     });
-    assert(r4.status === 423, 'Intento subsiguiente con contraseña correcta sigue bloqueado');
+    assert(r4.status === 423 && r4.body.bloqueado === true, 'Con la contraseña correcta informa que la cuenta está bloqueada (423)');
     assert(
       r4.body.message.includes('bloqueada'),
       'Mensaje claro de cuenta temporalmente bloqueada por seguridad'
@@ -117,16 +140,16 @@ const testServer = server.listen(0, async () => {
     // =========================================================================
     console.log('\n--- CASO 2: DESBLOQUEO ADMINISTRATIVO EN 1 CLIC ---');
 
-    // Iniciar sesión como Administrador (1001 / Admin123!)
+    // Iniciar sesión como Administrador (AD-1)
     const adminLogin = await request('/api/auth/login', 'POST', {
-      identifier: '1001',
+      identifier: 'AD-1',
       password: 'admin123',
     });
     assert(adminLogin.status === 200, 'Inicio de sesión de Administrador exitoso');
     const adminToken = adminLogin.body.token;
 
-    // Obtener id_persona del usuario 2001
-    const userRes = await db.query("SELECT id_persona FROM usuarios WHERE codigo_corporativo = '2001'");
+    // Obtener id_persona del usuario OP-1
+    const userRes = await db.query("SELECT id_persona FROM usuarios WHERE codigo_corporativo = 'OP-1'");
     const userPersonaId = userRes.rows[0].id_persona;
 
     // Ejecutar endpoint de desbloqueo
@@ -138,12 +161,12 @@ const testServer = server.listen(0, async () => {
     );
     assert(desbloqueoRes.status === 200, 'Admin desbloquea usuario con PATCH /:id/desbloquear');
 
-    // Intentar login con usuario 2001 tras desbloqueo -> Debe ser exitoso
+    // Intentar login con usuario OP-1 tras desbloqueo -> Debe ser exitoso
     const r5 = await request('/api/auth/login', 'POST', {
-      identifier: '2001',
+      identifier: 'OP-1',
       password: 'admin123',
     });
-    assert(r5.status === 200, 'Usuario 2001 inicia sesión exitosamente tras ser desbloqueado');
+    assert(r5.status === 200, 'Usuario OP-1 inicia sesión exitosamente tras ser desbloqueado');
     const userToken = r5.body.token;
 
     // =========================================================================
@@ -151,7 +174,7 @@ const testServer = server.listen(0, async () => {
     // =========================================================================
     console.log('\n--- CASO 3: SESIÓN ÚNICA CONCURRENTE Y ALERTA EN TIEMPO REAL ---');
 
-    // Simular que el navegador del Usuario 2001 se conecta por WebSocket
+    // Simular que el navegador del Usuario OP-1 se conecta por WebSocket
     const clientSocket = Client(`http://localhost:${testPort}`, {
       auth: { token: userToken },
       transports: ['websocket'],
@@ -170,13 +193,13 @@ const testServer = server.listen(0, async () => {
 
     // Intentar iniciar sesión desde otro navegador con las mismas credenciales
     const concurrentLogin = await request('/api/auth/login', 'POST', {
-      identifier: '2001',
+      identifier: 'OP-1',
       password: 'admin123',
     });
 
     assert(concurrentLogin.status === 409, 'Segundo navegador recibe status 409 (Conflicto)');
     assert(
-      concurrentLogin.body.message.includes('ya cuenta con una sesión activa'),
+      concurrentLogin.body.message.includes('Ya hay una sesión abierta'),
       'Mensaje de rechazo por sesión concurrente en otro dispositivo'
     );
 
@@ -201,7 +224,7 @@ const testServer = server.listen(0, async () => {
     clientSocket.disconnect();
 
     const dbSessionCheck = await db.query(
-      "SELECT sesion_activa_id, ultimo_ping FROM usuarios WHERE codigo_corporativo = '2001'"
+      "SELECT sesion_activa_id, ultimo_ping FROM usuarios WHERE codigo_corporativo = 'OP-1'"
     );
     assert(
       dbSessionCheck.rows[0].sesion_activa_id === null,
@@ -214,7 +237,7 @@ const testServer = server.listen(0, async () => {
 
     // Verificar inmediatamente que en GET /api/usuarios reporte en_linea = false sin esperar 2 minutos
     const usersListImmediate = await request('/api/usuarios', 'GET', null, adminToken);
-    const u2001LoggedOut = usersListImmediate.body.data.find((u) => u.codigo_corporativo === '2001');
+    const u2001LoggedOut = usersListImmediate.body.data.find((u) => u.codigo_corporativo === 'OP-1');
     assert(
       u2001LoggedOut.en_linea === false,
       'Usuario aparece en_linea: false inmediatamente tras logout (sin retraso de 2 minutos)'
@@ -222,7 +245,7 @@ const testServer = server.listen(0, async () => {
 
     // Ahora un nuevo navegador sí puede iniciar sesión
     const nuevoLogin = await request('/api/auth/login', 'POST', {
-      identifier: '2001',
+      identifier: 'OP-1',
       password: 'admin123',
     });
     assert(nuevoLogin.status === 200, 'Tras logout formal, el nuevo dispositivo puede ingresar');
@@ -235,8 +258,8 @@ const testServer = server.listen(0, async () => {
     const usersListRes = await request('/api/usuarios', 'GET', null, adminToken);
     assert(usersListRes.status === 200, 'GET /api/usuarios responde 200 OK');
 
-    const usuario2001 = usersListRes.body.data.find((u) => u.codigo_corporativo === '2001');
-    assert(usuario2001 !== undefined, 'Usuario 2001 se encuentra en el listado');
+    const usuario2001 = usersListRes.body.data.find((u) => u.codigo_corporativo === 'OP-1');
+    assert(usuario2001 !== undefined, 'Usuario OP-1 se encuentra en el listado');
     assert(typeof usuario2001.en_linea === 'boolean', 'Campo en_linea está presente y es booleano');
     assert(
       typeof usuario2001.bloqueado_por_intentos === 'boolean',

@@ -122,6 +122,24 @@ const server = app.listen(0, async () => {
     console.log(`✓ Colaborador del banco detectado con éxito (${empleadoAuthRes.body.persona.nombre_completo} - ${empleadoAuthRes.body.tipo_sujeto_descripcion}).`);
     console.log(`  - Cuentas de ahorro bancarias encontradas: ${empleadoAuthRes.body.cuentas_bancarias.length}`);
 
+    // 1.3.1 Los errores de la Banca en Línea no revelan qué dato está mal ni si el DPI tiene usuario
+    const credsFernando = { cui_dpi: '1000000000003', nombre_usuario: 'fernando.herrera', codigo: 'CLI-104', password: 'Banco123!' };
+    const intentosBanco = [
+      { ...credsFernando, nombre_usuario: 'otro.usuario' },
+      { ...credsFernando, codigo: 'CLI-999' },
+      { ...credsFernando, password: 'Incorrecta123!' },
+      { ...credsFernando, cui_dpi: '9999888877771' }, // DPI sin Banca en Línea
+    ];
+    const respuestasBanco = [];
+    for (const datos of intentosBanco) {
+      const r = await request('/api/afiliacion/validar-credenciales-banco', 'POST', datos);
+      respuestasBanco.push(JSON.stringify({ status: r.status, body: r.body }));
+    }
+    if (new Set(respuestasBanco).size !== 1 || !respuestasBanco[0].includes('no son correctos')) {
+      throw new Error('Los errores de la Banca en Línea deberían ser idénticos: ' + respuestasBanco.join(' | '));
+    }
+    console.log('✓ Usuario, código o contraseña incorrectos y DPI sin Banca en Línea responden igual.');
+
     // 1.4 DPI registrado: Cliente Externo de la Entidad Bancaria (4000000000001 - Marcos Castillo)
     const clienteDpiRes = await request('/api/afiliacion/validar-dpi', 'POST', {
       cui_dpi: '4000000000001',
