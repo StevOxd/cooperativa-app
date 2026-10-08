@@ -23,7 +23,11 @@ reportes/
 reports/
 .agent/reportes/
 .agent/skills/
-!.agent/subagents/
+!.agent/agents/
+!.agent/rules/
+
+# Claude Code: CLAUDE.md y .claude/agents/ se suben; la configuración local es personal
+.claude/settings.local.json
 
 # Almacenamiento persistente de archivos y PDFs de clientes (ARQ-01)
 backend/uploads/**

@@ -133,21 +133,23 @@ El sistema implementa una estricta jerarquia de cuatro roles independientes. Se 
 
 ## 6. Protocolos de Ciberseguridad Bancaria
 
-1. **Cero Exposicion de Contrasenas:** Las contrasenas temporales generadas criptograficamente nunca se muestran en pantalla ni se imprimen; se transmiten directamente al correo electronico registrado del usuario via Google Mail SMTP.
-2. **Cambio Forzoso en Primer Ingreso:** Las contrasenas temporales poseen el atributo `primer_ingreso = true`, obligando al usuario a establecer una nueva contrasena personal en su acceso inicial antes de poder navegar.
-3. **Autenticacion de Doble Factor (2FA TOTP RFC 6238):** Activacion voluntaria desde el panel de seguridad de usuario compatible con Google Authenticator y Microsoft Authenticator.
-4. **Proteccion Anti-Fuerza Bruta:** Contador maximo de 3 intentos fallidos consecutivos que activa un bloqueo temporal por 15 minutos (codigo HTTP 423 Locked). Permite reactivacion inmediata por el Administrador.
+1. **Cero Exposicion de Contrasenas:** Las contrasenas temporales generadas criptograficamente nunca se muestran en pantalla, no se imprimen ni viajan en las respuestas de la API; se transmiten directamente al correo electronico registrado del usuario via Google Mail SMTP. Si el correo no sale, el sistema lo avisa, y sin correo funcionando no se reinician contrasenas.
+2. **Cambio Forzoso en Primer Ingreso:** Las contrasenas temporales poseen el atributo `debe_cambiar_password = true`, obligando al usuario a establecer una nueva contrasena personal (minimo 8 caracteres, con letras, numeros y un simbolo) en su acceso inicial antes de poder navegar.
+3. **Autenticacion de Doble Factor (2FA TOTP RFC 6238):** Activacion voluntaria desde el panel de seguridad de usuario compatible con Google Authenticator y Microsoft Authenticator. El secreto solo se genera al activarlo.
+4. **Proteccion Anti-Fuerza Bruta:** Contador maximo de 3 intentos fallidos consecutivos que activa un bloqueo temporal por 15 minutos. Todos los fallos responden con el mismo mensaje, exista o no la cuenta; el aviso de cuenta bloqueada (HTTP 423 Locked) solo aparece con la contrasena correcta. Permite reactivacion inmediata por el Administrador.
 5. **Control de Sesion Unica Concurrente:** Bloqueo de sesiones simultaneas con advertencia en tiempo real en la sesion original mediante Socket.io.
 6. **Temporizador de Inactividad de 10 Minutos:** Desconexion automatica por inactividad fisica con cierre de sesion sincronizado en el navegador.
-7. **Arquitectura Zero-Trust Inter-Servicio:** Validacion obligatoria de cabecera secreta `x-banco-api-key` en todas las comunicaciones entre backend y Core Banking.
+7. **Arquitectura Zero-Trust Inter-Servicio:** Validacion obligatoria de cabecera secreta `x-banco-api-key` en todas las comunicaciones entre backend y Core Banking. La clave no tiene valor por defecto, y el Core Banking solo se publica en `127.0.0.1`. Las operaciones con el banco desde la ventanilla exigen sesion de operador.
 8. **Acceso RBAC a Documentos:** La descarga de comprobantes y contratos escaneados no se realiza por directorio estatico publico, sino a traves de la ruta protegida `/api/uploads/*` validando titularidad y roles autorizados.
+9. **Afiliacion en Linea Verificada:** Comprobante firmado de la Banca en Linea, debito solo desde una cuenta del propio titular y correo confirmado con un codigo de 6 digitos antes de debitar o crear el caso.
+10. **Respuestas que no Revelan Cuentas:** El inicio de sesion, la Banca en Linea y la consulta publica del DPI responden igual exista o no la cuenta y sin datos personales, con limites de intentos por conexion.
 
 ---
 
 ## 7. Estructura de Base de Datos y Modelo Relacional
 
 El motor PostgreSQL aloja de manera aislada dos bases de datos:
-- `cooperativa_db`: Esquema institucional de la cooperativa conformado por 14 tablas en Tercera Forma Normal (3FN), que incluyen `personas`, `usuarios`, `roles`, `asociados`, `tipos_cuenta`, `cuentas`, `beneficiarios`, `solicitudes_afiliacion_agencia`, `solicitudes_traslado_apertura`, `solicitudes_credito`, `transacciones` e `historial_estados_usuario`.
+- `cooperativa_db`: Esquema institucional de la cooperativa conformado por 15 tablas en Tercera Forma Normal (3FN), que incluyen `personas`, `usuarios`, `roles`, `asociados`, `tipos_cuenta`, `cuentas`, `beneficiarios`, `solicitudes_afiliacion_agencia`, `solicitudes_traslado_apertura`, `solicitudes_credito`, `transacciones`, `historial_estados_usuario` y `codigos_verificacion_correo`.
 - `banco_db`: Esquema del Core Banking corporativo con tablas para `clientes_banco`, `cuentas_bancarias`, `usuarios_banca_en_linea` y `movimientos_bancarios`.
 
 La base de datos cuenta con indices optimizados B-Tree sobre todas las llaves foraneas e indices parciales para consultas de alto rendimiento en bandejas de solicitudes pendientes.
