@@ -17,9 +17,11 @@ const MENSAJE_PERSONAL_NO_AFILIA_EN_LINEA =
 /**
  * 1. Valida el DPI del solicitante consultando al Core Banking API (banco-backend).
  * Identifica si es cliente/colaborador de la entidad bancaria o persona sin relación previa.
+ *
+ * Es pública: solo dice por cuál camino seguir. Los datos de la persona, si ya es asociada o si
+ * tiene cuentas activas se informan después de validar la Banca en Línea (validarCredencialesBanco).
  */
 const validarDpi = async (req, res) => {
-  const client = await pool.connect();
   try {
     const { cui_dpi } = req.body;
 
@@ -46,23 +48,6 @@ const validarDpi = async (req, res) => {
       });
     }
 
-    // Comprobar si ya es asociado activo de la cooperativa
-    const asocCheck = await client.query(
-      `SELECT a.id_asociado, a.estado_asociado
-       FROM asociados a
-       JOIN personas p ON a.id_persona = p.id_persona
-       WHERE p.cui_dpi = $1 AND a.estado_asociado = 'ACTIVO'`,
-      [cuiLimpio]
-    );
-
-    if (asocCheck.rows.length > 0) {
-      return res.status(400).json({
-        success: false,
-        ya_es_asociado: true,
-        message: 'Usted ya es asociado de la cooperativa. Inicie sesión en el portal.',
-      });
-    }
-
     // Consultar al Microservicio Core Banking (Banco API)
     const bancoRes = await bancoApiService.verificarDpi(cuiLimpio);
 
@@ -76,23 +61,12 @@ const validarDpi = async (req, res) => {
       });
     }
 
-    // Pertenece a la entidad bancaria: Verificar si tiene cuentas activas
-    if (!bancoRes.tiene_cuentas_activas) {
-      return res.status(400).json({
-        success: false,
-        pertenece_banco: true,
-        falta_requisitos: true,
-        message: 'Su DPI está registrado en el banco, pero no tiene una cuenta monetaria o de ahorro activa. Acérquese a una agencia del banco.',
-      });
-    }
-
     // ESCENARIO 1: Cliente bancario detectado -> Solicitar autenticación con credenciales de la Banca en Línea
     return res.status(200).json({
       success: true,
       pertenece_banco: true,
       requiere_autenticacion_banco: true,
       cui_dpi: cuiLimpio,
-      cliente: bancoRes.cliente,
       message: 'Es cliente del banco. Para continuar, confirme sus datos de la Banca en Línea.',
     });
   } catch (error) {
@@ -102,8 +76,6 @@ const validarDpi = async (req, res) => {
       message: 'No pudimos consultar su DPI. Intente de nuevo en unos minutos.',
       error: process.env.NODE_ENV === 'development' ? error.message : undefined,
     });
-  } finally {
-    client.release();
   }
 };
 
@@ -123,19 +95,6 @@ const validarCredencialesBanco = async (req, res) => {
     }
 
     const cuiLimpio = cui_dpi.trim().replace(/\s+/g, '');
-
-    // Comprobar si ya es asociado activo de la cooperativa
-    const asocCheck = await client.query(
-      `SELECT a.id_asociado FROM asociados a JOIN personas p ON a.id_persona = p.id_persona WHERE p.cui_dpi = $1 AND a.estado_asociado = 'ACTIVO'`,
-      [cuiLimpio]
-    );
-    if (asocCheck.rows.length > 0) {
-      return res.status(400).json({
-        success: false,
-        ya_es_asociado: true,
-        message: 'Usted ya es asociado de la cooperativa. Inicie sesión en el portal.',
-      });
-    }
 
     // Consultar al microservicio Core Banking
     const bancoAuthRes = await bancoApiService.validarCredenciales({
@@ -157,6 +116,27 @@ const validarCredencialesBanco = async (req, res) => {
 
     const cliente = bancoAuthRes.cliente;
     const cuentas = bancoAuthRes.cuentas || [];
+
+    // Ya demostró ser el titular: ahora sí se le dice si ya es asociado o si le faltan cuentas activas.
+    const asocCheck = await client.query(
+      `SELECT a.id_asociado FROM asociados a JOIN personas p ON a.id_persona = p.id_persona WHERE p.cui_dpi = $1 AND a.estado_asociado = 'ACTIVO'`,
+      [cuiLimpio]
+    );
+    if (asocCheck.rows.length > 0) {
+      return res.status(400).json({
+        success: false,
+        ya_es_asociado: true,
+        message: 'Usted ya es asociado de la cooperativa. Inicie sesión en el portal.',
+      });
+    }
+
+    if (cuentas.length === 0) {
+      return res.status(400).json({
+        success: false,
+        falta_requisitos: true,
+        message: 'Su DPI está registrado en el banco, pero no tiene una cuenta monetaria o de ahorro activa. Acérquese a una agencia del banco.',
+      });
+    }
 
     // Si ya tiene usuario en el portal, conserva su acceso actual; si es personal, no se afilia en línea.
     const usuarioRes = await client.query(
