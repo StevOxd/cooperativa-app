@@ -10,6 +10,10 @@ const { pool } = require('../config/db');
  * credenciales en las variables de entorno o en `configuracion_sistema`. Pensado para
  * pruebas automáticas y entornos donde no debe salir correo real.
  */
+// Tiempos máximos del servidor de correo: algunos envíos ocurren dentro de una transacción
+// (activar el acceso al portal, issue #27) y no deben retenerla indefinidamente.
+const TIEMPOS_SMTP = { connectionTimeout: 10000, greetingTimeout: 10000, socketTimeout: 15000 };
+
 const isMailDisabled = () => String(process.env.MAIL_ENABLED || '').trim().toLowerCase() === 'false';
 
 class MailerService {
@@ -86,6 +90,7 @@ class MailerService {
       if (isGoogleActive) {
         const cleanPass = gmailPass.replace(/\s+/g, '');
         const transport = nodemailer.createTransport({
+          ...TIEMPOS_SMTP,
           service: 'gmail',
           auth: {
             user: gmailUser,
@@ -119,6 +124,7 @@ class MailerService {
       // 2. Servidor SMTP genérico
       if (smtpHost && smtpUser && smtpPass) {
         const transport = nodemailer.createTransport({
+          ...TIEMPOS_SMTP,
           host: smtpHost,
           port: parseInt(smtpPort, 10),
           secure: smtpSecure || parseInt(smtpPort, 10) === 465,
@@ -415,6 +421,27 @@ class MailerService {
     }
     console.log(`[MAILER DEMO] Correo de ${etiqueta} NO enviado (modo demostrativo) para ${to}.`);
     return { success: true, simulado: true, provider: 'demo' };
+  }
+
+  /**
+   * Aviso al correo anterior cuando el operador cambia el correo de acceso al portal (issue #27).
+   */
+  async sendAccessEmailChangedNotice({ to, nombre, codigoCorporativo, correoNuevo }) {
+    const oculto = String(correoNuevo).replace(/^(.{2}).*(@.*)$/, '$1***$2');
+    const html = `
+      <!DOCTYPE html>
+      <html>
+      <head><meta charset="utf-8"></head>
+      <body style="font-family: 'Segoe UI', Helvetica, Arial, sans-serif; background-color: #f1f5f9; margin: 0; padding: 20px; color: #1e293b;">
+        <div style="max-width: 520px; margin: 0 auto; background: #ffffff; border-radius: 12px; padding: 28px;">
+          <h1 style="margin: 0 0 12px 0; font-size: 18px;">Cambió el correo de su acceso al portal</h1>
+          <p style="font-size: 14px;">Estimado(a) <strong>${nombre || 'asociado'}</strong>, en la cooperativa se cambió el correo de su usuario <strong>${codigoCorporativo}</strong> a <strong>${oculto}</strong> y se envió allí un acceso nuevo.</p>
+          <p style="font-size: 14px;">Si usted no lo pidió, comuníquese con la cooperativa de inmediato.</p>
+        </div>
+      </body>
+      </html>
+    `;
+    return this.enviarCorreo({ to, subject: 'Cambió el correo de su acceso al portal', html, etiqueta: 'aviso de cambio de correo' });
   }
 
   /**

@@ -12,7 +12,6 @@ const FORM_ID = 'apertura-cuenta';
 /** Cómo se muestra el origen de los fondos en el resumen. */
 const ORIGENES = {
   EFECTIVO_VENTANILLA: 'Efectivo en ventanilla',
-  CUENTA_INTERNA: 'Otra cuenta del asociado',
   BANCO_EXTERNO: 'Cuenta del asociado en el banco',
 };
 
@@ -72,11 +71,9 @@ export const OpenAccountModal = ({ isOpen, onClose, asociado, onSuccess, valores
     id_tipo_cuenta: 2,
     monto_apertura: '100.00',
     origen_fondos: 'EFECTIVO_VENTANILLA',
-    id_cuenta_origen: '',
     numero_cuenta_bancaria: '',
   });
 
-  const [cuentasAsociado, setCuentasAsociado] = useState([]);
   const [cuentasBanco, setCuentasBanco] = useState([]);
   const [cargandoBanco, setCargandoBanco] = useState(false);
   const [errorBanco, setErrorBanco] = useState(false);
@@ -111,7 +108,6 @@ export const OpenAccountModal = ({ isOpen, onClose, asociado, onSuccess, valores
       setEmailSent(false);
       setEmailNotice('');
       setCuentasBanco([]);
-      setCuentasAsociado([]);
       setDatosTitular(null);
       setErrorBanco(false);
       setCargandoBanco(true);
@@ -119,7 +115,6 @@ export const OpenAccountModal = ({ isOpen, onClose, asociado, onSuccess, valores
         id_tipo_cuenta: 2,
         monto_apertura: valoresIniciales?.monto_apertura ? Number(valoresIniciales.monto_apertura).toFixed(2) : '100.00',
         origen_fondos: valoresIniciales?.origen_fondos || 'EFECTIVO_VENTANILLA',
-        id_cuenta_origen: '',
         numero_cuenta_bancaria: valoresIniciales?.numero_cuenta_bancaria || '',
       });
 
@@ -128,12 +123,7 @@ export const OpenAccountModal = ({ isOpen, onClose, asociado, onSuccess, valores
         .then((res) => {
           if (!vigente) return;
           if (!res.data?.success) throw new Error('No se pudo cargar el expediente.');
-          const ctas = res.data.data.cuentas || [];
-          setCuentasAsociado(ctas);
           setDatosTitular(res.data.data.asociado || null);
-          if (ctas.length > 0) {
-            setFormData((prev) => ({ ...prev, id_cuenta_origen: ctas[0].id_cuenta }));
-          }
           const cui = res.data.data.asociado?.cui_dpi || asociado.cui_dpi;
           if (!cui) return;
           return api.get(`/banco-externo/cuentas-cliente/${cui}`).then((bancoRes) => {
@@ -194,11 +184,6 @@ export const OpenAccountModal = ({ isOpen, onClose, asociado, onSuccess, valores
       return;
     }
 
-    if (formData.origen_fondos === 'CUENTA_INTERNA' && !formData.id_cuenta_origen) {
-      setErrorMsg('Elija la cuenta del asociado de la que saldrá el dinero.');
-      return;
-    }
-
     if (formData.origen_fondos === 'BANCO_EXTERNO') {
       const cuentaBanco = cuentasBanco.find((c) => c.numero_cuenta_bancaria === formData.numero_cuenta_bancaria);
       if (!cuentaBanco) {
@@ -218,8 +203,6 @@ export const OpenAccountModal = ({ isOpen, onClose, asociado, onSuccess, valores
         id_tipo_cuenta: parseInt(formData.id_tipo_cuenta, 10),
         monto_apertura: monto,
         origen_fondos: formData.origen_fondos,
-        id_cuenta_origen:
-          formData.origen_fondos === 'CUENTA_INTERNA' ? parseInt(formData.id_cuenta_origen, 10) : undefined,
         numero_cuenta_bancaria:
           formData.origen_fondos === 'BANCO_EXTERNO' ? formData.numero_cuenta_bancaria : undefined,
       };
@@ -304,11 +287,9 @@ export const OpenAccountModal = ({ isOpen, onClose, asociado, onSuccess, valores
     setEmailSent(false);
 
     try {
+      // El servidor arma el comprobante con los datos de la cuenta guardada
       const res = await api.post(`/admin/asociados/${asociado.id_asociado}/enviar-boleta-apertura`, {
         numero_cuenta: successData.numero_cuenta,
-        tipo_cuenta: successData.tipo_cuenta,
-        saldo_disponible: successData.saldo_disponible,
-        fecha_apertura: successData.fecha_apertura,
         origen_fondos: formData.origen_fondos,
       });
 
@@ -326,6 +307,9 @@ export const OpenAccountModal = ({ isOpen, onClose, asociado, onSuccess, valores
     }
   };
 
+
+  // Correo al que se enviaría el comprobante (el de su usuario o el de su solicitud en agencia)
+  const correoComprobante = datosTitular?.correo_sugerido || datosTitular?.email || null;
 
   if (successData) {
     return (
@@ -345,8 +329,8 @@ export const OpenAccountModal = ({ isOpen, onClose, asociado, onSuccess, valores
                 onClick={handleSendEmail}
                 loading={sendingEmail}
                 loadingText="Enviando…"
-                disabled={emailSent}
-                title="Enviar el comprobante al correo del asociado"
+                disabled={emailSent || !correoComprobante}
+                title={correoComprobante ? `Enviar el comprobante a ${correoComprobante}` : 'El asociado no tiene correo registrado'}
               >
                 {emailSent ? 'Comprobante enviado' : 'Enviar por correo'}
               </Button>
@@ -388,6 +372,11 @@ export const OpenAccountModal = ({ isOpen, onClose, asociado, onSuccess, valores
               </div>
             ))}
           </dl>
+          {!correoComprobante && datosTitular && (
+            <p className="text-sm text-ink-muted">
+              El asociado no tiene correo registrado: entréguele el comprobante impreso.
+            </p>
+          )}
           {emailNotice && <Alert tone={emailSent ? 'success' : 'danger'}>{emailNotice}</Alert>}
         </div>
       </Modal>
@@ -462,7 +451,7 @@ export const OpenAccountModal = ({ isOpen, onClose, asociado, onSuccess, valores
 
         <fieldset className="space-y-3 border-t border-line pt-5">
           <legend className="mb-2 text-sm font-medium text-ink-soft">Origen de los fondos</legend>
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
             <OptionCard
               name="origen"
               checked={formData.origen_fondos === 'EFECTIVO_VENTANILLA'}
@@ -470,14 +459,6 @@ export const OpenAccountModal = ({ isOpen, onClose, asociado, onSuccess, valores
             >
               <span className="block font-medium text-ink">Efectivo en ventanilla</span>
               <span className="block text-xs text-ink-muted">El asociado deposita en la agencia.</span>
-            </OptionCard>
-            <OptionCard
-              name="origen"
-              checked={formData.origen_fondos === 'CUENTA_INTERNA'}
-              onSelect={() => handleChange({ target: { name: 'origen_fondos', value: 'CUENTA_INTERNA' } })}
-            >
-              <span className="block font-medium text-ink">Otra cuenta del asociado</span>
-              <span className="block text-xs text-ink-muted">Se debita de una de sus cuentas en la cooperativa.</span>
             </OptionCard>
             <OptionCard
               name="origen"
@@ -508,20 +489,6 @@ export const OpenAccountModal = ({ isOpen, onClose, asociado, onSuccess, valores
               <Alert tone="warning">El asociado no tiene cuentas activas en el banco.</Alert>
             ))}
 
-          {formData.origen_fondos === 'CUENTA_INTERNA' &&
-            (cuentasAsociado.length > 0 ? (
-              <Field label="Cuenta de la que se debita" required>
-                <Select name="id_cuenta_origen" value={formData.id_cuenta_origen} onChange={handleChange} required>
-                  {cuentasAsociado.map((c) => (
-                    <option key={c.id_cuenta} value={c.id_cuenta}>
-                      {c.tipo_cuenta} · {c.numero_cuenta} (saldo {formatQ(c.saldo_disponible)})
-                    </option>
-                  ))}
-                </Select>
-              </Field>
-            ) : (
-              <Alert tone="warning">El asociado no tiene cuentas en la cooperativa con saldo.</Alert>
-            ))}
         </fieldset>
       </form>
     </Modal>

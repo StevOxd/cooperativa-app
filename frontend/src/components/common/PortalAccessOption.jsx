@@ -47,7 +47,7 @@ export const PortalAccessOption = ({ correoDisponible, checked, onChange, disabl
               ? 'No disponible: sin correo, el asociado no recibiría su contraseña temporal.'
               : checked
                 ? 'Le enviaremos al correo su código de usuario y una contraseña temporal.'
-                : 'Queda afiliado sin usuario del portal. El correo es opcional; el acceso se activa después desde su expediente.'}
+                : 'Queda afiliado sin usuario del portal (por ejemplo, si no lo quiere por ahora). El correo es opcional; el acceso se activa después desde su expediente.'}
           </span>
         </span>
       </label>

@@ -1,9 +1,20 @@
 import React, { useState, useEffect } from 'react';
-import { PlusCircle, Printer, Users } from 'lucide-react';
+import { KeyRound, PlusCircle, Printer, Users } from 'lucide-react';
 import api from '../../services/api';
 import { Alert, Badge, Button, LoadingState, Modal, StatCard, StatGroup, cn } from '../ui';
 import { formatDate, formatQ, humanize } from '../../utils/format';
 import { parentescoLabel } from '../../utils/parentesco';
+import { toast } from '../../context/ToastContext';
+import { PortalAccessDialog } from './PortalAccessDialog';
+
+/** Cómo se muestra el acceso al portal en el expediente (issue #27). */
+const ACCESO_PORTAL = {
+  SIN_ACCESO: { tone: 'neutral', etiqueta: 'Sin acceso', texto: 'No tiene usuario del portal.', accion: 'Activar acceso al portal' },
+  PENDIENTE: { tone: 'warning', etiqueta: 'Pendiente', texto: 'Tiene usuario, pero nunca entró al portal.', accion: 'Reenviar acceso' },
+  ACTIVO: { tone: 'success', etiqueta: 'Activo', texto: 'Ya usa el portal. Si olvidó su contraseña, la reinicia el administrador.' },
+  INACTIVO: { tone: 'danger', etiqueta: 'Desactivado', texto: 'Su usuario está desactivado. Lo reactiva el administrador.' },
+  PERSONAL: { tone: 'neutral', etiqueta: 'Personal', texto: 'Su usuario es del personal de la cooperativa.' },
+};
 
 /**
  * Expediente del asociado: datos generales, posición consolidada, cuentas y
@@ -19,6 +30,8 @@ export const AssociateExpedienteModal = ({
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [expediente, setExpediente] = useState(null);
+  const [dialogoAcceso, setDialogoAcceso] = useState(false);
+  const [recargar, setRecargar] = useState(0);
 
   useEffect(() => {
     if (isOpen) {
@@ -48,7 +61,7 @@ export const AssociateExpedienteModal = ({
         })
         .finally(() => setLoading(false));
     }
-  }, [isOpen, idAsociado]);
+  }, [isOpen, idAsociado, recargar]);
 
   if (!isOpen) return null;
 
@@ -119,6 +132,26 @@ export const AssociateExpedienteModal = ({
               </div>
             </dl>
           </section>
+
+          {a.acceso_portal && ACCESO_PORTAL[a.acceso_portal] && (
+            <section
+              aria-labelledby="exp-acceso"
+              className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-line px-4 py-3"
+            >
+              <div>
+                <h3 id="exp-acceso" className="flex items-center gap-2 text-sm font-semibold text-ink">
+                  Acceso al portal
+                  <Badge tone={ACCESO_PORTAL[a.acceso_portal].tone}>{ACCESO_PORTAL[a.acceso_portal].etiqueta}</Badge>
+                </h3>
+                <p className="mt-0.5 text-sm text-ink-muted">{ACCESO_PORTAL[a.acceso_portal].texto}</p>
+              </div>
+              {ACCESO_PORTAL[a.acceso_portal].accion && a.estado_asociado === 'ACTIVO' && (
+                <Button size="sm" icon={KeyRound} onClick={() => setDialogoAcceso(true)} className="print:hidden">
+                  {ACCESO_PORTAL[a.acceso_portal].accion}
+                </Button>
+              )}
+            </section>
+          )}
 
           <StatGroup columns={3}>
             <StatCard label="Saldo total disponible" value={formatQ(expediente.metricas.saldo_total_disponible)} />
@@ -196,6 +229,17 @@ export const AssociateExpedienteModal = ({
           </footer>
         </div>
       ) : null}
+      <PortalAccessDialog
+        isOpen={dialogoAcceso}
+        asociado={a}
+        onClose={() => setDialogoAcceso(false)}
+        onCambioDeEstado={() => setRecargar((n) => n + 1)}
+        onSuccess={(mensaje) => {
+          setDialogoAcceso(false);
+          toast.success(mensaje);
+          setRecargar((n) => n + 1);
+        }}
+      />
     </Modal>
   );
 };

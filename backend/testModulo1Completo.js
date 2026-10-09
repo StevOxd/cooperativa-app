@@ -9,6 +9,7 @@ const { app } = require('./src/server');
 const { pool } = require('./src/config/db');
 const bancoApiService = require('./src/services/bancoApiService');
 const { firmarAfiliacionToken } = require('./src/utils/afiliacionToken');
+const mailerService = require('./src/services/mailerService');
 
 const server = app.listen(0, async () => {
   const testPort = server.address().port;
@@ -80,6 +81,16 @@ const server = app.listen(0, async () => {
       await pool.query("DELETE FROM transacciones WHERE id_cuenta IN (SELECT id_cuenta FROM cuentas WHERE id_asociado IN (SELECT id_asociado FROM asociados WHERE id_persona = $1))", [idOp2]);
       await pool.query("DELETE FROM cuentas WHERE id_asociado IN (SELECT id_asociado FROM asociados WHERE id_persona = $1)", [idOp2]);
       await pool.query("DELETE FROM asociados WHERE id_persona = $1", [idOp2]);
+    }
+
+    // Limpiar la afiliación de prueba de Valeria Méndez (EB, 1000000000004, sección 4.1.1)
+    const pValeria = await pool.query("SELECT id_persona FROM personas WHERE cui_dpi = '1000000000004'");
+    if (pValeria.rows.length > 0) {
+      const idValeria = pValeria.rows[0].id_persona;
+      await pool.query("DELETE FROM transacciones WHERE id_cuenta IN (SELECT id_cuenta FROM cuentas WHERE id_asociado IN (SELECT id_asociado FROM asociados WHERE id_persona = $1))", [idValeria]);
+      await pool.query("DELETE FROM cuentas WHERE id_asociado IN (SELECT id_asociado FROM asociados WHERE id_persona = $1)", [idValeria]);
+      await pool.query("DELETE FROM asociados WHERE id_persona = $1", [idValeria]);
+      await pool.query("DELETE FROM personas WHERE id_persona = $1 AND NOT EXISTS (SELECT 1 FROM usuarios WHERE id_persona = $1)", [idValeria]);
     }
 
     // Limpiar solicitudes de agencia de prueba con el DPI de Marcos (caso de suplantación, sección 4.3)
@@ -589,6 +600,46 @@ const server = app.listen(0, async () => {
     }
     console.log('✓ Afiliación en ventanilla sin acceso al portal: cuentas abiertas y sin usuario.');
 
+    // 4.1.0 Externo (EX): el efectivo va a su cuenta nueva del banco; no se abre cuenta en la cooperativa
+    const cuentasCoopPresencial = await pool.query('SELECT 1 FROM cuentas WHERE id_asociado = $1', [socioPresencial.id_asociado]);
+    const cuentaBancoPresencial = socioPresencial.cuenta_bancaria_creada
+      ? await bancoApiService.consultarCuenta(socioPresencial.cuenta_bancaria_creada)
+      : null;
+    if (cuentasCoopPresencial.rows.length !== 0 || !cuentaBancoPresencial?.success
+      || Number(cuentaBancoPresencial.data.saldo_disponible) !== 500) {
+      throw new Error('El depósito de un externo debería quedar en su cuenta nueva del banco, sin cuenta en la cooperativa: ' + JSON.stringify(presencialRes.body));
+    }
+    console.log('✓ Externo en ventanilla: el depósito queda en su cuenta nueva del banco, sin cuenta en la cooperativa.');
+
+    // 4.1.1 Empleado del banco (EB): el aporte se debita de una de sus cuentas a una cuenta de la cooperativa
+    const datosValeria = {
+      cui_dpi: '1000000000004',
+      primer_nombre: 'Valeria',
+      primer_apellido: 'Méndez',
+      fecha_nacimiento: '1992-04-18',
+      telefono: '55110004',
+      monto_aportacion: 150.00,
+      crear_acceso_portal: false,
+    };
+    const ebCuentaAjena = await request('/api/admin/asociados/presencial', 'POST', {
+      ...datosValeria, numero_cuenta_bancaria: 'CTA-BCO-AHORRO-4002', // cuenta de Sofía
+    }, operatorToken);
+    const saldoValeriaAntes = await bancoApiService.consultarCuenta('CTA-BCO-MONET-1004');
+    const ebRes = await request('/api/admin/asociados/presencial', 'POST', {
+      ...datosValeria, numero_cuenta_bancaria: 'CTA-BCO-MONET-1004',
+    }, operatorToken);
+    const saldoValeriaDespues = await bancoApiService.consultarCuenta('CTA-BCO-MONET-1004');
+    const cuentaCoopValeria = await pool.query(
+      'SELECT saldo_disponible FROM cuentas WHERE id_asociado = $1', [ebRes.body.data?.id_asociado]
+    );
+    if (ebCuentaAjena.status !== 403
+      || ebRes.status !== 201 || ebRes.body.data.tipo_asociado !== 'EB' || ebRes.body.data.cuenta_bancaria_creada
+      || saldoValeriaAntes.data.saldo_disponible - saldoValeriaDespues.data.saldo_disponible !== 150
+      || cuentaCoopValeria.rows.length !== 1 || Number(cuentaCoopValeria.rows[0].saldo_disponible) !== 150) {
+      throw new Error('Un empleado del banco debería afiliarse debitando su propia cuenta hacia la cooperativa: ' + JSON.stringify(ebRes.body));
+    }
+    console.log('✓ Empleado del banco en ventanilla: el aporte se debita de su cuenta (no de una ajena) a una cuenta de la cooperativa.');
+
     // 4.2 Sin correo, el administrador no puede reiniciar la contraseña: la actual no cambia
     const hashQuery = 'SELECT password_hash FROM usuarios WHERE codigo_corporativo = $1';
     const usuarioMarcos = dataAfiliado.usuario.codigo_corporativo;
@@ -626,6 +677,94 @@ const server = app.listen(0, async () => {
     }
     console.log('✓ Una solicitud con el DPI de un asociado existente no se formaliza y su acceso no cambia.');
 
+    // 4.4 Activar el acceso al portal desde el expediente (issue #27)
+    const accesoDe = async (idAsociado) =>
+      (await request(`/api/admin/asociados/${idAsociado}/expediente`, 'GET', null, operatorToken)).body.data.asociado.acceso_portal;
+    const activarAcceso = (idAsociado, email) =>
+      request(`/api/admin/asociados/${idAsociado}/acceso-portal`, 'POST', { email }, operatorToken);
+    const usuarioDePresencial = () => pool.query(
+      'SELECT u.codigo_corporativo, u.email, u.debe_cambiar_password FROM usuarios u JOIN personas p USING (id_persona) WHERE p.cui_dpi = $1',
+      [dpiPresencial]
+    );
+    const idPresencial = socioPresencial.id_asociado;
+    const correoAcceso = `acceso.portal.${Date.now()}@gmail.com`;
+
+    if (await accesoDe(idPresencial) !== 'SIN_ACCESO') throw new Error('El asociado sin usuario debería figurar SIN_ACCESO en el expediente.');
+
+    // Sin correo (MAIL_ENABLED=false) no se activa nada
+    const sinCorreoActivar = await activarAcceso(idPresencial, correoAcceso);
+    if (sinCorreoActivar.status !== 409 || sinCorreoActivar.body.error !== 'CORREO_NO_DISPONIBLE' || (await usuarioDePresencial()).rows.length) {
+      throw new Error('Sin correo, activar el acceso debería rechazarse sin crear usuario: ' + JSON.stringify(sinCorreoActivar.body));
+    }
+
+    // Se simula el correo: disponible, pero el envío falla -> se deshace todo
+    const mailerOriginal = {
+      isAvailable: mailerService.isAvailable,
+      sendAccountCredentialsEmail: mailerService.sendAccountCredentialsEmail,
+      sendAccessEmailChangedNotice: mailerService.sendAccessEmailChangedNotice,
+    };
+    const avisosCorreoAnterior = [];
+    mailerService.sendAccessEmailChangedNotice = async ({ to }) => {
+      avisosCorreoAnterior.push(to);
+      return { success: true, simulado: false };
+    };
+    let correosEnviados = 0;
+    let envioFalla = true;
+    mailerService.isAvailable = () => true;
+    mailerService.sendAccountCredentialsEmail = async () => {
+      if (envioFalla) return { success: true, simulado: true, error: 'SMTP caído (simulado)' };
+      correosEnviados += 1;
+      return { success: true, simulado: false, messageId: 'simulado' };
+    };
+    try {
+      const envioFallido = await activarAcceso(idPresencial, correoAcceso);
+      if (envioFallido.status !== 502 || envioFallido.body.error !== 'CORREO_NO_ENVIADO' || (await usuarioDePresencial()).rows.length) {
+        throw new Error('Si el correo no sale, el acceso no debería activarse: ' + JSON.stringify(envioFallido.body));
+      }
+
+      // El envío sale: se crea el usuario con contraseña temporal y queda auditado
+      envioFalla = false;
+      const activado = await activarAcceso(idPresencial, correoAcceso);
+      const usuarioActivado = (await usuarioDePresencial()).rows[0];
+      const idOperador = (await pool.query("SELECT id_persona FROM usuarios WHERE codigo_corporativo = 'OP-1'")).rows[0].id_persona;
+      const auditoria = await pool.query(
+        `SELECT h.motivo, h.id_modificado_por FROM historial_estados_usuario h
+         JOIN personas p ON p.id_persona = h.id_usuario_modificado
+         WHERE p.cui_dpi = $1 ORDER BY h.id_historial_estado`,
+        [dpiPresencial]
+      );
+      if (activado.status !== 200 || activado.body.data.accion !== 'ACTIVADO' || !usuarioActivado || usuarioActivado.email !== correoAcceso
+        || !usuarioActivado.debe_cambiar_password || correosEnviados !== 1 || JSON.stringify(activado.body).includes('password')
+        || auditoria.rows.length !== 1 || auditoria.rows[0].id_modificado_por !== idOperador || !auditoria.rows[0].motivo.includes('activado')) {
+        throw new Error('La activación debería crear el usuario, enviar el correo y quedar auditada: ' + JSON.stringify(activado.body));
+      }
+      if (await accesoDe(idPresencial) !== 'PENDIENTE') throw new Error('Tras activar, el expediente debería indicar PENDIENTE.');
+
+      // Nunca entró: se reenvía con el correo corregido
+      const correoCorregido = `acceso.corregido.${Date.now()}@gmail.com`;
+      const reenviado = await activarAcceso(idPresencial, correoCorregido);
+      const auditoriaReenvio = await pool.query(
+        `SELECT h.motivo FROM historial_estados_usuario h JOIN personas p ON p.id_persona = h.id_usuario_modificado
+         WHERE p.cui_dpi = $1 ORDER BY h.id_historial_estado DESC LIMIT 1`,
+        [dpiPresencial]
+      );
+      if (reenviado.status !== 200 || reenviado.body.data.accion !== 'REENVIADO'
+        || (await usuarioDePresencial()).rows[0].email !== correoCorregido || correosEnviados !== 2
+        || !auditoriaReenvio.rows[0].motivo.includes(`correo anterior: ${correoAcceso}`)
+        || avisosCorreoAnterior.length !== 1 || avisosCorreoAnterior[0] !== correoAcceso) {
+        throw new Error('El reenvío debería actualizar el correo, auditar el anterior y avisarle: ' + JSON.stringify(reenviado.body));
+      }
+
+      // Quien ya entró al portal (Marcos) no se reactiva desde el expediente
+      const yaActivo = await activarAcceso(dataAfiliado.asociado.id_asociado, correoCorregido);
+      if (await accesoDe(dataAfiliado.asociado.id_asociado) !== 'ACTIVO' || yaActivo.status !== 409 || yaActivo.body.error !== 'ACCESO_YA_ACTIVO') {
+        throw new Error('Un asociado que ya entró no debería poder reactivarse: ' + JSON.stringify(yaActivo.body));
+      }
+    } finally {
+      Object.assign(mailerService, mailerOriginal);
+    }
+    console.log('✓ Acceso al portal desde el expediente: sin correo o si el envío falla no se activa; se activa, se audita y, al reenviar con otro correo, se registra y se avisa al anterior.');
+
     // 5. FORMULARIO 2: Apertura de Cuentas Financieras
     console.log('\n--- 5. Formulario 2: Apertura de Cuenta Adicional ---');
     // Validar monto inferior al mínimo de cuenta de ahorro (ej. cuenta de ahorro id_tipo_cuenta = 2, min Q100)
@@ -639,6 +778,18 @@ const server = app.listen(0, async () => {
       throw new Error('Debería haber rechazado por monto inferior al mínimo: ' + JSON.stringify(badApertura.body));
     }
     console.log('✓ Validación correcta de monto mínimo de apertura rechazada según política.');
+
+    // 5.0.0 No se traslada dinero entre cuentas de la cooperativa para abrir otra
+    const aperturaInterna = await request('/api/admin/asociados/aperturar-cuenta', 'POST', {
+      id_asociado: socioPresencial.id_asociado,
+      id_tipo_cuenta: 2,
+      monto_apertura: 100.00,
+      origen_fondos: 'CUENTA_INTERNA',
+    }, operatorToken);
+    if (aperturaInterna.status !== 400) {
+      throw new Error('La apertura desde otra cuenta de la cooperativa debería rechazarse: ' + JSON.stringify(aperturaInterna.body));
+    }
+    console.log('✓ La apertura de cuentas solo acepta efectivo o la cuenta del asociado en el banco.');
 
     // 5.0 Las operaciones con el banco desde la ventanilla requieren sesión de operador
     const bancoSinSesion = await request('/api/banco-externo/cuentas-cliente/4000000000002');
@@ -676,6 +827,21 @@ const server = app.listen(0, async () => {
       throw new Error('La apertura con fondos de su propia cuenta debería debitar Q100: ' + JSON.stringify(aperturaPropia.body));
     }
     console.log('✓ La apertura con fondos del banco solo acepta cuentas del asociado y debita el monto.');
+
+    // 5.0.2 Enviar el comprobante de apertura por correo
+    const boleta = (idAsociado, numeroCuenta) => request(`/api/admin/asociados/${idAsociado}/enviar-boleta-apertura`, 'POST', {
+      numero_cuenta: numeroCuenta, origen_fondos: 'BANCO_EXTERNO',
+    }, operatorToken);
+    const boletaSinCorreo = await boleta(ebRes.body.data.id_asociado, ebRes.body.data.cuenta_ahorro); // Valeria, sin usuario
+    const boletaCuentaAjena = await boleta(dataAfiliado.asociado.id_asociado, ebRes.body.data.cuenta_ahorro); // cuenta de Valeria
+    const boletaSinEnvio = await boleta(dataAfiliado.asociado.id_asociado, aperturaPropia.body.data.numero_cuenta); // MAIL_ENABLED=false
+    const sinDetalleInterno = [boletaSinCorreo, boletaCuentaAjena, boletaSinEnvio].every((r) => !/column|relation|syntax/i.test(r.body.message));
+    if (boletaSinCorreo.status !== 409 || boletaSinCorreo.body.error !== 'SIN_CORREO'
+      || boletaCuentaAjena.status !== 404 || boletaSinEnvio.status !== 502 || !sinDetalleInterno) {
+      throw new Error('El envío del comprobante debería distinguir sin correo, cuenta ajena y correo no enviado: '
+        + JSON.stringify([boletaSinCorreo.body, boletaCuentaAjena.body, boletaSinEnvio.body]));
+    }
+    console.log('✓ Comprobante por correo: avisa si no hay correo o no salió, y solo de cuentas del asociado.');
 
     // Apertura válida de cuenta de ahorro corriente (tipo 2)
     const buenaApertura = await request('/api/admin/asociados/aperturar-cuenta', 'POST', {

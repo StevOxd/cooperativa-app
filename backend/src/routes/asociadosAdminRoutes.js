@@ -20,6 +20,12 @@ router.get('/', asociadosAdminController.listarAsociados);
 router.get('/:id/expediente', asociadosAdminController.getExpedienteAsociado);
 
 /**
+ * @route   POST /api/admin/asociados/:id/acceso-portal
+ * @desc    Activar el acceso al portal (o reenviarlo si nunca entró) desde el expediente (issue #27)
+ */
+router.post('/:id/acceso-portal', asociadosAdminController.activarAccesoPortalAsociado);
+
+/**
  * @route   POST /api/admin/asociados/presencial
  * @desc    Formulario 1: Registro presencial de afiliación en ventanilla (Exclusivo OPERADOR)
  */
