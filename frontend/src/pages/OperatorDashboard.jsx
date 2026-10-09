@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import OperatorCreditEvaluationModal from '../components/operator/modals/OperatorCreditEvaluationModal';
 import OperatorAffiliationModal from '../components/operator/modals/OperatorAffiliationModal';
+import { useCorreoDisponible } from '../hooks/useCorreoDisponible';
 import OperatorAffiliationSuccessModal from '../components/operator/modals/OperatorAffiliationSuccessModal';
 import OperatorTrasladoModal from '../components/operator/modals/OperatorTrasladoModal';
 import { generateAccountOpeningReceiptPdf } from '../utils/accountOpeningReceiptPdf';
@@ -83,6 +84,14 @@ export const OperatorDashboard = () => {
   const [editEmail, setEditEmail] = useState('');
   const [editDireccion, setEditDireccion] = useState('');
 
+  // Acceso al portal al formalizar (issue #26): solo si el correo de la cooperativa funciona
+  const correoDisponible = useCorreoDisponible(Boolean(selectedAfiliacion));
+  const [crearAccesoPortal, setCrearAccesoPortal] = useState(true);
+  useEffect(() => {
+    setCrearAccesoPortal(correoDisponible !== false);
+  }, [correoDisponible, selectedAfiliacion?.id_solicitud]);
+  const crearAcceso = crearAccesoPortal && correoDisponible !== false;
+
   // Validación de disponibilidad de correo en el modal del operador
   const [operatorEmailStatus, setOperatorEmailStatus] = useState({
     checking: false,
@@ -91,7 +100,8 @@ export const OperatorDashboard = () => {
   });
 
   useEffect(() => {
-    if (!selectedAfiliacion) {
+    // Sin acceso al portal el correo no se guarda en un usuario: no hace falta revisar si está en uso.
+    if (!selectedAfiliacion || !crearAcceso) {
       setOperatorEmailStatus({ checking: false, disponible: null, message: '' });
       return;
     }
@@ -139,7 +149,7 @@ export const OperatorDashboard = () => {
     }, 400);
 
     return () => clearTimeout(timer);
-  }, [editEmail, selectedAfiliacion]);
+  }, [editEmail, selectedAfiliacion, crearAcceso]);
 
   // Estado para rechazo de afiliación
   const [showRechazarAfiliacion, setShowRechazarAfiliacion] = useState(false);
@@ -406,12 +416,17 @@ export const OperatorDashboard = () => {
       return;
     }
 
-    if (operatorEmailStatus.disponible === false) {
+    if (crearAcceso && !editEmail.trim()) {
+      toast.error('Escriba el correo del asociado para crear su acceso al portal, o desmarque «Crear acceso al portal».');
+      return;
+    }
+
+    if (crearAcceso && operatorEmailStatus.disponible === false) {
       toast.error(operatorEmailStatus.message || 'Ese correo ya lo usa otra persona. Cámbielo para continuar.');
       return;
     }
 
-    if (operatorEmailStatus.checking) {
+    if (crearAcceso && operatorEmailStatus.checking) {
       toast.error('Estamos revisando el correo. Espere un momento.');
       return;
     }
@@ -432,11 +447,12 @@ export const OperatorDashboard = () => {
         direccion: editDireccion,
         fecha_nacimiento: editFechaNacimiento,
         email: editEmail,
+        crear_acceso_portal: crearAcceso,
       });
 
       if (response.data?.success) {
         const resData = response.data.data;
-        if (resData.correo_enviado) {
+        if (resData.correo_enviado || !resData.acceso_portal || resData.acceso_existente) {
           toast.success(`${resData.nombre_completo} ya es asociado.`);
         } else {
           toast.warning(`${resData.nombre_completo} ya es asociado, pero no recibió su acceso al portal por correo.`);
@@ -772,6 +788,9 @@ export const OperatorDashboard = () => {
         editDireccion={editDireccion}
         setEditDireccion={setEditDireccion}
         operatorEmailStatus={operatorEmailStatus}
+        correoDisponible={correoDisponible}
+        crearAccesoPortal={crearAcceso}
+        setCrearAccesoPortal={setCrearAccesoPortal}
         montoAportacion={montoAportacion}
         setMontoAportacion={setMontoAportacion}
         passwordInicial={passwordInicial}

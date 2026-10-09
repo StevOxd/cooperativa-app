@@ -3,6 +3,8 @@ import { Building2 } from 'lucide-react';
 import api from '../../services/api';
 import { Alert, Badge, Button, Field, Input, LoadingState, Modal, Select, cn } from '../ui';
 import { formatQ } from '../../utils/format';
+import { PortalAccessOption } from '../common/PortalAccessOption';
+import { useCorreoDisponible } from '../../hooks/useCorreoDisponible';
 
 const FORM_ID = 'nuevo-asociado';
 
@@ -51,6 +53,13 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess }) => {
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [successData, setSuccessData] = useState(null);
+
+  // Acceso al portal (issue #26): solo si el correo de la cooperativa funciona
+  const correoDisponible = useCorreoDisponible(isOpen);
+  useEffect(() => {
+    if (correoDisponible !== null) setFormData((prev) => ({ ...prev, crear_acceso_portal: correoDisponible }));
+  }, [correoDisponible]);
+  const crearAcceso = Boolean(formData.crear_acceso_portal) && correoDisponible !== false;
 
   // Selectores de fecha de nacimiento (Día / Mes / Año) - Estándar Portal de Afiliación
   const [birthDay, setBirthDay] = useState('');
@@ -432,7 +441,8 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess }) => {
 
   // Debounce para chequeo automático de email
   useEffect(() => {
-    if (!formData.email || !formData.email.includes('@')) {
+    // Sin acceso al portal el correo no se guarda, así que no hace falta revisar si está en uso.
+    if (!crearAcceso || !formData.email || !formData.email.includes('@')) {
       setEmailStatus({ checking: false, available: null, message: '' });
       return;
     }
@@ -440,7 +450,7 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess }) => {
       checkEmailAvailability(formData.email);
     }, 500);
     return () => clearTimeout(timer);
-  }, [formData.email]);
+  }, [formData.email, crearAcceso]);
 
   useEffect(() => {
     if (isOpen) {
@@ -502,7 +512,7 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess }) => {
       monto_aportacion: '200.00',
       metodo_pago: 'EFECTIVO_VENTANILLA',
       numero_cuenta_bancaria: '',
-      crear_acceso_portal: true,
+      crear_acceso_portal: correoDisponible !== false,
       tipo_asociado: 'EX',
     });
     setBirthDay('');
@@ -565,10 +575,14 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess }) => {
     // 5. Validar Correo Electrónico
     const cleanEmail = formData.email.trim().toLowerCase();
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!cleanEmail || !emailRegex.test(cleanEmail)) {
-      errors.email = 'Ingrese un correo electrónico válido.';
-    } else if (emailStatus.available === false) {
-      errors.email = emailStatus.message || 'Ese correo ya está registrado.';
+    if (crearAcceso) {
+      if (!cleanEmail || !emailRegex.test(cleanEmail)) {
+        errors.email = 'Ingrese un correo electrónico válido.';
+      } else if (emailStatus.available === false) {
+        errors.email = emailStatus.message || 'Ese correo ya está registrado.';
+      }
+    } else if (cleanEmail && !emailRegex.test(cleanEmail)) {
+      errors.email = 'Revise el formato del correo.';
     }
 
     // 6. Validar Monto
@@ -599,7 +613,7 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess }) => {
         monto_aportacion: monto,
         metodo_pago: 'EFECTIVO_VENTANILLA',
         numero_cuenta_bancaria: formData.tipo_asociado === 'EB' ? cuentaBancoSeleccionada : undefined,
-        crear_acceso_portal: formData.crear_acceso_portal,
+        crear_acceso_portal: crearAcceso,
         tipo_asociado: formData.tipo_asociado || 'EX',
       };
 
@@ -640,12 +654,14 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess }) => {
     ? dpiStatus.message
     : `${formData.cui_dpi?.length || 0}/13 dígitos, sin guiones ni espacios.`;
 
-  const emailError = emailStatus.available === false ? emailStatus.message : fieldErrors.email;
-  const emailHint = emailStatus.checking
-    ? 'Verificando que el correo esté disponible…'
-    : emailStatus.available === true
-    ? emailStatus.message
-    : 'A este correo se enviará la contraseña temporal.';
+  const emailError = crearAcceso && emailStatus.available === false ? emailStatus.message : fieldErrors.email;
+  const emailHint = !crearAcceso
+    ? 'Opcional: sin acceso al portal no se le envía nada.'
+    : emailStatus.checking
+      ? 'Verificando que el correo esté disponible…'
+      : emailStatus.available === true
+        ? emailStatus.message
+        : 'A este correo se enviará la contraseña temporal.';
 
   if (successData) {
     return (
@@ -659,7 +675,7 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess }) => {
       >
         <dl className="divide-y divide-line rounded-md border border-line text-sm">
           {[
-            ['Código de usuario', successData.codigo_corporativo, 'font-mono'],
+            ['Acceso al portal', successData.acceso_portal ? successData.codigo_corporativo : 'Sin acceso', successData.acceso_portal ? 'font-mono' : ''],
             ['Nombre', successData.nombre_completo],
             ['Tipo de asociado', successData.tipo_asociado === 'EB' ? 'Empleado del banco (EB)' : 'Externo (EX)'],
             ['Cuenta de aportaciones', successData.cuenta_ahorro || successData.cuenta_aportaciones, 'font-mono'],
@@ -677,7 +693,14 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess }) => {
             ))}
         </dl>
 
-        {!successData.correo_enviado && (
+        {!successData.acceso_portal && (
+          <Alert tone="info" title="Afiliado sin acceso al portal" className="mt-4">
+            Sus cuentas ya están abiertas. Cuando el correo de la cooperativa funcione, el acceso al portal se activa
+            desde su expediente.
+          </Alert>
+        )}
+
+        {successData.acceso_portal && !successData.correo_enviado && (
           <Alert tone="warning" title="El asociado no recibió su acceso al portal" className="mt-4">
             El asociado quedó registrado, pero el correo con su usuario y su contraseña temporal no se pudo
             enviar, así que todavía no puede entrar al portal. Cuando el correo de la cooperativa funcione, pida al
@@ -712,7 +735,7 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess }) => {
               form={FORM_ID}
               loading={loading}
               loadingText="Registrando…"
-              disabled={emailStatus.available === false}
+              disabled={crearAcceso && emailStatus.available === false}
             >
               Registrar asociado
             </Button>
@@ -832,7 +855,7 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess }) => {
                 required
               />
             </Field>
-            <Field label="Correo electrónico" hint={emailHint} error={emailError} required>
+            <Field label="Correo electrónico" hint={emailHint} error={emailError} required={crearAcceso}>
               <Input
                 type="email"
                 name="email"
@@ -844,8 +867,8 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess }) => {
                   setEmailStatus({ checking: false, available: null, message: '' });
                   if (errorMsg) setErrorMsg('');
                 }}
-                onBlur={() => checkEmailAvailability(formData.email)}
-                required
+                onBlur={() => crearAcceso && checkEmailAvailability(formData.email)}
+                required={crearAcceso}
               />
             </Field>
           </div>
@@ -1051,10 +1074,12 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess }) => {
           )}
         </section>
 
-        <Alert tone="info">
-          Al registrarlo, el sistema enviará a su correo el código de usuario y una contraseña temporal para su primer
-          ingreso al portal.
-        </Alert>
+        <PortalAccessOption
+          correoDisponible={correoDisponible}
+          checked={crearAcceso}
+          onChange={(valor) => setFormData((prev) => ({ ...prev, crear_acceso_portal: valor }))}
+          disabled={loading}
+        />
       </form>
     </Modal>
   );

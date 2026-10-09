@@ -1,4 +1,5 @@
 const db = require('../config/db');
+const mailerService = require('../services/mailerService');
 const bancoApiService = require('../services/bancoApiService');
 const operadorAfiliacionService = require('../services/operadorAfiliacionService');
 const operadorCreditoService = require('../services/operadorCreditoService');
@@ -735,7 +736,21 @@ const getHistorialTraslados = async (req, res) => {
   }
 };
 
+/**
+ * Indica al operador si el correo de la cooperativa funciona, antes de afiliar (issue #26).
+ * Sin correo no se puede crear el acceso al portal: la contraseña temporal solo viaja por correo.
+ *
+ * @route GET /api/operador/correo-estado
+ */
+const getEstadoCorreo = (req, res) => {
+  return res.status(200).json({
+    success: true,
+    disponible: mailerService.isAvailable(),
+  });
+};
+
 module.exports = {
+  getEstadoCorreo,
   getBandejaSolicitudes,
   resolverSolicitud,
   getBandejaAfiliaciones,

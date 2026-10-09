@@ -7,6 +7,7 @@ const db = require('../config/db');
 const bcrypt = require('bcryptjs');
 const { getNextCorporateCode, generateSecureRandomPassword } = require('../utils/codeGenerator');
 const mailerService = require('./mailerService');
+const { decidirAccesoPortal } = require('../utils/accesoPortal');
 const bancoApiService = require('./bancoApiService');
 const { validateCui, validateAge18 } = require('../middlewares/validationMiddleware');
 
@@ -163,6 +164,11 @@ const rechazarCaso = async ({ idSolicitud, idOperador, motivo }) => {
 /**
  * Formaliza la afiliación en ventanilla y genera cuentas/credenciales de manera transaccional
  */
+const MENSAJE_YA_ASOCIADO =
+  'Esta persona ya es asociada de la cooperativa. Si necesita acceso al portal, se activa desde su expediente.';
+const MENSAJE_PERSONAL =
+  'Esta persona tiene un usuario del personal de la cooperativa y no puede afiliarse como asociado por ahora.';
+
 const formalizarAfiliacion = async ({ idSolicitud, idOperador, rolUsuario, datos, nombreOperador }) => {
   const {
     monto_aportacion,
@@ -179,6 +185,7 @@ const formalizarAfiliacion = async ({ idSolicitud, idOperador, rolUsuario, datos
     direccion,
     fecha_nacimiento,
     email,
+    crear_acceso_portal,
   } = datos;
 
   const montoAporte = parseFloat(monto_aportacion);
@@ -188,6 +195,45 @@ const formalizarAfiliacion = async ({ idSolicitud, idOperador, rolUsuario, datos
       success: false,
       message: 'El depósito inicial mínimo es de Q100.00.',
     };
+  }
+
+  // Antes de bloquear nada: identificar a la persona y decidir el acceso al portal (issue #26).
+  // La consulta DNS del dominio del correo puede tardar, así que no se hace con la solicitud bloqueada.
+  const previaRes = await db.pool.query(
+    'SELECT cui_dpi, email FROM solicitudes_afiliacion_agencia WHERE id_solicitud = $1',
+    [idSolicitud]
+  );
+  if (previaRes.rows.length === 0) {
+    return { status: 404, success: false, message: 'Solicitud no encontrada.' };
+  }
+  const cuiPrevio = (cui_dpi && cui_dpi.trim()) ? cui_dpi.trim().replace(/\s+/g, '') : previaRes.rows[0].cui_dpi;
+  const emailPrevio = (email && email.trim()) ? email.trim().toLowerCase() : (previaRes.rows[0].email ? previaRes.rows[0].email.trim().toLowerCase() : null);
+
+  const personaPreviaRes = await db.pool.query(
+    `SELECT (a.id_asociado IS NOT NULL) AS es_asociado, u.id_rol
+     FROM personas p
+     LEFT JOIN asociados a ON a.id_persona = p.id_persona
+     LEFT JOIN usuarios u ON u.id_persona = p.id_persona
+     WHERE p.cui_dpi = $1`,
+    [cuiPrevio]
+  );
+  const personaPrevia = personaPreviaRes.rows[0] || null;
+  // Una solicitud pública puede traer el DPI de alguien que ya es asociado: formalizarla le daría su
+  // cuenta a quien escribió el correo de la solicitud. Su acceso se activa desde su expediente (issue #27).
+  if (personaPrevia?.es_asociado) {
+    return { status: 409, success: false, message: MENSAJE_YA_ASOCIADO };
+  }
+  if (personaPrevia?.id_rol && personaPrevia.id_rol !== 3) {
+    return { status: 409, success: false, message: MENSAJE_PERSONAL };
+  }
+
+  let acceso = { crear: false, email: emailPrevio };
+  if (!personaPrevia?.id_rol) {
+    try {
+      acceso = await decidirAccesoPortal(crear_acceso_portal, emailPrevio);
+    } catch (accesoError) {
+      return { status: accesoError.statusCode || 400, success: false, error: accesoError.code, message: accesoError.message };
+    }
   }
 
   const client = await db.pool.connect();
@@ -334,7 +380,9 @@ const formalizarAfiliacion = async ({ idSolicitud, idOperador, rolUsuario, datos
     const checkSocio = await client.query('SELECT id_asociado FROM asociados WHERE id_persona = $1', [idPersona]);
     let idAsociado;
     if (checkSocio.rows.length > 0) {
-      idAsociado = checkSocio.rows[0].id_asociado;
+      // Ya era asociado (se comprobó antes; esto cubre una afiliación simultánea)
+      await client.query('ROLLBACK');
+      return { status: 409, success: false, message: MENSAJE_YA_ASOCIADO };
     } else {
       const insSocio = await client.query(`
         INSERT INTO asociados (id_persona, fecha_ingreso, estado_asociado)
@@ -344,10 +392,23 @@ const formalizarAfiliacion = async ({ idSolicitud, idOperador, rolUsuario, datos
       idAsociado = insSocio.rows[0].id_asociado;
     }
 
-    // 3. Generar usuario con código institucional EX
-    const emailUsuario = emailFinal || `socio.${idAsociado}@cooperativa.com`;
+    // 3. Acceso al portal.
+    //    - Si la persona ya tiene usuario de asociado (sin membresía), lo conserva tal cual; el personal
+    //      no se afilia como asociado porque un usuario tiene un solo rol (issue #32).
+    //    - Si no tiene usuario: se crea solo cuando se pidió el acceso y el correo funciona.
+    const checkUser = await client.query('SELECT codigo_corporativo, id_rol, estado FROM usuarios WHERE id_persona = $1', [idPersona]);
+    const usuarioPrevio = checkUser.rows[0] || null;
+    if (usuarioPrevio && usuarioPrevio.id_rol !== 3) {
+      await client.query('ROLLBACK');
+      return { status: 409, success: false, message: MENSAJE_PERSONAL };
+    }
 
-    if (emailUsuario) {
+    let codigoUsuarioFinal = usuarioPrevio ? usuarioPrevio.codigo_corporativo : null;
+    let rawPass = null;
+    const crearUsuario = !usuarioPrevio && acceso.crear;
+    const emailUsuario = acceso.email;
+
+    if (crearUsuario) {
       const checkDupEmail = await client.query(
         'SELECT id_persona FROM usuarios WHERE LOWER(email) = LOWER($1) AND id_persona != $2',
         [emailUsuario, idPersona]
@@ -360,32 +421,18 @@ const formalizarAfiliacion = async ({ idSolicitud, idOperador, rolUsuario, datos
           message: `El correo ${emailUsuario} ya lo usa otra persona. Cámbielo en la ficha para continuar.`,
         };
       }
-    }
 
-    const prefix = 'EX';
-    const nextCode = await getNextCorporateCode(client, prefix);
+      codigoUsuarioFinal = await getNextCorporateCode(client, 'EX');
 
-    // Generar contraseña criptográfica segura de forma automática para el nuevo asociado
-    const rawPass = generateSecureRandomPassword(12);
-    const salt = await bcrypt.genSalt(10);
-    const passwordHash = await bcrypt.hash(rawPass, salt);
+      // Generar contraseña criptográfica segura de forma automática para el nuevo asociado
+      rawPass = generateSecureRandomPassword(12);
+      const salt = await bcrypt.genSalt(10);
+      const passwordHash = await bcrypt.hash(rawPass, salt);
 
-    const checkUser = await client.query('SELECT id_persona, codigo_corporativo FROM usuarios WHERE id_persona = $1', [idPersona]);
-    let codigoUsuarioFinal = nextCode;
-
-    if (checkUser.rows.length > 0) {
-      codigoUsuarioFinal = checkUser.rows[0].codigo_corporativo;
-      await client.query(`
-        UPDATE usuarios 
-        SET id_rol = 3, estado = 'ACTIVO', email = $1, password_hash = $2, debe_cambiar_password = TRUE,
-            mfa_enabled = FALSE, mfa_secret = NULL, mfa_qr_url = NULL
-        WHERE id_persona = $3
-      `, [emailUsuario, passwordHash, idPersona]);
-    } else {
       await client.query(`
         INSERT INTO usuarios (id_persona, id_rol, codigo_corporativo, email, password_hash, estado, mfa_enabled, debe_cambiar_password)
         VALUES ($1, 3, $2, $3, $4, 'ACTIVO', FALSE, TRUE)
-      `, [idPersona, nextCode, emailUsuario, passwordHash]);
+      `, [idPersona, codigoUsuarioFinal, emailUsuario, passwordHash]);
     }
 
     // 4. Apertura de Cuenta Bancaria de Ahorro en la Entidad Bancaria (Core Banking)
@@ -446,7 +493,7 @@ const formalizarAfiliacion = async ({ idSolicitud, idOperador, rolUsuario, datos
     // Las credenciales se envían después del COMMIT: así nunca llega un correo de una afiliación que se deshizo.
     // Si el correo no sale, la afiliación queda hecha y se avisa al operador.
     let emailStatus = { sent: false, simulado: true, provider: 'demo' };
-    try {
+    if (crearUsuario) try {
       const mailRes = await mailerService.sendAccountCredentialsEmail({
         to: emailUsuario,
         nombre: personaNombreCompleto,
@@ -463,13 +510,19 @@ const formalizarAfiliacion = async ({ idSolicitud, idOperador, rolUsuario, datos
       console.warn('Aviso: No se pudo enviar el correo de credenciales:', mailErr.message);
     }
     const correoEnviado = emailStatus.sent;
+    // Un usuario previo inactivo no puede entrar: no se informa como acceso.
+    const accesoPortal = crearUsuario || Boolean(usuarioPrevio && usuarioPrevio.estado === 'ACTIVO');
 
     return {
       status: 200,
       success: true,
-      message: correoEnviado
-        ? `Afiliación del caso ${sol.numero_caso} completada. Se abrió la cuenta de ahorro y se envió el acceso al portal por correo.`
-        : `Afiliación del caso ${sol.numero_caso} completada, pero el correo con el usuario y la contraseña no se pudo enviar.`,
+      message: !accesoPortal
+        ? `Afiliación del caso ${sol.numero_caso} completada, sin acceso al portal. Se puede activar después desde el expediente.`
+        : !crearUsuario
+          ? `Afiliación del caso ${sol.numero_caso} completada. El asociado conserva su acceso al portal.`
+          : correoEnviado
+            ? `Afiliación del caso ${sol.numero_caso} completada. Se abrió la cuenta de ahorro y se envió el acceso al portal por correo.`
+            : `Afiliación del caso ${sol.numero_caso} completada, pero el correo con el usuario y la contraseña no se pudo enviar.`,
       data: {
         id_asociado: idAsociado,
         nombre_completo: personaNombreCompleto,
@@ -478,12 +531,14 @@ const formalizarAfiliacion = async ({ idSolicitud, idOperador, rolUsuario, datos
         tipo_cuenta: 'Cuenta de Ahorro Bancaria',
         origen_cuenta: 'BANCO',
         saldo_inicial: montoAporte,
-        email: emailFinal,
+        email: crearUsuario ? emailUsuario : emailFinal,
         cui_dpi: sol.cui_dpi,
         telefono: sol.telefono,
         numero_caso: sol.numero_caso,
         operador_nombre: nombreOperador || (sol.id_operador_resuelve ? `Operador #${sol.id_operador_resuelve}` : 'Operador en Ventanilla'),
         email_status: emailStatus,
+        acceso_portal: accesoPortal,
+        acceso_existente: Boolean(usuarioPrevio),
         correo_enviado: correoEnviado,
       },
     };

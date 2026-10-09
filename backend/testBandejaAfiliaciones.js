@@ -122,14 +122,30 @@ async function runTests() {
     const unlockOp2 = await request(`/api/operador/afiliaciones/${casoMarvin.id_solicitud}/liberar`, 'POST', null, tokenOp2);
     reporter.assert(unlockOp2.status === 200, 'Caso liberado nuevamente por OP-2');
 
-    // 6. Formalizar afiliación en ventanilla con OP-1
+    // 6. Formalizar afiliación en ventanilla con OP-1 (issue #26: el acceso al portal es opcional)
     console.log('\n6. Formalizando afiliación en ventanilla...');
-    const formalizarRes = await request(`/api/operador/afiliaciones/${casoMarvin.id_solicitud}/formalizar`, 'POST', {
+    const datosFormalizacion = {
       monto_aportacion: 250.00,
       metodo_pago: 'EFECTIVO_VENTANILLA',
       tipo_asociado: 'EX',
-      password_inicial: 'admin123',
       observaciones: 'Atención presencial en agencia central, DPI verificado con original.',
+    };
+
+    // Si el correo de la cooperativa no funciona, no se puede pedir el acceso al portal
+    const estadoCorreo = await request('/api/operador/correo-estado', 'GET', null, tokenOp1);
+    reporter.assert(estadoCorreo.status === 200 && typeof estadoCorreo.body.disponible === 'boolean', 'El operador consulta si el correo funciona');
+    if (estadoCorreo.body.disponible === false) {
+      const conAccesoSinCorreo = await request(`/api/operador/afiliaciones/${casoMarvin.id_solicitud}/formalizar`, 'POST', {
+        ...datosFormalizacion, crear_acceso_portal: true,
+      }, tokenOp1);
+      reporter.assert(
+        conAccesoSinCorreo.status === 409 && conAccesoSinCorreo.body.error === 'CORREO_NO_DISPONIBLE',
+        'Sin correo, pedir el acceso al portal se rechaza y no se formaliza'
+      );
+    }
+
+    const formalizarRes = await request(`/api/operador/afiliaciones/${casoMarvin.id_solicitud}/formalizar`, 'POST', {
+      ...datosFormalizacion, crear_acceso_portal: false,
     }, tokenOp1);
 
     reporter.assert(
@@ -138,9 +154,13 @@ async function runTests() {
     );
 
     formalizedSocio = formalizarRes.body.data;
+    const usuarioCreado = await db.query(
+      'SELECT 1 FROM usuarios u JOIN asociados a ON a.id_persona = u.id_persona WHERE a.id_asociado = $1',
+      [formalizedSocio?.id_asociado]
+    );
     reporter.assert(
-      formalizedSocio && formalizedSocio.usuario && formalizedSocio.usuario.startsWith('EX-'),
-      `Estándar institucional de usuario cumplido: ${formalizedSocio?.usuario}`
+      formalizedSocio && formalizedSocio.acceso_portal === false && !formalizedSocio.usuario && usuarioCreado.rows.length === 0,
+      'Sin acceso al portal se afilia sin crear usuario'
     );
 
     // 7. Verificar que la solicitud ya no aparezca en pendientes
@@ -167,8 +187,10 @@ async function runTests() {
         // Eliminar asociado
         await db.query(`DELETE FROM asociados WHERE id_asociado = $1`, [formalizedSocio.id_asociado]);
 
-        // Eliminar usuario
-        await db.query(`DELETE FROM usuarios WHERE codigo_corporativo = $1`, [formalizedSocio.usuario]);
+        // Eliminar usuario (si se creó)
+        if (formalizedSocio.usuario) {
+          await db.query(`DELETE FROM usuarios WHERE codigo_corporativo = $1`, [formalizedSocio.usuario]);
+        }
 
         console.log(`  [CLEANUP] Asociado temporal (${formalizedSocio.usuario}) y cuenta eliminados.`);
       }

@@ -82,6 +82,9 @@ const server = app.listen(0, async () => {
       await pool.query("DELETE FROM asociados WHERE id_persona = $1", [idOp2]);
     }
 
+    // Limpiar solicitudes de agencia de prueba con el DPI de Marcos (caso de suplantación, sección 4.3)
+    await pool.query("DELETE FROM solicitudes_afiliacion_agencia WHERE cui_dpi = '4000000000001'");
+
     // Limpiar solicitud de agencia previa para Gabriela Alvarado (7777666655551)
     await pool.query("DELETE FROM solicitudes_afiliacion_agencia WHERE cui_dpi = '7777666655551'");
 
@@ -539,7 +542,7 @@ const server = app.listen(0, async () => {
     // 4. FORMULARIO 1: Afiliación presencial en ventanilla con efectivo (OPERADOR)
     console.log('\n--- 4. Formulario 1: Afiliación Presencial en Ventanilla ---');
     const dpiPresencial = '2' + Math.floor(100000000000 + Math.random() * 900000000000).toString();
-    const presencialRes = await request('/api/admin/asociados/presencial', 'POST', {
+    const datosPresencial = {
       cui_dpi: dpiPresencial,
       primer_nombre: 'Juan',
       segundo_nombre: 'José',
@@ -551,8 +554,20 @@ const server = app.listen(0, async () => {
       email: `juan.ramirez.${Date.now()}@example.com`,
       monto_aportacion: 500.00,
       metodo_pago: 'EFECTIVO_VENTANILLA',
-      crear_acceso_portal: true,
-      password_inicial: 'Temporal123!',
+    };
+
+    // 4.0 Sin correo (MAIL_ENABLED=false en esta suite) no se puede pedir el acceso al portal (issue #26)
+    const conAccesoSinCorreo = await request('/api/admin/asociados/presencial', 'POST', {
+      ...datosPresencial, crear_acceso_portal: true,
+    }, operatorToken);
+    const personaSinCrear = await pool.query('SELECT 1 FROM personas WHERE cui_dpi = $1', [dpiPresencial]);
+    if (conAccesoSinCorreo.status !== 409 || conAccesoSinCorreo.body.error !== 'CORREO_NO_DISPONIBLE' || personaSinCrear.rows.length !== 0) {
+      throw new Error('Sin correo, pedir el acceso al portal debería rechazarse sin registrar nada: ' + JSON.stringify(conAccesoSinCorreo.body));
+    }
+    console.log('✓ Sin correo, pedir el acceso al portal se rechaza y no se registra nada.');
+
+    const presencialRes = await request('/api/admin/asociados/presencial', 'POST', {
+      ...datosPresencial, crear_acceso_portal: false,
     }, operatorToken);
     if (presencialRes.status !== 201 || !presencialRes.body.success) {
       throw new Error('Fallo al crear afiliación presencial: ' + JSON.stringify(presencialRes.body));
@@ -563,21 +578,53 @@ const server = app.listen(0, async () => {
     console.log(`  - No. Cuenta: ${socioPresencial.cuenta_aportaciones}`);
     console.log(`  - Depósito Inicial: Q${socioPresencial.saldo_inicial}`);
 
-    // 4.1 Sin correo (MAIL_ENABLED=false en esta suite) la respuesta avisa que las credenciales no salieron
-    if (socioPresencial.correo_enviado !== false || !presencialRes.body.message.includes('no se pudo enviar')) {
-      throw new Error('La afiliación presencial debería indicar que el correo no se envió: ' + JSON.stringify(presencialRes.body));
+    // 4.1 Sin acceso al portal: se afilia con sus cuentas, sin usuario
+    const usuarioPresencial = await pool.query(
+      'SELECT 1 FROM usuarios u JOIN personas p ON p.id_persona = u.id_persona WHERE p.cui_dpi = $1',
+      [dpiPresencial]
+    );
+    if (socioPresencial.acceso_portal !== false || socioPresencial.codigo_corporativo || usuarioPresencial.rows.length !== 0
+      || !presencialRes.body.message.includes('sin acceso al portal')) {
+      throw new Error('La afiliación sin acceso no debería crear usuario: ' + JSON.stringify(presencialRes.body));
     }
-    console.log('✓ La afiliación presencial avisa que el correo con las credenciales no se envió.');
+    console.log('✓ Afiliación en ventanilla sin acceso al portal: cuentas abiertas y sin usuario.');
 
     // 4.2 Sin correo, el administrador no puede reiniciar la contraseña: la actual no cambia
     const hashQuery = 'SELECT password_hash FROM usuarios WHERE codigo_corporativo = $1';
-    const hashAntes = (await pool.query(hashQuery, [socioPresencial.codigo_corporativo])).rows[0].password_hash;
-    const resetSinCorreoRes = await request(`/api/usuarios/${socioPresencial.codigo_corporativo}/reset-password`, 'POST', {}, adminToken);
-    const hashDespues = (await pool.query(hashQuery, [socioPresencial.codigo_corporativo])).rows[0].password_hash;
+    const usuarioMarcos = dataAfiliado.usuario.codigo_corporativo;
+    const hashAntes = (await pool.query(hashQuery, [usuarioMarcos])).rows[0].password_hash;
+    const resetSinCorreoRes = await request(`/api/usuarios/${usuarioMarcos}/reset-password`, 'POST', {}, adminToken);
+    const hashDespues = (await pool.query(hashQuery, [usuarioMarcos])).rows[0].password_hash;
     if (resetSinCorreoRes.status !== 503 || resetSinCorreoRes.body.error !== 'CORREO_NO_DISPONIBLE' || hashAntes !== hashDespues) {
       throw new Error('Sin correo, el reinicio de contraseña debería rechazarse sin cambiar la contraseña: ' + JSON.stringify(resetSinCorreoRes.body));
     }
     console.log('✓ Sin correo, el reinicio de contraseña se rechaza y la contraseña actual no cambia.');
+
+    // 4.3 Una solicitud pública con el DPI de alguien que ya es asociado no se puede formalizar:
+    //     le daría su cuenta a quien escribió el correo de la solicitud (issue #26)
+    const emailSuplantador = `suplantador.${Date.now()}@example.com`;
+    const codigoSuplantador = await pedirCodigo(emailSuplantador);
+    const solicitudSuplantada = await request('/api/afiliacion/solicitar-nuevo', 'POST', {
+      cui_dpi: '4000000000001', // DPI de Marcos, ya asociado
+      primer_nombre: 'Marcos',
+      primer_apellido: 'Castillo',
+      fecha_nacimiento: '1992-06-14',
+      telefono: '55440001',
+      email: emailSuplantador,
+      codigo_verificacion: codigoSuplantador,
+    });
+    const idSolicitudSuplantada = solicitudSuplantada.body.data?.id_solicitud;
+    const accesoMarcosAntes = (await pool.query('SELECT email, password_hash FROM usuarios WHERE codigo_corporativo = $1', [usuarioMarcos])).rows[0];
+    const formalizarSuplantada = await request(`/api/operador/afiliaciones/${idSolicitudSuplantada}/formalizar`, 'POST', {
+      monto_aportacion: 100.00,
+      crear_acceso_portal: false,
+    }, operatorToken);
+    const accesoMarcosDespues = (await pool.query('SELECT email, password_hash FROM usuarios WHERE codigo_corporativo = $1', [usuarioMarcos])).rows[0];
+    await pool.query('DELETE FROM solicitudes_afiliacion_agencia WHERE id_solicitud = $1', [idSolicitudSuplantada]);
+    if (!idSolicitudSuplantada || formalizarSuplantada.status !== 409 || JSON.stringify(accesoMarcosAntes) !== JSON.stringify(accesoMarcosDespues)) {
+      throw new Error('Formalizar una solicitud con el DPI de un asociado debería rechazarse sin tocar su acceso: ' + JSON.stringify(formalizarSuplantada.body));
+    }
+    console.log('✓ Una solicitud con el DPI de un asociado existente no se formaliza y su acceso no cambia.');
 
     // 5. FORMULARIO 2: Apertura de Cuentas Financieras
     console.log('\n--- 5. Formulario 2: Apertura de Cuenta Adicional ---');
