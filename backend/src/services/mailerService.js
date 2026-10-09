@@ -764,7 +764,12 @@ class MailerService {
     const subject = `Comprobante Oficial de Apertura de Cuenta: ${numeroCuenta}`;
     const montoFormateado = `Q${parseFloat(montoApertura || 0).toLocaleString('es-GT', { minimumFractionDigits: 2 })}`;
     const fechaTexto = fechaApertura ? new Date(fechaApertura).toLocaleString('es-GT') : new Date().toLocaleString('es-GT');
-    const origenTexto = origenFondos === 'EFECTIVO_VENTANILLA' ? 'Efectivo en Ventanilla' : 'Cuenta Interna Cooperativa';
+    const ORIGENES = {
+      EFECTIVO_VENTANILLA: 'Efectivo en Ventanilla',
+      CUENTA_INTERNA: 'Cuenta Interna Cooperativa',
+      BANCO_EXTERNO: 'Cuenta del Asociado en el Banco',
+    };
+    const origenTexto = ORIGENES[origenFondos] || ORIGENES.EFECTIVO_VENTANILLA;
 
     const htmlContent = `
       <!DOCTYPE html>

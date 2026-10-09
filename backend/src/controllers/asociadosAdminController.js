@@ -468,11 +468,13 @@ const aperturarCuenta = async (req, res) => {
     );
     const nuevaCuenta = nuevaCuentaRes.rows[0];
 
-    // 6. Transacción de depósito inicial si aplica
+    // 6. Transacción de depósito inicial si aplica (se devuelve para el estado de cuenta en PDF, issue #26)
+    let movimientoInicial = null;
     if (montoInicial > 0) {
-      await client.query(
+      const movimientoRes = await client.query(
         `INSERT INTO transacciones (id_cuenta, tipo_transaccion, monto, saldo_anterior, saldo_nuevo, referencia, id_usuario_registra)
-         VALUES ($1, 'DEPOSITO', $2, 0.00, $2, $3, $4)`,
+         VALUES ($1, 'DEPOSITO', $2, 0.00, $2, $3, $4)
+         RETURNING tipo_transaccion, monto, saldo_anterior, saldo_nuevo, referencia, fecha_transaccion`,
         [
           nuevaCuenta.id_cuenta,
           montoInicial,
@@ -480,6 +482,7 @@ const aperturarCuenta = async (req, res) => {
           req.user?.id_persona || null,
         ]
       );
+      movimientoInicial = movimientoRes.rows[0];
     }
 
     await client.query('COMMIT');
@@ -493,6 +496,7 @@ const aperturarCuenta = async (req, res) => {
         tipo_cuenta: tipoCuenta.nombre,
         saldo_disponible: parseFloat(nuevaCuenta.saldo_disponible),
         fecha_apertura: nuevaCuenta.fecha_apertura,
+        movimiento_inicial: movimientoInicial,
       },
     });
   } catch (error) {

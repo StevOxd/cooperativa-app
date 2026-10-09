@@ -1,11 +1,20 @@
 import React, { useState, useEffect } from 'react';
-import { Check, FileDown, Mail } from 'lucide-react';
+import { Check, FileDown, FileText, Mail } from 'lucide-react';
 import api from '../../services/api';
 import { generateAccountOpeningReceiptPdf } from '../../utils/accountOpeningReceiptPdf';
-import { Alert, Button, Field, Input, Modal, Select, cn } from '../ui';
+import { generateAccountStatementPdf } from '../../utils/accountStatementPdf';
+import { Alert, Button, Field, Input, LoadingState, Modal, Select, cn } from '../ui';
+import { toast } from '../../context/ToastContext';
 import { formatDateTime, formatQ } from '../../utils/format';
 
 const FORM_ID = 'apertura-cuenta';
+
+/** Cómo se muestra el origen de los fondos en el resumen. */
+const ORIGENES = {
+  EFECTIVO_VENTANILLA: 'Efectivo en ventanilla',
+  CUENTA_INTERNA: 'Otra cuenta del asociado',
+  BANCO_EXTERNO: 'Cuenta del asociado en el banco',
+};
 
 /** Opción seleccionable con aspecto de tarjeta (radio accesible con teclado). */
 const OptionCard = ({ name, checked, onSelect, children }) => (
@@ -51,15 +60,27 @@ const TIPOS_PRODUCTO = [
   },
 ];
 
-export const OpenAccountModal = ({ isOpen, onClose, asociado, onSuccess }) => {
+/**
+ * Apertura de una cuenta nueva para un asociado (Formulario 2).
+ *
+ * @param {Object} props
+ * @param {Object} [props.valoresIniciales] - Para abrirla desde el resumen de una afiliación (issue #26):
+ *   `{ origen_fondos, numero_cuenta_bancaria, monto_apertura }`.
+ */
+export const OpenAccountModal = ({ isOpen, onClose, asociado, onSuccess, valoresIniciales }) => {
   const [formData, setFormData] = useState({
     id_tipo_cuenta: 2,
     monto_apertura: '100.00',
     origen_fondos: 'EFECTIVO_VENTANILLA',
     id_cuenta_origen: '',
+    numero_cuenta_bancaria: '',
   });
 
   const [cuentasAsociado, setCuentasAsociado] = useState([]);
+  const [cuentasBanco, setCuentasBanco] = useState([]);
+  const [cargandoBanco, setCargandoBanco] = useState(false);
+  const [errorBanco, setErrorBanco] = useState(false);
+  const [datosTitular, setDatosTitular] = useState(null);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [successData, setSuccessData] = useState(null);
@@ -83,31 +104,64 @@ export const OpenAccountModal = ({ isOpen, onClose, asociado, onSuccess }) => {
 
   useEffect(() => {
     if (isOpen && asociado) {
+      // Si se cierra o cambia de asociado antes de que lleguen las respuestas, se ignoran.
+      let vigente = true;
       setErrorMsg('');
       setSuccessData(null);
       setEmailSent(false);
       setEmailNotice('');
+      setCuentasBanco([]);
+      setCuentasAsociado([]);
+      setDatosTitular(null);
+      setErrorBanco(false);
+      setCargandoBanco(true);
       setFormData({
         id_tipo_cuenta: 2,
-        monto_apertura: '100.00',
-        origen_fondos: 'EFECTIVO_VENTANILLA',
+        monto_apertura: valoresIniciales?.monto_apertura ? Number(valoresIniciales.monto_apertura).toFixed(2) : '100.00',
+        origen_fondos: valoresIniciales?.origen_fondos || 'EFECTIVO_VENTANILLA',
         id_cuenta_origen: '',
+        numero_cuenta_bancaria: valoresIniciales?.numero_cuenta_bancaria || '',
       });
 
-      // Cargar cuentas del asociado para traslado interno
+      // Cargar cuentas del asociado (traslado interno) y sus cuentas en el banco (débito desde el banco)
       api.get(`/admin/asociados/${asociado.id_asociado}/expediente`)
         .then((res) => {
-          if (res.data?.success) {
-            const ctas = res.data.data.cuentas || [];
-            setCuentasAsociado(ctas);
-            if (ctas.length > 0) {
-              setFormData((prev) => ({ ...prev, id_cuenta_origen: ctas[0].id_cuenta }));
-            }
+          if (!vigente) return;
+          if (!res.data?.success) throw new Error('No se pudo cargar el expediente.');
+          const ctas = res.data.data.cuentas || [];
+          setCuentasAsociado(ctas);
+          setDatosTitular(res.data.data.asociado || null);
+          if (ctas.length > 0) {
+            setFormData((prev) => ({ ...prev, id_cuenta_origen: ctas[0].id_cuenta }));
           }
+          const cui = res.data.data.asociado?.cui_dpi || asociado.cui_dpi;
+          if (!cui) return;
+          return api.get(`/banco-externo/cuentas-cliente/${cui}`).then((bancoRes) => {
+            if (!vigente) return;
+            const lista = (bancoRes.data?.data || []).filter((c) => c.estado === 'ACTIVA');
+            setCuentasBanco(lista);
+            // La cuenta precargada solo se conserva si sigue en la lista; si no, la primera.
+            setFormData((prev) => ({
+              ...prev,
+              numero_cuenta_bancaria: lista.some((c) => c.numero_cuenta_bancaria === prev.numero_cuenta_bancaria)
+                ? prev.numero_cuenta_bancaria
+                : lista[0]?.numero_cuenta_bancaria || '',
+            }));
+          });
         })
-        .catch((err) => console.error('Error al cargar expediente:', err));
+        .catch((err) => {
+          if (!vigente) return;
+          console.error('Error al cargar las cuentas del asociado:', err);
+          setErrorBanco(true);
+        })
+        .finally(() => {
+          if (vigente) setCargandoBanco(false);
+        });
+      return () => {
+        vigente = false;
+      };
     }
-  }, [isOpen, asociado]);
+  }, [isOpen, asociado, valoresIniciales]);
 
   if (!isOpen || !asociado) return null;
 
@@ -145,6 +199,18 @@ export const OpenAccountModal = ({ isOpen, onClose, asociado, onSuccess }) => {
       return;
     }
 
+    if (formData.origen_fondos === 'BANCO_EXTERNO') {
+      const cuentaBanco = cuentasBanco.find((c) => c.numero_cuenta_bancaria === formData.numero_cuenta_bancaria);
+      if (!cuentaBanco) {
+        setErrorMsg('Elija la cuenta del banco de la que saldrá el dinero.');
+        return;
+      }
+      if (parseFloat(cuentaBanco.saldo_disponible) < monto) {
+        setErrorMsg(`La cuenta del banco tiene ${formatQ(cuentaBanco.saldo_disponible)}; no alcanza para el depósito.`);
+        return;
+      }
+    }
+
     setLoading(true);
 
     try {
@@ -154,6 +220,8 @@ export const OpenAccountModal = ({ isOpen, onClose, asociado, onSuccess }) => {
         origen_fondos: formData.origen_fondos,
         id_cuenta_origen:
           formData.origen_fondos === 'CUENTA_INTERNA' ? parseInt(formData.id_cuenta_origen, 10) : undefined,
+        numero_cuenta_bancaria:
+          formData.origen_fondos === 'BANCO_EXTERNO' ? formData.numero_cuenta_bancaria : undefined,
       };
 
       const res = await api.post(`/admin/asociados/${asociado.id_asociado}/cuentas`, payload);
@@ -199,6 +267,33 @@ export const OpenAccountModal = ({ isOpen, onClose, asociado, onSuccess }) => {
       });
     } catch (err) {
       console.error('Error al generar PDF de comprobante:', err);
+      toast.error('No se pudo generar el comprobante. Intente de nuevo.');
+    }
+  };
+
+  // Si los fondos vinieron del banco hubo un traslado: el asociado se lleva el estado de cuenta (issue #26).
+  const handleDownloadStatement = () => {
+    if (!successData) return;
+    try {
+      generateAccountStatementPdf({
+        asociado: {
+          ...asociado,
+          ...(datosTitular || {}),
+          nombre_completo: datosTitular?.nombre_completo || asociado.nombre_completo,
+        },
+        cuenta: {
+          numero_cuenta: successData.numero_cuenta,
+          tipo_cuenta: successData.tipo_cuenta,
+          saldo_disponible: successData.saldo_disponible,
+          saldo_reserva: 0,
+          estado: 'ACTIVA',
+        },
+        transacciones: successData.movimiento_inicial ? [successData.movimiento_inicial] : [],
+        origen: 'ventanilla',
+      });
+    } catch (err) {
+      console.error('Error al generar el estado de cuenta:', err);
+      toast.error('No se pudo generar el estado de cuenta. Intente de nuevo.');
     }
   };
 
@@ -243,7 +338,7 @@ export const OpenAccountModal = ({ isOpen, onClose, asociado, onSuccess }) => {
         footer={
           <div className="flex w-full flex-col-reverse gap-2 sm:flex-row sm:justify-between">
             <Button variant="secondary" onClick={onClose}>Cerrar</Button>
-            <div className="flex flex-col-reverse gap-2 sm:flex-row">
+            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:flex-wrap sm:justify-end">
               <Button
                 variant="secondary"
                 icon={emailSent ? Check : Mail}
@@ -255,6 +350,16 @@ export const OpenAccountModal = ({ isOpen, onClose, asociado, onSuccess }) => {
               >
                 {emailSent ? 'Comprobante enviado' : 'Enviar por correo'}
               </Button>
+              {formData.origen_fondos === 'BANCO_EXTERNO' && (
+                <Button
+                  variant="secondary"
+                  icon={FileText}
+                  onClick={handleDownloadStatement}
+                  title="Descargar el estado de cuenta en PDF con el traslado desde el banco"
+                >
+                  Estado de cuenta
+                </Button>
+              )}
               <Button icon={FileDown} onClick={handleDownloadPdf} title="Descargar el comprobante en PDF">
                 Descargar comprobante
               </Button>
@@ -269,7 +374,12 @@ export const OpenAccountModal = ({ isOpen, onClose, asociado, onSuccess }) => {
               ['Producto', successData.tipo_cuenta],
               ['Número de cuenta', successData.numero_cuenta, 'font-mono'],
               ['Saldo inicial', formatQ(successData.saldo_disponible), 'font-medium tabular-nums'],
-              ['Origen de los fondos', formData.origen_fondos === 'EFECTIVO_VENTANILLA' ? 'Efectivo en ventanilla' : 'Otra cuenta del asociado'],
+              [
+                'Origen de los fondos',
+                formData.origen_fondos === 'BANCO_EXTERNO'
+                  ? `${ORIGENES.BANCO_EXTERNO} (${formData.numero_cuenta_bancaria})`
+                  : ORIGENES[formData.origen_fondos],
+              ],
               ['Fecha de apertura', formatDateTime(successData.fecha_apertura)],
             ].map(([label, value, valueClass]) => (
               <div key={label} className="flex justify-between gap-4 px-4 py-2.5">
@@ -297,7 +407,13 @@ export const OpenAccountModal = ({ isOpen, onClose, asociado, onSuccess }) => {
       footer={
         <>
           <Button variant="secondary" onClick={onClose} disabled={loading}>Cancelar</Button>
-          <Button type="submit" form={FORM_ID} loading={loading} loadingText="Abriendo cuenta…">
+          <Button
+            type="submit"
+            form={FORM_ID}
+            loading={loading}
+            loadingText="Abriendo cuenta…"
+            disabled={formData.origen_fondos === 'BANCO_EXTERNO' && (cargandoBanco || cuentasBanco.length === 0)}
+          >
             Abrir cuenta
           </Button>
         </>
@@ -346,7 +462,7 @@ export const OpenAccountModal = ({ isOpen, onClose, asociado, onSuccess }) => {
 
         <fieldset className="space-y-3 border-t border-line pt-5">
           <legend className="mb-2 text-sm font-medium text-ink-soft">Origen de los fondos</legend>
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
             <OptionCard
               name="origen"
               checked={formData.origen_fondos === 'EFECTIVO_VENTANILLA'}
@@ -363,7 +479,34 @@ export const OpenAccountModal = ({ isOpen, onClose, asociado, onSuccess }) => {
               <span className="block font-medium text-ink">Otra cuenta del asociado</span>
               <span className="block text-xs text-ink-muted">Se debita de una de sus cuentas en la cooperativa.</span>
             </OptionCard>
+            <OptionCard
+              name="origen"
+              checked={formData.origen_fondos === 'BANCO_EXTERNO'}
+              onSelect={() => handleChange({ target: { name: 'origen_fondos', value: 'BANCO_EXTERNO' } })}
+            >
+              <span className="block font-medium text-ink">{ORIGENES.BANCO_EXTERNO}</span>
+              <span className="block text-xs text-ink-muted">Se traslada desde su cuenta de ahorro o monetaria en el banco.</span>
+            </OptionCard>
           </div>
+
+          {formData.origen_fondos === 'BANCO_EXTERNO' &&
+            (cargandoBanco ? (
+              <LoadingState label="Consultando cuentas del banco…" className="py-6" />
+            ) : errorBanco ? (
+              <Alert tone="danger">No se pudieron consultar las cuentas del banco. Cierre y vuelva a intentarlo.</Alert>
+            ) : cuentasBanco.length > 0 ? (
+              <Field label="Cuenta del banco de la que se debita" hint="Solo cuentas del asociado." required>
+                <Select name="numero_cuenta_bancaria" value={formData.numero_cuenta_bancaria} onChange={handleChange} required>
+                  {cuentasBanco.map((c) => (
+                    <option key={c.numero_cuenta_bancaria} value={c.numero_cuenta_bancaria}>
+                      {c.tipo_cuenta} · {c.numero_cuenta_bancaria} (saldo {formatQ(c.saldo_disponible)})
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+            ) : (
+              <Alert tone="warning">El asociado no tiene cuentas activas en el banco.</Alert>
+            ))}
 
           {formData.origen_fondos === 'CUENTA_INTERNA' &&
             (cuentasAsociado.length > 0 ? (

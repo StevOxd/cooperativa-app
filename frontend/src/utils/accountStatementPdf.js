@@ -40,9 +40,10 @@ const estadoLabel = (estado) => (estado ? estado.charAt(0) + estado.slice(1).toL
  * @param {Object} params.asociado - Titular (nombre, DPI, código, correo, fecha de ingreso).
  * @param {Object} params.cuenta - Número, tipo, saldos, tasa y estado.
  * @param {Array<Object>} params.transacciones - Movimientos de la cuenta.
+ * @param {'portal'|'ventanilla'} [params.origen='portal'] - Dónde se genera (cambia la nota final).
  * @returns {jsPDF} El documento, ya descargado.
  */
-export const generateAccountStatementPdf = ({ asociado, cuenta, transacciones = [] }) => {
+export const generateAccountStatementPdf = ({ asociado, cuenta, transacciones = [], origen = 'portal' }) => {
   const doc = createDoc();
   const now = new Date();
 
@@ -127,7 +128,9 @@ export const generateAccountStatementPdf = ({ asociado, cuenta, transacciones = 
     { columns: 2 }
   );
   noteBox(doc, y, {
-    text: 'Documento informativo generado desde el portal del asociado. Si necesita una constancia con firma y sello, solicítela en una agencia.',
+    text: origen === 'ventanilla'
+      ? 'Documento informativo generado en ventanilla. Si necesita una constancia con firma y sello, solicítela al operador.'
+      : 'Documento informativo generado desde el portal del asociado. Si necesita una constancia con firma y sello, solicítela en una agencia.',
   });
 
   drawFooters(doc, 'Estado de cuenta');

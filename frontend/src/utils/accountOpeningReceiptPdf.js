@@ -37,6 +37,20 @@ const normalize = (data = {}) => {
   };
 };
 
+/** Lo que pasó con el acceso al portal en la afiliación; nunca afirma un envío que no ocurrió. */
+const textoAccesoPortal = (d) => {
+  if (d.acceso_existente) {
+    return 'El titular conserva su acceso al portal con su usuario y su contraseña de siempre.';
+  }
+  if (!d.usuario || d.acceso_portal === false) {
+    return 'Afiliado sin acceso al portal. Puede solicitarlo en cualquier agencia con su DPI; se le enviará a su correo.';
+  }
+  if (d.correo_enviado === false) {
+    return 'El correo con la contraseña temporal no se pudo enviar. Cuando el correo de la cooperativa funcione, se le enviará una nueva.';
+  }
+  return 'La contraseña temporal se envió al correo del titular y nadie más la conoce, tampoco el operador. Al entrar por primera vez, el sistema le pedirá crear una nueva.';
+};
+
 /**
  * Genera y descarga el comprobante de apertura de cuenta y depósito inicial.
  *
@@ -47,7 +61,7 @@ const normalize = (data = {}) => {
 export const generateAccountOpeningReceiptPdf = ({ data }) => {
   const d = normalize(data);
   const doc = createDoc();
-  const esAfiliacion = Boolean(d.numero_caso || d.usuario);
+  const esAfiliacion = Boolean(d.numero_caso || d.usuario || d.es_afiliacion);
 
   let y = drawHeader(doc, {
     title: esAfiliacion ? 'Comprobante de afiliación y apertura de cuenta' : 'Comprobante de apertura de cuenta',
@@ -84,7 +98,7 @@ export const generateAccountOpeningReceiptPdf = ({ data }) => {
     y = noteBox(doc, y, {
       tone: 'brand',
       title: 'Acceso al portal',
-      text: 'La contraseña temporal se envió al correo del titular y nadie más la conoce, tampoco el operador. Al entrar por primera vez, el sistema le pedirá crear una nueva.',
+      text: textoAccesoPortal(d),
     });
   }
 
