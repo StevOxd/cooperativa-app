@@ -671,7 +671,8 @@ const server = app.listen(0, async () => {
       numero_cuenta_bancaria: cuentaBcoCliente.numero_cuenta_bancaria, // cuenta de Marcos
     }, operatorToken);
     const saldoPropioDespues = await bancoApiService.consultarCuenta(cuentaBcoCliente.numero_cuenta_bancaria);
-    if (aperturaPropia.status !== 201 || saldoPropioAntes.data.saldo_disponible - saldoPropioDespues.data.saldo_disponible !== 100) {
+    if (aperturaPropia.status !== 201 || saldoPropioAntes.data.saldo_disponible - saldoPropioDespues.data.saldo_disponible !== 100
+      || Number(aperturaPropia.body.data.movimiento_inicial?.monto) !== 100) {
       throw new Error('La apertura con fondos de su propia cuenta debería debitar Q100: ' + JSON.stringify(aperturaPropia.body));
     }
     console.log('✓ La apertura con fondos del banco solo acepta cuentas del asociado y debita el monto.');

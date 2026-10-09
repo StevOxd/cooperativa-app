@@ -1,5 +1,5 @@
 import React from 'react';
-import { FileDown } from 'lucide-react';
+import { FileDown, Landmark } from 'lucide-react';
 import { generateAccountOpeningReceiptPdf } from '../../../utils/accountOpeningReceiptPdf';
 import { Alert, Button, Modal } from '../../ui';
 import { formatQ } from '../../../utils/format';
@@ -8,7 +8,7 @@ import { formatQ } from '../../../utils/format';
  * Resumen de una afiliación formalizada, con descarga del comprobante (ARQ-04).
  * Por seguridad, nunca muestra la contraseña temporal: solo indica si se envió por correo.
  */
-const OperatorAffiliationSuccessModal = ({ formalizadoResult, onClose }) => {
+const OperatorAffiliationSuccessModal = ({ formalizadoResult, onClose, onAbrirCuenta }) => {
   if (!formalizadoResult) return null;
 
   const handleDownloadPdf = () => {
@@ -24,16 +24,23 @@ const OperatorAffiliationSuccessModal = ({ formalizadoResult, onClose }) => {
       isOpen
       onClose={onClose}
       lockScroll={false}
-      size="sm"
+      size="lg"
       title="Afiliación formalizada"
-      description="Se creó el usuario del asociado y se abrió su cuenta de ahorro."
+      description="El depósito inicial quedó en su cuenta de ahorro del banco."
       footer={
-        <>
-          <Button variant="secondary" icon={FileDown} onClick={handleDownloadPdf}>
-            Descargar comprobante
-          </Button>
-          <Button onClick={onClose}>Volver a la bandeja</Button>
-        </>
+        <div className="flex w-full flex-col-reverse gap-2 sm:flex-row sm:justify-between">
+          <Button variant="secondary" onClick={onClose}>Volver a la bandeja</Button>
+          <div className="flex flex-col-reverse gap-2 sm:flex-row">
+            <Button variant="secondary" icon={FileDown} onClick={handleDownloadPdf}>
+              Descargar comprobante
+            </Button>
+            {onAbrirCuenta && (
+              <Button icon={Landmark} onClick={() => onAbrirCuenta(formalizadoResult)}>
+                Abrir cuenta en la cooperativa
+              </Button>
+            )}
+          </div>
+        </div>
       }
     >
       <div className="space-y-4">
@@ -47,7 +54,7 @@ const OperatorAffiliationSuccessModal = ({ formalizadoResult, onClose }) => {
             <dd className="font-mono text-ink">{formalizadoResult.usuario}</dd>
           </div>
           <div className="flex justify-between gap-4 px-4 py-2.5">
-            <dt className="text-ink-muted">Cuenta</dt>
+            <dt className="text-ink-muted">Cuenta de ahorro en el banco</dt>
             <dd className="font-mono text-ink">{formalizadoResult.numero_cuenta}</dd>
           </div>
           <div className="flex justify-between gap-4 px-4 py-2.5">

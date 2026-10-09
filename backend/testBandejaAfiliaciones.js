@@ -163,6 +163,20 @@ async function runTests() {
       'Sin acceso al portal se afilia sin crear usuario'
     );
 
+    // 6.1 Desde el resumen: abrir la cuenta en la cooperativa con los fondos que quedaron en el banco (issue #26)
+    const aperturaDesdeBanco = await request('/api/admin/asociados/aperturar-cuenta', 'POST', {
+      id_asociado: formalizedSocio.id_asociado,
+      id_tipo_cuenta: 2,
+      monto_apertura: 250.00,
+      origen_fondos: 'BANCO_EXTERNO',
+      numero_cuenta_bancaria: formalizedSocio.numero_cuenta,
+    }, tokenOp1);
+    const movimiento = aperturaDesdeBanco.body.data?.movimiento_inicial;
+    reporter.assert(
+      aperturaDesdeBanco.status === 201 && movimiento && Number(movimiento.monto) === 250 && movimiento.referencia.includes(formalizedSocio.numero_cuenta),
+      'Cuenta abierta en la cooperativa con los fondos del banco; devuelve el movimiento para el estado de cuenta'
+    );
+
     // 7. Verificar que la solicitud ya no aparezca en pendientes
     const listFinal = await request('/api/operador/afiliaciones?estado=PENDIENTE_AGENCIA', 'GET', null, tokenOp1);
     const casoFinal = listFinal.body.data.find((c) => c.id_solicitud === casoMarvin.id_solicitud);
@@ -175,14 +189,12 @@ async function runTests() {
     console.log('\n[CLEANUP] Restaurando estado original para garantizar idempotencia...');
     try {
       if (formalizedSocio) {
-        // Eliminar transacciones de la cuenta de aportaciones creada
+        // Eliminar las cuentas abiertas en la cooperativa para este asociado y sus movimientos
         await db.query(`
           DELETE FROM transacciones 
-          WHERE id_cuenta IN (SELECT id_cuenta FROM cuentas WHERE numero_cuenta = $1)
-        `, [formalizedSocio.numero_cuenta]);
-
-        // Eliminar cuenta de aportaciones
-        await db.query(`DELETE FROM cuentas WHERE numero_cuenta = $1`, [formalizedSocio.numero_cuenta]);
+          WHERE id_cuenta IN (SELECT id_cuenta FROM cuentas WHERE id_asociado = $1)
+        `, [formalizedSocio.id_asociado]);
+        await db.query(`DELETE FROM cuentas WHERE id_asociado = $1`, [formalizedSocio.id_asociado]);
 
         // Eliminar asociado
         await db.query(`DELETE FROM asociados WHERE id_asociado = $1`, [formalizedSocio.id_asociado]);

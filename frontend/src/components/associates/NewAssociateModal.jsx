@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Building2 } from 'lucide-react';
+import { Building2, FileDown } from 'lucide-react';
 import api from '../../services/api';
 import { Alert, Badge, Button, Field, Input, LoadingState, Modal, Select, cn } from '../ui';
 import { formatQ } from '../../utils/format';
+import { generateAccountOpeningReceiptPdf } from '../../utils/accountOpeningReceiptPdf';
+import { toast } from '../../context/ToastContext';
 import { PortalAccessOption } from '../common/PortalAccessOption';
 import { useCorreoDisponible } from '../../hooks/useCorreoDisponible';
 
@@ -663,6 +665,32 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess }) => {
         ? emailStatus.message
         : 'A este correo se enviará la contraseña temporal.';
 
+  // Comprobante de afiliación y apertura para que el asociado se lo lleve (issue #26)
+  const handleDownloadReceipt = () => {
+    try {
+      generateAccountOpeningReceiptPdf({
+        data: {
+          es_afiliacion: true,
+          nombre_completo: successData.nombre_completo,
+          cui_dpi: formData.cui_dpi,
+          email: formData.email || null,
+          telefono: formData.telefono,
+          usuario: successData.acceso_portal ? successData.codigo_corporativo : null,
+          acceso_portal: successData.acceso_portal,
+          correo_enviado: successData.correo_enviado,
+          numero_cuenta: successData.cuenta_ahorro || successData.cuenta_aportaciones,
+          tipo_cuenta: 'Cuenta de aportaciones',
+          fecha_apertura: new Date(),
+          saldo_inicial: successData.saldo_inicial,
+          metodo_pago: 'EFECTIVO_VENTANILLA',
+        },
+      });
+    } catch (err) {
+      console.error('Error al generar el comprobante de afiliación:', err);
+      toast.error('No se pudo generar el comprobante. Intente de nuevo.');
+    }
+  };
+
   if (successData) {
     return (
       <Modal
@@ -671,7 +699,12 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess }) => {
         lockScroll={false}
         title="Asociado registrado"
         description="Se creó su expediente y su cuenta de aportaciones."
-        footer={<Button onClick={onClose}>Cerrar</Button>}
+        footer={
+          <div className="flex w-full flex-col-reverse gap-2 sm:flex-row sm:justify-between">
+            <Button variant="secondary" onClick={onClose}>Cerrar</Button>
+            <Button icon={FileDown} onClick={handleDownloadReceipt}>Descargar comprobante</Button>
+          </div>
+        }
       >
         <dl className="divide-y divide-line rounded-md border border-line text-sm">
           {[

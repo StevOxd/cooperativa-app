@@ -6,6 +6,7 @@ import { useToast } from '../context/ToastContext';
 import OperatorCreditEvaluationModal from '../components/operator/modals/OperatorCreditEvaluationModal';
 import OperatorAffiliationModal from '../components/operator/modals/OperatorAffiliationModal';
 import { useCorreoDisponible } from '../hooks/useCorreoDisponible';
+import OpenAccountModal from '../components/associates/OpenAccountModal';
 import OperatorAffiliationSuccessModal from '../components/operator/modals/OperatorAffiliationSuccessModal';
 import OperatorTrasladoModal from '../components/operator/modals/OperatorTrasladoModal';
 import { generateAccountOpeningReceiptPdf } from '../utils/accountOpeningReceiptPdf';
@@ -83,6 +84,27 @@ export const OperatorDashboard = () => {
   const [editTelefono, setEditTelefono] = useState('');
   const [editEmail, setEditEmail] = useState('');
   const [editDireccion, setEditDireccion] = useState('');
+
+  // Abrir la cuenta en la cooperativa desde el resumen de la formalización, con los fondos
+  // que quedaron en la cuenta del banco (issue #26)
+  const [aperturaDesdeResumen, setAperturaDesdeResumen] = useState(null);
+  const abrirCuentaDesdeResumen = (resultado) => {
+    setFormalizadoResult(null);
+    setAperturaDesdeResumen({
+      asociado: {
+        id_asociado: resultado.id_asociado,
+        nombre_completo: resultado.nombre_completo,
+        cui_dpi: resultado.cui_dpi,
+        email: resultado.email,
+        telefono: resultado.telefono,
+      },
+      valores: {
+        origen_fondos: 'BANCO_EXTERNO',
+        numero_cuenta_bancaria: resultado.numero_cuenta,
+        monto_apertura: resultado.saldo_inicial,
+      },
+    });
+  };
 
   // Acceso al portal al formalizar (issue #26): solo si el correo de la cooperativa funciona
   const correoDisponible = useCorreoDisponible(Boolean(selectedAfiliacion));
@@ -803,6 +825,14 @@ export const OperatorDashboard = () => {
       <OperatorAffiliationSuccessModal
         formalizadoResult={formalizadoResult}
         onClose={() => setFormalizadoResult(null)}
+        onAbrirCuenta={abrirCuentaDesdeResumen}
+      />
+
+      <OpenAccountModal
+        isOpen={Boolean(aperturaDesdeResumen)}
+        asociado={aperturaDesdeResumen?.asociado}
+        valoresIniciales={aperturaDesdeResumen?.valores}
+        onClose={() => setAperturaDesdeResumen(null)}
       />
 
       <OperatorTrasladoModal
