@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Building2, FileDown } from 'lucide-react';
+import { Building2, FileDown, Landmark } from 'lucide-react';
 import api from '../../services/api';
 import { Alert, Badge, Button, Field, Input, LoadingState, Modal, Select, cn } from '../ui';
 import { formatQ } from '../../utils/format';
@@ -23,7 +23,7 @@ const clearFieldError = (setFieldErrors, field) =>
  * validación de DPI (detecta si es empleado del banco), mayoría de edad,
  * correo disponible, depósito inicial y cuenta bancaria.
  */
-export const NewAssociateModal = ({ isOpen, onClose, onSuccess }) => {
+export const NewAssociateModal = ({ isOpen, onClose, onSuccess, onAbrirCuenta }) => {
   const [formData, setFormData] = useState({
     cui_dpi: '',
     primer_nombre: '',
@@ -591,6 +591,14 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess }) => {
     const monto = parseFloat(formData.monto_aportacion);
     if (isNaN(monto) || monto < 100.00) {
       errors.monto_aportacion = 'La aportación inicial no puede ser inferior a Q100.00.';
+    } else if (formData.tipo_asociado === 'EB') {
+      // El aporte de un empleado del banco se debita de una de sus cuentas: debe tener fondos
+      const cuentaElegida = cuentasEmpleado.find((c) => c.numero_cuenta_bancaria === cuentaBancoSeleccionada);
+      if (!cuentaElegida) {
+        errors.monto_aportacion = 'Elija la cuenta del banco de la que se debitará el aporte.';
+      } else if (parseFloat(cuentaElegida.saldo_disponible) < monto) {
+        errors.monto_aportacion = `La cuenta ${cuentaElegida.numero_cuenta_bancaria} tiene ${formatQ(cuentaElegida.saldo_disponible)}. Elija otra o deposite primero en ventanilla.`;
+      }
     }
 
     if (Object.keys(errors).length > 0) {
@@ -665,6 +673,8 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess }) => {
         ? emailStatus.message
         : 'A este correo se enviará la contraseña temporal.';
 
+  const esEbExito = successData?.tipo_asociado === 'EB';
+
   // Comprobante de afiliación y apertura para que el asociado se lo lleve (issue #26)
   const handleDownloadReceipt = () => {
     try {
@@ -678,11 +688,11 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess }) => {
           usuario: successData.acceso_portal ? successData.codigo_corporativo : null,
           acceso_portal: successData.acceso_portal,
           correo_enviado: successData.correo_enviado,
-          numero_cuenta: successData.cuenta_ahorro || successData.cuenta_aportaciones,
-          tipo_cuenta: 'Cuenta de aportaciones',
+          numero_cuenta: esEbExito ? successData.cuenta_ahorro : successData.cuenta_bancaria_creada,
+          tipo_cuenta: esEbExito ? 'Cuenta de ahorro en la cooperativa' : 'Cuenta de ahorro en el banco',
           fecha_apertura: new Date(),
           saldo_inicial: successData.saldo_inicial,
-          metodo_pago: 'EFECTIVO_VENTANILLA',
+          metodo_pago: esEbExito ? 'BANCO_EXTERNO' : 'EFECTIVO_VENTANILLA',
         },
       });
     } catch (err) {
@@ -698,11 +708,24 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess }) => {
         onClose={onClose}
         lockScroll={false}
         title="Asociado registrado"
-        description="Se creó su expediente y su cuenta de aportaciones."
+        description={
+          esEbExito
+            ? 'Se creó su expediente y su cuenta en la cooperativa con el aporte debitado del banco.'
+            : 'Se creó su expediente y el depósito quedó en su cuenta nueva del banco.'
+        }
         footer={
           <div className="flex w-full flex-col-reverse gap-2 sm:flex-row sm:justify-between">
             <Button variant="secondary" onClick={onClose}>Cerrar</Button>
-            <Button icon={FileDown} onClick={handleDownloadReceipt}>Descargar comprobante</Button>
+            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:flex-wrap sm:justify-end">
+              <Button variant={!esEbExito && onAbrirCuenta ? 'secondary' : 'primary'} icon={FileDown} onClick={handleDownloadReceipt}>
+                Descargar comprobante
+              </Button>
+              {!esEbExito && onAbrirCuenta && successData.cuenta_bancaria_creada && (
+                <Button icon={Landmark} onClick={() => onAbrirCuenta(successData, formData)}>
+                  Abrir cuenta en la cooperativa
+                </Button>
+              )}
+            </div>
           </div>
         }
       >
@@ -711,11 +734,11 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess }) => {
             ['Acceso al portal', successData.acceso_portal ? successData.codigo_corporativo : 'Sin acceso', successData.acceso_portal ? 'font-mono' : ''],
             ['Nombre', successData.nombre_completo],
             ['Tipo de asociado', successData.tipo_asociado === 'EB' ? 'Empleado del banco (EB)' : 'Externo (EX)'],
-            ['Cuenta de aportaciones', successData.cuenta_ahorro || successData.cuenta_aportaciones, 'font-mono'],
-            successData.cuenta_bancaria_creada && ['Cuenta de ahorro abierta en el banco', successData.cuenta_bancaria_creada, 'font-mono'],
-            successData.numero_cuenta_bancaria_asociada && ['Cuenta bancaria vinculada', successData.numero_cuenta_bancaria_asociada, 'font-mono'],
-            ['Depósito inicial', formatQ(successData.saldo_inicial), 'font-medium tabular-nums'],
-            ['Forma de pago', 'Efectivo en ventanilla'],
+            esEbExito && ['Cuenta en la cooperativa', successData.cuenta_ahorro, 'font-mono'],
+            esEbExito && ['Debitado de su cuenta del banco', successData.numero_cuenta_bancaria_asociada, 'font-mono'],
+            !esEbExito && ['Cuenta de ahorro en el banco', successData.cuenta_bancaria_creada, 'font-mono'],
+            [esEbExito ? 'Aporte inicial' : 'Depósito inicial', formatQ(successData.saldo_inicial), 'font-medium tabular-nums'],
+            ['Forma de pago', esEbExito ? 'Débito de su cuenta del banco' : 'Efectivo en ventanilla'],
           ]
             .filter(Boolean)
             .map(([label, value, valueClass]) => (
@@ -728,16 +751,15 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess }) => {
 
         {!successData.acceso_portal && (
           <Alert tone="info" title="Afiliado sin acceso al portal" className="mt-4">
-            Sus cuentas ya están abiertas. Cuando el correo de la cooperativa funcione, el acceso al portal se activa
-            desde su expediente.
+            Cuando el asociado lo pida, el acceso al portal se activa desde su expediente.
           </Alert>
         )}
 
         {successData.acceso_portal && !successData.correo_enviado && (
           <Alert tone="warning" title="El asociado no recibió su acceso al portal" className="mt-4">
             El asociado quedó registrado, pero el correo con su usuario y su contraseña temporal no se pudo
-            enviar, así que todavía no puede entrar al portal. Cuando el correo de la cooperativa funcione, pida al
-            administrador que reinicie su contraseña desde Usuarios para enviarle una nueva.
+            enviar, así que todavía no puede entrar al portal. Cuando el correo de la cooperativa funcione, reenvíe el
+            acceso desde su expediente.
           </Alert>
         )}
       </Modal>
@@ -984,15 +1006,15 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess }) => {
             <div className="space-y-1.5">
               <p className="text-sm font-medium text-ink-soft">Forma de pago</p>
               <p className="flex h-10 items-center rounded-md border border-line bg-surface-muted px-3 text-sm text-ink">
-                Efectivo en ventanilla
+                {esEmpleado ? 'Débito de su cuenta del banco' : 'Efectivo en ventanilla'}
               </p>
             </div>
           </div>
 
           {!esEmpleado && (
             <Alert tone="info" icon={Building2}>
-              Como no tiene relación previa con el banco, se abrirá automáticamente una cuenta de ahorro en el banco
-              vinculada a su DPI, además de su cuenta en la cooperativa.
+              El efectivo se deposita en una cuenta de ahorro nueva del banco a su nombre. La cuenta en la cooperativa se
+              abre después, desde el resumen o en ventanilla.
             </Alert>
           )}
 
@@ -1010,7 +1032,7 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess }) => {
               ) : cuentasEmpleado.length > 0 ? (
                 <div className="space-y-3">
                   <fieldset>
-                    <legend className="mb-2 text-sm text-ink-muted">Elija la cuenta que se vinculará al expediente:</legend>
+                    <legend className="mb-2 text-sm text-ink-muted">Elija la cuenta de la que se debitará el aporte:</legend>
                     <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                       {cuentasEmpleado.map((cta) => {
                         const isSelected = cuentaBancoSeleccionada === cta.numero_cuenta_bancaria;

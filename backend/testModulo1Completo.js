@@ -83,6 +83,16 @@ const server = app.listen(0, async () => {
       await pool.query("DELETE FROM asociados WHERE id_persona = $1", [idOp2]);
     }
 
+    // Limpiar la afiliación de prueba de Valeria Méndez (EB, 1000000000004, sección 4.1.1)
+    const pValeria = await pool.query("SELECT id_persona FROM personas WHERE cui_dpi = '1000000000004'");
+    if (pValeria.rows.length > 0) {
+      const idValeria = pValeria.rows[0].id_persona;
+      await pool.query("DELETE FROM transacciones WHERE id_cuenta IN (SELECT id_cuenta FROM cuentas WHERE id_asociado IN (SELECT id_asociado FROM asociados WHERE id_persona = $1))", [idValeria]);
+      await pool.query("DELETE FROM cuentas WHERE id_asociado IN (SELECT id_asociado FROM asociados WHERE id_persona = $1)", [idValeria]);
+      await pool.query("DELETE FROM asociados WHERE id_persona = $1", [idValeria]);
+      await pool.query("DELETE FROM personas WHERE id_persona = $1 AND NOT EXISTS (SELECT 1 FROM usuarios WHERE id_persona = $1)", [idValeria]);
+    }
+
     // Limpiar solicitudes de agencia de prueba con el DPI de Marcos (caso de suplantación, sección 4.3)
     await pool.query("DELETE FROM solicitudes_afiliacion_agencia WHERE cui_dpi = '4000000000001'");
 
@@ -590,6 +600,46 @@ const server = app.listen(0, async () => {
     }
     console.log('✓ Afiliación en ventanilla sin acceso al portal: cuentas abiertas y sin usuario.');
 
+    // 4.1.0 Externo (EX): el efectivo va a su cuenta nueva del banco; no se abre cuenta en la cooperativa
+    const cuentasCoopPresencial = await pool.query('SELECT 1 FROM cuentas WHERE id_asociado = $1', [socioPresencial.id_asociado]);
+    const cuentaBancoPresencial = socioPresencial.cuenta_bancaria_creada
+      ? await bancoApiService.consultarCuenta(socioPresencial.cuenta_bancaria_creada)
+      : null;
+    if (cuentasCoopPresencial.rows.length !== 0 || !cuentaBancoPresencial?.success
+      || Number(cuentaBancoPresencial.data.saldo_disponible) !== 500) {
+      throw new Error('El depósito de un externo debería quedar en su cuenta nueva del banco, sin cuenta en la cooperativa: ' + JSON.stringify(presencialRes.body));
+    }
+    console.log('✓ Externo en ventanilla: el depósito queda en su cuenta nueva del banco, sin cuenta en la cooperativa.');
+
+    // 4.1.1 Empleado del banco (EB): el aporte se debita de una de sus cuentas a una cuenta de la cooperativa
+    const datosValeria = {
+      cui_dpi: '1000000000004',
+      primer_nombre: 'Valeria',
+      primer_apellido: 'Méndez',
+      fecha_nacimiento: '1992-04-18',
+      telefono: '55110004',
+      monto_aportacion: 150.00,
+      crear_acceso_portal: false,
+    };
+    const ebCuentaAjena = await request('/api/admin/asociados/presencial', 'POST', {
+      ...datosValeria, numero_cuenta_bancaria: 'CTA-BCO-AHORRO-4002', // cuenta de Sofía
+    }, operatorToken);
+    const saldoValeriaAntes = await bancoApiService.consultarCuenta('CTA-BCO-MONET-1004');
+    const ebRes = await request('/api/admin/asociados/presencial', 'POST', {
+      ...datosValeria, numero_cuenta_bancaria: 'CTA-BCO-MONET-1004',
+    }, operatorToken);
+    const saldoValeriaDespues = await bancoApiService.consultarCuenta('CTA-BCO-MONET-1004');
+    const cuentaCoopValeria = await pool.query(
+      'SELECT saldo_disponible FROM cuentas WHERE id_asociado = $1', [ebRes.body.data?.id_asociado]
+    );
+    if (ebCuentaAjena.status !== 403
+      || ebRes.status !== 201 || ebRes.body.data.tipo_asociado !== 'EB' || ebRes.body.data.cuenta_bancaria_creada
+      || saldoValeriaAntes.data.saldo_disponible - saldoValeriaDespues.data.saldo_disponible !== 150
+      || cuentaCoopValeria.rows.length !== 1 || Number(cuentaCoopValeria.rows[0].saldo_disponible) !== 150) {
+      throw new Error('Un empleado del banco debería afiliarse debitando su propia cuenta hacia la cooperativa: ' + JSON.stringify(ebRes.body));
+    }
+    console.log('✓ Empleado del banco en ventanilla: el aporte se debita de su cuenta (no de una ajena) a una cuenta de la cooperativa.');
+
     // 4.2 Sin correo, el administrador no puede reiniciar la contraseña: la actual no cambia
     const hashQuery = 'SELECT password_hash FROM usuarios WHERE codigo_corporativo = $1';
     const usuarioMarcos = dataAfiliado.usuario.codigo_corporativo;
@@ -729,6 +779,18 @@ const server = app.listen(0, async () => {
     }
     console.log('✓ Validación correcta de monto mínimo de apertura rechazada según política.');
 
+    // 5.0.0 No se traslada dinero entre cuentas de la cooperativa para abrir otra
+    const aperturaInterna = await request('/api/admin/asociados/aperturar-cuenta', 'POST', {
+      id_asociado: socioPresencial.id_asociado,
+      id_tipo_cuenta: 2,
+      monto_apertura: 100.00,
+      origen_fondos: 'CUENTA_INTERNA',
+    }, operatorToken);
+    if (aperturaInterna.status !== 400) {
+      throw new Error('La apertura desde otra cuenta de la cooperativa debería rechazarse: ' + JSON.stringify(aperturaInterna.body));
+    }
+    console.log('✓ La apertura de cuentas solo acepta efectivo o la cuenta del asociado en el banco.');
+
     // 5.0 Las operaciones con el banco desde la ventanilla requieren sesión de operador
     const bancoSinSesion = await request('/api/banco-externo/cuentas-cliente/4000000000002');
     const acreditarSinSesion = await request('/api/banco-externo/acreditar', 'POST', { numero_cuenta: 'CTA-BCO-AHORRO-4002', monto: 1 });
@@ -765,6 +827,21 @@ const server = app.listen(0, async () => {
       throw new Error('La apertura con fondos de su propia cuenta debería debitar Q100: ' + JSON.stringify(aperturaPropia.body));
     }
     console.log('✓ La apertura con fondos del banco solo acepta cuentas del asociado y debita el monto.');
+
+    // 5.0.2 Enviar el comprobante de apertura por correo
+    const boleta = (idAsociado, numeroCuenta) => request(`/api/admin/asociados/${idAsociado}/enviar-boleta-apertura`, 'POST', {
+      numero_cuenta: numeroCuenta, origen_fondos: 'BANCO_EXTERNO',
+    }, operatorToken);
+    const boletaSinCorreo = await boleta(ebRes.body.data.id_asociado, ebRes.body.data.cuenta_ahorro); // Valeria, sin usuario
+    const boletaCuentaAjena = await boleta(dataAfiliado.asociado.id_asociado, ebRes.body.data.cuenta_ahorro); // cuenta de Valeria
+    const boletaSinEnvio = await boleta(dataAfiliado.asociado.id_asociado, aperturaPropia.body.data.numero_cuenta); // MAIL_ENABLED=false
+    const sinDetalleInterno = [boletaSinCorreo, boletaCuentaAjena, boletaSinEnvio].every((r) => !/column|relation|syntax/i.test(r.body.message));
+    if (boletaSinCorreo.status !== 409 || boletaSinCorreo.body.error !== 'SIN_CORREO'
+      || boletaCuentaAjena.status !== 404 || boletaSinEnvio.status !== 502 || !sinDetalleInterno) {
+      throw new Error('El envío del comprobante debería distinguir sin correo, cuenta ajena y correo no enviado: '
+        + JSON.stringify([boletaSinCorreo.body, boletaCuentaAjena.body, boletaSinEnvio.body]));
+    }
+    console.log('✓ Comprobante por correo: avisa si no hay correo o no salió, y solo de cuentas del asociado.');
 
     // Apertura válida de cuenta de ahorro corriente (tipo 2)
     const buenaApertura = await request('/api/admin/asociados/aperturar-cuenta', 'POST', {

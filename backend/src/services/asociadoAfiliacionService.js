@@ -161,30 +161,17 @@ class AsociadoAfiliacionService {
         console.warn('[AFILIACION] Error al verificar tipo de cliente en banco:', checkErr.message);
       }
 
-      // 3.2 Si el afiliado es externo (EX), se le apertura automáticamente una cuenta de ahorro en la Entidad Bancaria
-      let cuentaBancariaAperturada = null;
-      if (tipoAsociadoDeterminado === 'EX') {
-        try {
-          const bcoRes = await bancoApiService.aperturarCuentaBancaria({
-            cui_dpi: cuiLimpio,
-            primer_nombre: primer_nombre.trim(),
-            segundo_nombre: segundo_nombre?.trim() || null,
-            primer_apellido: primer_apellido.trim(),
-            segundo_apellido: segundo_apellido?.trim() || null,
-            telefono: cleanTel,
-            direccion: direccion?.trim() || null,
-            email: cleanEmail,
-            fecha_nacimiento: fecha_nacimiento,
-            tipo_cuenta: 'AHORRO',
-            monto_inicial: 0.00,
-          });
-
-          if (bcoRes.success && bcoRes.data) {
-            cuentaBancariaAperturada = bcoRes.data.numero_cuenta;
-          }
-        } catch (bcoErr) {
-          console.warn('[AFILIACION] Advertencia al crear cuenta en el banco para socio externo:', bcoErr.message);
-        }
+      // 3.2 El depósito no entra a la cooperativa en efectivo (issue #26, criterio del negocio):
+      //     - EX (externo): el efectivo se deposita en una cuenta de ahorro nueva del banco, que se abre
+      //       obligatoriamente. La cuenta de la cooperativa se abre después desde el resumen o en ventanilla.
+      //     - EB (empleado del banco): no se abre otra cuenta en el banco; el aporte se debita de una de sus
+      //       cuentas y se acredita a una cuenta de la cooperativa.
+      //     La operación con el banco va al final, justo antes del COMMIT.
+      const cuentaBancoEb = typeof numero_cuenta_bancaria === 'string' ? numero_cuenta_bancaria.trim() : '';
+      if (tipoAsociadoDeterminado === 'EB' && !cuentaBancoEb) {
+        const error = new Error('Elija la cuenta del banco del asociado de la que se debitará el aporte.');
+        error.statusCode = 400;
+        throw error;
       }
 
       // 4.2 Inserción de Persona
@@ -236,30 +223,86 @@ class AsociadoAfiliacionService {
         );
       }
 
-      // 4.7 Apertura de Cuenta de Ahorro a la Vista (id_tipo_cuenta = 2)
-      const randomSuffix = Math.floor(100 + Math.random() * 900);
-      const numeroCuentaAhorro = `CTA-AHORR-${String(asociado.id_asociado).padStart(3, '0')}${randomSuffix}`;
+      // 4.7 EB: cuenta de ahorro en la cooperativa con el aporte debitado del banco
+      let cuentaAhorro = null;
+      const referenciaBanco = `AFIL-VENT-${asociado.id_asociado}-${Date.now()}`;
+      if (tipoAsociadoDeterminado === 'EB') {
+        const randomSuffix = Math.floor(100 + Math.random() * 900);
+        const numeroCuentaAhorro = `CTA-AHORR-${String(asociado.id_asociado).padStart(3, '0')}${randomSuffix}`;
+        const cuentaRes = await client.query(
+          `INSERT INTO cuentas (numero_cuenta, id_asociado, id_tipo_cuenta, saldo_disponible, saldo_reserva, estado)
+           VALUES ($1, $2, 2, $3, 0.00, 'ACTIVA')
+           RETURNING id_cuenta, numero_cuenta, saldo_disponible`,
+          [numeroCuentaAhorro, asociado.id_asociado, montoAporte]
+        );
+        cuentaAhorro = cuentaRes.rows[0];
+        await client.query(
+          `INSERT INTO transacciones (
+             id_cuenta, tipo_transaccion, monto, saldo_anterior, saldo_nuevo,
+             referencia, id_usuario_registra
+           ) VALUES ($1, 'DEPOSITO', $2, 0.00, $2, $3, $4)`,
+          [cuentaAhorro.id_cuenta, montoAporte, `Aporte inicial debitado de la cuenta del banco ${cuentaBancoEb}`, operadorId || null]
+        );
+      }
 
-      const cuentaRes = await client.query(
-        `INSERT INTO cuentas (numero_cuenta, id_asociado, id_tipo_cuenta, saldo_disponible, saldo_reserva, estado)
-         VALUES ($1, $2, 2, $3, 0.00, 'ACTIVA')
-         RETURNING id_cuenta, numero_cuenta, saldo_disponible`,
-        [numeroCuentaAhorro, asociado.id_asociado, montoAporte]
-      );
-      const cuentaAhorro = cuentaRes.rows[0];
+      // 4.8 Operación con el banco (al final): EX abre su cuenta con el efectivo; EB debita el aporte.
+      let cuentaBancariaAperturada = null;
+      let debitoRealizado = false;
+      if (tipoAsociadoDeterminado === 'EX') {
+        const bcoRes = await bancoApiService.aperturarCuentaBancaria({
+          cui_dpi: cuiLimpio,
+          primer_nombre: primer_nombre.trim(),
+          segundo_nombre: segundo_nombre?.trim() || null,
+          primer_apellido: primer_apellido.trim(),
+          segundo_apellido: segundo_apellido?.trim() || null,
+          telefono: cleanTel,
+          direccion: direccion?.trim() || null,
+          email: cleanEmail,
+          fecha_nacimiento: fecha_nacimiento,
+          tipo_cuenta: 'AHORRO',
+          monto_inicial: montoAporte,
+          referencia: referenciaBanco,
+        });
+        if (!bcoRes.success || !bcoRes.data) {
+          const error = new Error(bcoRes.message || 'No se pudo abrir la cuenta de ahorro en el banco. No se registró la afiliación.');
+          error.statusCode = 502;
+          throw error;
+        }
+        cuentaBancariaAperturada = bcoRes.data.numero_cuenta;
+      } else {
+        const debitRes = await bancoApiService.debitarCuenta({
+          numero_cuenta: cuentaBancoEb,
+          cui_dpi: cuiLimpio, // el banco rechaza cuentas de otra persona
+          monto: montoAporte,
+          concepto: 'Aporte inicial de afiliación a la cooperativa',
+          referencia: referenciaBanco,
+        });
+        if (!debitRes.success || debitRes.status !== 200) {
+          const error = new Error(
+            debitRes.status === 403
+              ? 'La cuenta del banco no pertenece a este asociado.'
+              : debitRes.message || 'No se pudo debitar la cuenta del banco. No se registró la afiliación.'
+          );
+          error.statusCode = debitRes.status === 403 ? 403 : 400;
+          throw error;
+        }
+        debitoRealizado = true;
+      }
 
-      // 4.8 Asiento en Libro de Transacciones
-      const referenciaTexto = 'Efectivo en Ventanilla - Depósito Inicial Afiliación Presencial';
-
-      await client.query(
-        `INSERT INTO transacciones (
-           id_cuenta, tipo_transaccion, monto, saldo_anterior, saldo_nuevo,
-           referencia, id_usuario_registra
-         ) VALUES ($1, 'DEPOSITO', $2, 0.00, $2, $3, $4)`,
-        [cuentaAhorro.id_cuenta, montoAporte, referenciaTexto, operadorId || null]
-      );
-
-      await client.query('COMMIT');
+      try {
+        await client.query('COMMIT');
+      } catch (commitError) {
+        // El débito ya salió del banco: se devuelve para no dejar el dinero en el aire (mismo problema del issue #31)
+        if (debitoRealizado) {
+          await bancoApiService.acreditarCuenta({
+            numero_cuenta: cuentaBancoEb,
+            monto: montoAporte,
+            concepto: 'Reversión de aporte: la afiliación no se completó',
+            referencia: `REV-${referenciaBanco}`,
+          }).catch((revError) => console.error('[AFILIACION] No se pudo revertir el débito:', revError.message));
+        }
+        throw commitError;
+      }
 
       // 4.9 Despacho de Correo Institucional con Credenciales y QR de 2FA, después del COMMIT:
       // si no sale, el asociado queda registrado y se avisa al operador.
@@ -286,11 +329,12 @@ class AsociadoAfiliacionService {
         nombre_completo: persona.nombre_completo,
         usuario: nextCode,
         email: emailFinal,
-        numero_cuenta: cuentaAhorro.numero_cuenta,
-        saldo_inicial: parseFloat(cuentaAhorro.saldo_disponible),
+        numero_cuenta: cuentaAhorro ? cuentaAhorro.numero_cuenta : null,
+        saldo_inicial: montoAporte,
+        metodo_pago: tipoAsociadoDeterminado === 'EB' ? 'DEBITO_BANCO' : 'EFECTIVO_VENTANILLA',
         mfa_enabled: false,
         cuenta_bancaria_creada: cuentaBancariaAperturada,
-        numero_cuenta_bancaria_asociada: numero_cuenta_bancaria || null,
+        numero_cuenta_bancaria_asociada: tipoAsociadoDeterminado === 'EB' ? cuentaBancoEb : null,
         tipo_asociado: tipoAsociadoDeterminado,
       };
     } catch (txError) {

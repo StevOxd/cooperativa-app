@@ -78,16 +78,15 @@ const OperatorAffiliationSuccessModal = ({ formalizadoResult, onClose, onAbrirCu
 
         {!formalizadoResult.acceso_portal && (
           <Alert tone="info" title="Afiliado sin acceso al portal">
-            Sus cuentas ya están abiertas. Cuando el correo de la cooperativa funcione, el acceso al portal se activa
-            desde su expediente.
+            Cuando el asociado lo pida, el acceso al portal se activa desde su expediente.
           </Alert>
         )}
 
         {formalizadoResult.acceso_portal && !formalizadoResult.acceso_existente && !formalizadoResult.correo_enviado && (
           <Alert tone="warning" title="El asociado no recibió su acceso al portal">
             La afiliación quedó registrada, pero el correo con su usuario y su contraseña temporal no se pudo
-            enviar, así que todavía no puede entrar al portal. Cuando el correo de la cooperativa funcione, pida al
-            administrador que reinicie su contraseña desde Usuarios para enviarle una nueva.
+            enviar, así que todavía no puede entrar al portal. Cuando el correo de la cooperativa funcione, reenvíe el
+            acceso desde su expediente.
           </Alert>
         )}
       </div>

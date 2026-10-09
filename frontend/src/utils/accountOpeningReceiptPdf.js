@@ -43,10 +43,10 @@ const textoAccesoPortal = (d) => {
     return 'El titular conserva su acceso al portal con su usuario y su contraseña de siempre.';
   }
   if (!d.usuario || d.acceso_portal === false) {
-    return 'Afiliado sin acceso al portal. Puede solicitarlo en cualquier agencia con su DPI; se le enviará a su correo.';
+    return 'Afiliado sin acceso al portal. Cuando lo desee, puede solicitarlo en cualquier agencia con su DPI; se le enviará a su correo.';
   }
   if (d.correo_enviado === false) {
-    return 'El correo con la contraseña temporal no se pudo enviar. Cuando el correo de la cooperativa funcione, se le enviará una nueva.';
+    return 'El correo con la contraseña temporal no se pudo enviar. Puede pedir que se le reenvíe en cualquier agencia con su DPI.';
   }
   return 'La contraseña temporal se envió al correo del titular y nadie más la conoce, tampoco el operador. Al entrar por primera vez, el sistema le pedirá crear una nueva.';
 };

@@ -271,10 +271,10 @@ const crearAfiliacionPresencial = async (req, res) => {
     return res.status(201).json({
       success: true,
       message: !data.acceso_portal
-        ? 'Asociado registrado y cuenta de ahorro abierta, sin acceso al portal. Se puede activar después desde su expediente.'
+        ? 'Asociado registrado, sin acceso al portal. Se puede activar después desde su expediente.'
         : data.correo_enviado
-          ? 'Asociado registrado y cuenta de ahorro abierta. Enviamos su acceso al portal por correo.'
-          : 'Asociado registrado y cuenta de ahorro abierta, pero el correo con el usuario y la contraseña no se pudo enviar.',
+          ? 'Asociado registrado. Enviamos su acceso al portal por correo.'
+          : 'Asociado registrado, pero el correo con el usuario y la contraseña no se pudo enviar.',
       data: {
         acceso_portal: data.acceso_portal,
         correo_enviado: data.correo_enviado,
@@ -284,7 +284,7 @@ const crearAfiliacionPresencial = async (req, res) => {
         codigo_corporativo: data.usuario,
         cuenta_ahorro: data.numero_cuenta,
         saldo_inicial: data.saldo_inicial,
-        metodo_pago: 'EFECTIVO_VENTANILLA',
+        metodo_pago: data.metodo_pago,
         cuenta_bancaria_creada: data.cuenta_bancaria_creada,
         numero_cuenta_bancaria_asociada: data.numero_cuenta_bancaria_asociada,
         tipo_asociado: data.tipo_asociado,
@@ -316,8 +316,7 @@ const aperturarCuenta = async (req, res) => {
     const {
       id_tipo_cuenta,
       monto_apertura,
-      origen_fondos, // 'EFECTIVO_VENTANILLA', 'CUENTA_INTERNA', 'BANCO_EXTERNO'
-      id_cuenta_origen,
+      origen_fondos, // 'EFECTIVO_VENTANILLA' o 'BANCO_EXTERNO'
       banco_nombre,
       numero_cuenta_bancaria,
     } = req.body;
@@ -333,6 +332,15 @@ const aperturarCuenta = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: 'Elija el tipo de cuenta.',
+      });
+    }
+
+    // El dinero entra en efectivo o desde una cuenta del asociado en el banco; no se traslada
+    // entre sus propias cuentas de la cooperativa para abrir otra (criterio del negocio, issue #26).
+    if (!['EFECTIVO_VENTANILLA', 'BANCO_EXTERNO'].includes(origen_fondos || 'EFECTIVO_VENTANILLA')) {
+      return res.status(400).json({
+        success: false,
+        message: 'El dinero de la apertura entra en efectivo o desde una cuenta del asociado en el banco.',
       });
     }
 
@@ -371,50 +379,7 @@ const aperturarCuenta = async (req, res) => {
     // 3. Procesar débito según origen de fondos
     let refOrigen = 'Efectivo en Ventanilla';
 
-    if (origen_fondos === 'CUENTA_INTERNA' && montoInicial > 0) {
-      if (!id_cuenta_origen) {
-        return res.status(400).json({ success: false, message: 'Elija la cuenta del asociado de la que saldrá el dinero.' });
-      }
-
-      const ctaOrigenRes = await client.query(
-        'SELECT id_cuenta, numero_cuenta, saldo_disponible FROM cuentas WHERE id_cuenta = $1 AND id_asociado = $2 FOR UPDATE',
-        [id_cuenta_origen, idAsociado]
-      );
-      if (ctaOrigenRes.rows.length === 0) {
-        await client.query('ROLLBACK');
-        return res.status(404).json({ success: false, message: 'No encontramos la cuenta de origen.' });
-      }
-
-      const ctaOrigen = ctaOrigenRes.rows[0];
-      if (parseFloat(ctaOrigen.saldo_disponible) < montoInicial) {
-        await client.query('ROLLBACK');
-        return res.status(400).json({
-          success: false,
-          message: `La cuenta ${ctaOrigen.numero_cuenta} no tiene saldo suficiente.`,
-        });
-      }
-
-      // Debitar cuenta origen
-      await client.query(
-        'UPDATE cuentas SET saldo_disponible = saldo_disponible - $1 WHERE id_cuenta = $2',
-        [montoInicial, ctaOrigen.id_cuenta]
-      );
-
-      // Transacción de retiro en cuenta origen
-      await client.query(
-        `INSERT INTO transacciones (id_cuenta, tipo_transaccion, monto, saldo_anterior, saldo_nuevo, referencia, id_usuario_registra)
-         VALUES ($1, 'RETIRO', $2, $3, $3 - $2, $4, $5)`,
-        [
-          ctaOrigen.id_cuenta,
-          montoInicial,
-          parseFloat(ctaOrigen.saldo_disponible),
-          `Débito por Apertura de Cuenta ${tipoCuenta.nombre}`,
-          req.user?.id_persona || null,
-        ]
-      );
-
-      refOrigen = `Traslado Interno Cta: ${ctaOrigen.numero_cuenta}`;
-    } else if (origen_fondos === 'BANCO_EXTERNO' && montoInicial > 0) {
+    if (origen_fondos === 'BANCO_EXTERNO' && montoInicial > 0) {
       // Consultar cuenta en Core Banking API (banco_db)
       let bcoRes;
       try {
@@ -811,43 +776,73 @@ const cambiarEstadoAsociado = async (req, res) => {
 const enviarBoletaApertura = async (req, res) => {
   try {
     const { id } = req.params;
-    const { numero_cuenta, tipo_cuenta, saldo_disponible, fecha_apertura, origen_fondos } = req.body;
+    const { numero_cuenta, origen_fondos } = req.body;
 
-    const query = `
-      SELECT p.primer_nombre, p.primer_apellido, COALESCE(u.email, p.email, '') AS email, p.nombre_completo
-      FROM asociados a
-      JOIN personas p ON p.id_persona = a.id_persona
-      LEFT JOIN usuarios u ON u.id_persona = p.id_persona
-      WHERE a.id_asociado = $1
-    `;
-    const result = await pool.query(query, [id]);
-    if (result.rows.length === 0) {
+    // Correo del asociado: el de su usuario o, si no tiene, el de su solicitud en agencia (verificado con código)
+    const asociadoRes = await pool.query(
+      `SELECT p.nombre_completo,
+              COALESCE(u.email, (
+                SELECT s.email FROM solicitudes_afiliacion_agencia s
+                WHERE s.cui_dpi = p.cui_dpi AND s.email IS NOT NULL
+                ORDER BY s.id_solicitud DESC LIMIT 1
+              )) AS email
+       FROM asociados a
+       JOIN personas p ON p.id_persona = a.id_persona
+       LEFT JOIN usuarios u ON u.id_persona = p.id_persona
+       WHERE a.id_asociado = $1`,
+      [id]
+    );
+    if (asociadoRes.rows.length === 0) {
       return res.status(404).json({ success: false, message: 'Asociado no encontrado.' });
     }
+    const asociado = asociadoRes.rows[0];
+    if (!asociado.email) {
+      return res.status(409).json({
+        success: false,
+        error: 'SIN_CORREO',
+        message: 'El asociado no tiene un correo registrado. Entréguele el comprobante impreso o active su acceso al portal desde el expediente.',
+      });
+    }
 
-    const asociado = result.rows[0];
-    const emailDestino = asociado.email || `socio.${id}@cooperativa.com`;
+    // Los datos del comprobante salen de la base, no de la pantalla, y la cuenta debe ser del asociado
+    const cuentaRes = await pool.query(
+      `SELECT c.numero_cuenta, tc.nombre AS tipo_cuenta, c.saldo_disponible, c.fecha_apertura
+       FROM cuentas c JOIN tipos_cuenta tc ON tc.id_tipo_cuenta = c.id_tipo_cuenta
+       WHERE c.numero_cuenta = $1 AND c.id_asociado = $2`,
+      [numero_cuenta, id]
+    );
+    if (cuentaRes.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'La cuenta no pertenece a este asociado.' });
+    }
+    const cuenta = cuentaRes.rows[0];
 
     const mailRes = await mailerService.sendAccountOpeningReceiptEmail({
-      to: emailDestino,
-      nombre: asociado.nombre_completo || `${asociado.primer_nombre} ${asociado.primer_apellido}`,
-      numeroCuenta: numero_cuenta,
-      tipoCuenta: tipo_cuenta,
-      montoApertura: saldo_disponible,
-      origenFondos: origen_fondos || 'EFECTIVO_VENTANILLA',
-      fechaApertura: fecha_apertura,
+      to: asociado.email,
+      nombre: asociado.nombre_completo,
+      numeroCuenta: cuenta.numero_cuenta,
+      tipoCuenta: cuenta.tipo_cuenta,
+      montoApertura: cuenta.saldo_disponible,
+      origenFondos: ['EFECTIVO_VENTANILLA', 'BANCO_EXTERNO'].includes(origen_fondos) ? origen_fondos : 'EFECTIVO_VENTANILLA',
+      fechaApertura: cuenta.fecha_apertura,
     });
+
+    if (!mailerService.wasSent(mailRes)) {
+      return res.status(502).json({
+        success: false,
+        error: 'CORREO_NO_ENVIADO',
+        message: `No se pudo enviar el comprobante a ${asociado.email}. Descárguelo y entréguelo impreso.`,
+      });
+    }
 
     return res.status(200).json({
       success: true,
-      message: `Comprobante enviado a ${emailDestino}.`,
-      data: mailRes,
+      message: `Comprobante enviado a ${asociado.email}.`,
     });
   } catch (error) {
     console.error('[ERROR] Fallo en asociadosAdminController.enviarBoletaApertura:', error.message);
     return res.status(500).json({
       success: false,
-      message: 'No se pudo enviar el comprobante por correo: ' + error.message,
+      message: 'No se pudo enviar el comprobante por correo. Descárguelo y entréguelo impreso.',
     });
   }
 };

@@ -59,6 +59,8 @@ export const AssociatesManagementPage = () => {
   const [isBeneficiariesModalOpen, setIsBeneficiariesModalOpen] = useState(false);
   const [isExpedienteModalOpen, setIsExpedienteModalOpen] = useState(false);
   const [selectedAsociado, setSelectedAsociado] = useState(null);
+  // Valores para abrir la cuenta en la cooperativa desde el resumen de «Nuevo asociado» (issue #26)
+  const [valoresApertura, setValoresApertura] = useState(null);
 
   // Modal de Confirmación Estilizado (H-02)
   const [confirmModalData, setConfirmModalData] = useState({
@@ -386,6 +388,22 @@ export const AssociatesManagementPage = () => {
         isOpen={isNewModalOpen}
         onClose={() => setIsNewModalOpen(false)}
         onSuccess={() => fetchAsociados(1)}
+        onAbrirCuenta={(resultado, datos) => {
+          setIsNewModalOpen(false);
+          setSelectedAsociado({
+            id_asociado: resultado.id_asociado,
+            nombre_completo: resultado.nombre_completo,
+            cui_dpi: datos.cui_dpi,
+            email: datos.email || null,
+            telefono: datos.telefono,
+          });
+          setValoresApertura({
+            origen_fondos: 'BANCO_EXTERNO',
+            numero_cuenta_bancaria: resultado.cuenta_bancaria_creada,
+            monto_apertura: resultado.saldo_inicial,
+          });
+          setIsOpenAccountModalOpen(true);
+        }}
       />
 
       <OpenAccountModal
@@ -393,8 +411,10 @@ export const AssociatesManagementPage = () => {
         onClose={() => {
           setIsOpenAccountModalOpen(false);
           setSelectedAsociado(null);
+          setValoresApertura(null);
         }}
         asociado={selectedAsociado}
+        valoresIniciales={valoresApertura}
         onSuccess={() => fetchAsociados(pagination.page)}
       />
 
