@@ -9,6 +9,7 @@ const { app } = require('./src/server');
 const { pool } = require('./src/config/db');
 const bancoApiService = require('./src/services/bancoApiService');
 const { firmarAfiliacionToken } = require('./src/utils/afiliacionToken');
+const mailerService = require('./src/services/mailerService');
 
 const server = app.listen(0, async () => {
   const testPort = server.address().port;
@@ -625,6 +626,94 @@ const server = app.listen(0, async () => {
       throw new Error('Formalizar una solicitud con el DPI de un asociado debería rechazarse sin tocar su acceso: ' + JSON.stringify(formalizarSuplantada.body));
     }
     console.log('✓ Una solicitud con el DPI de un asociado existente no se formaliza y su acceso no cambia.');
+
+    // 4.4 Activar el acceso al portal desde el expediente (issue #27)
+    const accesoDe = async (idAsociado) =>
+      (await request(`/api/admin/asociados/${idAsociado}/expediente`, 'GET', null, operatorToken)).body.data.asociado.acceso_portal;
+    const activarAcceso = (idAsociado, email) =>
+      request(`/api/admin/asociados/${idAsociado}/acceso-portal`, 'POST', { email }, operatorToken);
+    const usuarioDePresencial = () => pool.query(
+      'SELECT u.codigo_corporativo, u.email, u.debe_cambiar_password FROM usuarios u JOIN personas p USING (id_persona) WHERE p.cui_dpi = $1',
+      [dpiPresencial]
+    );
+    const idPresencial = socioPresencial.id_asociado;
+    const correoAcceso = `acceso.portal.${Date.now()}@gmail.com`;
+
+    if (await accesoDe(idPresencial) !== 'SIN_ACCESO') throw new Error('El asociado sin usuario debería figurar SIN_ACCESO en el expediente.');
+
+    // Sin correo (MAIL_ENABLED=false) no se activa nada
+    const sinCorreoActivar = await activarAcceso(idPresencial, correoAcceso);
+    if (sinCorreoActivar.status !== 409 || sinCorreoActivar.body.error !== 'CORREO_NO_DISPONIBLE' || (await usuarioDePresencial()).rows.length) {
+      throw new Error('Sin correo, activar el acceso debería rechazarse sin crear usuario: ' + JSON.stringify(sinCorreoActivar.body));
+    }
+
+    // Se simula el correo: disponible, pero el envío falla -> se deshace todo
+    const mailerOriginal = {
+      isAvailable: mailerService.isAvailable,
+      sendAccountCredentialsEmail: mailerService.sendAccountCredentialsEmail,
+      sendAccessEmailChangedNotice: mailerService.sendAccessEmailChangedNotice,
+    };
+    const avisosCorreoAnterior = [];
+    mailerService.sendAccessEmailChangedNotice = async ({ to }) => {
+      avisosCorreoAnterior.push(to);
+      return { success: true, simulado: false };
+    };
+    let correosEnviados = 0;
+    let envioFalla = true;
+    mailerService.isAvailable = () => true;
+    mailerService.sendAccountCredentialsEmail = async () => {
+      if (envioFalla) return { success: true, simulado: true, error: 'SMTP caído (simulado)' };
+      correosEnviados += 1;
+      return { success: true, simulado: false, messageId: 'simulado' };
+    };
+    try {
+      const envioFallido = await activarAcceso(idPresencial, correoAcceso);
+      if (envioFallido.status !== 502 || envioFallido.body.error !== 'CORREO_NO_ENVIADO' || (await usuarioDePresencial()).rows.length) {
+        throw new Error('Si el correo no sale, el acceso no debería activarse: ' + JSON.stringify(envioFallido.body));
+      }
+
+      // El envío sale: se crea el usuario con contraseña temporal y queda auditado
+      envioFalla = false;
+      const activado = await activarAcceso(idPresencial, correoAcceso);
+      const usuarioActivado = (await usuarioDePresencial()).rows[0];
+      const idOperador = (await pool.query("SELECT id_persona FROM usuarios WHERE codigo_corporativo = 'OP-1'")).rows[0].id_persona;
+      const auditoria = await pool.query(
+        `SELECT h.motivo, h.id_modificado_por FROM historial_estados_usuario h
+         JOIN personas p ON p.id_persona = h.id_usuario_modificado
+         WHERE p.cui_dpi = $1 ORDER BY h.id_historial_estado`,
+        [dpiPresencial]
+      );
+      if (activado.status !== 200 || activado.body.data.accion !== 'ACTIVADO' || !usuarioActivado || usuarioActivado.email !== correoAcceso
+        || !usuarioActivado.debe_cambiar_password || correosEnviados !== 1 || JSON.stringify(activado.body).includes('password')
+        || auditoria.rows.length !== 1 || auditoria.rows[0].id_modificado_por !== idOperador || !auditoria.rows[0].motivo.includes('activado')) {
+        throw new Error('La activación debería crear el usuario, enviar el correo y quedar auditada: ' + JSON.stringify(activado.body));
+      }
+      if (await accesoDe(idPresencial) !== 'PENDIENTE') throw new Error('Tras activar, el expediente debería indicar PENDIENTE.');
+
+      // Nunca entró: se reenvía con el correo corregido
+      const correoCorregido = `acceso.corregido.${Date.now()}@gmail.com`;
+      const reenviado = await activarAcceso(idPresencial, correoCorregido);
+      const auditoriaReenvio = await pool.query(
+        `SELECT h.motivo FROM historial_estados_usuario h JOIN personas p ON p.id_persona = h.id_usuario_modificado
+         WHERE p.cui_dpi = $1 ORDER BY h.id_historial_estado DESC LIMIT 1`,
+        [dpiPresencial]
+      );
+      if (reenviado.status !== 200 || reenviado.body.data.accion !== 'REENVIADO'
+        || (await usuarioDePresencial()).rows[0].email !== correoCorregido || correosEnviados !== 2
+        || !auditoriaReenvio.rows[0].motivo.includes(`correo anterior: ${correoAcceso}`)
+        || avisosCorreoAnterior.length !== 1 || avisosCorreoAnterior[0] !== correoAcceso) {
+        throw new Error('El reenvío debería actualizar el correo, auditar el anterior y avisarle: ' + JSON.stringify(reenviado.body));
+      }
+
+      // Quien ya entró al portal (Marcos) no se reactiva desde el expediente
+      const yaActivo = await activarAcceso(dataAfiliado.asociado.id_asociado, correoCorregido);
+      if (await accesoDe(dataAfiliado.asociado.id_asociado) !== 'ACTIVO' || yaActivo.status !== 409 || yaActivo.body.error !== 'ACCESO_YA_ACTIVO') {
+        throw new Error('Un asociado que ya entró no debería poder reactivarse: ' + JSON.stringify(yaActivo.body));
+      }
+    } finally {
+      Object.assign(mailerService, mailerOriginal);
+    }
+    console.log('✓ Acceso al portal desde el expediente: sin correo o si el envío falla no se activa; se activa, se audita y, al reenviar con otro correo, se registra y se avisa al anterior.');
 
     // 5. FORMULARIO 2: Apertura de Cuentas Financieras
     console.log('\n--- 5. Formulario 2: Apertura de Cuenta Adicional ---');

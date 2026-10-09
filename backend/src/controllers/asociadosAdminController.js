@@ -1,6 +1,7 @@
 const bcrypt = require('bcryptjs');
 const { pool } = require('../config/db');
 const mfaService = require('../services/mfaService');
+const { activarAccesoPortal, estadoAccesoPortal } = require('../services/accesoPortalService');
 const mailerService = require('../services/mailerService');
 const bancoApiService = require('../services/bancoApiService');
 const asociadoAfiliacionService = require('../services/asociadoAfiliacionService');
@@ -146,7 +147,15 @@ const getExpedienteAsociado = async (req, res) => {
         p.fecha_nacimiento,
         u.codigo_corporativo,
         u.email,
-        u.estado AS estado_usuario
+        u.estado AS estado_usuario,
+        u.id_rol,
+        u.ultimo_acceso,
+        -- Correo sugerido para activar el acceso: el del usuario o el de su última solicitud en agencia
+        COALESCE(u.email, (
+          SELECT s.email FROM solicitudes_afiliacion_agencia s
+          WHERE s.cui_dpi = p.cui_dpi AND s.email IS NOT NULL
+          ORDER BY s.id_solicitud DESC LIMIT 1
+        )) AS correo_sugerido
       FROM asociados a
       JOIN personas p ON a.id_persona = p.id_persona
       LEFT JOIN usuarios u ON a.id_persona = u.id_persona
@@ -162,7 +171,9 @@ const getExpedienteAsociado = async (req, res) => {
       });
     }
 
-    const asociado = asociadoResult.rows[0];
+    const { id_rol: idRol, ultimo_acceso: ultimoAcceso, ...asociado } = asociadoResult.rows[0];
+    // Estado del acceso al portal (issue #27): SIN_ACCESO, PENDIENTE, ACTIVO, INACTIVO o PERSONAL
+    asociado.acceso_portal = estadoAccesoPortal({ ...asociado, id_rol: idRol, ultimo_acceso: ultimoAcceso });
 
     // 2. Obtener las cuentas del asociado con sus beneficiarios agrupados
     const cuentasQuery = `
@@ -841,7 +852,40 @@ const enviarBoletaApertura = async (req, res) => {
   }
 };
 
+/**
+ * Activa el acceso al portal de un asociado desde su expediente, o se lo reenvía si nunca entró (issue #27).
+ *
+ * @route POST /api/admin/asociados/:id/acceso-portal
+ */
+const activarAccesoPortalAsociado = async (req, res) => {
+  try {
+    const resultado = await activarAccesoPortal({
+      idAsociado: req.params.id,
+      email: req.body.email,
+      operador: {
+        id: req.user?.id_persona || req.user?.id || null,
+        ip: req.headers['x-forwarded-for']?.split(',')[0].trim() || req.socket.remoteAddress || null,
+        userAgent: req.headers['user-agent'] || 'Desconocido',
+      },
+    });
+    return res.status(200).json({
+      success: true,
+      message: resultado.accion === 'REENVIADO'
+        ? `Reenviamos el acceso al portal a ${resultado.email}.`
+        : `Acceso al portal activado. Enviamos el usuario ${resultado.codigo_corporativo} y una contraseña temporal a ${resultado.email}.`,
+      data: resultado,
+    });
+  } catch (error) {
+    if (error.statusCode) {
+      return res.status(error.statusCode).json({ success: false, error: error.code, message: error.message });
+    }
+    console.error('[ERROR] Fallo en asociadosAdminController.activarAccesoPortalAsociado:', error.message);
+    return res.status(500).json({ success: false, message: 'No se pudo activar el acceso. Intente de nuevo.' });
+  }
+};
+
 module.exports = {
+  activarAccesoPortalAsociado,
   listarAsociados,
   getExpedienteAsociado,
   crearAfiliacionPresencial,
