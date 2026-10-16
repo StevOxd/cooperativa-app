@@ -564,20 +564,20 @@ async function main() {
 
     const cuisAutorizados = autorizados.map(a => `'${a.cui}'`).join(',');
 
-    // Eliminar historial de usuarios no autorizados
+    // Eliminar historial de usuarios no autorizados (solo se conservan los usuarios del personal autorizados)
     await clientCoop.query(`
       DELETE FROM historial_estados_usuario 
       WHERE id_usuario_modificado NOT IN (
-        SELECT u.id_persona FROM usuarios u
+        SELECT u.id_usuario FROM usuarios u
         JOIN personas p ON u.id_persona = p.id_persona
-        WHERE p.cui_dpi IN (${cuisAutorizados})
+        WHERE p.cui_dpi IN (${cuisAutorizados}) AND u.id_rol <> 3
       )
     `);
 
-    // Eliminar usuarios no autorizados
+    // Eliminar usuarios no autorizados, incluido el usuario de asociado de una persona autorizada (issue #32)
     await clientCoop.query(`
       DELETE FROM usuarios 
-      WHERE id_persona NOT IN (
+      WHERE id_rol = 3 OR id_persona NOT IN (
         SELECT id_persona FROM personas WHERE cui_dpi IN (${cuisAutorizados})
       )
     `);
@@ -612,7 +612,7 @@ async function main() {
       }
 
       // Upsert usuario
-      let uRes = await clientCoop.query('SELECT id_persona FROM usuarios WHERE id_persona = $1', [idPersona]);
+      let uRes = await clientCoop.query('SELECT id_usuario FROM usuarios WHERE id_persona = $1 AND id_rol <> 3', [idPersona]);
       if (uRes.rows.length === 0) {
         await clientCoop.query(`
           INSERT INTO usuarios (
@@ -625,8 +625,8 @@ async function main() {
           UPDATE usuarios SET
             id_rol = (SELECT id_rol FROM roles WHERE codigo = $1), codigo_corporativo = $2, email = $3, password_hash = $4,
             estado = 'ACTIVO', intentos_fallidos = 0, bloqueado_hasta = NULL, sesion_activa_id = NULL
-          WHERE id_persona = $5
-        `, [a.rolCodigo, a.codigo, a.email, COOP_PASSWORD_HASH, idPersona]);
+          WHERE id_usuario = $5
+        `, [a.rolCodigo, a.codigo, a.email, COOP_PASSWORD_HASH, uRes.rows[0].id_usuario]);
       }
     }
 

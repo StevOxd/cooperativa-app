@@ -1,12 +1,14 @@
 const { Server } = require('socket.io');
 const jwt = require('jsonwebtoken');
 const db = require('../config/db');
+const { idUsuarioDelToken } = require('../utils/tokenUsuario');
 require('dotenv').config();
 
 const JWT_SECRET = process.env.JWT_SECRET;
 
 let io = null;
-// Mapeos en memoria para conexiones activas
+// Mapeos en memoria para conexiones activas. userId es usuarios.id_usuario (issue #32: una persona
+// puede tener dos usuarios, cada uno con su propia sesión).
 // userId -> Set de socketIds
 const userSockets = new Map();
 // socketId -> userId
@@ -49,8 +51,7 @@ const init = (httpServer) => {
     if (token) {
       try {
         const decoded = jwt.verify(token, JWT_SECRET);
-        const userId = decoded.id_persona || decoded.id;
-        socket.userId = Number(userId);
+        socket.userId = idUsuarioDelToken(decoded);
       } catch (err) {
         console.warn('[SECURITY WARN] Token inválido en conexión WebSocket:', err.message);
       }
@@ -70,7 +71,11 @@ const init = (httpServer) => {
         const token = data?.token;
         if (!token) return;
         const decoded = jwt.verify(token, JWT_SECRET);
-        const userId = Number(decoded.id_persona || decoded.id);
+        const userId = idUsuarioDelToken(decoded);
+        if (!userId) {
+          socket.emit('authenticated', { success: false, message: 'Token inválido' });
+          return;
+        }
         socket.userId = userId;
         registrarSocketUsuario(userId, socket.id);
         socket.emit('authenticated', { success: true, userId });
@@ -84,7 +89,7 @@ const init = (httpServer) => {
       if (socket.userId) {
         try {
           await db.query(
-            'UPDATE usuarios SET ultimo_ping = CURRENT_TIMESTAMP WHERE id_persona = $1',
+            'UPDATE usuarios SET ultimo_ping = CURRENT_TIMESTAMP WHERE id_usuario = $1',
             [socket.userId]
           );
           socket.emit('pong_presencia', { timestamp: new Date().toISOString() });
@@ -104,12 +109,12 @@ const init = (httpServer) => {
         if (!isUserConnected(userId)) {
           try {
             await db.query(
-              'UPDATE usuarios SET sesion_activa_id = NULL, ultimo_ping = NULL WHERE id_persona = $1',
+              'UPDATE usuarios SET sesion_activa_id = NULL, ultimo_ping = NULL WHERE id_usuario = $1',
               [userId]
             );
             // Notificar a clientes que el usuario se desconectó
             if (io) {
-              io.emit('presence_update', { id_persona: Number(userId), en_linea: false });
+              io.emit('presence_update', { id_usuario: Number(userId), en_linea: false });
             }
           } catch (err) {
             console.error('Error al limpiar sesión en desconexión:', err.message);
@@ -137,11 +142,11 @@ const registrarSocketUsuario = async (userId, socketId) => {
   // Actualizar ultimo_ping en base de datos
   try {
     await db.query(
-      'UPDATE usuarios SET ultimo_ping = CURRENT_TIMESTAMP WHERE id_persona = $1',
+      'UPDATE usuarios SET ultimo_ping = CURRENT_TIMESTAMP WHERE id_usuario = $1',
       [userId]
     );
     if (io) {
-      io.emit('presence_update', { id_persona: userId, en_linea: true });
+      io.emit('presence_update', { id_usuario: userId, en_linea: true });
     }
   } catch (error) {
     console.error('Error al actualizar presencia en DB:', error.message);
@@ -199,7 +204,7 @@ const sendSecurityAlert = (userId, message) => {
 const broadcastPresence = (userId, enLinea) => {
   userId = Number(userId);
   if (io) {
-    io.emit('presence_update', { id_persona: userId, en_linea: Boolean(enLinea) });
+    io.emit('presence_update', { id_usuario: userId, en_linea: Boolean(enLinea) });
   }
 };
 
@@ -221,12 +226,6 @@ const disconnectUser = (userId) => {
   }
 };
 
-/**
- * Retorna todos los IDs de usuarios conectados actualmente
- *
- * @function getConnectedUserIds
- * @returns {Array<number>} Arreglo con los identificadores de persona con sesiones abiertas.
- */
 /**
  * Emite un evento en tiempo real a todas las conexiones activas de un usuario
  */
@@ -250,11 +249,11 @@ const emitToRole = async (rolCodigo, event, payload) => {
   if (!io) return false;
   try {
     const res = await db.query(
-      `SELECT u.id_persona FROM usuarios u JOIN roles r ON u.id_rol = r.id_rol WHERE r.codigo = $1 AND u.estado = 'ACTIVO'`,
+      `SELECT u.id_usuario FROM usuarios u JOIN roles r ON u.id_rol = r.id_rol WHERE r.codigo = $1 AND u.estado = 'ACTIVO'`,
       [rolCodigo]
     );
     res.rows.forEach((row) => {
-      emitToUser(row.id_persona, event, payload);
+      emitToUser(row.id_usuario, event, payload);
     });
     return true;
   } catch (err) {
@@ -267,7 +266,7 @@ const emitToRole = async (rolCodigo, event, payload) => {
  * Retorna todos los IDs de usuarios conectados actualmente
  *
  * @function getConnectedUserIds
- * @returns {Array<number>} Arreglo con los identificadores de persona con sesiones abiertas.
+ * @returns {Array<number>} Arreglo con los id_usuario con sesiones abiertas.
  */
 const getConnectedUserIds = () => {
   return Array.from(userSockets.keys());

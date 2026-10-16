@@ -40,11 +40,11 @@ const getPerfil = async (req, res) => {
         u.email
       FROM personas p
       JOIN asociados a ON p.id_persona = a.id_persona
-      JOIN usuarios u ON p.id_persona = u.id_persona
+      JOIN usuarios u ON u.id_persona = p.id_persona AND u.id_usuario = $2
       WHERE p.id_persona = $1
       LIMIT 1
     `;
-    const result = await db.query(query, [idPersona]);
+    const result = await db.query(query, [idPersona, req.user.id_usuario]);
 
     if (result.rows.length === 0) {
       return res.status(404).json({
@@ -1303,7 +1303,7 @@ const guardarMisBeneficiarios = async (req, res) => {
        VALUES ($1, $2, $3, $4, $5, $6, $7)`,
       [
         id_cuenta,
-        idPersona,
+        req.user.id_usuario,
         cuentaInfo.nombre_completo || req.user.codigo_corporativo,
         'ASOCIADO',
         JSON.stringify(prevRes.rows),

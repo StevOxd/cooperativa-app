@@ -6,12 +6,28 @@ const { getNextCorporateCode, resolvePrefix, generateSecureRandomPassword } = re
 
 const ROLES_PERMITIDOS = ['ADMINISTRADOR', 'OPERADOR', 'EJECUTIVO', 'ASOCIADO'];
 const ESTADOS_PERMITIDOS = ['ACTIVO', 'INACTIVO'];
+const ID_ROL_ASOCIADO = 3;
+
+/**
+ * Condición SQL para ubicar al usuario de `:id`. Un número es su id_usuario; cualquier otro valor, su
+ * código. Así un código numérico (por ejemplo «1001») nunca se confunde con el id de otro usuario (issue #32).
+ *
+ * @param {string} id - Parámetro `:id` de la ruta.
+ * @param {string} [alias] - Alias de la tabla usuarios en la consulta (vacío si no tiene).
+ * @returns {{condicion: string, valor: number|string}} Condición con el parámetro $1 y su valor.
+ */
+const filtroUsuario = (id, alias = 'u') => {
+  const prefijo = alias ? `${alias}.` : '';
+  return /^\d+$/.test(String(id))
+    ? { condicion: `${prefijo}id_usuario = $1`, valor: Number(id) }
+    : { condicion: `${prefijo}codigo_corporativo = $1`, valor: String(id) };
+};
 
 const getClientIp = (req) => req.headers['x-forwarded-for']?.split(',')[0].trim() || req.socket.remoteAddress || null;
 const getUserAgent = (req) => req.headers['user-agent'] || 'Desconocido';
 
 /**
- * Obtener la lista detallada de usuarios con id_persona y Código Corporativo
+ * Obtener la lista detallada de usuarios con id_usuario y Código Corporativo
  * GET /api/usuarios?estado=ACTIVO&search=1001
  */
 const getUsers = async (req, res) => {
@@ -56,8 +72,9 @@ const getUsers = async (req, res) => {
     const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
     const queryText = `
       SELECT 
+        u.id_usuario,
+        u.id_usuario AS id,
         u.id_persona,
-        u.id_persona AS id, 
         u.codigo_corporativo,
         p.cui_dpi,
         TRIM(CONCAT(p.primer_nombre, ' ', COALESCE(p.segundo_nombre, ''), ' ', p.primer_apellido, ' ', COALESCE(p.segundo_apellido, ''))) AS nombre_completo,
@@ -96,7 +113,7 @@ const getUsers = async (req, res) => {
 
     const mappedUsers = result.rows.map((u) => {
       const tieneSesion = Boolean(u.sesion_activa_id);
-      const socketActivo = socketService.isUserConnected(u.id_persona);
+      const socketActivo = socketService.isUserConnected(u.id_usuario);
       const pingReciente = Boolean(u.ultimo_ping && (now - new Date(u.ultimo_ping)) < dosMinutosEnMs);
       const en_linea = Boolean(tieneSesion && (socketActivo || pingReciente));
 
@@ -125,17 +142,18 @@ const getUsers = async (req, res) => {
 };
 
 /**
- * Obtener un usuario por su id_persona o Código Corporativo
+ * Obtener un usuario por su id_usuario o Código Corporativo
  * GET /api/usuarios/:id
  */
 const getUserById = async (req, res) => {
   try {
-    const { id } = req.params;
+    const filtro = filtroUsuario(req.params.id);
 
     const queryText = `
       SELECT 
+        u.id_usuario,
+        u.id_usuario AS id,
         u.id_persona,
-        u.id_persona AS id, 
         u.codigo_corporativo,
         p.cui_dpi,
         TRIM(CONCAT(p.primer_nombre, ' ', COALESCE(p.segundo_nombre, ''), ' ', p.primer_apellido, ' ', COALESCE(p.segundo_apellido, ''))) AS nombre_completo,
@@ -158,10 +176,10 @@ const getUserById = async (req, res) => {
       FROM usuarios u
       JOIN personas p ON u.id_persona = p.id_persona
       JOIN roles r ON u.id_rol = r.id_rol
-      WHERE u.id_persona::text = $1 OR u.codigo_corporativo = $1
+      WHERE ${filtro.condicion}
       LIMIT 1
     `;
-    const result = await db.query(queryText, [id]);
+    const result = await db.query(queryText, [filtro.valor]);
 
     if (result.rows.length === 0) {
       return res.status(404).json({
@@ -219,7 +237,7 @@ const getNextCode = async (req, res) => {
 };
 
 /**
- * Crear un nuevo usuario mediante Transacción SQL (personas + usuarios con id_persona + auditoría)
+ * Crear un nuevo usuario mediante Transacción SQL (personas + usuarios + auditoría)
  * POST /api/usuarios
  */
 const createUser = async (req, res) => {
@@ -472,11 +490,11 @@ const createUser = async (req, res) => {
     // 8. Encriptar contraseña con bcryptjs
     const password_hash = await bcrypt.hash(rawPassword, 10);
 
-    // 9. Insertar en tabla usuarios (id_persona como PK y FK)
+    // 9. Insertar en tabla usuarios (id_usuario es su propia llave; id_persona la une con personas)
     const usuarioInsert = `
       INSERT INTO usuarios (id_persona, id_rol, codigo_corporativo, email, password_hash, estado, debe_cambiar_password)
       VALUES ($1, $2, $3, $4, $5, $6, TRUE)
-      RETURNING id_persona, codigo_corporativo, email, estado, debe_cambiar_password, fecha_creacion
+      RETURNING id_usuario, id_persona, codigo_corporativo, email, estado, debe_cambiar_password, fecha_creacion
     `;
     const userResult = await client.query(usuarioInsert, [
       personaId,
@@ -501,13 +519,13 @@ const createUser = async (req, res) => {
     const userAgent = getUserAgent(req);
     const auditoriaInsert = `
       INSERT INTO historial_estados_usuario (id_usuario_modificado, estado_anterior, estado_nuevo, id_rol_anterior, id_rol_nuevo, id_modificado_por, motivo, ip_origen, user_agent)
-      VALUES ($1, NULL, $2, NULL, $3, $4, 'Creación de usuario con id_persona', $5, $6)
+      VALUES ($1, NULL, $2, NULL, $3, $4, 'Creación de usuario', $5, $6)
     `;
     await client.query(auditoriaInsert, [
-      createdUser.id_persona,
+      createdUser.id_usuario,
       estadoUpper,
       rolId,
-      req.user?.id_persona || req.user?.id || null,
+      req.user?.id_usuario || null,
       clientIp,
       userAgent,
     ]);
@@ -542,7 +560,8 @@ const createUser = async (req, res) => {
       correo_enviado: correoEnviado,
       // La contraseña temporal y el secreto 2FA solo viajan por correo al usuario: nunca en la respuesta.
       data: {
-        id: createdUser.id_persona,
+        id: createdUser.id_usuario,
+        id_usuario: createdUser.id_usuario,
         id_persona: createdUser.id_persona,
         codigo_corporativo: createdUser.codigo_corporativo,
         cui_dpi: cui,
@@ -580,13 +599,18 @@ const createUser = async (req, res) => {
 };
 
 /**
- * Actualizar datos de un usuario (Actualiza personas + usuarios por id_persona y registra auditoría)
+ * Actualizar datos de un usuario (Actualiza personas + usuarios por id_usuario y registra auditoría)
  * PUT /api/usuarios/:id
+ *
+ * @returns {Promise<import('express').Response>} 200 con el usuario actualizado, 400 por datos inválidos,
+ *   404 si no existe, 409 si el correo o el código ya los usa otro usuario o si el cambio de rol le daría a la
+ *   persona un segundo usuario del mismo tipo, o 500.
  */
 const updateUser = async (req, res) => {
   const client = await db.pool.connect();
   try {
     const { id } = req.params;
+    const filtro = filtroUsuario(id);
     const {
       codigo_corporativo,
       nombre,
@@ -610,8 +634,8 @@ const updateUser = async (req, res) => {
        FROM usuarios u
        JOIN roles r ON u.id_rol = r.id_rol
        JOIN personas p ON u.id_persona = p.id_persona
-       WHERE u.id_persona::text = $1 OR u.codigo_corporativo = $1`,
-      [id]
+       WHERE ${filtro.condicion}`,
+      [filtro.valor]
     );
 
     if (checkUser.rows.length === 0) {
@@ -622,7 +646,8 @@ const updateUser = async (req, res) => {
     }
 
     const currentUser = checkUser.rows[0];
-    const targetUserPersonaId = currentUser.id_persona;
+    const targetUserId = currentUser.id_usuario;
+    const targetPersonaId = currentUser.id_persona;
 
     // 2. Validar rol si se proporciona
     let rolId = currentUser.id_rol;
@@ -665,15 +690,15 @@ const updateUser = async (req, res) => {
 
     // 4. Verificar colisión de duplicados
     const duplicateQuery = `
-      SELECT id_persona, email, codigo_corporativo
+      SELECT id_usuario, email, codigo_corporativo
       FROM usuarios 
-      WHERE (LOWER(email) = LOWER($1) OR codigo_corporativo = $2) AND id_persona != $3
+      WHERE (LOWER(email) = LOWER($1) OR codigo_corporativo = $2) AND id_usuario <> $3
       LIMIT 1
     `;
     const duplicateResult = await client.query(duplicateQuery, [
       updatedEmail,
       updatedCodigoCorp,
-      targetUserPersonaId,
+      targetUserId,
     ]);
 
     if (duplicateResult.rows.length > 0) {
@@ -746,7 +771,7 @@ const updateUser = async (req, res) => {
              direccion = COALESCE($7, direccion),
              fecha_nacimiento = COALESCE($8, fecha_nacimiento)
          WHERE id_persona = $9`,
-        [pNom, sNom, pApe, sApe, cui_dpi || null, telefono || null, direccion || null, fecha_nacimiento || null, targetUserPersonaId]
+        [pNom, sNom, pApe, sApe, cui_dpi || null, telefono || null, direccion || null, fecha_nacimiento || null, targetPersonaId]
       );
     }
 
@@ -758,8 +783,8 @@ const updateUser = async (req, res) => {
            password_hash = $3,
            id_rol = $4,
            estado = $5
-       WHERE id_persona = $6`,
-      [updatedCodigoCorp, updatedEmail, password_hash, rolId, estadoUpper, targetUserPersonaId]
+       WHERE id_usuario = $6`,
+      [updatedCodigoCorp, updatedEmail, password_hash, rolId, estadoUpper, targetUserId]
     );
 
     // 8. Registrar en historial de auditoría si cambió rol o estado
@@ -771,12 +796,12 @@ const updateUser = async (req, res) => {
           (id_usuario_modificado, estado_anterior, estado_nuevo, id_rol_anterior, id_rol_nuevo, id_modificado_por, motivo, ip_origen, user_agent)
          VALUES ($1, $2, $3, $4, $5, $6, 'Modificación de estado/rol de usuario', $7, $8)`,
         [
-          targetUserPersonaId,
+          targetUserId,
           currentUser.estado,
           estadoUpper,
           currentUser.id_rol,
           rolId,
-          req.user?.id_persona || req.user?.id || null,
+          req.user?.id_usuario || null,
           clientIp,
           userAgent,
         ]
@@ -789,8 +814,9 @@ const updateUser = async (req, res) => {
     // 9. Consultar datos consolidados
     const updatedUserRes = await db.query(
       `SELECT 
+        u.id_usuario,
+        u.id_usuario AS id,
         u.id_persona,
-        u.id_persona AS id, 
         u.codigo_corporativo,
         p.cui_dpi,
         TRIM(CONCAT(p.primer_nombre, ' ', COALESCE(p.segundo_nombre, ''), ' ', p.primer_apellido, ' ', COALESCE(p.segundo_apellido, ''))) AS nombre_completo,
@@ -812,8 +838,8 @@ const updateUser = async (req, res) => {
       FROM usuarios u
       JOIN personas p ON u.id_persona = p.id_persona
       JOIN roles r ON u.id_rol = r.id_rol
-      WHERE u.id_persona = $1`,
-      [targetUserPersonaId]
+      WHERE u.id_usuario = $1`,
+      [targetUserId]
     );
 
     return res.status(200).json({
@@ -823,6 +849,13 @@ const updateUser = async (req, res) => {
     });
   } catch (error) {
     await client.query('ROLLBACK');
+    // Índice uq_usuarios_persona_tipo: la persona ya tiene otro usuario de ese tipo (personal o asociado).
+    if (error.code === '23505' && error.constraint === 'uq_usuarios_persona_tipo') {
+      return res.status(409).json({
+        success: false,
+        message: 'Esta persona ya tiene otro usuario de ese tipo. Una persona puede tener un usuario del personal y uno de asociado.',
+      });
+    }
     console.error('Error en userController.updateUser:', error);
     return res.status(500).json({
       success: false,
@@ -841,7 +874,7 @@ const updateUser = async (req, res) => {
  * @async
  * @function deleteUser
  * @param {import('express').Request} req - Objeto de solicitud HTTP de Express.
- * @param {string} req.params.id - Identificador (id_persona o codigo_corporativo) del usuario.
+ * @param {string} req.params.id - Identificador (id_usuario o codigo_corporativo) del usuario.
  * @param {import('express').Response} res - Objeto de respuesta HTTP de Express.
  * @returns {Promise<import('express').Response>} Retorna 200 con el usuario desactivado, 404 si no existe, o 500 en error interno.
  */
@@ -849,11 +882,12 @@ const deleteUser = async (req, res) => {
   const client = await db.pool.connect();
   try {
     const { id } = req.params;
+    const filtro = filtroUsuario(id, '');
 
     // Verificar existencia del usuario
     const checkUser = await client.query(
-      'SELECT id_persona, estado, id_rol FROM usuarios WHERE id_persona::text = $1 OR codigo_corporativo = $1',
-      [id]
+      `SELECT id_usuario, id_persona, estado, id_rol FROM usuarios WHERE ${filtro.condicion}`,
+      [filtro.valor]
     );
     if (checkUser.rows.length === 0) {
       return res.status(404).json({
@@ -863,16 +897,20 @@ const deleteUser = async (req, res) => {
     }
 
     const current = checkUser.rows[0];
-    const targetUserPersonaId = current.id_persona;
+    const targetUserId = current.id_usuario;
+    const targetPersonaId = current.id_persona;
 
     // INICIAR TRANSACCIÓN SQL
     await client.query('BEGIN');
 
     // 1. Actualizar estado a 'INACTIVO' (Borrado Lógico)
-    await client.query('UPDATE usuarios SET estado = $1 WHERE id_persona = $2', ['INACTIVO', targetUserPersonaId]);
+    await client.query('UPDATE usuarios SET estado = $1 WHERE id_usuario = $2', ['INACTIVO', targetUserId]);
 
-    // 1b. Sincronizar ciclo de vida financiero en asociados (prevenir membresías activas para usuarios dados de baja)
-    await client.query("UPDATE asociados SET estado_asociado = 'INACTIVO' WHERE id_persona = $1", [targetUserPersonaId]);
+    // 1b. Si es el usuario de asociado, la membresía también se da de baja. El usuario del personal de
+    //     la misma persona no toca su afiliación (issue #32).
+    if (current.id_rol === ID_ROL_ASOCIADO) {
+      await client.query("UPDATE asociados SET estado_asociado = 'INACTIVO' WHERE id_persona = $1", [targetPersonaId]);
+    }
 
     // 2. Registrar en historial_estados_usuario con id_modificado_por
     const clientIp = getClientIp(req);
@@ -881,7 +919,7 @@ const deleteUser = async (req, res) => {
       `INSERT INTO historial_estados_usuario 
         (id_usuario_modificado, estado_anterior, estado_nuevo, id_rol_anterior, id_rol_nuevo, id_modificado_por, motivo, ip_origen, user_agent)
        VALUES ($1, $2, 'INACTIVO', $3, $3, $4, 'Borrado lógico de usuario', $5, $6)`,
-      [targetUserPersonaId, current.estado, current.id_rol, req.user?.id_persona || req.user?.id || null, clientIp, userAgent]
+      [targetUserId, current.estado, current.id_rol, req.user?.id_usuario || null, clientIp, userAgent]
     );
 
     // CONFIRMAR TRANSACCIÓN
@@ -889,8 +927,9 @@ const deleteUser = async (req, res) => {
 
     const result = await db.query(
       `SELECT 
+        u.id_usuario,
+        u.id_usuario AS id,
         u.id_persona,
-        u.id_persona AS id, 
         u.codigo_corporativo,
         p.cui_dpi,
         TRIM(CONCAT(p.primer_nombre, ' ', COALESCE(p.segundo_nombre, ''), ' ', p.primer_apellido, ' ', COALESCE(p.segundo_apellido, ''))) AS nombre_completo,
@@ -902,8 +941,8 @@ const deleteUser = async (req, res) => {
       FROM usuarios u
       JOIN personas p ON u.id_persona = p.id_persona
       JOIN roles r ON u.id_rol = r.id_rol
-      WHERE u.id_persona = $1`,
-      [targetUserPersonaId]
+      WHERE u.id_usuario = $1`,
+      [targetUserId]
     );
 
     return res.status(200).json({
@@ -931,12 +970,13 @@ const deleteUser = async (req, res) => {
 const desbloquearUsuario = async (req, res) => {
   try {
     const { id } = req.params;
-    const adminId = req.user.id_persona || req.user.id;
+    const filtro = filtroUsuario(id, '');
+    const adminId = req.user.id_usuario;
 
     // Verificar que el usuario exista
     const userCheck = await db.query(
-      'SELECT id_persona, estado, id_rol, codigo_corporativo FROM usuarios WHERE id_persona = $1',
-      [id]
+      `SELECT id_usuario, estado, id_rol, codigo_corporativo FROM usuarios WHERE ${filtro.condicion}`,
+      [filtro.valor]
     );
 
     if (userCheck.rows.length === 0) {
@@ -952,8 +992,8 @@ const desbloquearUsuario = async (req, res) => {
     await db.query(
       `UPDATE usuarios 
        SET intentos_fallidos = 0, bloqueado_hasta = NULL 
-       WHERE id_persona = $1`,
-      [id]
+       WHERE id_usuario = $1`,
+      [targetUser.id_usuario]
     );
 
     // Registrar en historial_estados_usuario para auditoría
@@ -963,7 +1003,7 @@ const desbloquearUsuario = async (req, res) => {
       `INSERT INTO historial_estados_usuario 
        (id_usuario_modificado, estado_anterior, estado_nuevo, id_rol_anterior, id_rol_nuevo, id_modificado_por, motivo, ip_origen, user_agent)
        VALUES ($1, 'BLOQUEADO_TEMPORAL', $2, $3, $3, $4, 'Desbloqueo administrativo inmediato de cuenta por Administrador', $5, $6)`,
-      [targetUser.id_persona, targetUser.estado, targetUser.id_rol, adminId, clientIp, userAgent]
+      [targetUser.id_usuario, targetUser.estado, targetUser.id_rol, adminId, clientIp, userAgent]
     );
 
     return res.status(200).json({
@@ -1000,16 +1040,16 @@ const getRecentSecurityEvents = async (req, res) => {
         h.ip_origen,
         h.user_agent,
         h.fecha_cambio,
-        u_mod.id_persona AS id_usuario_modificado,
+        u_mod.id_usuario AS id_usuario_modificado,
         u_mod.codigo_corporativo AS usuario_codigo,
         u_mod.email AS usuario_email,
         TRIM(CONCAT(p_mod.primer_nombre, ' ', p_mod.primer_apellido)) AS usuario_nombre,
         u_actor.codigo_corporativo AS actor_codigo,
         COALESCE(TRIM(CONCAT(p_actor.primer_nombre, ' ', p_actor.primer_apellido)), 'Sistema / Automático') AS actor_nombre
       FROM historial_estados_usuario h
-      JOIN usuarios u_mod ON h.id_usuario_modificado = u_mod.id_persona
+      JOIN usuarios u_mod ON h.id_usuario_modificado = u_mod.id_usuario
       JOIN personas p_mod ON u_mod.id_persona = p_mod.id_persona
-      LEFT JOIN usuarios u_actor ON h.id_modificado_por = u_actor.id_persona
+      LEFT JOIN usuarios u_actor ON h.id_modificado_por = u_actor.id_usuario
       LEFT JOIN personas p_actor ON u_actor.id_persona = p_actor.id_persona
       ORDER BY h.id_historial_estado DESC
       LIMIT $1
@@ -1140,6 +1180,7 @@ const cambiarEstadoUsuario = async (req, res) => {
   const client = await db.pool.connect();
   try {
     const { id } = req.params;
+    const filtro = filtroUsuario(id, '');
     const { estado, motivo } = req.body;
 
     if (!estado || !['ACTIVO', 'INACTIVO'].includes(estado.toUpperCase())) {
@@ -1160,8 +1201,8 @@ const cambiarEstadoUsuario = async (req, res) => {
     }
 
     const checkUser = await client.query(
-      'SELECT id_persona, estado, id_rol, codigo_corporativo FROM usuarios WHERE id_persona::text = $1 OR codigo_corporativo = $1',
-      [id]
+      `SELECT id_usuario, id_persona, estado, id_rol, codigo_corporativo FROM usuarios WHERE ${filtro.condicion}`,
+      [filtro.valor]
     );
 
     if (checkUser.rows.length === 0) {
@@ -1172,27 +1213,27 @@ const cambiarEstadoUsuario = async (req, res) => {
     }
 
     const current = checkUser.rows[0];
-    const targetUserPersonaId = current.id_persona;
+    const targetUserId = current.id_usuario;
+    const targetPersonaId = current.id_persona;
 
     await client.query('BEGIN');
 
     if (nuevoEstado === 'INACTIVO') {
       await client.query(
-        'UPDATE usuarios SET estado = $1, sesion_activa_id = NULL WHERE id_persona = $2',
-        [nuevoEstado, targetUserPersonaId]
-      );
-      await client.query(
-        "UPDATE asociados SET estado_asociado = 'INACTIVO' WHERE id_persona = $1",
-        [targetUserPersonaId]
+        'UPDATE usuarios SET estado = $1, sesion_activa_id = NULL WHERE id_usuario = $2',
+        [nuevoEstado, targetUserId]
       );
     } else {
       await client.query(
-        'UPDATE usuarios SET estado = $1, intentos_fallidos = 0, bloqueado_hasta = NULL WHERE id_persona = $2',
-        [nuevoEstado, targetUserPersonaId]
+        'UPDATE usuarios SET estado = $1, intentos_fallidos = 0, bloqueado_hasta = NULL WHERE id_usuario = $2',
+        [nuevoEstado, targetUserId]
       );
+    }
+    // La membresía sigue al usuario de asociado; el del personal de la misma persona no la toca (issue #32).
+    if (current.id_rol === ID_ROL_ASOCIADO) {
       await client.query(
-        "UPDATE asociados SET estado_asociado = 'ACTIVO' WHERE id_persona = $1",
-        [targetUserPersonaId]
+        'UPDATE asociados SET estado_asociado = $1 WHERE id_persona = $2',
+        [nuevoEstado, targetPersonaId]
       );
     }
 
@@ -1204,11 +1245,11 @@ const cambiarEstadoUsuario = async (req, res) => {
         (id_usuario_modificado, estado_anterior, estado_nuevo, id_rol_anterior, id_rol_nuevo, id_modificado_por, motivo, ip_origen, user_agent)
        VALUES ($1, $2, $3, $4, $4, $5, $6, $7, $8)`,
       [
-        targetUserPersonaId,
+        targetUserId,
         current.estado,
         nuevoEstado,
         current.id_rol,
-        req.user?.id_persona || req.user?.id || null,
+        req.user?.id_usuario || null,
         motivo ? motivo.trim() : `Cambio de estado administrativo a ${nuevoEstado}`,
         clientIp,
         userAgent,
@@ -1221,7 +1262,7 @@ const cambiarEstadoUsuario = async (req, res) => {
       success: true,
       message: `Estado actualizado.`,
       data: {
-        id_persona: targetUserPersonaId,
+        id_usuario: targetUserId,
         estado: nuevoEstado,
       },
     });
@@ -1245,15 +1286,16 @@ const resetPasswordUsuario = async (req, res) => {
   const client = await db.pool.connect();
   try {
     const { id } = req.params;
+    const filtro = filtroUsuario(id);
     const { password, motivo } = req.body;
 
     const checkUser = await client.query(
-      `SELECT u.id_persona, u.codigo_corporativo, u.email, u.estado, u.id_rol, r.nombre AS rol_nombre, p.primer_nombre, p.primer_apellido
+      `SELECT u.id_usuario, u.id_persona, u.codigo_corporativo, u.email, u.estado, u.id_rol, r.nombre AS rol_nombre, p.primer_nombre, p.primer_apellido
        FROM usuarios u
        JOIN personas p ON u.id_persona = p.id_persona
        LEFT JOIN roles r ON u.id_rol = r.id_rol
-       WHERE u.id_persona::text = $1 OR u.codigo_corporativo = $1`,
-      [id]
+       WHERE ${filtro.condicion}`,
+      [filtro.valor]
     );
 
     if (checkUser.rows.length === 0) {
@@ -1264,7 +1306,7 @@ const resetPasswordUsuario = async (req, res) => {
     }
 
     const current = checkUser.rows[0];
-    const targetUserPersonaId = current.id_persona;
+    const targetUserId = current.id_usuario;
 
     // La temporal solo viaja por correo: sin correo funcionando, el usuario perdería su contraseña
     // actual sin recibir otra. En ese caso no se cambia nada.
@@ -1290,8 +1332,8 @@ const resetPasswordUsuario = async (req, res) => {
            intentos_fallidos = 0, 
            bloqueado_hasta = NULL, 
            sesion_activa_id = NULL 
-       WHERE id_persona = $2`,
-      [passwordHash, targetUserPersonaId]
+       WHERE id_usuario = $2`,
+      [passwordHash, targetUserId]
     );
 
     const clientIp = getClientIp(req);
@@ -1302,10 +1344,10 @@ const resetPasswordUsuario = async (req, res) => {
         (id_usuario_modificado, estado_anterior, estado_nuevo, id_rol_anterior, id_rol_nuevo, id_modificado_por, motivo, ip_origen, user_agent)
        VALUES ($1, $2, $2, $3, $3, $4, $5, $6, $7)`,
       [
-        targetUserPersonaId,
+        targetUserId,
         current.estado,
         current.id_rol,
-        req.user?.id_persona || req.user?.id || null,
+        req.user?.id_usuario || null,
         motivo ? motivo.trim() : `Reinicio de contraseña administrativa por ${req.user?.codigo_corporativo || 'Administrador'}`,
         clientIp,
         userAgent,
@@ -1347,7 +1389,7 @@ const resetPasswordUsuario = async (req, res) => {
       success: true,
       message: `Contraseña reiniciada. Enviamos una temporal a ${current.email}.`,
       data: {
-        id_persona: targetUserPersonaId,
+        id_usuario: targetUserId,
         codigo_corporativo: current.codigo_corporativo,
         email: current.email,
         email_status: emailStatus,

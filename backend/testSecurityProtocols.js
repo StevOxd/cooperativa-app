@@ -148,13 +148,13 @@ const testServer = server.listen(0, async () => {
     assert(adminLogin.status === 200, 'Inicio de sesión de Administrador exitoso');
     const adminToken = adminLogin.body.token;
 
-    // Obtener id_persona del usuario OP-1
-    const userRes = await db.query("SELECT id_persona FROM usuarios WHERE codigo_corporativo = 'OP-1'");
-    const userPersonaId = userRes.rows[0].id_persona;
+    // Obtener id_usuario del usuario OP-1
+    const userRes = await db.query("SELECT id_usuario FROM usuarios WHERE codigo_corporativo = 'OP-1'");
+    const idUsuarioOp1 = userRes.rows[0].id_usuario;
 
     // Ejecutar endpoint de desbloqueo
     const desbloqueoRes = await request(
-      `/api/usuarios/${userPersonaId}/desbloquear`,
+      `/api/usuarios/${idUsuarioOp1}/desbloquear`,
       'PATCH',
       null,
       adminToken

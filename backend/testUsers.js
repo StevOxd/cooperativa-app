@@ -24,7 +24,10 @@ const server = app.listen(0, async () => {
     );
     if (existing.rows.length > 0) {
       for (const row of existing.rows) {
-        await db.query("DELETE FROM historial_estados_usuario WHERE id_usuario_modificado = $1", [row.id_persona]);
+        await db.query(
+          'DELETE FROM historial_estados_usuario WHERE id_usuario_modificado IN (SELECT id_usuario FROM usuarios WHERE id_persona = $1)',
+          [row.id_persona]
+        );
         await db.query("DELETE FROM asociados WHERE id_persona = $1", [row.id_persona]);
         await db.query("DELETE FROM usuarios WHERE id_persona = $1", [row.id_persona]);
         await db.query("DELETE FROM personas WHERE id_persona = $1", [row.id_persona]);
@@ -133,11 +136,11 @@ const server = app.listen(0, async () => {
     };
     const resCreate = await request('/api/usuarios', 'POST', newUserPayload, token);
     console.log('   Status:', resCreate.status, '(Esperado: 201)');
-    console.log('   Usuario creado id_persona:', resCreate.body.data?.id_persona, '| Cód:', resCreate.body.data?.codigo_corporativo);
-    let createdUserPersonaId = resCreate.body.data?.id_persona;
+    console.log('   Usuario creado id_usuario:', resCreate.body.data?.id_usuario, '| Cód:', resCreate.body.data?.codigo_corporativo);
+    let createdUserId = resCreate.body.data?.id_usuario;
 
-    if (resCreate.status === 201 && createdUserPersonaId && resCreate.body.data?.codigo_corporativo === '9999') {
-      console.log('   [PASS] PRUEBA 5 SUPERADA: Usuario creado con id_persona como PK y FK');
+    if (resCreate.status === 201 && createdUserId && resCreate.body.data?.codigo_corporativo === '9999') {
+      console.log('   [PASS] PRUEBA 5 SUPERADA: Usuario creado con su propio id_usuario');
     } else {
       console.error('   [FAIL] PRUEBA 5 FALLÓ', resCreate.body);
     }
@@ -156,12 +159,12 @@ const server = app.listen(0, async () => {
     }
 
     // 7. PUT /api/usuarios/:id: Actualizar datos del usuario
-    console.log(`\n7. Probando PUT /api/usuarios/${createdUserPersonaId} (Actualizar datos)...`);
+    console.log(`\n7. Probando PUT /api/usuarios/${createdUserId} (Actualizar datos)...`);
     const updatePayload = {
       nombre: 'Prueba Automatizada Actualizada',
       rol: 'OPERADOR',
     };
-    const resUpdate = await request(`/api/usuarios/${createdUserPersonaId}`, 'PUT', updatePayload, token);
+    const resUpdate = await request(`/api/usuarios/${createdUserId}`, 'PUT', updatePayload, token);
     console.log('   Status:', resUpdate.status, '(Esperado: 200)');
     console.log('   Nombre actualizado:', resUpdate.body.data?.nombre);
     console.log('   Rol actualizado:', resUpdate.body.data?.rol);
@@ -172,8 +175,8 @@ const server = app.listen(0, async () => {
     }
 
     // 8. DELETE /api/usuarios/:id: Borrado lógico auditado
-    console.log(`\n8. Probando DELETE /api/usuarios/${createdUserPersonaId} (Borrado lógico)...`);
-    const resDelete = await request(`/api/usuarios/${createdUserPersonaId}`, 'DELETE', null, token);
+    console.log(`\n8. Probando DELETE /api/usuarios/${createdUserId} (Borrado lógico)...`);
+    const resDelete = await request(`/api/usuarios/${createdUserId}`, 'DELETE', null, token);
     console.log('   Status:', resDelete.status, '(Esperado: 200)');
     console.log('   Estado retornado:', resDelete.body.data?.estado);
     if (resDelete.status === 200 && resDelete.body.data?.estado === 'INACTIVO') {
@@ -184,7 +187,7 @@ const server = app.listen(0, async () => {
 
     // 9. Verificar que el usuario no fue eliminado físicamente de la BD
     console.log('\n9. Verificando persistencia y borrado lógico en PostgreSQL...');
-    const dbCheck = await db.query('SELECT id_persona, estado FROM usuarios WHERE id_persona = $1', [createdUserPersonaId]);
+    const dbCheck = await db.query('SELECT id_usuario, estado FROM usuarios WHERE id_usuario = $1', [createdUserId]);
     if (dbCheck.rows.length > 0 && dbCheck.rows[0].estado === 'INACTIVO') {
       console.log('   [PASS] PRUEBA 9 SUPERADA: Registro preservado en BD con estado INACTIVO (No hubo DELETE físico)');
     } else {

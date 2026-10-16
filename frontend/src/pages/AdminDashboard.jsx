@@ -56,11 +56,10 @@ export const AdminDashboard = () => {
     const socket = getSocket();
     if (socket) {
       const handlePresence = (data) => {
-        if (data?.id_persona !== undefined) {
+        if (data?.id_usuario !== undefined) {
           setUsers((prevUsers) =>
             prevUsers.map((u) => {
-              const uid = Number(u.id_persona || u.id);
-              if (uid === Number(data.id_persona)) {
+              if (Number(u.id_usuario) === Number(data.id_usuario)) {
                 return { ...u, en_linea: Boolean(data.en_linea) };
               }
               return u;

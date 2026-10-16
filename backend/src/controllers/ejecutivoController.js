@@ -53,9 +53,11 @@ const getBandejaCreditos = async (req, res) => {
       JOIN asociados a ON sc.id_asociado = a.id_asociado
       JOIN personas p ON a.id_persona = p.id_persona
       LEFT JOIN cuentas c ON sc.id_cuenta_destino = c.id_cuenta
-      LEFT JOIN usuarios u ON p.id_persona = u.id_persona
-      LEFT JOIN personas op_rev ON sc.id_operador_revisa = op_rev.id_persona
-      LEFT JOIN personas ej_res ON sc.id_ejecutivo_resuelve = ej_res.id_persona
+      LEFT JOIN usuarios u ON u.id_persona = p.id_persona AND u.id_rol = 3 /* ASOCIADO */
+      LEFT JOIN usuarios op_rev_u ON op_rev_u.id_usuario = sc.id_operador_revisa
+      LEFT JOIN personas op_rev ON op_rev.id_persona = op_rev_u.id_persona
+      LEFT JOIN usuarios ej_res_u ON ej_res_u.id_usuario = sc.id_ejecutivo_resuelve
+      LEFT JOIN personas ej_res ON ej_res.id_persona = ej_res_u.id_persona
       ORDER BY 
         CASE 
           WHEN sc.estado = 'EN_AUTORIZACION_EJECUTIVO' THEN 1 
@@ -94,7 +96,7 @@ const getBandejaCreditos = async (req, res) => {
 const resolverSolicitudCredito = async (req, res) => {
   const { id } = req.params;
   const { accion, observaciones, documento_firmado, nombre_archivo_firmado } = req.body;
-  const idEjecutivo = req.user.id_persona;
+  const idEjecutivo = req.user.id_usuario;
 
   const ACCIONES_VALIDAS = ['ACEPTAR', 'DEVOLVER', 'DENEGAR'];
   if (!ACCIONES_VALIDAS.includes(accion)) {
@@ -118,7 +120,8 @@ const resolverSolicitudCredito = async (req, res) => {
 
     // 1. Obtener la solicitud con bloqueo transaccional estricto
     const solRes = await client.query(`
-      SELECT sc.*, a.id_persona, p.primer_nombre, p.primer_apellido
+      SELECT sc.*, a.id_persona, p.primer_nombre, p.primer_apellido,
+        (SELECT u.id_usuario FROM usuarios u WHERE u.id_persona = a.id_persona AND u.id_rol = 3 /* ASOCIADO */) AS id_usuario_asociado
       FROM solicitudes_credito sc
       JOIN asociados a ON sc.id_asociado = a.id_asociado
       JOIN personas p ON a.id_persona = p.id_persona
@@ -192,7 +195,7 @@ const resolverSolicitudCredito = async (req, res) => {
           asociado: `${sol.primer_nombre} ${sol.primer_apellido}`,
           observaciones_ejecutivo: observaciones.trim(),
         });
-        socketService.emitToUser(sol.id_persona, 'solicitud_credito:actualizada', {
+        socketService.emitToUser(sol.id_usuario_asociado, 'solicitud_credito:actualizada', {
           id_solicitud_credito: id,
           estado: 'DEVUELTA_OPERADOR',
           mensaje: 'Su solicitud ha sido devuelta al operador para revisión de observaciones adicionales.',
@@ -242,7 +245,7 @@ const resolverSolicitudCredito = async (req, res) => {
 
       // Notificaciones WebSocket
       try {
-        socketService.emitToUser(sol.id_persona, 'solicitud_credito:actualizada', {
+        socketService.emitToUser(sol.id_usuario_asociado, 'solicitud_credito:actualizada', {
           id_solicitud_credito: id,
           estado: 'DENEGADA',
           mensaje: `Su solicitud de crédito ha sido denegada por la gerencia ejecutiva. Motivo: ${observaciones.trim()}`,
@@ -404,7 +407,7 @@ const resolverSolicitudCredito = async (req, res) => {
 
     // Notificaciones WebSocket
     try {
-      socketService.emitToUser(sol.id_persona, 'solicitud_credito:actualizada', {
+      socketService.emitToUser(sol.id_usuario_asociado, 'solicitud_credito:actualizada', {
         id_solicitud_credito: id,
         estado: 'APROBADA',
         monto: monto,

@@ -87,7 +87,7 @@ const getBandejaSolicitudes = async (req, res) => {
 const resolverSolicitud = async (req, res) => {
   const { id } = req.params;
   const { accion, observaciones } = req.body;
-  const idOperador = req.user.id_persona;
+  const idOperador = req.user.id_usuario;
 
   if (!['APROBAR', 'RECHAZAR'].includes(accion)) {
     return res.status(400).json({
@@ -356,17 +356,18 @@ const getBandejaAfiliaciones = async (req, res) => {
         s.id_operador_resuelve,
         s.fecha_resolucion,
         op_bloq.primer_nombre || ' ' || op_bloq.primer_apellido AS operador_bloqueo_nombre,
-        u_bloq.codigo_corporativo AS operador_bloqueo_codigo,
+        op_bloq_u.codigo_corporativo AS operador_bloqueo_codigo,
         op_res.primer_nombre || ' ' || op_res.primer_apellido AS operador_resuelve_nombre,
         u_asoc.codigo_corporativo AS asociado_codigo,
         COALESCE(s.numero_cuenta_bancaria, c_asoc.numero_cuenta) AS numero_cuenta,
         COALESCE(s.monto_estimado, c_asoc.saldo_disponible) AS saldo_disponible
       FROM solicitudes_afiliacion_agencia s
-      LEFT JOIN personas op_bloq ON s.id_operador_bloqueo = op_bloq.id_persona
-      LEFT JOIN usuarios u_bloq ON s.id_operador_bloqueo = u_bloq.id_persona
-      LEFT JOIN personas op_res ON s.id_operador_resuelve = op_res.id_persona
+      LEFT JOIN usuarios op_bloq_u ON op_bloq_u.id_usuario = s.id_operador_bloqueo
+      LEFT JOIN personas op_bloq ON op_bloq.id_persona = op_bloq_u.id_persona
+      LEFT JOIN usuarios op_res_u ON op_res_u.id_usuario = s.id_operador_resuelve
+      LEFT JOIN personas op_res ON op_res.id_persona = op_res_u.id_persona
       LEFT JOIN personas p_asoc ON p_asoc.cui_dpi = s.cui_dpi
-      LEFT JOIN usuarios u_asoc ON u_asoc.id_persona = p_asoc.id_persona
+      LEFT JOIN usuarios u_asoc ON u_asoc.id_persona = p_asoc.id_persona AND u_asoc.id_rol = 3 /* ASOCIADO */
       LEFT JOIN asociados a_asoc ON a_asoc.id_persona = p_asoc.id_persona
       LEFT JOIN cuentas c_asoc ON c_asoc.id_asociado = a_asoc.id_asociado AND c_asoc.estado = 'ACTIVA'
       WHERE 1=1
@@ -398,7 +399,7 @@ const getBandejaAfiliaciones = async (req, res) => {
 
     const result = await db.query(query, params);
 
-    const idOperador = req.user?.id_persona;
+    const idOperador = req.user?.id_usuario;
     result.rows.forEach((r) => {
       r.esta_bloqueado = !!(r.id_operador_bloqueo && r.fecha_bloqueo);
       r.bloqueado_por_mi = r.id_operador_bloqueo === idOperador;
@@ -426,7 +427,7 @@ const bloquearCasoAfiliacion = async (req, res) => {
   try {
     const result = await operadorAfiliacionService.bloquearCaso({
       idSolicitud: req.params.id,
-      idOperador: req.user.id_persona,
+      idOperador: req.user.id_usuario,
     });
     return res.status(result.status).json(result);
   } catch (error) {
@@ -446,7 +447,7 @@ const liberarCasoAfiliacion = async (req, res) => {
   try {
     const result = await operadorAfiliacionService.liberarCaso({
       idSolicitud: req.params.id,
-      idOperador: req.user.id_persona,
+      idOperador: req.user.id_usuario,
       esAdmin: req.user.rol === 'ADMINISTRADOR',
     });
     return res.status(result.status).json(result);
@@ -467,7 +468,7 @@ const formalizarAfiliacion = async (req, res) => {
   try {
     const result = await operadorAfiliacionService.formalizarAfiliacion({
       idSolicitud: req.params.id,
-      idOperador: req.user.id_persona,
+      idOperador: req.user.id_usuario,
       rolUsuario: req.user.rol,
       nombreOperador: req.user.nombre || req.user.nombre_completo || req.user.codigo_corporativo,
       datos: req.body,
@@ -490,7 +491,7 @@ const rechazarCasoAfiliacion = async (req, res) => {
   try {
     const result = await operadorAfiliacionService.rechazarCaso({
       idSolicitud: req.params.id,
-      idOperador: req.user.id_persona,
+      idOperador: req.user.id_usuario,
       motivo: req.body.motivo,
     });
     return res.status(result.status).json(result);
@@ -555,10 +556,13 @@ const getBandejaCreditos = async (req, res) => {
       JOIN asociados a ON sc.id_asociado = a.id_asociado
       JOIN personas p ON a.id_persona = p.id_persona
       LEFT JOIN cuentas c ON sc.id_cuenta_destino = c.id_cuenta
-      LEFT JOIN usuarios u ON p.id_persona = u.id_persona
-      LEFT JOIN personas analista ON sc.id_analista = analista.id_persona
-      LEFT JOIN personas op_rev ON sc.id_operador_revisa = op_rev.id_persona
-      LEFT JOIN personas ej_res ON sc.id_ejecutivo_resuelve = ej_res.id_persona
+      LEFT JOIN usuarios u ON u.id_persona = p.id_persona AND u.id_rol = 3 /* ASOCIADO */
+      LEFT JOIN usuarios analista_u ON analista_u.id_usuario = sc.id_analista
+      LEFT JOIN personas analista ON analista.id_persona = analista_u.id_persona
+      LEFT JOIN usuarios op_rev_u ON op_rev_u.id_usuario = sc.id_operador_revisa
+      LEFT JOIN personas op_rev ON op_rev.id_persona = op_rev_u.id_persona
+      LEFT JOIN usuarios ej_res_u ON ej_res_u.id_usuario = sc.id_ejecutivo_resuelve
+      LEFT JOIN personas ej_res ON ej_res.id_persona = ej_res_u.id_persona
       ORDER BY 
         CASE 
           WHEN sc.estado IN ('EN_REVISION_OPERADOR', 'PENDIENTE') THEN 1 
@@ -591,7 +595,7 @@ const resolverSolicitudCredito = async (req, res) => {
   try {
     const result = await operadorCreditoService.resolverCredito({
       idSolicitud: req.params.id,
-      idOperador: req.user.id_persona,
+      idOperador: req.user.id_usuario,
       accion: req.body.accion,
       observaciones: req.body.observaciones,
       documento_firmado: req.body.documento_firmado,
@@ -632,7 +636,7 @@ const elevarSolicitudCredito = async (req, res) => {
   try {
     const result = await operadorCreditoService.elevarCredito({
       idSolicitud: req.params.id,
-      idOperador: req.user.id_persona,
+      idOperador: req.user.id_usuario,
       dictamen_operador: req.body.dictamen_operador,
       documento_firmado: req.body.documento_firmado,
       nombre_archivo_firmado: req.body.nombre_archivo_firmado,
@@ -683,11 +687,12 @@ const getHistorialTraslados = async (req, res) => {
       FROM solicitudes_traslado_apertura s
       JOIN asociados a ON s.id_asociado = a.id_asociado
       JOIN personas p ON a.id_persona = p.id_persona
-      LEFT JOIN usuarios u ON p.id_persona = u.id_persona
+      LEFT JOIN usuarios u ON u.id_persona = p.id_persona AND u.id_rol = 3 /* ASOCIADO */
       LEFT JOIN cuentas co ON s.id_cuenta_origen = co.id_cuenta
       JOIN tipos_cuenta tc ON s.id_tipo_cuenta_destino = tc.id_tipo_cuenta
       LEFT JOIN cuentas cd ON s.id_cuenta_destino = cd.id_cuenta
-      LEFT JOIN personas op_p ON s.id_operador_resuelve = op_p.id_persona
+      LEFT JOIN usuarios op_p_u ON op_p_u.id_usuario = s.id_operador_resuelve
+      LEFT JOIN personas op_p ON op_p.id_persona = op_p_u.id_persona
       WHERE 1=1
     `;
     const params = [];

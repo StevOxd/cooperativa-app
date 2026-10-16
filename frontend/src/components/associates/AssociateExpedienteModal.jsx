@@ -13,7 +13,7 @@ const ACCESO_PORTAL = {
   PENDIENTE: { tone: 'warning', etiqueta: 'Pendiente', texto: 'Tiene usuario, pero nunca entró al portal.', accion: 'Reenviar acceso' },
   ACTIVO: { tone: 'success', etiqueta: 'Activo', texto: 'Ya usa el portal. Si olvidó su contraseña, la reinicia el administrador.' },
   INACTIVO: { tone: 'danger', etiqueta: 'Desactivado', texto: 'Su usuario está desactivado. Lo reactiva el administrador.' },
-  PERSONAL: { tone: 'neutral', etiqueta: 'Personal', texto: 'Su usuario es del personal de la cooperativa.' },
+  PERSONAL: { tone: 'neutral', etiqueta: 'Personal', texto: 'No tiene usuario de asociado; esta persona tiene un usuario del personal de la cooperativa.' },
 };
 
 /**

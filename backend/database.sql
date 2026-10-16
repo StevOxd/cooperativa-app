@@ -2,7 +2,8 @@
 -- BASE DE DATOS: cooperativa_db
 -- ARQUITECTURA: 3FN (Tercera Forma Normal) - Estandarización Bancaria
 -- CONVENCIÓN: id_entidad (PRIMARY KEYs y FOREIGN KEYs)
--- TABLA USUARIOS: id_persona (PRIMARY KEY & FOREIGN KEY 1:1 con personas)
+-- TABLA USUARIOS: id_usuario (PRIMARY KEY); id_persona (FOREIGN KEY). Una persona tiene como máximo
+--                 un usuario del personal y uno de asociado (issue #32)
 -- IDENTIFICADOR PRINCIPAL DE NEGOCIO: codigo_corporativo (AD-X, OP-X, EJ-X, EB-X, EX-X)
 -- ESTADO: Saneado y Sincronizado con Migraciones Oficiales (2026)
 -- =============================================================================
@@ -75,9 +76,11 @@ CREATE TABLE personas (
     fecha_creacion TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- Tabla usuarios: id_persona es simultáneamente PRIMARY KEY y FOREIGN KEY (Relación 1:1)
+-- Tabla usuarios: cada usuario tiene su propia llave. Una persona puede tener un usuario del personal
+-- (AD, OP, EJ) y uno de asociado (EB, EX); el índice uq_usuarios_persona_tipo lo limita (issue #32).
 CREATE TABLE usuarios (
-    id_persona INT PRIMARY KEY REFERENCES personas(id_persona) ON DELETE CASCADE,
+    id_usuario SERIAL PRIMARY KEY,
+    id_persona INT NOT NULL REFERENCES personas(id_persona) ON DELETE CASCADE,
     id_rol INT NOT NULL REFERENCES roles(id_rol) ON DELETE RESTRICT,
     codigo_corporativo VARCHAR(30) UNIQUE NOT NULL CHECK (codigo_corporativo ~ '^[A-Za-z0-9_.-]{3,30}$'),
     email VARCHAR(150) UNIQUE NOT NULL,
@@ -101,12 +104,12 @@ CREATE TABLE usuarios (
 
 CREATE TABLE historial_estados_usuario (
     id_historial_estado SERIAL PRIMARY KEY,
-    id_usuario_modificado INT NOT NULL REFERENCES usuarios(id_persona) ON DELETE RESTRICT ON UPDATE CASCADE,
+    id_usuario_modificado INT NOT NULL REFERENCES usuarios(id_usuario) ON DELETE RESTRICT ON UPDATE CASCADE,
     estado_anterior VARCHAR(20),
     estado_nuevo VARCHAR(20) NOT NULL,
     id_rol_anterior INT REFERENCES roles(id_rol),
     id_rol_nuevo INT REFERENCES roles(id_rol),
-    id_modificado_por INT REFERENCES usuarios(id_persona),
+    id_modificado_por INT REFERENCES usuarios(id_usuario),
     motivo TEXT,
     ip_origen VARCHAR(45),
     user_agent TEXT,
@@ -160,7 +163,7 @@ CREATE TABLE beneficiarios (
 CREATE TABLE historial_cambios_beneficiarios (
     id_historial SERIAL PRIMARY KEY,
     id_cuenta INT NOT NULL REFERENCES cuentas(id_cuenta) ON DELETE CASCADE,
-    id_usuario INT REFERENCES usuarios(id_persona) ON DELETE SET NULL,
+    id_usuario INT REFERENCES usuarios(id_usuario) ON DELETE SET NULL,
     nombre_usuario VARCHAR(150),
     rol_usuario VARCHAR(50),
     beneficiarios_anteriores JSONB,
@@ -189,9 +192,9 @@ CREATE TABLE solicitudes_afiliacion_agencia (
     monto_estimado NUMERIC(14, 2) DEFAULT 100.00,
     estado VARCHAR(25) NOT NULL DEFAULT 'PENDIENTE_AGENCIA' CHECK (estado IN ('PENDIENTE_AGENCIA', 'ATENDIDA', 'CANCELADA', 'EXPIRADA')),
     observaciones TEXT,
-    id_operador_bloqueo INT REFERENCES usuarios(id_persona) ON DELETE SET NULL,
+    id_operador_bloqueo INT REFERENCES usuarios(id_usuario) ON DELETE SET NULL,
     fecha_bloqueo TIMESTAMP WITH TIME ZONE,
-    id_operador_resuelve INT REFERENCES usuarios(id_persona) ON DELETE SET NULL,
+    id_operador_resuelve INT REFERENCES usuarios(id_usuario) ON DELETE SET NULL,
     fecha_resolucion TIMESTAMP WITH TIME ZONE,
     numero_cuenta_bancaria VARCHAR(50),
     fecha_solicitud TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
@@ -225,7 +228,7 @@ CREATE TABLE solicitudes_credito (
     tasa_interes NUMERIC(5, 2) NOT NULL CHECK (tasa_interes >= 0),
     cuota_mensual_estimada NUMERIC(14, 2) NOT NULL CHECK (cuota_mensual_estimada > 0),
     estado VARCHAR(50) NOT NULL DEFAULT 'PENDIENTE_FIRMA' CHECK (estado IN ('PENDIENTE_FIRMA', 'EN_REVISION_OPERADOR', 'EN_AUTORIZACION_EJECUTIVO', 'DEVUELTA_OPERADOR', 'APROBADA', 'APROBADO', 'DESEMBOLSADA', 'DENEGADA', 'RECHAZADA', 'RECHAZADO', 'PENDIENTE')),
-    id_analista INT REFERENCES usuarios(id_persona),
+    id_analista INT REFERENCES usuarios(id_usuario),
     id_cuenta_destino INT REFERENCES cuentas(id_cuenta),
     id_cuenta_bancaria_destino INT,
     cuenta_destino_info VARCHAR(120),
@@ -233,10 +236,10 @@ CREATE TABLE solicitudes_credito (
     nombre_archivo_firmado VARCHAR(255),
     peso_archivo_bytes BIGINT,
     fecha_carga_archivo TIMESTAMP WITH TIME ZONE,
-    id_operador_revisa INT REFERENCES usuarios(id_persona),
+    id_operador_revisa INT REFERENCES usuarios(id_usuario),
     fecha_revision_operador TIMESTAMP WITH TIME ZONE,
     dictamen_operador TEXT,
-    id_ejecutivo_resuelve INT REFERENCES usuarios(id_persona),
+    id_ejecutivo_resuelve INT REFERENCES usuarios(id_usuario),
     fecha_resolucion_ejecutivo TIMESTAMP WITH TIME ZONE,
     observaciones_ejecutivo TEXT,
     fecha_resolucion TIMESTAMP WITH TIME ZONE,
@@ -256,7 +259,7 @@ CREATE TABLE solicitudes_traslado_apertura (
     monto NUMERIC(14, 2) NOT NULL CHECK (monto > 0),
     tipo_operacion VARCHAR(30) NOT NULL CHECK (tipo_operacion IN ('TRASLADO_DIRECTO', 'APERTURA_Y_TRASLADO')),
     estado VARCHAR(20) DEFAULT 'PENDIENTE' CHECK (estado IN ('PENDIENTE', 'APROBADO', 'RECHAZADO')),
-    id_operador_resuelve INT REFERENCES usuarios(id_persona) ON DELETE RESTRICT,
+    id_operador_resuelve INT REFERENCES usuarios(id_usuario) ON DELETE RESTRICT,
     observaciones_operador TEXT,
     fecha_solicitud TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     fecha_resolucion TIMESTAMP WITH TIME ZONE,
@@ -292,7 +295,7 @@ CREATE TABLE transacciones (
     saldo_anterior NUMERIC(14, 2) NOT NULL,
     saldo_nuevo NUMERIC(14, 2) NOT NULL,
     referencia VARCHAR(100),
-    id_usuario_registra INT REFERENCES usuarios(id_persona),
+    id_usuario_registra INT REFERENCES usuarios(id_usuario),
     fecha_transaccion TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -313,12 +316,15 @@ CREATE TABLE configuracion_sistema (
 
 -- 7.1 Índices de cobertura en Claves Foráneas (Prevenir Sequential Scans)
 CREATE INDEX idx_usuarios_rol ON usuarios(id_rol);
+-- Como máximo un usuario del personal y uno de asociado (rol 3) por persona; también cubre la FK a personas.
+CREATE UNIQUE INDEX uq_usuarios_persona_tipo ON usuarios (id_persona, (id_rol = 3));
 CREATE INDEX idx_historial_usuario ON historial_estados_usuario(id_usuario_modificado);
 CREATE INDEX idx_historial_modificado_por ON historial_estados_usuario(id_modificado_por);
 CREATE INDEX idx_cuentas_asociado ON cuentas(id_asociado);
 CREATE INDEX idx_cuentas_tipo_cuenta ON cuentas(id_tipo_cuenta);
 CREATE INDEX idx_beneficiarios_cuenta ON beneficiarios(id_cuenta);
 CREATE INDEX idx_historial_beneficiarios_cuenta ON historial_cambios_beneficiarios(id_cuenta);
+CREATE INDEX idx_historial_beneficiarios_usuario ON historial_cambios_beneficiarios(id_usuario) WHERE id_usuario IS NOT NULL;
 CREATE INDEX idx_roles_permisos_permiso ON roles_permisos(id_permiso);
 
 CREATE INDEX idx_solicitudes_credito_asociado ON solicitudes_credito(id_asociado);
@@ -419,17 +425,19 @@ INSERT INTO personas (id_persona, cui_dpi, primer_nombre, segundo_nombre, primer
 
 SELECT setval('personas_id_persona_seq', 5, true);
 
-INSERT INTO usuarios (id_persona, id_rol, codigo_corporativo, email, password_hash, estado, intentos_fallidos, bloqueado_hasta, sesion_activa_id, mfa_enabled, debe_cambiar_password) VALUES
+INSERT INTO usuarios (id_usuario, id_persona, id_rol, codigo_corporativo, email, password_hash, estado, intentos_fallidos, bloqueado_hasta, sesion_activa_id, mfa_enabled, debe_cambiar_password) VALUES
 -- Administradores (AD-1, AD-2)
-(1, 1, 'AD-1', 'admin@cooperativa.com', '$2a$10$vNPUEupr.jaRBJ/2vUE4CurM.mZqeEc1PTGrA8Pds020v2tm0T1Ey', 'ACTIVO', 0, NULL, NULL, false, false),
-(2, 1, 'AD-2', 'admin.lucia@cooperativa.com', '$2a$10$vNPUEupr.jaRBJ/2vUE4CurM.mZqeEc1PTGrA8Pds020v2tm0T1Ey', 'ACTIVO', 0, NULL, NULL, false, false),
+(1, 1, 1, 'AD-1', 'admin@cooperativa.com', '$2a$10$vNPUEupr.jaRBJ/2vUE4CurM.mZqeEc1PTGrA8Pds020v2tm0T1Ey', 'ACTIVO', 0, NULL, NULL, false, false),
+(2, 2, 1, 'AD-2', 'admin.lucia@cooperativa.com', '$2a$10$vNPUEupr.jaRBJ/2vUE4CurM.mZqeEc1PTGrA8Pds020v2tm0T1Ey', 'ACTIVO', 0, NULL, NULL, false, false),
 
 -- Ejecutivo de Créditos (EJ-1)
-(3, 4, 'EJ-1', 'ejecutivo@cooperativa.com', '$2a$10$vNPUEupr.jaRBJ/2vUE4CurM.mZqeEc1PTGrA8Pds020v2tm0T1Ey', 'ACTIVO', 0, NULL, NULL, false, false),
+(3, 3, 4, 'EJ-1', 'ejecutivo@cooperativa.com', '$2a$10$vNPUEupr.jaRBJ/2vUE4CurM.mZqeEc1PTGrA8Pds020v2tm0T1Ey', 'ACTIVO', 0, NULL, NULL, false, false),
 
 -- Operadores de Ventanilla (OP-1, OP-2)
-(4, 2, 'OP-1', 'operador@cooperativa.com', '$2a$10$vNPUEupr.jaRBJ/2vUE4CurM.mZqeEc1PTGrA8Pds020v2tm0T1Ey', 'ACTIVO', 0, NULL, NULL, false, false),
-(5, 2, 'OP-2', 'operador.maria@cooperativa.com', '$2a$10$vNPUEupr.jaRBJ/2vUE4CurM.mZqeEc1PTGrA8Pds020v2tm0T1Ey', 'ACTIVO', 0, NULL, NULL, false, false);
+(4, 4, 2, 'OP-1', 'operador@cooperativa.com', '$2a$10$vNPUEupr.jaRBJ/2vUE4CurM.mZqeEc1PTGrA8Pds020v2tm0T1Ey', 'ACTIVO', 0, NULL, NULL, false, false),
+(5, 5, 2, 'OP-2', 'operador.maria@cooperativa.com', '$2a$10$vNPUEupr.jaRBJ/2vUE4CurM.mZqeEc1PTGrA8Pds020v2tm0T1Ey', 'ACTIVO', 0, NULL, NULL, false, false);
+
+SELECT setval('usuarios_id_usuario_seq', 5, true);
 
 -- NOTA INSTITUCIONAL: La base de datos inicia con 0 asociados, 0 cuentas y 0 transacciones cooperativas,
 -- garantizando que toda membresía y apertura se origine mediante los flujos oficiales de afiliación presencial

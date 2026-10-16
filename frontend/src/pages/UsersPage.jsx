@@ -130,7 +130,7 @@ export const UsersPage = () => {
   // Estados del Modal (Crear / Editar)
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
-  const [editingUserPersonaId, setEditingUserPersonaId] = useState(null);
+  const [editingUserId, setEditingUserId] = useState(null);
   const [modalSubmitting, setModalSubmitting] = useState(false);
   const [modalError, setModalError] = useState('');
 
@@ -283,11 +283,10 @@ export const UsersPage = () => {
     const socket = getSocket();
     if (socket) {
       const handlePresence = (data) => {
-        if (data && data.id_persona !== undefined) {
+        if (data && data.id_usuario !== undefined) {
           setUsers((prevUsers) =>
             prevUsers.map((u) => {
-              const uId = Number(u.id_persona || u.id);
-              if (uId === Number(data.id_persona)) {
+              if (Number(u.id_usuario) === Number(data.id_usuario)) {
                 return { ...u, en_linea: Boolean(data.en_linea) };
               }
               return u;
@@ -327,7 +326,7 @@ export const UsersPage = () => {
 
   const openCreateModal = () => {
     setIsEditing(false);
-    setEditingUserPersonaId(null);
+    setEditingUserId(null);
     setFormData({
       codigo_corporativo: '',
       cui_dpi: '',
@@ -351,7 +350,7 @@ export const UsersPage = () => {
 
   const openEditModal = (u) => {
     setIsEditing(true);
-    setEditingUserPersonaId(u.id_persona || u.id);
+    setEditingUserId(u.id_usuario);
     setFormData({
       codigo_corporativo: u.codigo_corporativo || '',
       cui_dpi: u.cui_dpi || '',
@@ -441,7 +440,7 @@ export const UsersPage = () => {
         const payload = { ...formData };
         if (!payload.password) delete payload.password;
 
-        const response = await api.put(`/usuarios/${editingUserPersonaId}`, payload);
+        const response = await api.put(`/usuarios/${editingUserId}`, payload);
         if (response.data?.success) {
           setSuccessMessage('Cambios guardados.');
           setIsModalOpen(false);
@@ -498,7 +497,7 @@ export const UsersPage = () => {
         motivo: resetMotivo ? resetMotivo.trim() : undefined,
       };
       const response = await api.post(
-        `/usuarios/${resetTargetUser.id_persona || resetTargetUser.id}/reset-password`,
+        `/usuarios/${resetTargetUser.id_usuario}/reset-password`,
         payload
       );
       if (response.data?.success) {
@@ -531,7 +530,7 @@ export const UsersPage = () => {
     setStatusSubmitting(true);
     try {
       const response = await api.patch(
-        `/usuarios/${statusTargetUser.id_persona || statusTargetUser.id}/estado`,
+        `/usuarios/${statusTargetUser.id_usuario}/estado`,
         {
           estado: statusNewValue,
           motivo: statusMotivo.trim(),
@@ -614,7 +613,7 @@ export const UsersPage = () => {
                 const nombre = u.nombre_completo || u.nombre;
                 const activo = u.estado === 'ACTIVO';
                 return (
-                  <TR key={u.id_persona || u.id} interactive>
+                  <TR key={u.id_usuario} interactive>
                     <TD className="min-w-[13rem] max-w-[16rem]">
                       <div className="truncate font-medium text-ink" title={nombre}>{nombre}</div>
                       <div className="truncate text-xs text-ink-subtle" title={u.email}>{u.email}</div>
@@ -637,7 +636,7 @@ export const UsersPage = () => {
                           {canManageUsers && (
                             <button
                               type="button"
-                              onClick={() => handleDesbloquear(u.id_persona || u.id)}
+                              onClick={() => handleDesbloquear(u.id_usuario)}
                               aria-label={`Desbloquear a ${u.codigo_corporativo}`}
                               className="inline-flex items-center gap-1 rounded-sm text-xs font-medium text-brand-700 hover:text-brand-800 hover:underline cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600"
                             >

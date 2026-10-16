@@ -56,7 +56,9 @@ async function runCleanupAndMigration() {
     // Delete users
     await client.query(`
       DELETE FROM historial_estados_usuario WHERE id_usuario_modificado IN (
-        SELECT id_persona FROM personas WHERE cui_dpi IN ('4000000000005', '4000000000006')
+        SELECT u.id_usuario FROM usuarios u
+        JOIN personas p ON p.id_persona = u.id_persona
+        WHERE p.cui_dpi IN ('4000000000005', '4000000000006')
       );
       DELETE FROM usuarios WHERE id_persona IN (
         SELECT id_persona FROM personas WHERE cui_dpi IN ('4000000000005', '4000000000006')

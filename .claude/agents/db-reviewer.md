@@ -1,6 +1,6 @@
 ---
 name: db-reviewer
-description: "Úsalo cuando un cambio toque database.sql, migrations.js, consultas SQL, índices, secuencias, triggers o transacciones de cooperativa_db o banco_db. Revisa 3FN, restricciones CHECK, NUMERIC(14,2), índices B-Tree en llaves foráneas, correlativos atómicos, borrado lógico, idempotencia de migraciones y las particularidades del modelo actual (correo en usuarios.email, usuarios.id_persona como PK, hash de códigos, secretos 2FA). Solo lee; no edita."
+description: "Úsalo cuando un cambio toque database.sql, migrations.js, consultas SQL, índices, secuencias, triggers o transacciones de cooperativa_db o banco_db. Revisa 3FN, restricciones CHECK, NUMERIC(14,2), índices B-Tree en llaves foráneas, correlativos atómicos, borrado lógico, idempotencia de migraciones y las particularidades del modelo actual (correo en usuarios.email, usuarios.id_usuario como PK con hasta dos usuarios por persona, hash de códigos, secretos 2FA). Solo lee; no edita."
 tools: Read, Grep, Glob, Bash
 model: inherit
 ---
@@ -38,12 +38,15 @@ Garantizar la solidez estructural, rendimiento óptimo, integridad referencial y
 
 ### 4. Migraciones Idempotentes y Aislamiento de Microservicios
 - **Idempotencia:** Asegurar que `backend/src/config/migrations.js` y `database.sql` puedan correr repetidamente en cualquier entorno sin colisiones (`CREATE TABLE IF NOT EXISTS`, `ADD COLUMN IF NOT EXISTS`).
-- **Cuándo corren:** `database.sql` solo al crear el volumen; `migrations.js` cada vez que arranca el backend (no cuando las pruebas cargan el servidor en el mismo proceso). Una tabla nueva exige reconstruir el backend antes de probar.
+- **Cuándo corren:** `database.sql` solo al crear el volumen; `migrations.js` cada vez que arranca el backend, antes de atender peticiones (si falla, el backend no arranca), y no cuando las pruebas cargan el servidor en el mismo proceso. Una tabla nueva exige reconstruir el backend antes de probar.
 - **Aislamiento de Esquema:** Cero acoplamiento físico directo entre tablas cooperativas y tablas del banco comercial.
 
 ### 5. Particularidades del modelo actual
 - `personas` no tiene correo: el correo vive en `usuarios.email` (`UNIQUE NOT NULL`) y, para solicitudes en agencia, en `solicitudes_afiliacion_agencia.email`. Un asociado sin usuario no tiene correo guardado.
-- `usuarios.id_persona` es la clave primaria: una persona tiene un solo usuario y un solo rol (issue #32).
+- `usuarios.id_usuario` es la clave primaria y `usuarios.id_persona` la une con `personas` (issue #32). Una persona puede tener un usuario del personal y uno de asociado (índice único `uq_usuarios_persona_tipo` sobre `(id_persona, (id_rol = 3))`, que también cubre la FK; rol 3 = ASOCIADO). Por eso:
+  - Las llaves foráneas de auditoría (`id_usuario_registra`, `id_operador_*`, `id_modificado_por`, …) guardan `id_usuario`, y para mostrar el nombre se une `usuarios` antes que `personas`; unirlas directo con `personas.id_persona` es un error.
+  - Unir `usuarios` por `id_persona` puede devolver dos filas: hay que filtrar por rol (`id_rol = 3` en el contexto del asociado) o usar `id_usuario`.
+  - Los usuarios anteriores a la migración tienen `id_usuario = id_persona`, así que un error de este tipo no se nota con ellos: se prueba con un usuario creado después.
 - `codigos_verificacion_correo` guarda solo el hash del código; nunca el código.
 - Los secretos 2FA (`mfa_secret`) solo existen con `mfa_enabled = TRUE` o durante la activación; la migración borra los que quedaron sin activar.
 
