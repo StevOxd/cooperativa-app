@@ -173,13 +173,14 @@ const login = async (req, res) => {
     }
 
     // 6. Control de Sesión Única Concurrente y Alerta en Tiempo Real
-    // Si sesion_activa_id ya tiene un valor vigente y hay conexión activa en otro navegador
-    const tieneConexionActiva = socketService.isUserConnected(user.id_usuario);
+    // Si sesion_activa_id ya tiene un valor vigente y hay conexión activa de esa sesión en otro navegador
+    const tieneConexionActiva = socketService.isUserConnected(user.id_usuario, user.sesion_activa_id);
     if (user.sesion_activa_id && tieneConexionActiva) {
       // Emite un evento en tiempo real al navegador conectado
       socketService.sendSecurityAlert(
         user.id_usuario,
-        'Advertencia de seguridad: Se ha detectado un intento de inicio de sesión en tu cuenta desde otro dispositivo/navegador.'
+        'Advertencia de seguridad: Se ha detectado un intento de inicio de sesión en tu cuenta desde otro dispositivo/navegador.',
+        user.sesion_activa_id
       );
 
       // En el nuevo navegador donde intentan ingresar, rechaza el acceso
@@ -607,12 +608,13 @@ const verifyMfa = async (req, res) => {
       });
     }
 
-    // Control de sesión única concurrente
-    const tieneConexionActiva = socketService.isUserConnected(user.id_usuario);
+    // Control de sesión única concurrente (solo cuentan las conexiones de la sesión vigente)
+    const tieneConexionActiva = socketService.isUserConnected(user.id_usuario, user.sesion_activa_id);
     if (user.sesion_activa_id && tieneConexionActiva) {
       socketService.sendSecurityAlert(
         user.id_usuario,
-        'Advertencia de seguridad: Se ha detectado un intento de inicio de sesión con 2FA en tu cuenta desde otro dispositivo/navegador.'
+        'Advertencia de seguridad: Se ha detectado un intento de inicio de sesión con 2FA en tu cuenta desde otro dispositivo/navegador.',
+        user.sesion_activa_id
       );
 
       return res.status(409).json({

@@ -653,6 +653,7 @@ El proyecto cuenta con suites de pruebas automatizadas oficiales en la carpeta `
 9. **Protocolos de Sesión (`testSecurityProtocols.js`):** Valida el bloqueo por 3 intentos, que una cuenta inexistente responda igual que una existente, el desbloqueo administrativo y la sesión única concurrente.
 10. **Doble Factor (`test2faFlow.js`):** Valida activación, inicio de sesión con código y desactivación del 2FA. Usa el backend levantado (puerto 5001).
 11. **Usuario del personal y de asociado (`testUsuarioDoble.js`):** Valida la llave `usuarios.id_usuario` y sus llaves foráneas, que una persona tenga como máximo un usuario de cada tipo, sesiones independientes, que suspender la afiliación o desactivar al colaborador afecte solo a su usuario, la auditoría por `id_usuario` y que los tokens anteriores sigan funcionando (issue #32).
+12. **Validación de sesión (`testValidacionSesion.js`):** Valida que las rutas HTTP y los WebSockets solo acepten el token de la sesión vigente: el token del segundo paso del 2FA y los de sesiones cerradas no sirven, la sesión única se mantiene y un socket, al desconectarse, solo cierra su propia sesión.
 
 ### Ejecución de Todas las Suites en un Solo Comando:
 ```bash
@@ -662,7 +663,8 @@ node backend/testArchitectureImprovements.js && \
 node backend/testBandejaAfiliaciones.js && \
 node backend/testTraslados.js && \
 node backend/testModulo1Completo.js && \
-node backend/testUsuarioDoble.js
+node backend/testUsuarioDoble.js && \
+node backend/testValidacionSesion.js
 ```
 
 ---
