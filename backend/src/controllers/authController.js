@@ -4,6 +4,7 @@ const jwt = require('jsonwebtoken');
 const db = require('../config/db');
 const socketService = require('../services/socketService');
 const mfaService = require('../services/mfaService');
+const { idUsuarioDelToken } = require('../utils/tokenUsuario');
 require('dotenv').config();
 
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -43,6 +44,7 @@ const login = async (req, res) => {
     // 2. Consulta con JOIN entre usuarios, personas y roles (incluyendo campos de seguridad)
     const userQuery = `
       SELECT 
+        u.id_usuario,
         u.id_persona, 
         u.codigo_corporativo,
         p.cui_dpi,
@@ -107,8 +109,8 @@ const login = async (req, res) => {
           `UPDATE usuarios 
            SET intentos_fallidos = $1, 
                bloqueado_hasta = CURRENT_TIMESTAMP + INTERVAL '15 minutes' 
-           WHERE id_persona = $2`,
-          [nuevosIntentos, user.id_persona]
+           WHERE id_usuario = $2`,
+          [nuevosIntentos, user.id_usuario]
         );
 
         const clientIp = req.headers['x-forwarded-for']?.split(',')[0].trim() || req.socket.remoteAddress || null;
@@ -118,13 +120,13 @@ const login = async (req, res) => {
           `INSERT INTO historial_estados_usuario 
            (id_usuario_modificado, estado_anterior, estado_nuevo, id_rol_anterior, id_rol_nuevo, id_modificado_por, motivo, ip_origen, user_agent)
            VALUES ($1, $2, 'BLOQUEADO_TEMPORAL', $3, $3, NULL, 'Bloqueo automático de seguridad por 3 intentos fallidos consecutivos (fuerza bruta)', $4, $5)`,
-          [user.id_persona, user.estado, user.id_rol, clientIp, userAgent]
+          [user.id_usuario, user.estado, user.id_rol, clientIp, userAgent]
         );
 
       } else {
         await db.query(
-          'UPDATE usuarios SET intentos_fallidos = $1 WHERE id_persona = $2',
-          [nuevosIntentos, user.id_persona]
+          'UPDATE usuarios SET intentos_fallidos = $1 WHERE id_usuario = $2',
+          [nuevosIntentos, user.id_usuario]
         );
       }
       return responderCredencialesInvalidas(res);
@@ -133,8 +135,8 @@ const login = async (req, res) => {
     // Si la contraseña es válida, reiniciar contador de intentos fallidos inmediatamente en base de datos
     if ((user.intentos_fallidos || 0) > 0 || user.bloqueado_hasta) {
       await db.query(
-        'UPDATE usuarios SET intentos_fallidos = 0, bloqueado_hasta = NULL WHERE id_persona = $1',
-        [user.id_persona]
+        'UPDATE usuarios SET intentos_fallidos = 0, bloqueado_hasta = NULL WHERE id_usuario = $1',
+        [user.id_usuario]
       );
       user.intentos_fallidos = 0;
       user.bloqueado_hasta = null;
@@ -151,7 +153,7 @@ const login = async (req, res) => {
     // 5.1 Verificar si el usuario tiene Doble Factor de Autenticación (MFA / 2FA TOTP) activo
     if (user.mfa_enabled && user.mfa_secret) {
       const tempToken = jwt.sign(
-        { id_persona: user.id_persona, purpose: 'MFA_VERIFICATION' },
+        { id_usuario: user.id_usuario, purpose: 'MFA_VERIFICATION' },
         JWT_SECRET,
         { expiresIn: '5m' }
       );
@@ -161,7 +163,7 @@ const login = async (req, res) => {
         temp_token: tempToken,
         message: 'Escriba el código de 6 dígitos de su aplicación de autenticación.',
         user: {
-          id: user.id_persona,
+          id: user.id_usuario,
           codigo_corporativo: user.codigo_corporativo,
           email: user.email,
           nombre: user.primer_nombre,
@@ -172,11 +174,11 @@ const login = async (req, res) => {
 
     // 6. Control de Sesión Única Concurrente y Alerta en Tiempo Real
     // Si sesion_activa_id ya tiene un valor vigente y hay conexión activa en otro navegador
-    const tieneConexionActiva = socketService.isUserConnected(user.id_persona);
+    const tieneConexionActiva = socketService.isUserConnected(user.id_usuario);
     if (user.sesion_activa_id && tieneConexionActiva) {
       // Emite un evento en tiempo real al navegador conectado
       socketService.sendSecurityAlert(
-        user.id_persona,
+        user.id_usuario,
         'Advertencia de seguridad: Se ha detectado un intento de inicio de sesión en tu cuenta desde otro dispositivo/navegador.'
       );
 
@@ -199,13 +201,14 @@ const login = async (req, res) => {
            sesion_activa_id = $1, 
            ultimo_ping = CURRENT_TIMESTAMP, 
            ultimo_acceso = CURRENT_TIMESTAMP 
-       WHERE id_persona = $2`,
-      [nuevaSesionId, user.id_persona]
+       WHERE id_usuario = $2`,
+      [nuevaSesionId, user.id_usuario]
     );
 
-    // 8. Generar payload consolidado para el token JWT con id_persona y sesion_id
+    // 8. Generar payload consolidado para el token JWT con id_usuario, id_persona y sesion_id
     const payload = {
-      id: user.id_persona,
+      id: user.id_usuario,
+      id_usuario: user.id_usuario,
       id_persona: user.id_persona,
       codigo_corporativo: user.codigo_corporativo,
       email: user.email,
@@ -230,7 +233,8 @@ const login = async (req, res) => {
       token,
       sesion_activa_id: nuevaSesionId,
       user: {
-        id: user.id_persona,
+        id: user.id_usuario,
+        id_usuario: user.id_usuario,
         id_persona: user.id_persona,
         codigo_corporativo: user.codigo_corporativo,
         email: user.email,
@@ -270,15 +274,15 @@ const login = async (req, res) => {
  */
 const logout = async (req, res) => {
   try {
-    const userPersonaId = Number(req.user.id_persona || req.user.id);
+    const idUsuario = req.user.id_usuario;
     await db.query(
-      'UPDATE usuarios SET sesion_activa_id = NULL, ultimo_ping = NULL WHERE id_persona = $1',
-      [userPersonaId]
+      'UPDATE usuarios SET sesion_activa_id = NULL, ultimo_ping = NULL WHERE id_usuario = $1',
+      [idUsuario]
     );
 
     // Desconectar sockets activos del usuario y emitir actualización de presencia instantánea
-    socketService.disconnectUser(userPersonaId);
-    socketService.broadcastPresence(userPersonaId, false);
+    socketService.disconnectUser(idUsuario);
+    socketService.broadcastPresence(idUsuario, false);
 
     return res.status(200).json({
       success: true,
@@ -304,10 +308,11 @@ const logout = async (req, res) => {
  */
 const getProfile = async (req, res) => {
   try {
-    const userPersonaId = req.user.id_persona || req.user.id;
+    const idUsuario = req.user.id_usuario;
 
     const userQuery = `
       SELECT 
+        u.id_usuario,
         u.id_persona, 
         u.codigo_corporativo,
         p.cui_dpi,
@@ -331,10 +336,10 @@ const getProfile = async (req, res) => {
       FROM usuarios u
       JOIN personas p ON u.id_persona = p.id_persona
       JOIN roles r ON u.id_rol = r.id_rol
-      WHERE u.id_persona = $1
+      WHERE u.id_usuario = $1
       LIMIT 1
     `;
-    const result = await db.query(userQuery, [userPersonaId]);
+    const result = await db.query(userQuery, [idUsuario]);
 
     if (result.rows.length === 0) {
       return res.status(404).json({
@@ -348,7 +353,7 @@ const getProfile = async (req, res) => {
       success: true,
       user: {
         ...row,
-        id: row.id_persona,
+        id: row.id_usuario,
         nombre: row.nombre_completo,
         debe_cambiar_password: Boolean(row.debe_cambiar_password),
       },
@@ -374,7 +379,7 @@ const getProfile = async (req, res) => {
  */
 const updateProfile = async (req, res) => {
   try {
-    const userPersonaId = req.user.id_persona || req.user.id;
+    const idPersona = req.user.id_persona;
     const { telefono } = req.body;
 
     if (telefono === undefined) {
@@ -393,7 +398,7 @@ const updateProfile = async (req, res) => {
       WHERE id_persona = $2 
       RETURNING id_persona, telefono
     `;
-    const result = await db.query(updateQuery, [cleanPhone, userPersonaId]);
+    const result = await db.query(updateQuery, [cleanPhone, idPersona]);
 
     if (result.rows.length === 0) {
       return res.status(404).json({
@@ -431,7 +436,7 @@ const updateProfile = async (req, res) => {
  */
 const changePassword = async (req, res) => {
   try {
-    const userPersonaId = req.user.id_persona || req.user.id;
+    const idUsuario = req.user.id_usuario;
     const { password_actual, nueva_password, confirmar_password } = req.body;
 
     // 1. Validar campos requeridos
@@ -478,8 +483,8 @@ const changePassword = async (req, res) => {
     }
 
     // 5. Obtener el password_hash actual de la base de datos
-    const userQuery = 'SELECT password_hash FROM usuarios WHERE id_persona = $1';
-    const userRes = await db.query(userQuery, [userPersonaId]);
+    const userQuery = 'SELECT password_hash FROM usuarios WHERE id_usuario = $1';
+    const userRes = await db.query(userQuery, [idUsuario]);
 
     if (userRes.rows.length === 0) {
       return res.status(404).json({
@@ -504,8 +509,8 @@ const changePassword = async (req, res) => {
 
     // 8. Actualizar en la base de datos
     await db.query(
-      'UPDATE usuarios SET password_hash = $1, debe_cambiar_password = FALSE, intentos_fallidos = 0 WHERE id_persona = $2',
-      [newHash, userPersonaId]
+      'UPDATE usuarios SET password_hash = $1, debe_cambiar_password = FALSE, intentos_fallidos = 0 WHERE id_usuario = $2',
+      [newHash, idUsuario]
     );
 
     return res.status(200).json({
@@ -558,6 +563,7 @@ const verifyMfa = async (req, res) => {
     // Consultar al usuario y su secreto MFA
     const userQuery = `
       SELECT 
+        u.id_usuario,
         u.id_persona, 
         u.codigo_corporativo,
         p.cui_dpi,
@@ -579,10 +585,10 @@ const verifyMfa = async (req, res) => {
       FROM usuarios u
       JOIN personas p ON u.id_persona = p.id_persona
       JOIN roles r ON u.id_rol = r.id_rol
-      WHERE u.id_persona = $1
+      WHERE u.id_usuario = $1
       LIMIT 1
     `;
-    const result = await db.query(userQuery, [decoded.id_persona]);
+    const result = await db.query(userQuery, [idUsuarioDelToken(decoded)]);
     if (result.rows.length === 0) {
       return res.status(404).json({
         success: false,
@@ -602,10 +608,10 @@ const verifyMfa = async (req, res) => {
     }
 
     // Control de sesión única concurrente
-    const tieneConexionActiva = socketService.isUserConnected(user.id_persona);
+    const tieneConexionActiva = socketService.isUserConnected(user.id_usuario);
     if (user.sesion_activa_id && tieneConexionActiva) {
       socketService.sendSecurityAlert(
-        user.id_persona,
+        user.id_usuario,
         'Advertencia de seguridad: Se ha detectado un intento de inicio de sesión con 2FA en tu cuenta desde otro dispositivo/navegador.'
       );
 
@@ -625,12 +631,13 @@ const verifyMfa = async (req, res) => {
            sesion_activa_id = $1, 
            ultimo_ping = CURRENT_TIMESTAMP, 
            ultimo_acceso = CURRENT_TIMESTAMP 
-       WHERE id_persona = $2`,
-      [nuevaSesionId, user.id_persona]
+       WHERE id_usuario = $2`,
+      [nuevaSesionId, user.id_usuario]
     );
 
     const payload = {
-      id: user.id_persona,
+      id: user.id_usuario,
+      id_usuario: user.id_usuario,
       id_persona: user.id_persona,
       codigo_corporativo: user.codigo_corporativo,
       email: user.email,
@@ -654,7 +661,8 @@ const verifyMfa = async (req, res) => {
       token,
       sesion_activa_id: nuevaSesionId,
       user: {
-        id: user.id_persona,
+        id: user.id_usuario,
+        id_usuario: user.id_usuario,
         id_persona: user.id_persona,
         codigo_corporativo: user.codigo_corporativo,
         email: user.email,
@@ -686,10 +694,10 @@ const verifyMfa = async (req, res) => {
  */
 const get2faStatus = async (req, res) => {
   try {
-    const userPersonaId = req.user.id_persona || req.user.id;
+    const idUsuario = req.user.id_usuario;
     const result = await db.query(
-      'SELECT mfa_enabled FROM usuarios WHERE id_persona = $1',
-      [userPersonaId]
+      'SELECT mfa_enabled FROM usuarios WHERE id_usuario = $1',
+      [idUsuario]
     );
 
     if (result.rows.length === 0) {
@@ -717,10 +725,10 @@ const get2faStatus = async (req, res) => {
  */
 const setup2fa = async (req, res) => {
   try {
-    const userPersonaId = req.user.id_persona || req.user.id;
+    const idUsuario = req.user.id_usuario;
     const result = await db.query(
-      'SELECT codigo_corporativo, email FROM usuarios WHERE id_persona = $1',
-      [userPersonaId]
+      'SELECT codigo_corporativo, email FROM usuarios WHERE id_usuario = $1',
+      [idUsuario]
     );
 
     if (result.rows.length === 0) {
@@ -753,7 +761,7 @@ const setup2fa = async (req, res) => {
  */
 const enable2fa = async (req, res) => {
   try {
-    const userPersonaId = req.user.id_persona || req.user.id;
+    const idUsuario = req.user.id_usuario;
     const { secret, totp_code } = req.body;
 
     if (!secret || !totp_code) {
@@ -772,8 +780,8 @@ const enable2fa = async (req, res) => {
     }
 
     await db.query(
-      'UPDATE usuarios SET mfa_enabled = true, mfa_secret = $1 WHERE id_persona = $2',
-      [secret, userPersonaId]
+      'UPDATE usuarios SET mfa_enabled = true, mfa_secret = $1 WHERE id_usuario = $2',
+      [secret, idUsuario]
     );
 
     return res.status(200).json({
@@ -794,7 +802,7 @@ const enable2fa = async (req, res) => {
  */
 const disable2fa = async (req, res) => {
   try {
-    const userPersonaId = req.user.id_persona || req.user.id;
+    const idUsuario = req.user.id_usuario;
     const { password } = req.body;
 
     if (!password) {
@@ -805,8 +813,8 @@ const disable2fa = async (req, res) => {
     }
 
     const result = await db.query(
-      'SELECT password_hash FROM usuarios WHERE id_persona = $1',
-      [userPersonaId]
+      'SELECT password_hash FROM usuarios WHERE id_usuario = $1',
+      [idUsuario]
     );
 
     if (result.rows.length === 0) {
@@ -825,8 +833,8 @@ const disable2fa = async (req, res) => {
     }
 
     await db.query(
-      'UPDATE usuarios SET mfa_enabled = false, mfa_secret = NULL, mfa_qr_url = NULL WHERE id_persona = $1',
-      [userPersonaId]
+      'UPDATE usuarios SET mfa_enabled = false, mfa_secret = NULL, mfa_qr_url = NULL WHERE id_usuario = $1',
+      [idUsuario]
     );
 
     return res.status(200).json({

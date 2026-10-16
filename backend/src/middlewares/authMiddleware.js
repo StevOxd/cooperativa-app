@@ -6,7 +6,11 @@ const JWT_SECRET = process.env.JWT_SECRET;
 /**
  * Middleware para verificar la validez y vigencia del token JWT en solicitudes protegidas.
  * Extrae el token de la cabecera `Authorization: Bearer <token>`, valida su firma criptográfica
- * e inyecta la carga decodificada (`id_persona`, `rol`, `email`, `codigo_corporativo`) en `req.user`.
+ * e inyecta la carga decodificada (`id_usuario`, `id_persona`, `rol`, `email`, `codigo_corporativo`) en `req.user`.
+ *
+ * `req.user.id_usuario` identifica al usuario (sesión, auditoría) y `req.user.id_persona` a la persona
+ * (sus datos, su afiliación). Desde el issue #32 una persona puede tener dos usuarios, así que no son
+ * intercambiables. `id_persona` se toma de la base de datos, no del token.
  *
  * @function verifyToken
  * @param {import('express').Request} req - Objeto de solicitud HTTP de Express.
@@ -15,6 +19,7 @@ const JWT_SECRET = process.env.JWT_SECRET;
  * @returns {void|import('express').Response} Retorna 401 si falta o expiró el token, 403 si es inválido.
  */
 const db = require('../config/db');
+const { idUsuarioDelToken } = require('../utils/tokenUsuario');
 
 const verifyToken = async (req, res, next) => {
   const authHeader = req.headers['authorization'] || req.headers['Authorization'];
@@ -40,58 +45,67 @@ const verifyToken = async (req, res, next) => {
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
 
-    // Validación de Revocación de Sesión y Estado Activo en BD (SEC-08)
-    const userId = decoded.id_persona || decoded.id;
-    if (userId) {
-      const userCheck = await db.query(
-        'SELECT estado, sesion_activa_id, bloqueado_hasta, debe_cambiar_password FROM usuarios WHERE id_persona = $1',
-        [userId]
-      );
+    // Validación de Revocación de Sesión y Estado Activo en BD (SEC-08).
+    // Un token que no identifica a un usuario no es una sesión.
+    const idUsuario = idUsuarioDelToken(decoded);
+    if (!idUsuario) {
+      return res.status(401).json({
+        success: false,
+        message: 'Su sesión no es válida. Inicie sesión de nuevo.',
+      });
+    }
 
-      if (userCheck.rows.length === 0) {
-        return res.status(401).json({
-          success: false,
-          message: 'Su sesión no es válida. Inicie sesión de nuevo.',
-        });
-      }
+    const userCheck = await db.query(
+      'SELECT id_persona, estado, sesion_activa_id, bloqueado_hasta, debe_cambiar_password FROM usuarios WHERE id_usuario = $1',
+      [idUsuario]
+    );
 
-      const dbUser = userCheck.rows[0];
-      if (dbUser.estado !== 'ACTIVO') {
+    if (userCheck.rows.length === 0) {
+      return res.status(401).json({
+        success: false,
+        message: 'Su sesión no es válida. Inicie sesión de nuevo.',
+      });
+    }
+
+    const dbUser = userCheck.rows[0];
+    if (dbUser.estado !== 'ACTIVO') {
+      return res.status(403).json({
+        success: false,
+        message: 'Su cuenta está inactiva. Comuníquese con el administrador.',
+      });
+    }
+
+    // Si el token incluye sesion_activa_id, verificar que la sesión siga activa y no haya sido revocada (ej. por logout)
+    if (decoded.sesion_activa_id && (!dbUser.sesion_activa_id || dbUser.sesion_activa_id !== decoded.sesion_activa_id)) {
+      return res.status(401).json({
+        success: false,
+        message: 'Su sesión terminó o se abrió en otro dispositivo. Inicie sesión de nuevo.',
+        sesion_revocada: true,
+      });
+    }
+
+    // Restricción por cambio de contraseña obligatorio en primer inicio de sesión
+    if (dbUser.debe_cambiar_password) {
+      const currentPath = req.originalUrl || req.url || '';
+      const isPermittedPath =
+        currentPath.includes('/auth/cambiar-password') ||
+        currentPath.includes('/auth/me') ||
+        currentPath.includes('/auth/logout');
+
+      if (!isPermittedPath) {
         return res.status(403).json({
           success: false,
-          message: 'Su cuenta está inactiva. Comuníquese con el administrador.',
+          debe_cambiar_password: true,
+          error: 'CAMBIO_PASSWORD_OBLIGATORIO',
+          message: 'Antes de continuar, cambie su contraseña temporal.',
         });
       }
-
-      // Si el token incluye sesion_activa_id, verificar que la sesión siga activa y no haya sido revocada (ej. por logout)
-      if (decoded.sesion_activa_id && (!dbUser.sesion_activa_id || dbUser.sesion_activa_id !== decoded.sesion_activa_id)) {
-        return res.status(401).json({
-          success: false,
-          message: 'Su sesión terminó o se abrió en otro dispositivo. Inicie sesión de nuevo.',
-          sesion_revocada: true,
-        });
-      }
-
-      // Restricción por cambio de contraseña obligatorio en primer inicio de sesión
-      if (dbUser.debe_cambiar_password) {
-        const currentPath = req.originalUrl || req.url || '';
-        const isPermittedPath =
-          currentPath.includes('/auth/cambiar-password') ||
-          currentPath.includes('/auth/me') ||
-          currentPath.includes('/auth/logout');
-
-        if (!isPermittedPath) {
-          return res.status(403).json({
-            success: false,
-            debe_cambiar_password: true,
-            error: 'CAMBIO_PASSWORD_OBLIGATORIO',
-            message: 'Antes de continuar, cambie su contraseña temporal.',
-          });
-        }
-      }
-
-      decoded.debe_cambiar_password = Boolean(dbUser.debe_cambiar_password);
     }
+
+    decoded.id = idUsuario;
+    decoded.id_usuario = idUsuario;
+    decoded.id_persona = dbUser.id_persona;
+    decoded.debe_cambiar_password = Boolean(dbUser.debe_cambiar_password);
 
     // Asignar los datos del usuario decodificado a la request
     req.user = decoded;

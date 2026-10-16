@@ -418,15 +418,15 @@ PostgreSQL 16 gestiona dos bases de datos relacionales: `cooperativa_db` (entida
                                   +---------+---------+
                                             |
                    ┌────────────────────────┴────────────────────────┐
-                   ▼ 1:1                                             ▼ 1:1
+                   ▼ 1:0..2                                          ▼ 1:1
         +-----------------------+                         +-----------------------+
         |       usuarios        |                         |       asociados       |
         +-----------------------+                         +-----------------------+
-        | id_persona (PK, FK)   |                         | id_asociado (PK)      |
-        | id_rol (FK)           |                         | id_persona (FK, UQ)   |
-        | codigo_corporativo(UQ)|                         | fecha_ingreso         |
-        | password_hash         |                         +-----------+-----------+
-        | primer_ingreso        |                                     |
+        | id_usuario (PK)       |                         | id_asociado (PK)      |
+        | id_persona (FK)       |                         | id_persona (FK, UQ)   |
+        | id_rol (FK)           |                         | fecha_ingreso         |
+        | codigo_corporativo(UQ)|                         +-----------+-----------+
+        | password_hash         |                                     |
         | mfa_secret, mfa_enab  |                                     ▼ 1:N
         | intentos_fallidos     |                         +-----------------------+
         | bloqueado_hasta       |                         |        cuentas        |
@@ -459,8 +459,8 @@ PostgreSQL 16 gestiona dos bases de datos relacionales: `cooperativa_db` (entida
 3. **`roles_permisos`:** Asignación N:M de permisos a roles.
 4. **`personas`:** Entidad biográfica y única fuente de verdad humana.
    - `id_persona` (SERIAL PK), `cui_dpi` (VARCHAR(20) UNIQUE NOT NULL), `primer_nombre` (VARCHAR(50) NOT NULL), `segundo_nombre` (VARCHAR(50)), `primer_apellido` (VARCHAR(50) NOT NULL), `segundo_apellido` (VARCHAR(50)), `nombre_completo` (VARCHAR(255) STORED), `telefono` (VARCHAR(20)), `direccion` (TEXT), `fecha_nacimiento` (DATE NOT NULL), `fecha_creacion` (TIMESTAMP WITH TIME ZONE).
-5. **`usuarios`:** Credenciales de acceso, control de concurrencia y seguridad.
-   - `id_persona` (INT PK FK personas), `id_rol` (INT FK roles), `codigo_corporativo` (VARCHAR(30) UNIQUE NOT NULL), `email` (VARCHAR(150) UNIQUE NOT NULL), `password_hash` (VARCHAR(255) NOT NULL), `debe_cambiar_password` (BOOLEAN DEFAULT FALSE), `estado` (VARCHAR(20) DEFAULT 'ACTIVO'), `intentos_fallidos` (INT DEFAULT 0), `bloqueado_hasta` (TIMESTAMP WITH TIME ZONE), `sesion_activa_id` (VARCHAR(255)), `ultimo_ping` (TIMESTAMP WITH TIME ZONE), `mfa_secret` (VARCHAR(64)), `mfa_enabled` (BOOLEAN DEFAULT FALSE).
+5. **`usuarios`:** Credenciales de acceso, control de concurrencia y seguridad. Una persona puede tener un usuario del personal (AD, OP, EJ) y uno de asociado (EB, EX), cada uno con su código, contraseña, correo y sesión (issue #32); el índice único `uq_usuarios_persona_tipo` sobre `(id_persona, (id_rol = 3))` lo limita y también cubre la llave foránea hacia `personas`.
+   - `id_usuario` (SERIAL PK), `id_persona` (INT NOT NULL FK personas), `id_rol` (INT FK roles), `codigo_corporativo` (VARCHAR(30) UNIQUE NOT NULL), `email` (VARCHAR(150) UNIQUE NOT NULL), `password_hash` (VARCHAR(255) NOT NULL), `debe_cambiar_password` (BOOLEAN DEFAULT FALSE), `estado` (VARCHAR(20) DEFAULT 'ACTIVO'), `intentos_fallidos` (INT DEFAULT 0), `bloqueado_hasta` (TIMESTAMP WITH TIME ZONE), `sesion_activa_id` (VARCHAR(255)), `ultimo_ping` (TIMESTAMP WITH TIME ZONE), `mfa_secret` (VARCHAR(64)), `mfa_enabled` (BOOLEAN DEFAULT FALSE).
 6. **`historial_estados_usuario`:** Registro inmutable de auditoría forense (SEC-09).
    - `id_historial_estado` (SERIAL PK), `id_usuario_modificado` (INT FK usuarios), `estado_anterior`, `estado_nuevo`, `id_modificado_por` (INT FK usuarios), `motivo` (TEXT), `ip_origen` (VARCHAR(45)), `user_agent` (TEXT), `fecha_cambio` (TIMESTAMP WITH TIME ZONE).
 7. **`asociados`:** Padrón formal de socios de la cooperativa.
@@ -652,6 +652,7 @@ El proyecto cuenta con suites de pruebas automatizadas oficiales en la carpeta `
 8. **Servicio de Mensajería Google (`testGoogleMailer.js`):** Valida conexión y autenticación SMTP con los servidores de Google.
 9. **Protocolos de Sesión (`testSecurityProtocols.js`):** Valida el bloqueo por 3 intentos, que una cuenta inexistente responda igual que una existente, el desbloqueo administrativo y la sesión única concurrente.
 10. **Doble Factor (`test2faFlow.js`):** Valida activación, inicio de sesión con código y desactivación del 2FA. Usa el backend levantado (puerto 5001).
+11. **Usuario del personal y de asociado (`testUsuarioDoble.js`):** Valida la llave `usuarios.id_usuario` y sus llaves foráneas, que una persona tenga como máximo un usuario de cada tipo, sesiones independientes, que suspender la afiliación o desactivar al colaborador afecte solo a su usuario, la auditoría por `id_usuario` y que los tokens anteriores sigan funcionando (issue #32).
 
 ### Ejecución de Todas las Suites en un Solo Comando:
 ```bash
@@ -660,7 +661,8 @@ node backend/testDatabaseIntegrity.js && \
 node backend/testArchitectureImprovements.js && \
 node backend/testBandejaAfiliaciones.js && \
 node backend/testTraslados.js && \
-node backend/testModulo1Completo.js
+node backend/testModulo1Completo.js && \
+node backend/testUsuarioDoble.js
 ```
 
 ---

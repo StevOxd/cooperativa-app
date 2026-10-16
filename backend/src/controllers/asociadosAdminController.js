@@ -51,7 +51,7 @@ const listarAsociados = async (req, res) => {
       SELECT COUNT(a.id_asociado) AS total
       FROM asociados a
       JOIN personas p ON a.id_persona = p.id_persona
-      LEFT JOIN usuarios u ON a.id_persona = u.id_persona
+      LEFT JOIN usuarios u ON u.id_persona = a.id_persona AND u.id_rol = 3 /* ASOCIADO */
       ${whereSQL}
     `;
     const countResult = await pool.query(countQuery, queryParams);
@@ -84,7 +84,7 @@ const listarAsociados = async (req, res) => {
         COALESCE(SUM(CASE WHEN tc.id_tipo_cuenta = 1 THEN c.saldo_disponible ELSE 0 END), 0.00) AS saldo_aportaciones
       FROM asociados a
       JOIN personas p ON a.id_persona = p.id_persona
-      LEFT JOIN usuarios u ON a.id_persona = u.id_persona
+      LEFT JOIN usuarios u ON u.id_persona = a.id_persona AND u.id_rol = 3 /* ASOCIADO */
       LEFT JOIN cuentas c ON a.id_asociado = c.id_asociado AND c.estado = 'ACTIVA'
       LEFT JOIN tipos_cuenta tc ON c.id_tipo_cuenta = tc.id_tipo_cuenta
       ${whereSQL}
@@ -148,8 +148,10 @@ const getExpedienteAsociado = async (req, res) => {
         u.codigo_corporativo,
         u.email,
         u.estado AS estado_usuario,
-        u.id_rol,
         u.ultimo_acceso,
+        EXISTS (
+          SELECT 1 FROM usuarios s WHERE s.id_persona = a.id_persona AND s.id_rol <> 3
+        ) AS tiene_usuario_personal,
         -- Correo sugerido para activar el acceso: el del usuario o el de su última solicitud en agencia
         COALESCE(u.email, (
           SELECT s.email FROM solicitudes_afiliacion_agencia s
@@ -158,7 +160,7 @@ const getExpedienteAsociado = async (req, res) => {
         )) AS correo_sugerido
       FROM asociados a
       JOIN personas p ON a.id_persona = p.id_persona
-      LEFT JOIN usuarios u ON a.id_persona = u.id_persona
+      LEFT JOIN usuarios u ON u.id_persona = a.id_persona AND u.id_rol = 3 /* ASOCIADO */
       WHERE a.id_asociado = $1
       LIMIT 1
     `;
@@ -171,9 +173,13 @@ const getExpedienteAsociado = async (req, res) => {
       });
     }
 
-    const { id_rol: idRol, ultimo_acceso: ultimoAcceso, ...asociado } = asociadoResult.rows[0];
+    const { ultimo_acceso: ultimoAcceso, tiene_usuario_personal: tieneUsuarioPersonal, ...asociado } = asociadoResult.rows[0];
     // Estado del acceso al portal (issue #27): SIN_ACCESO, PENDIENTE, ACTIVO, INACTIVO o PERSONAL
-    asociado.acceso_portal = estadoAccesoPortal({ ...asociado, id_rol: idRol, ultimo_acceso: ultimoAcceso });
+    asociado.acceso_portal = estadoAccesoPortal({
+      ...asociado,
+      ultimo_acceso: ultimoAcceso,
+      tiene_usuario_personal: tieneUsuarioPersonal,
+    });
 
     // 2. Obtener las cuentas del asociado con sus beneficiarios agrupados
     const cuentasQuery = `
@@ -265,7 +271,7 @@ const crearAfiliacionPresencial = async (req, res) => {
   try {
     const data = await asociadoAfiliacionService.registrarAfiliacionPresencial({
       payload: req.body,
-      operadorId: req.user?.id_persona,
+      operadorId: req.user?.id_usuario,
     });
 
     return res.status(201).json({
@@ -455,7 +461,7 @@ const aperturarCuenta = async (req, res) => {
           nuevaCuenta.id_cuenta,
           montoInicial,
           `Apertura de Cuenta - Fondeo Inicial (${refOrigen})`,
-          req.user?.id_persona || null,
+          req.user?.id_usuario || null,
         ]
       );
       movimientoInicial = movimientoRes.rows[0];
@@ -647,7 +653,7 @@ const guardarBeneficiarios = async (req, res) => {
        VALUES ($1, $2, $3, $4, $5, $6, $7)`,
       [
         id_cuenta,
-        req.user?.id_persona || null,
+        req.user?.id_usuario || null,
         req.user?.nombre_completo || req.user?.codigo_corporativo || 'Operador',
         req.user?.rol || 'OPERADOR',
         JSON.stringify(prevRes.rows),
@@ -750,10 +756,14 @@ const cambiarEstadoAsociado = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Asociado no encontrado.' });
     }
 
-    // Sincronizar estado en usuarios si existe
+    // Sincronizar el estado del usuario de asociado, si existe. El usuario del personal de la misma
+    // persona no se toca: suspender la afiliación no le quita su trabajo (issue #32).
     const idPersona = result.rows[0].id_persona;
     const estadoUsuario = estado === 'ACTIVO' ? 'ACTIVO' : 'INACTIVO';
-    await pool.query('UPDATE usuarios SET estado = $1 WHERE id_persona = $2', [estadoUsuario, idPersona]);
+    await pool.query(
+      'UPDATE usuarios SET estado = $1 WHERE id_persona = $2 AND id_rol = 3 /* ASOCIADO */',
+      [estadoUsuario, idPersona]
+    );
 
     return res.status(200).json({
       success: true,
@@ -788,7 +798,7 @@ const enviarBoletaApertura = async (req, res) => {
               )) AS email
        FROM asociados a
        JOIN personas p ON p.id_persona = a.id_persona
-       LEFT JOIN usuarios u ON u.id_persona = p.id_persona
+       LEFT JOIN usuarios u ON u.id_persona = p.id_persona AND u.id_rol = 3 /* ASOCIADO */
        WHERE a.id_asociado = $1`,
       [id]
     );
@@ -858,7 +868,7 @@ const activarAccesoPortalAsociado = async (req, res) => {
       idAsociado: req.params.id,
       email: req.body.email,
       operador: {
-        id: req.user?.id_persona || req.user?.id || null,
+        id: req.user?.id_usuario || null,
         ip: req.headers['x-forwarded-for']?.split(',')[0].trim() || req.socket.remoteAddress || null,
         userAgent: req.headers['user-agent'] || 'Desconocido',
       },

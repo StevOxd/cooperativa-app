@@ -19,14 +19,15 @@ const fallar = (statusCode, code, message) => {
  * - `PENDIENTE`: tiene usuario pero nunca entró; se puede reenviar (y corregir el correo).
  * - `ACTIVO`: ya entró al portal; si olvidó la contraseña, la reinicia el administrador.
  * - `INACTIVO`: su usuario está desactivado; lo reactiva el administrador.
- * - `PERSONAL`: su usuario es del personal (un usuario tiene un solo rol, issue #32).
+ * - `PERSONAL`: no tiene usuario de asociado y la persona tiene uno del personal (issue #32).
  *
- * @param {{id_rol?: number, estado_usuario?: string, ultimo_acceso?: Date|null, codigo_corporativo?: string}} fila
+ * La fila trae los datos del usuario de asociado de la persona (rol ASOCIADO), si lo tiene.
+ *
+ * @param {{estado_usuario?: string, ultimo_acceso?: Date|null, codigo_corporativo?: string, tiene_usuario_personal?: boolean}} fila
  * @returns {string}
  */
 const estadoAccesoPortal = (fila) => {
-  if (!fila.codigo_corporativo) return 'SIN_ACCESO';
-  if (fila.id_rol !== ID_ROL_ASOCIADO) return 'PERSONAL';
+  if (!fila.codigo_corporativo) return fila.tiene_usuario_personal ? 'PERSONAL' : 'SIN_ACCESO';
   if (fila.estado_usuario !== 'ACTIVO') return 'INACTIVO';
   return fila.ultimo_acceso ? 'ACTIVO' : 'PENDIENTE';
 };
@@ -46,12 +47,15 @@ const estadoAccesoPortal = (fila) => {
 const activarAccesoPortal = async ({ idAsociado, email, operador }) => {
   const filaRes = await pool.query(
     `SELECT a.id_asociado, a.estado_asociado, p.id_persona, p.cui_dpi, p.nombre_completo,
-            u.codigo_corporativo, u.id_rol, u.estado AS estado_usuario, u.ultimo_acceso, u.email
+            u.id_usuario, u.codigo_corporativo, u.id_rol, u.estado AS estado_usuario, u.ultimo_acceso, u.email,
+            EXISTS (
+              SELECT 1 FROM usuarios s WHERE s.id_persona = a.id_persona AND s.id_rol <> $2
+            ) AS tiene_usuario_personal
      FROM asociados a
      JOIN personas p ON p.id_persona = a.id_persona
-     LEFT JOIN usuarios u ON u.id_persona = a.id_persona
+     LEFT JOIN usuarios u ON u.id_persona = a.id_persona AND u.id_rol = $2
      WHERE a.id_asociado = $1`,
-    [idAsociado]
+    [idAsociado, ID_ROL_ASOCIADO]
   );
   const fila = filaRes.rows[0];
   if (!fila) fallar(404, 'ASOCIADO_NO_ENCONTRADO', 'Asociado no encontrado.');
@@ -72,9 +76,11 @@ const activarAccesoPortal = async ({ idAsociado, email, operador }) => {
   const acceso = await decidirAccesoPortal(true, email);
   const emailFinal = acceso.email;
 
+  // Cualquier otro usuario con ese correo lo impide, también el del personal de la misma persona:
+  // el usuario de asociado lleva un correo distinto (issue #32).
   const dup = await pool.query(
-    'SELECT 1 FROM usuarios WHERE LOWER(email) = LOWER($1) AND id_persona <> $2',
-    [emailFinal, fila.id_persona]
+    'SELECT 1 FROM usuarios WHERE LOWER(email) = LOWER($1) AND id_usuario IS DISTINCT FROM $2',
+    [emailFinal, fila.id_usuario]
   );
   if (dup.rows.length > 0) fallar(409, 'CORREO_EN_USO', 'Ese correo ya lo usa otra persona. Escriba otro.');
 
@@ -98,8 +104,8 @@ const activarAccesoPortal = async ({ idAsociado, email, operador }) => {
     // El estado se leyó antes de la consulta DNS y del hash: se vuelve a comprobar con la fila bloqueada,
     // por si el asociado entró al portal o cambió su rol mientras tanto.
     const actualRes = await client.query(
-      'SELECT id_rol, estado, ultimo_acceso FROM usuarios WHERE id_persona = $1 FOR UPDATE',
-      [fila.id_persona]
+      'SELECT id_usuario, id_rol, estado, ultimo_acceso FROM usuarios WHERE id_persona = $1 AND id_rol = $2 FOR UPDATE',
+      [fila.id_persona, ID_ROL_ASOCIADO]
     );
     const actual = actualRes.rows[0];
     const sigueIgual = reenvio
@@ -109,6 +115,7 @@ const activarAccesoPortal = async ({ idAsociado, email, operador }) => {
       fallar(409, 'ACCESO_CAMBIO', 'El acceso de este asociado cambió mientras se procesaba. Vuelva a abrir el expediente.');
     }
 
+    let idUsuario = actual?.id_usuario;
     if (reenvio) {
       await client.query(
         `UPDATE usuarios
@@ -118,11 +125,13 @@ const activarAccesoPortal = async ({ idAsociado, email, operador }) => {
       );
     } else {
       codigo = await getNextCorporateCode(client, codigo);
-      await client.query(
+      const nuevoRes = await client.query(
         `INSERT INTO usuarios (id_persona, id_rol, codigo_corporativo, email, password_hash, estado, debe_cambiar_password)
-         VALUES ($1, $2, $3, $4, $5, 'ACTIVO', TRUE)`,
+         VALUES ($1, $2, $3, $4, $5, 'ACTIVO', TRUE)
+         RETURNING id_usuario`,
         [fila.id_persona, ID_ROL_ASOCIADO, codigo, emailFinal, passwordHash]
       );
+      idUsuario = nuevoRes.rows[0].id_usuario;
     }
 
     // Auditoría: quién lo activó o reenvió, cuándo (fecha_cambio) y a qué correo, incluido el anterior si cambió
@@ -135,7 +144,7 @@ const activarAccesoPortal = async ({ idAsociado, email, operador }) => {
         (id_usuario_modificado, estado_anterior, estado_nuevo, id_rol_anterior, id_rol_nuevo, id_modificado_por, motivo, ip_origen, user_agent)
        VALUES ($1, $2, 'ACTIVO', $3, $4, $5, $6, $7, $8)`,
       [
-        fila.id_persona,
+        idUsuario,
         reenvio ? fila.estado_usuario : null,
         reenvio ? fila.id_rol : null,
         ID_ROL_ASOCIADO,

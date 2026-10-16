@@ -1,6 +1,102 @@
 const { pool } = require('./db');
 
 /**
+ * Da a `usuarios` su propia llave primaria (`id_usuario`) para que una persona pueda tener un usuario
+ * del personal y uno de asociado (issue #32).
+ *
+ * - Los usuarios existentes reciben `id_usuario = id_persona`, así que las llaves foráneas que apuntan a
+ *   usuarios conservan sus valores: solo se redirigen de `usuarios(id_persona)` a `usuarios(id_usuario)`.
+ * - El índice único `uq_usuarios_persona_tipo` (id_persona, id_rol = 3) limita a cada persona a un usuario
+ *   del personal y uno de asociado, y cubre la llave foránea hacia personas. El rol 3 es ASOCIADO en los
+ *   datos semilla; si no lo fuera, la migración se detiene.
+ * - Corre en una transacción y es idempotente: si `id_usuario` ya existe, solo asegura los índices.
+ *
+ * @async
+ * @returns {Promise<void>}
+ * @throws {Error} si la migración falla (la transacción se revierte).
+ */
+const migrarLlaveUsuario = async () => {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query(`
+      DO $$
+      DECLARE
+        fk RECORD;
+        tablas TEXT[] := '{}';
+        nombres TEXT[] := '{}';
+        definiciones TEXT[] := '{}';
+        i INT;
+      BEGIN
+        -- Los índices de usuarios por persona dan por hecho que ASOCIADO es el rol 3
+        IF (SELECT id_rol FROM roles WHERE codigo = 'ASOCIADO') IS DISTINCT FROM 3 THEN
+          RAISE EXCEPTION 'El rol ASOCIADO debe tener id_rol = 3';
+        END IF;
+
+        IF EXISTS (
+          SELECT 1 FROM information_schema.columns
+          WHERE table_schema = current_schema() AND table_name = 'usuarios' AND column_name = 'id_usuario'
+        ) THEN
+          RETURN;
+        END IF;
+
+        -- Guardar y quitar las llaves foráneas que apuntan a usuarios(id_persona)
+        FOR fk IN
+          SELECT c.conrelid::regclass::text AS tabla, c.conname::text AS nombre, pg_get_constraintdef(c.oid) AS definicion
+          FROM pg_constraint c
+          WHERE c.contype = 'f' AND c.confrelid = 'usuarios'::regclass
+        LOOP
+          tablas := tablas || fk.tabla;
+          nombres := nombres || fk.nombre;
+          definiciones := definiciones || fk.definicion;
+          EXECUTE format('ALTER TABLE %s DROP CONSTRAINT %I', fk.tabla, fk.nombre);
+        END LOOP;
+
+        -- Nueva llave primaria con el mismo valor que tenía cada usuario
+        ALTER TABLE usuarios ADD COLUMN id_usuario INT;
+        UPDATE usuarios SET id_usuario = id_persona;
+        CREATE SEQUENCE usuarios_id_usuario_seq AS INTEGER OWNED BY usuarios.id_usuario;
+        PERFORM setval('usuarios_id_usuario_seq', COALESCE((SELECT MAX(id_usuario) FROM usuarios), 0) + 1, false);
+        ALTER TABLE usuarios
+          ALTER COLUMN id_usuario SET DEFAULT nextval('usuarios_id_usuario_seq'),
+          ALTER COLUMN id_usuario SET NOT NULL;
+        ALTER TABLE usuarios DROP CONSTRAINT usuarios_pkey;
+        ALTER TABLE usuarios ADD CONSTRAINT usuarios_pkey PRIMARY KEY (id_usuario);
+        ALTER TABLE usuarios ALTER COLUMN id_persona SET NOT NULL;
+
+        -- Volver a crear las llaves foráneas, ahora hacia usuarios(id_usuario)
+        FOR i IN 1 .. COALESCE(array_length(tablas, 1), 0) LOOP
+          EXECUTE format(
+            'ALTER TABLE %s ADD CONSTRAINT %I %s',
+            tablas[i],
+            nombres[i],
+            replace(definiciones[i], 'REFERENCES usuarios(id_persona)', 'REFERENCES usuarios(id_usuario)')
+          );
+        END LOOP;
+      END $$;
+    `);
+    await client.query(`
+      -- Un usuario del personal y uno de asociado por persona; también cubre la FK hacia personas
+      CREATE UNIQUE INDEX IF NOT EXISTS uq_usuarios_persona_tipo ON usuarios (id_persona, (id_rol = 3));
+      -- Primera versión de esta migración: dos índices parciales que no cubrían la FK
+      DROP INDEX IF EXISTS uq_usuarios_persona_personal;
+      DROP INDEX IF EXISTS uq_usuarios_persona_asociado;
+      -- SERIAL es INTEGER: misma secuencia en bases nuevas y migradas
+      ALTER SEQUENCE usuarios_id_usuario_seq AS INTEGER;
+      -- Única FK hacia usuarios que no tenía índice
+      CREATE INDEX IF NOT EXISTS idx_historial_beneficiarios_usuario
+        ON historial_cambios_beneficiarios(id_usuario) WHERE id_usuario IS NOT NULL;
+    `);
+    await client.query('COMMIT');
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => {});
+    throw error;
+  } finally {
+    client.release();
+  }
+};
+
+/**
  * Aplica migraciones automáticas e idempotentes para soportar protocolos de seguridad bancaria,
  * optimización de índices, prevención de condiciones de carrera, integridad referencial y columnas generadas.
  *
@@ -49,6 +145,10 @@ const runMigrations = async () => {
       END $$;
     `;
     await pool.query(ddlColumnsQuery);
+
+    // 1.1 Llave propia del usuario (issue #32). Debe correr antes que los pasos que vuelven a crear
+    //     llaves foráneas hacia usuarios(id_usuario).
+    await migrarLlaveUsuario();
 
     // 2. Optimización de Índices (Eliminar redundantes y crear índices de cobertura FK y compuestos)
     const indexesQuery = `
@@ -175,7 +275,7 @@ const runMigrations = async () => {
 
       ALTER TABLE historial_estados_usuario 
           ADD CONSTRAINT historial_estados_usuario_id_usuario_modificado_fkey 
-          FOREIGN KEY (id_usuario_modificado) REFERENCES usuarios(id_persona) 
+          FOREIGN KEY (id_usuario_modificado) REFERENCES usuarios(id_usuario) 
           ON DELETE RESTRICT ON UPDATE CASCADE;
     `;
     await pool.query(constraintsAndTriggersQuery);
@@ -212,9 +312,9 @@ const runMigrations = async () => {
       CREATE INDEX IF NOT EXISTS idx_solicitudes_afiliacion_estado ON solicitudes_afiliacion_agencia(estado);
 
       ALTER TABLE solicitudes_afiliacion_agencia 
-      ADD COLUMN IF NOT EXISTS id_operador_bloqueo INTEGER REFERENCES usuarios(id_persona) ON DELETE SET NULL,
+      ADD COLUMN IF NOT EXISTS id_operador_bloqueo INTEGER REFERENCES usuarios(id_usuario) ON DELETE SET NULL,
       ADD COLUMN IF NOT EXISTS fecha_bloqueo TIMESTAMP WITH TIME ZONE,
-      ADD COLUMN IF NOT EXISTS id_operador_resuelve INTEGER REFERENCES usuarios(id_persona) ON DELETE SET NULL,
+      ADD COLUMN IF NOT EXISTS id_operador_resuelve INTEGER REFERENCES usuarios(id_usuario) ON DELETE SET NULL,
       ADD COLUMN IF NOT EXISTS fecha_resolucion TIMESTAMP WITH TIME ZONE,
       ADD COLUMN IF NOT EXISTS numero_cuenta_bancaria VARCHAR(50);
 
@@ -314,10 +414,10 @@ const runMigrations = async () => {
         ADD COLUMN IF NOT EXISTS nombre_archivo_firmado VARCHAR(255),
         ADD COLUMN IF NOT EXISTS peso_archivo_bytes BIGINT,
         ADD COLUMN IF NOT EXISTS fecha_carga_archivo TIMESTAMP WITH TIME ZONE,
-        ADD COLUMN IF NOT EXISTS id_operador_revisa INT REFERENCES usuarios(id_persona),
+        ADD COLUMN IF NOT EXISTS id_operador_revisa INT REFERENCES usuarios(id_usuario),
         ADD COLUMN IF NOT EXISTS fecha_revision_operador TIMESTAMP WITH TIME ZONE,
         ADD COLUMN IF NOT EXISTS dictamen_operador TEXT,
-        ADD COLUMN IF NOT EXISTS id_ejecutivo_resuelve INT REFERENCES usuarios(id_persona),
+        ADD COLUMN IF NOT EXISTS id_ejecutivo_resuelve INT REFERENCES usuarios(id_usuario),
         ADD COLUMN IF NOT EXISTS fecha_resolucion_ejecutivo TIMESTAMP WITH TIME ZONE,
         ADD COLUMN IF NOT EXISTS observaciones_ejecutivo TEXT;
 
@@ -428,7 +528,7 @@ const runMigrations = async () => {
       CREATE TABLE IF NOT EXISTS historial_cambios_beneficiarios (
           id_historial SERIAL PRIMARY KEY,
           id_cuenta INT NOT NULL REFERENCES cuentas(id_cuenta) ON DELETE CASCADE,
-          id_usuario INT REFERENCES usuarios(id_persona) ON DELETE SET NULL,
+          id_usuario INT REFERENCES usuarios(id_usuario) ON DELETE SET NULL,
           nombre_usuario VARCHAR(150),
           rol_usuario VARCHAR(50),
           beneficiarios_anteriores JSONB,

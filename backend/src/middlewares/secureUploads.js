@@ -57,7 +57,7 @@ const secureUploadsHandler = async (req, res) => {
 
   // 5. Autorización basada en Roles (RBAC) y Pertenencia
   const rol = user.rol;
-  const idPersona = user.id_persona || user.id;
+  const idPersona = user.id_persona;
 
   // Personal operativo, administrativo y de crédito tiene acceso general de revisión
   if (['ADMINISTRADOR', 'OPERADOR', 'EJECUTIVO'].includes(rol)) {

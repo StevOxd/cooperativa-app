@@ -20,7 +20,7 @@ const obtenerEvaluacionCredito = async (idSolicitud) => {
      FROM solicitudes_credito sc
      JOIN asociados a ON sc.id_asociado = a.id_asociado
      JOIN personas p ON a.id_persona = p.id_persona
-     LEFT JOIN usuarios u ON p.id_persona = u.id_persona
+     LEFT JOIN usuarios u ON u.id_persona = p.id_persona AND u.id_rol = 3 /* ASOCIADO */
      WHERE sc.id_solicitud_credito = $1`,
     [idSolicitud]
   );
@@ -63,7 +63,8 @@ const elevarCredito = async ({ idSolicitud, idOperador, dictamen_operador, docum
   }
 
   const checkRes = await db.query(
-    `SELECT sc.*, a.id_persona AS id_persona_asociado, p.primer_nombre, p.primer_apellido
+    `SELECT sc.*, p.primer_nombre, p.primer_apellido,
+            (SELECT u.id_usuario FROM usuarios u WHERE u.id_persona = a.id_persona AND u.id_rol = 3 /* ASOCIADO */) AS id_usuario_asociado
      FROM solicitudes_credito sc
      JOIN asociados a ON sc.id_asociado = a.id_asociado
      JOIN personas p ON a.id_persona = p.id_persona
@@ -140,7 +141,7 @@ const elevarCredito = async ({ idSolicitud, idOperador, dictamen_operador, docum
       asociado: `${sol.primer_nombre} ${sol.primer_apellido}`,
       dictamen: dictamen_operador.trim(),
     });
-    socketService.emitToUser(sol.id_persona_asociado, 'solicitud_credito:actualizada', {
+    socketService.emitToUser(sol.id_usuario_asociado, 'solicitud_credito:actualizada', {
       id_solicitud_credito: idSolicitud,
       estado: 'EN_AUTORIZACION_EJECUTIVO',
       mensaje: 'Su solicitud ha sido revisada por el operador y elevada al Comité Ejecutivo para su dictamen final.',

@@ -8,7 +8,7 @@ async function test2fa() {
   console.log('--- TEST: CICLO COMPLETO DE DOBLE FACTOR 2FA ---');
   
   // Buscar un usuario de prueba (Steven AD-1)
-  const userRes = await db.query('SELECT id_persona, codigo_corporativo, email FROM usuarios WHERE codigo_corporativo = $1', ['AD-1']);
+  const userRes = await db.query('SELECT id_usuario, codigo_corporativo, email FROM usuarios WHERE codigo_corporativo = $1', ['AD-1']);
   if (userRes.rows.length === 0) {
     console.error('AD-1 no encontrado');
     process.exit(1);
@@ -33,13 +33,13 @@ async function test2fa() {
   console.log('Verificación mfaService:', isValid ? 'PASS' : 'FAIL');
 
   // 4. Activar temporalmente en BD
-  await db.query('UPDATE usuarios SET mfa_enabled = true, mfa_secret = $1 WHERE id_persona = $2', [mfaData.base32, user.id_persona]);
-  const checkRes = await db.query('SELECT mfa_enabled FROM usuarios WHERE id_persona = $1', [user.id_persona]);
+  await db.query('UPDATE usuarios SET mfa_enabled = true, mfa_secret = $1 WHERE id_usuario = $2', [mfaData.base32, user.id_usuario]);
+  const checkRes = await db.query('SELECT mfa_enabled FROM usuarios WHERE id_usuario = $1', [user.id_usuario]);
   console.log('Estado en BD tras activación:', checkRes.rows[0].mfa_enabled);
 
   // 5. Revertir para dejar limpio
-  await db.query('UPDATE usuarios SET mfa_enabled = false, mfa_secret = NULL WHERE id_persona = $1', [user.id_persona]);
-  const finalRes = await db.query('SELECT mfa_enabled FROM usuarios WHERE id_persona = $1', [user.id_persona]);
+  await db.query('UPDATE usuarios SET mfa_enabled = false, mfa_secret = NULL WHERE id_usuario = $1', [user.id_usuario]);
+  const finalRes = await db.query('SELECT mfa_enabled FROM usuarios WHERE id_usuario = $1', [user.id_usuario]);
   console.log('Estado en BD tras reversión:', finalRes.rows[0].mfa_enabled);
 
   console.log('--- TEST COMPLETADO CON ÉXITO ---');

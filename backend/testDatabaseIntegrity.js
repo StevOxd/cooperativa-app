@@ -121,6 +121,27 @@ async function runTests() {
     assert(invalidAccounts.rows.length === 0, 'Cero cuentas huérfanas con id_tipo_cuenta inválido');
 
     // -----------------------------------------------------------------
+    // TEST 5.1: Llave propia del usuario (issue #32)
+    // -----------------------------------------------------------------
+    console.log('\n[TEST 5.1] Verificando la llave de usuarios y los usuarios por persona...');
+    const usuariosPk = await db.query(
+      "SELECT pg_get_constraintdef(oid) AS def FROM pg_constraint WHERE conname = 'usuarios_pkey'"
+    );
+    assert(usuariosPk.rows[0]?.def === 'PRIMARY KEY (id_usuario)', 'usuarios tiene como llave primaria id_usuario');
+    const fksAntiguas = await db.query(
+      `SELECT conrelid::regclass AS tabla FROM pg_constraint
+       WHERE contype = 'f' AND confrelid = 'usuarios'::regclass
+         AND pg_get_constraintdef(oid) NOT LIKE '%REFERENCES usuarios(id_usuario)%'`
+    );
+    assert(fksAntiguas.rows.length === 0, 'Ninguna llave foránea apunta todavía a usuarios(id_persona)');
+    const usuariosPorPersona = await db.query(
+      `SELECT id_persona FROM usuarios
+       GROUP BY id_persona
+       HAVING COUNT(*) FILTER (WHERE id_rol = 3) > 1 OR COUNT(*) FILTER (WHERE id_rol <> 3) > 1`
+    );
+    assert(usuariosPorPersona.rows.length === 0, 'Cada persona tiene como máximo un usuario del personal y uno de asociado');
+
+    // -----------------------------------------------------------------
     // TEST 6: Saneamiento y Cobertura en banco_db
     // -----------------------------------------------------------------
     console.log('\n[TEST 6] Verificando saneamiento de índices en banco_db...');

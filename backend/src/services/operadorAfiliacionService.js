@@ -55,7 +55,7 @@ const bloquearCaso = async ({ idSolicitud, idOperador }) => {
         SELECT p.primer_nombre || ' ' || p.primer_apellido AS operador_nombre, u.codigo_corporativo AS operador_codigo
         FROM usuarios u
         JOIN personas p ON u.id_persona = p.id_persona
-        WHERE u.id_persona = $1
+        WHERE u.id_usuario = $1
       `, [sol.id_operador_bloqueo]);
 
       const opInfo = opInfoRes.rows[0] || {};
@@ -210,10 +210,11 @@ const formalizarAfiliacion = async ({ idSolicitud, idOperador, rolUsuario, datos
   const emailPrevio = (email && email.trim()) ? email.trim().toLowerCase() : (previaRes.rows[0].email ? previaRes.rows[0].email.trim().toLowerCase() : null);
 
   const personaPreviaRes = await db.pool.query(
-    `SELECT (a.id_asociado IS NOT NULL) AS es_asociado, u.id_rol
+    `SELECT (a.id_asociado IS NOT NULL) AS es_asociado,
+            EXISTS (SELECT 1 FROM usuarios u WHERE u.id_persona = p.id_persona AND u.id_rol <> 3) AS tiene_usuario_personal,
+            EXISTS (SELECT 1 FROM usuarios u WHERE u.id_persona = p.id_persona AND u.id_rol = 3) AS tiene_usuario_asociado
      FROM personas p
      LEFT JOIN asociados a ON a.id_persona = p.id_persona
-     LEFT JOIN usuarios u ON u.id_persona = p.id_persona
      WHERE p.cui_dpi = $1`,
     [cuiPrevio]
   );
@@ -223,12 +224,12 @@ const formalizarAfiliacion = async ({ idSolicitud, idOperador, rolUsuario, datos
   if (personaPrevia?.es_asociado) {
     return { status: 409, success: false, message: MENSAJE_YA_ASOCIADO };
   }
-  if (personaPrevia?.id_rol && personaPrevia.id_rol !== 3) {
+  if (personaPrevia?.tiene_usuario_personal) {
     return { status: 409, success: false, message: MENSAJE_PERSONAL };
   }
 
   let acceso = { crear: false, email: emailPrevio };
-  if (!personaPrevia?.id_rol) {
+  if (!personaPrevia?.tiene_usuario_asociado) {
     try {
       acceso = await decidirAccesoPortal(crear_acceso_portal, emailPrevio);
     } catch (accesoError) {
@@ -396,7 +397,11 @@ const formalizarAfiliacion = async ({ idSolicitud, idOperador, rolUsuario, datos
     //    - Si la persona ya tiene usuario de asociado (sin membresía), lo conserva tal cual; el personal
     //      no se afilia como asociado porque un usuario tiene un solo rol (issue #32).
     //    - Si no tiene usuario: se crea solo cuando se pidió el acceso y el correo funciona.
-    const checkUser = await client.query('SELECT codigo_corporativo, id_rol, estado FROM usuarios WHERE id_persona = $1', [idPersona]);
+    // Primero el usuario del personal, si lo hay (id_rol = 3 ordena al final).
+    const checkUser = await client.query(
+      'SELECT codigo_corporativo, id_rol, estado FROM usuarios WHERE id_persona = $1 ORDER BY (id_rol = 3) LIMIT 1',
+      [idPersona]
+    );
     const usuarioPrevio = checkUser.rows[0] || null;
     if (usuarioPrevio && usuarioPrevio.id_rol !== 3) {
       await client.query('ROLLBACK');
@@ -409,9 +414,10 @@ const formalizarAfiliacion = async ({ idSolicitud, idOperador, rolUsuario, datos
     const emailUsuario = acceso.email;
 
     if (crearUsuario) {
+      // La persona no tiene usuarios, así que cualquier usuario con ese correo es de otra persona.
       const checkDupEmail = await client.query(
-        'SELECT id_persona FROM usuarios WHERE LOWER(email) = LOWER($1) AND id_persona != $2',
-        [emailUsuario, idPersona]
+        'SELECT 1 FROM usuarios WHERE LOWER(email) = LOWER($1)',
+        [emailUsuario]
       );
       if (checkDupEmail.rows.length > 0) {
         await client.query('ROLLBACK');

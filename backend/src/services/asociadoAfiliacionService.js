@@ -21,7 +21,7 @@ class AsociadoAfiliacionService {
    * @async
    * @param {object} params
    * @param {object} params.payload - Datos del formulario de afiliación.
-   * @param {number} params.operadorId - ID de persona del operador que registra la afiliación.
+   * @param {number} params.operadorId - id_usuario del operador que registra la afiliación.
    * @returns {Promise<object>} Datos del asociado y cuenta creados.
    */
   async registrarAfiliacionPresencial({ payload, operadorId }) {
@@ -217,8 +217,7 @@ class AsociadoAfiliacionService {
 
         await client.query(
           `INSERT INTO usuarios (id_persona, id_rol, codigo_corporativo, email, password_hash, estado, debe_cambiar_password)
-           VALUES ($1, 3, $2, $3, $4, 'ACTIVO', TRUE)
-           ON CONFLICT (id_persona) DO UPDATE SET password_hash = $4, debe_cambiar_password = TRUE`,
+           VALUES ($1, 3, $2, $3, $4, 'ACTIVO', TRUE)`,
           [persona.id_persona, nextCode, emailFinal, defaultPasswordHash]
         );
       }

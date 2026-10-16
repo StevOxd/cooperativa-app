@@ -115,16 +115,20 @@ app.use((err, req, res, next) => {
   });
 });
 
-// Iniciar servidor solo si es ejecutado directamente
+// Iniciar servidor solo si es ejecutado directamente. Las migraciones corren antes de atender peticiones:
+// si la base de datos no responde o una migración falla, el proceso termina y Docker lo reinicia.
 if (require.main === module) {
-  server.listen(PORT, '0.0.0.0', async () => {
-    console.log(`[INFO] Servidor ejecutándose en http://localhost:${PORT}`);
-    console.log(`[INFO] Rutas de autenticación disponibles en http://localhost:${PORT}/api/auth`);
+  (async () => {
     const dbConnected = await testConnection();
-    if (dbConnected) {
-      await runMigrations();
+    if (!dbConnected || !(await runMigrations())) {
+      console.error('[ERROR] No se pudo preparar la base de datos. El servidor no se inicia.');
+      process.exit(1);
     }
-  });
+    server.listen(PORT, '0.0.0.0', () => {
+      console.log(`[INFO] Servidor ejecutándose en http://localhost:${PORT}`);
+      console.log(`[INFO] Rutas de autenticación disponibles en http://localhost:${PORT}/api/auth`);
+    });
+  })();
 }
 
 module.exports = { app, server, io };

@@ -726,10 +726,12 @@ const server = app.listen(0, async () => {
       envioFalla = false;
       const activado = await activarAcceso(idPresencial, correoAcceso);
       const usuarioActivado = (await usuarioDePresencial()).rows[0];
-      const idOperador = (await pool.query("SELECT id_persona FROM usuarios WHERE codigo_corporativo = 'OP-1'")).rows[0].id_persona;
+      const idOperador = (await pool.query("SELECT id_usuario FROM usuarios WHERE codigo_corporativo = 'OP-1'")).rows[0].id_usuario;
+      // La auditoría guarda id_usuario (issue #32): se llega a la persona a través de usuarios
       const auditoria = await pool.query(
         `SELECT h.motivo, h.id_modificado_por FROM historial_estados_usuario h
-         JOIN personas p ON p.id_persona = h.id_usuario_modificado
+         JOIN usuarios u ON u.id_usuario = h.id_usuario_modificado
+         JOIN personas p ON p.id_persona = u.id_persona
          WHERE p.cui_dpi = $1 ORDER BY h.id_historial_estado`,
         [dpiPresencial]
       );
@@ -744,7 +746,9 @@ const server = app.listen(0, async () => {
       const correoCorregido = `acceso.corregido.${Date.now()}@gmail.com`;
       const reenviado = await activarAcceso(idPresencial, correoCorregido);
       const auditoriaReenvio = await pool.query(
-        `SELECT h.motivo FROM historial_estados_usuario h JOIN personas p ON p.id_persona = h.id_usuario_modificado
+        `SELECT h.motivo FROM historial_estados_usuario h
+         JOIN usuarios u ON u.id_usuario = h.id_usuario_modificado
+         JOIN personas p ON p.id_persona = u.id_persona
          WHERE p.cui_dpi = $1 ORDER BY h.id_historial_estado DESC LIMIT 1`,
         [dpiPresencial]
       );

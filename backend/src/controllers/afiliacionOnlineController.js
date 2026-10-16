@@ -142,7 +142,9 @@ const validarCredencialesBanco = async (req, res) => {
 
     // Si ya tiene usuario en el portal, conserva su acceso actual; si es personal, no se afilia en línea.
     const usuarioRes = await client.query(
-      `SELECT u.codigo_corporativo, u.id_rol FROM usuarios u JOIN personas p ON u.id_persona = p.id_persona WHERE p.cui_dpi = $1`,
+      // Primero el usuario del personal, si lo hay (id_rol = 3 ordena al final)
+      `SELECT u.codigo_corporativo, u.id_rol FROM usuarios u JOIN personas p ON u.id_persona = p.id_persona
+       WHERE p.cui_dpi = $1 ORDER BY (u.id_rol = 3) LIMIT 1`,
       [cuiLimpio]
     );
     const usuarioExistente = usuarioRes.rows[0] || null;
@@ -253,7 +255,9 @@ const procesarAfiliacionExistente = async (req, res) => {
 
     // Quien ya tiene usuario en el portal conserva su acceso: no se cambia su contraseña, rol ni 2FA.
     const usuarioPrevioRes = await client.query(
-      `SELECT u.id_persona, u.id_rol FROM usuarios u JOIN personas p ON u.id_persona = p.id_persona WHERE p.cui_dpi = $1`,
+      // Primero el usuario del personal, si lo hay (id_rol = 3 ordena al final)
+      `SELECT u.id_persona, u.id_rol FROM usuarios u JOIN personas p ON u.id_persona = p.id_persona
+       WHERE p.cui_dpi = $1 ORDER BY (u.id_rol = 3) LIMIT 1`,
       [cuiLimpio]
     );
     const tieneUsuarioPrevio = usuarioPrevioRes.rows.length > 0;
@@ -425,8 +429,8 @@ const procesarAfiliacionExistente = async (req, res) => {
     // 8. Crear o actualizar usuario en el portal web
     let usuarioFinal = null;
     const userExistRes = await client.query(
-      'SELECT id_persona, codigo_corporativo, email, id_rol FROM usuarios WHERE id_persona = $1',
-      [persona.id_persona]
+      'SELECT id_usuario, id_persona, codigo_corporativo, email, id_rol FROM usuarios WHERE id_persona = $1 AND id_rol = $2',
+      [persona.id_persona, ID_ROL_ASOCIADO]
     );
 
     const accesoExistente = userExistRes.rows.length > 0;
@@ -444,7 +448,7 @@ const procesarAfiliacionExistente = async (req, res) => {
       const userInsert = await client.query(
         `INSERT INTO usuarios (id_persona, id_rol, codigo_corporativo, email, password_hash, estado, debe_cambiar_password)
          VALUES ($1, 3, $2, $3, $4, 'ACTIVO', FALSE)
-         RETURNING id_persona, codigo_corporativo, email`,
+         RETURNING id_usuario, id_persona, codigo_corporativo, email`,
         [persona.id_persona, nextCod, userEmail, hash]
       );
       usuarioFinal = userInsert.rows[0];
