@@ -13,6 +13,7 @@ const CREDIT_STATES = {
   RECHAZADA: { label: 'Rechazada', tone: 'danger' },
   RECHAZADO: { label: 'Rechazada', tone: 'danger' },
   DENEGADA: { label: 'Denegada', tone: 'danger' },
+  CANCELADA: { label: 'Cancelada por el asociado', tone: 'neutral' },
 };
 
 export const creditStatus = (estado) => CREDIT_STATES[estado] || { label: humanize(estado), tone: 'neutral' };

@@ -246,9 +246,14 @@ const runMigrations = async () => {
       -- Secuencia atómica para correlativo de casos CASO-YYYY-XXXX
       CREATE SEQUENCE IF NOT EXISTS seq_numero_caso_traslado START WITH 100;
 
+      -- La secuencia nunca retrocede: sigue al mayor número de caso emitido (no al id de la fila), para
+      -- que un reinicio no vuelva a generar un número que ya existe.
       SELECT setval(
-          'seq_numero_caso_traslado', 
-          COALESCE((SELECT MAX(id_solicitud) FROM solicitudes_traslado_apertura), 1), 
+          'seq_numero_caso_traslado',
+          GREATEST(
+              (SELECT last_value FROM seq_numero_caso_traslado),
+              COALESCE((SELECT MAX(substring(numero_caso FROM '^CASO-\\d{4}-(\\d+)$')::bigint) FROM solicitudes_traslado_apertura), 1)
+          ),
           true
       );
 
@@ -378,7 +383,7 @@ const runMigrations = async () => {
       ALTER TABLE solicitudes_credito ADD COLUMN IF NOT EXISTS fecha_resolucion TIMESTAMP WITH TIME ZONE;
       ALTER TABLE solicitudes_credito DROP CONSTRAINT IF EXISTS solicitudes_credito_estado_check;
       ALTER TABLE solicitudes_credito ADD CONSTRAINT solicitudes_credito_estado_check 
-          CHECK (estado IN ('PENDIENTE', 'EN_ANALISIS', 'PENDIENTE_FIRMA', 'EN_REVISION_OPERADOR', 'EN_AUTORIZACION_EJECUTIVO', 'DEVUELTA_OPERADOR', 'APROBADA', 'APROBADO', 'RECHAZADA', 'RECHAZADO', 'DENEGADA', 'DESEMBOLSADA'));
+          CHECK (estado IN ('PENDIENTE', 'EN_ANALISIS', 'PENDIENTE_FIRMA', 'EN_REVISION_OPERADOR', 'EN_AUTORIZACION_EJECUTIVO', 'DEVUELTA_OPERADOR', 'APROBADA', 'APROBADO', 'RECHAZADA', 'RECHAZADO', 'DENEGADA', 'DESEMBOLSADA', 'CANCELADA'));
 
       -- 5.7 Soporte para acreditación y desembolso de créditos en cuenta de ahorro o monetaria
       ALTER TABLE solicitudes_credito DROP CONSTRAINT IF EXISTS solicitudes_credito_id_cuenta_bancaria_destino_fkey;
@@ -425,7 +430,7 @@ const runMigrations = async () => {
       ALTER TABLE solicitudes_credito ALTER COLUMN estado TYPE VARCHAR(50);
       ALTER TABLE solicitudes_credito DROP CONSTRAINT IF EXISTS solicitudes_credito_estado_check;
       ALTER TABLE solicitudes_credito ADD CONSTRAINT solicitudes_credito_estado_check 
-        CHECK (estado IN ('PENDIENTE_FIRMA', 'EN_REVISION_OPERADOR', 'EN_AUTORIZACION_EJECUTIVO', 'DEVUELTA_OPERADOR', 'APROBADA', 'APROBADO', 'DESEMBOLSADA', 'DENEGADA', 'RECHAZADA', 'RECHAZADO', 'PENDIENTE'));
+        CHECK (estado IN ('PENDIENTE_FIRMA', 'EN_REVISION_OPERADOR', 'EN_AUTORIZACION_EJECUTIVO', 'DEVUELTA_OPERADOR', 'APROBADA', 'APROBADO', 'DESEMBOLSADA', 'DENEGADA', 'RECHAZADA', 'RECHAZADO', 'PENDIENTE', 'CANCELADA'));
 
       -- 6.4 Crear persona y usuario demo para rol EJECUTIVO (EJ-1 / admin123)
       INSERT INTO personas (
@@ -560,6 +565,44 @@ const runMigrations = async () => {
         ventana_inicio TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
       )
     `);
+
+    // 8.1 Un crédito del que el asociado desistió tiene su propio estado (issue #11). Antes se guardaba como
+    //     RECHAZADA con una marca en las observaciones; se pasan al estado nuevo y se quita la marca.
+    await pool.query(`
+      UPDATE solicitudes_credito
+      SET estado = 'CANCELADA',
+          observaciones = NULLIF(TRIM(REPLACE(observaciones, '[Cancelada voluntariamente por el asociado]', '')), '')
+      WHERE estado = 'RECHAZADA' AND observaciones LIKE '%[Cancelada voluntariamente por el asociado]%'
+    `);
+
+    // 8.2 Parentesco de beneficiarios con un solo juego de valores (issue #10): se convierten las variantes que
+    //     guardaban el operador y el asociado, lo desconocido pasa a OTRO y se restringe con un CHECK.
+    await pool.query(`
+      UPDATE beneficiarios
+      SET parentesco = CASE TRANSLATE(UPPER(TRIM(parentesco)), 'ÁÉÍÓÚ', 'AEIOU')
+          WHEN 'CONYUGE' THEN 'CONYUGE'
+          WHEN 'HIJO/A' THEN 'HIJO/A' WHEN 'HIJO' THEN 'HIJO/A' WHEN 'HIJA' THEN 'HIJO/A'
+          WHEN 'PADRE/MADRE' THEN 'PADRE/MADRE' WHEN 'PADRE' THEN 'PADRE/MADRE' WHEN 'MADRE' THEN 'PADRE/MADRE'
+          WHEN 'HERMANO/A' THEN 'HERMANO/A' WHEN 'HERMANO' THEN 'HERMANO/A' WHEN 'HERMANA' THEN 'HERMANO/A'
+          WHEN 'SOBRINO/A' THEN 'SOBRINO/A' WHEN 'SOBRINO' THEN 'SOBRINO/A' WHEN 'SOBRINA' THEN 'SOBRINO/A'
+          ELSE 'OTRO'
+        END
+      WHERE parentesco NOT IN ('CONYUGE', 'HIJO/A', 'PADRE/MADRE', 'HERMANO/A', 'SOBRINO/A', 'OTRO');
+
+      ALTER TABLE beneficiarios DROP CONSTRAINT IF EXISTS chk_beneficiarios_parentesco;
+      ALTER TABLE beneficiarios ADD CONSTRAINT chk_beneficiarios_parentesco
+        CHECK (parentesco IN ('CONYUGE', 'HIJO/A', 'PADRE/MADRE', 'HERMANO/A', 'SOBRINO/A', 'OTRO'));
+    `);
+
+    // 9. El correo es único sin importar mayúsculas: el inicio de sesión y las validaciones comparan con
+    //    LOWER(email). Si hubiera correos repetidos que solo difieren en mayúsculas, no se crea y se avisa
+    //    (hay que corregirlos a mano) en lugar de detener el arranque.
+    const correosRepetidos = await pool.query('SELECT LOWER(email) FROM usuarios GROUP BY 1 HAVING COUNT(*) > 1');
+    if (correosRepetidos.rowCount > 0) {
+      console.warn(`[MIGRATION] Hay ${correosRepetidos.rowCount} correo(s) repetidos sin distinguir mayúsculas: no se creó uq_usuarios_email_lower. Corríjalos y reinicie.`);
+    } else {
+      await pool.query('CREATE UNIQUE INDEX IF NOT EXISTS uq_usuarios_email_lower ON usuarios (LOWER(email))');
+    }
 
     console.log('[MIGRATION] Esquema, cuenta_bancaria corporativa, MFA TOTP, roles, beneficiarios y optimizaciones DBA aplicadas exitosamente.');
     return true;

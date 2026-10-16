@@ -89,6 +89,7 @@ export const AdminDashboard = () => {
     // Desglose por roles
     const asociadosCount = users.filter((u) => u.rol === 'ASOCIADO').length;
     const operadoresCount = users.filter((u) => u.rol === 'OPERADOR').length;
+    const ejecutivosCount = users.filter((u) => u.rol === 'EJECUTIVO').length;
     const adminCount = users.filter((u) => u.rol === 'ADMINISTRADOR').length;
 
     return {
@@ -100,6 +101,7 @@ export const AdminDashboard = () => {
       enLinea,
       asociadosCount,
       operadoresCount,
+      ejecutivosCount,
       adminCount,
     };
   }, [users]);

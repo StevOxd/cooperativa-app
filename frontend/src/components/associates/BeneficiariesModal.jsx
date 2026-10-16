@@ -6,7 +6,7 @@ import {
 } from '../ui';
 import { formatDateTime, formatQ, humanize } from '../../utils/format';
 import { ROLE_LABELS } from '../layout/navigation';
-import { parentescoLabel } from '../../utils/parentesco';
+import { PARENTESCOS, parentescoLabel } from '../../utils/parentesco';
 
 const FORM_ID = 'beneficiarios-operador';
 const TABS_ID = 'beneficiarios-operador';
@@ -31,7 +31,6 @@ const CuentaSelect = ({ cuentas, value, onChange }) =>
  * Declaración de beneficiarios de las cuentas de un asociado, hecha por el
  * operador en ventanilla, con el historial de cambios. La suma debe ser 100 %.
  */
-const PARENTESCOS = ['HIJO/A', 'CONYUGE', 'PADRE/MADRE', 'HERMANO/A', 'SOBRINO/A', 'OTRO'];
 
 export const BeneficiariesModal = ({
   isOpen,

@@ -31,8 +31,9 @@ import { creditDestination } from '../components/credit/CreditTerms';
 import { formatDate, formatQ, humanize } from '../utils/format';
 
 /** Marca que el backend agrega a las observaciones cuando el asociado desiste. */
+// Desistir tiene su propio estado (issue #11). La marca en las observaciones era la forma anterior.
 const MARCA_CANCELADA = '[Cancelada voluntariamente por el asociado]';
-const esCancelada = (c) => c.estado === 'RECHAZADA' && (c.observaciones || '').includes(MARCA_CANCELADA);
+const esCancelada = (c) => c.estado === 'CANCELADA' || (c.estado === 'RECHAZADA' && (c.observaciones || '').includes(MARCA_CANCELADA));
 const limpiarObservaciones = (texto) => (texto || '').replace(MARCA_CANCELADA, '').trim();
 
 /** Estados de la solicitud vistos por el asociado. */
@@ -111,8 +112,8 @@ export const CreditSimulatorPage = () => {
     }
   }, [errorMessage, toast]);
 
-  // Tasa de interés base: 10% anual
-  const tasaAnual = 10;
+  // Tasa de interés anual: la que envía el servidor (issue #12); 10 % mientras carga
+  const tasaAnual = capacidadInfo?.tasaInteresAnual ?? 10;
 
   // Calcular la cuota estimada en tiempo real
   useEffect(() => {
@@ -124,7 +125,7 @@ export const CreditSimulatorPage = () => {
       cuotaEstimada = monto / plazo;
     }
     setCuota(isNaN(cuotaEstimada) || !isFinite(cuotaEstimada) ? 0 : Math.round(cuotaEstimada * 100) / 100);
-  }, [monto, plazo]);
+  }, [monto, plazo, tasaAnual]);
 
   const fetchCuentas = async () => {
     try {

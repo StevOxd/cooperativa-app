@@ -123,10 +123,13 @@ const resolverSolicitud = async (req, res) => {
             id_operador_resuelve = $1,
             observaciones_operador = $2,
             fecha_resolucion = CURRENT_TIMESTAMP
-        WHERE id_solicitud = $3
+        WHERE id_solicitud = $3 AND estado = 'PENDIENTE'
         RETURNING id_solicitud, numero_caso, estado, fecha_resolucion
       `;
       const updateRes = await db.query(updateQuery, [idOperador, observaciones || 'Rechazado por operador.', id]);
+      if (updateRes.rowCount === 0) {
+        return res.status(409).json({ success: false, message: 'Esa solicitud ya fue resuelta.' });
+      }
       return res.status(200).json({
         success: true,
         message: 'Solicitud rechazada.',
@@ -139,7 +142,21 @@ const resolverSolicitud = async (req, res) => {
     try {
       await client.query('BEGIN');
 
+      // Se bloquea la solicitud y se vuelve a revisar: si dos operadores aprueban a la vez, el segundo se
+      // detiene aquí, antes de mover dinero.
+      const bloqueo = await client.query(
+        'SELECT estado FROM solicitudes_traslado_apertura WHERE id_solicitud = $1 FOR UPDATE',
+        [id]
+      );
+      if (bloqueo.rows[0]?.estado !== 'PENDIENTE') {
+        await client.query('ROLLBACK');
+        client.release();
+        return res.status(409).json({ success: false, message: 'Esa solicitud ya fue resuelta.' });
+      }
+
       const monto = parseFloat(solicitud.monto);
+      // Débito en el banco, si el origen es una cuenta del banco: se hace al final, justo antes del COMMIT (issue #31)
+      let debitoBanco = null;
 
       // Obtener saldo de cuenta origen con bloqueo (banco o cooperativa)
       if (solicitud.id_cuenta_bancaria_origen) {
@@ -159,18 +176,14 @@ const resolverSolicitud = async (req, res) => {
           numCuentaBco = String(solicitud.id_cuenta_bancaria_origen);
         }
 
-        const debitRes = await bancoApiService.debitarCuenta({
+        debitoBanco = {
           numero_cuenta: numCuentaBco,
           // El banco rechaza el débito si la cuenta no es del asociado.
           cui_dpi: assocCui.rows[0]?.cui_dpi,
           monto,
           concepto: `Traslado a Cuenta Cooperativa - Caso ${solicitud.numero_caso}`,
           referencia: `CASO-${solicitud.numero_caso}`,
-        });
-
-        if (!debitRes.success) {
-          throw new Error(debitRes.message || 'Error al debitar fondos en la cuenta bancaria de origen.');
-        }
+        };
       } else {
         const originQuery = 'SELECT saldo_disponible, numero_cuenta FROM cuentas WHERE id_cuenta = $1 FOR UPDATE';
         const originRes = await client.query(originQuery, [solicitud.id_cuenta_origen]);
@@ -292,7 +305,31 @@ const resolverSolicitud = async (req, res) => {
         id
       ]);
 
-      await client.query('COMMIT');
+      // Débito en el banco (último paso): si falla, el ROLLBACK deshace lo de la cooperativa
+      if (debitoBanco) {
+        const debitRes = await bancoApiService.debitarCuenta(debitoBanco);
+        if (!debitRes.success) {
+          throw new Error(debitRes.message || 'Error al debitar fondos en la cuenta bancaria de origen.');
+        }
+      }
+
+      try {
+        await client.query('COMMIT');
+      } catch (commitError) {
+        // El dinero ya salió del banco: se devuelve con una referencia ligada a la del débito
+        if (debitoBanco) {
+          const reversion = await bancoApiService.acreditarCuenta({
+            numero_cuenta: debitoBanco.numero_cuenta,
+            monto,
+            concepto: `Reversión de traslado no completado - Caso ${solicitud.numero_caso}`,
+            referencia: `REV-${debitoBanco.referencia}`,
+          });
+          if (!reversion.success) {
+            console.error(`[ERROR] No se pudo revertir el débito ${debitoBanco.referencia}:`, reversion.message);
+          }
+        }
+        throw commitError;
+      }
       client.release();
 
       return res.status(200).json({
@@ -302,7 +339,7 @@ const resolverSolicitud = async (req, res) => {
       });
 
     } catch (txError) {
-      await client.query('ROLLBACK');
+      await client.query('ROLLBACK').catch(() => {});
       client.release();
       throw txError;
     }

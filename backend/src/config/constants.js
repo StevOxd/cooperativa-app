@@ -9,6 +9,11 @@ module.exports = Object.freeze({
     FACTOR_APALANCAMIENTO_MAXIMO: 1.5,
     PORCENTAJE_BENEFICIARIOS_TOTAL: 100.00,
     TASA_INTERES_DEFAULT_CREDITO: 10.00,
+    // Límites de una solicitud de crédito (issue #12): los mismos del simulador del portal
+    CREDITO_MONTO_MINIMO: 500.00,
+    CREDITO_MONTO_MAXIMO: 500000.00,
+    CREDITO_PLAZO_MINIMO_MESES: 3,
+    CREDITO_PLAZO_MAXIMO_MESES: 120,
     CUENTA_APORTACIONES_ID: 1,
     CUENTA_AHORRO_DISPONIBLE_ID: 2,
     CUENTA_PLAZO_FIJO_ID: 3,
@@ -56,6 +61,8 @@ module.exports = Object.freeze({
     DESEMBOLSADA: 'DESEMBOLSADA',
     RECHAZADA: 'RECHAZADA',
     DENEGADA: 'DENEGADA',
+    // El asociado desistió (issue #11): no cuenta como rechazo de la cooperativa
+    CANCELADA: 'CANCELADA',
   },
   ESTADOS_CUENTA: {
     ACTIVA: 'ACTIVA',

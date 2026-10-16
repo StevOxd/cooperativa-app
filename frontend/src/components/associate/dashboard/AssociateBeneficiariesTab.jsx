@@ -4,6 +4,7 @@ import {
   Badge, Button, Card, CardHeader, EmptyState, LoadingState, Table, TBody, TD, TH, THead, TR,
 } from '../../ui';
 import { formatQ } from '../../../utils/format';
+import { parentescoLabel } from '../../../utils/parentesco';
 
 /**
  * Pestaña de beneficiarios: quién recibe los fondos de cada cuenta.
@@ -98,7 +99,7 @@ export const AssociateBeneficiariesTab = ({
                     {cuenta.beneficiarios.map((b, idx) => (
                       <TR key={b.id_beneficiario || idx}>
                         <TD className="whitespace-nowrap font-medium text-ink">{b.nombre_completo}</TD>
-                        <TD>{b.parentesco}</TD>
+                        <TD>{parentescoLabel(b.parentesco)}</TD>
                         <TD className="whitespace-nowrap font-mono">{b.cui_dpi || '—'}</TD>
                         <TD className="whitespace-nowrap font-mono">{b.telefono || '—'}</TD>
                         <TD numeric className="text-ink">{parseFloat(b.porcentaje).toFixed(2)} %</TD>

@@ -42,7 +42,12 @@ export const DashboardPage = () => {
       {user?.rol === 'OPERADOR' && <OperatorDashboard />}
       {user?.rol === 'EJECUTIVO' && <ExecutiveDashboard />}
       {user?.rol === 'ADMINISTRADOR' && <AdminDashboard />}
-      {!['ASOCIADO', 'OPERADOR', 'EJECUTIVO', 'ADMINISTRADOR'].includes(user?.rol) && <AdminDashboard />}
+      {/* Un rol desconocido no ve ningún panel (issue #14) */}
+      {!['ASOCIADO', 'OPERADOR', 'EJECUTIVO', 'ADMINISTRADOR'].includes(user?.rol) && (
+        <Alert tone="warning" title="Su usuario no tiene un rol asignado">
+          Comuníquese con el administrador para que le asigne uno.
+        </Alert>
+      )}
     </div>
   );
 };

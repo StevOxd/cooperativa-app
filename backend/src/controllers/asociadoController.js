@@ -3,6 +3,8 @@ const bancoApiService = require('../services/bancoApiService');
 const creditScoringService = require('../services/creditScoringService');
 const { saveBase64File } = require('../utils/fileStorage');
 const socketService = require('../services/socketService');
+const { FINANCIERO } = require('../config/constants');
+const { normalizarParentesco } = require('../utils/parentesco');
 
 // Constantes institucionales para eliminación de números mágicos
 const CONSTANTS = {
@@ -320,6 +322,19 @@ const iniciarCredito = async (req, res) => {
         message: 'Escriba un monto y un plazo mayores que cero.',
       });
     }
+    // Los límites del crédito se validan también aquí, no solo en el simulador (issue #12)
+    if (monto < FINANCIERO.CREDITO_MONTO_MINIMO || monto > FINANCIERO.CREDITO_MONTO_MAXIMO) {
+      return res.status(400).json({
+        success: false,
+        message: `El monto debe estar entre Q${FINANCIERO.CREDITO_MONTO_MINIMO.toLocaleString('es-GT', { minimumFractionDigits: 2 })} y Q${FINANCIERO.CREDITO_MONTO_MAXIMO.toLocaleString('es-GT', { minimumFractionDigits: 2 })}.`,
+      });
+    }
+    if (!Number.isInteger(Number(plazo_meses)) || plazo < FINANCIERO.CREDITO_PLAZO_MINIMO_MESES || plazo > FINANCIERO.CREDITO_PLAZO_MAXIMO_MESES) {
+      return res.status(400).json({
+        success: false,
+        message: `El plazo debe ser de ${FINANCIERO.CREDITO_PLAZO_MINIMO_MESES} a ${FINANCIERO.CREDITO_PLAZO_MAXIMO_MESES} meses.`,
+      });
+    }
 
     if (!id_cuenta_bancaria_destino) {
       return res.status(400).json({
@@ -419,7 +434,7 @@ const iniciarCredito = async (req, res) => {
     const destinoInfo = `Cuenta Bancaria de ${bco.tipo_cuenta} (${bco.numero_cuenta_bancaria})`;
 
     // 6. Calcular cuota mensual (Amortización nivelada francesa)
-    const tasaAnual = 10.00;
+    const tasaAnual = FINANCIERO.TASA_INTERES_DEFAULT_CREDITO;
     const tasaMensual = (tasaAnual / 100) / 12;
     let cuotaMensual = 0;
     if (tasaMensual > 0) {
@@ -1035,6 +1050,14 @@ const getCapacidadCrediticia = async (req, res) => {
         deudaActiva: evaluacion.deudaActiva,
         solicitudesPendientesCount: evaluacion.solicitudesPendientesCount,
         maxSolicitudesPendientes: 2,
+        // El simulador usa la misma tasa y los mismos límites que valida el servidor (issue #12)
+        tasaInteresAnual: FINANCIERO.TASA_INTERES_DEFAULT_CREDITO,
+        limitesCredito: {
+          montoMinimo: FINANCIERO.CREDITO_MONTO_MINIMO,
+          montoMaximo: FINANCIERO.CREDITO_MONTO_MAXIMO,
+          plazoMinimoMeses: FINANCIERO.CREDITO_PLAZO_MINIMO_MESES,
+          plazoMaximoMeses: FINANCIERO.CREDITO_PLAZO_MAXIMO_MESES,
+        },
         limiteMaximo: evaluacion.capacidad.limiteMaximo,
         cupoDisponible: evaluacion.capacidad.cupoDisponible,
         nivelAhorro: evaluacion.capacidad.nivel,
@@ -1090,14 +1113,18 @@ const cancelarCredito = async (req, res) => {
       });
     }
 
-    await db.query(
+    // Se vuelve a exigir un estado cancelable en el UPDATE: si el ejecutivo la resolvió entre la consulta y
+    // este paso, no se cancela una solicitud ya aprobada o desembolsada.
+    const cancelada = await db.query(
       `UPDATE solicitudes_credito 
-       SET estado = 'RECHAZADA',
-           observaciones = COALESCE(observaciones, '') || ' [Cancelada voluntariamente por el asociado]',
+       SET estado = 'CANCELADA',
            fecha_resolucion = CURRENT_TIMESTAMP
-       WHERE id_solicitud_credito = $1`,
-      [id]
+       WHERE id_solicitud_credito = $1 AND id_asociado = $2 AND estado = ANY($3::text[])`,
+      [id, idAsociado, estadosCancelables]
     );
+    if (cancelada.rowCount === 0) {
+      return res.status(400).json({ success: false, message: 'Esa solicitud ya no se puede cancelar.' });
+    }
 
     return res.status(200).json({
       success: true,
@@ -1222,6 +1249,15 @@ const guardarMisBeneficiarios = async (req, res) => {
           message: 'Cada beneficiario necesita nombre, parentesco y porcentaje.',
         });
       }
+      // Un solo juego de valores de parentesco para el operador y el asociado (issue #10)
+      const parentesco = normalizarParentesco(ben.parentesco);
+      if (!parentesco) {
+        return res.status(400).json({
+          success: false,
+          message: `El parentesco de ${ben.nombre_completo} no es válido.`,
+        });
+      }
+      ben.parentesco = parentesco;
       const pct = parseFloat(ben.porcentaje);
       if (isNaN(pct) || pct <= 0 || pct > 100) {
         return res.status(400).json({

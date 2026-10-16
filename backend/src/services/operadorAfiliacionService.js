@@ -490,11 +490,6 @@ const formalizarAfiliacion = async ({ idSolicitud, idOperador, rolUsuario, datos
       : `${sol.observaciones ? sol.observaciones + ' | ' : ''}Cuenta Bancaria: ${cuentaBancaria.numero_cuenta}`;
 
     await client.query(`
-      ALTER TABLE solicitudes_afiliacion_agencia 
-      ADD COLUMN IF NOT EXISTS numero_cuenta_bancaria VARCHAR(50)
-    `);
-
-    await client.query(`
       UPDATE solicitudes_afiliacion_agencia 
       SET estado = 'ATENDIDA',
           id_operador_resuelve = $1,
@@ -563,7 +558,7 @@ const formalizarAfiliacion = async ({ idSolicitud, idOperador, rolUsuario, datos
     };
   } catch (error) {
     await client.query('ROLLBACK');
-    if (error.code === '23505' && (error.constraint === 'usuarios_email_key' || (error.message && error.message.includes('usuarios_email_key')))) {
+    if (error.code === '23505' && (['usuarios_email_key', 'uq_usuarios_email_lower'].includes(error.constraint) || (error.message && error.message.includes('usuarios_email_key')))) {
       return {
         status: 400,
         success: false,
