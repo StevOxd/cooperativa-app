@@ -42,6 +42,7 @@ const AffiliationStatus = ({ a }) => {
     );
   }
   if (a.bloqueado_por_mi) return <Badge tone="brand" dot>La atiende usted</Badge>;
+  if (a.es_propia) return <Badge>Su solicitud</Badge>;
   return <Badge dot>Disponible</Badge>;
 };
 
@@ -163,6 +164,8 @@ export const AffiliationsPanel = ({
                       </Button>
                     ) : a.estado === 'CANCELADA' ? (
                       <span className="text-ink-subtle" aria-label="Sin acciones">—</span>
+                    ) : a.es_propia ? (
+                      <span className="text-xs text-ink-subtle">La atiende un colega</span>
                     ) : bloqueadoPorOtro ? (
                       <Button
                         size="sm"

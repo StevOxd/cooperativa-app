@@ -15,6 +15,39 @@ const { decidirAccesoPortal } = require('../utils/accesoPortal');
 
 class AsociadoAfiliacionService {
   /**
+   * Valida los nombres y la fecha de nacimiento de una persona que la cooperativa todavía no tiene.
+   * A una persona ya registrada (del personal) no se le piden: se usan los suyos.
+   *
+   * @param {{primer_nombre?: string, segundo_nombre?: string, primer_apellido?: string, segundo_apellido?: string, fecha_nacimiento?: string}} datos
+   * @throws {Error} con `statusCode` 400 y el primer dato que no es válido.
+   */
+  validarIdentidadNueva({ primer_nombre, segundo_nombre, primer_apellido, segundo_apellido, fecha_nacimiento }) {
+    const fallar = (mensaje) => {
+      throw Object.assign(new Error(mensaje), { statusCode: 400 });
+    };
+    const nameRegex = /^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s]+$/;
+    if (!primer_nombre || !primer_apellido) {
+      fallar('Los campos CUI/DPI, Nombres, Apellidos y Monto de Aportación son obligatorios.');
+    }
+    if (!nameRegex.test(primer_nombre.trim()) || primer_nombre.trim().length < 2) {
+      fallar('El primer nombre es obligatorio (mínimo 2 letras, solo caracteres alfabéticos).');
+    }
+    if (segundo_nombre && !nameRegex.test(segundo_nombre.trim())) {
+      fallar('El segundo nombre solo puede contener letras y espacios.');
+    }
+    if (!nameRegex.test(primer_apellido.trim()) || primer_apellido.trim().length < 2) {
+      fallar('El primer apellido es obligatorio (mínimo 2 letras, solo caracteres alfabéticos).');
+    }
+    if (segundo_apellido && !nameRegex.test(segundo_apellido.trim())) {
+      fallar('El segundo apellido solo puede contener letras y espacios.');
+    }
+    if (!fecha_nacimiento) fallar('La fecha de nacimiento es obligatoria.');
+    if (!validateAge18(fecha_nacimiento).valid) {
+      fallar('Debe ser mayor de edad (mínimo 18 años cumplidos) para afiliarse como asociado titular.');
+    }
+  }
+
+  /**
    * Procesa la afiliación presencial de un asociado en ventanilla,
    * incluyendo la creación de persona, asociado, usuario, MFA, cuenta y depósito inicial.
    *
@@ -44,7 +77,7 @@ class AsociadoAfiliacionService {
     } = payload;
 
     // 1. Validaciones perimetrales
-    if (!cui_dpi || !primer_nombre || !primer_apellido || !monto_aportacion) {
+    if (!cui_dpi || !monto_aportacion) {
       const error = new Error('Los campos CUI/DPI, Nombres, Apellidos y Monto de Aportación son obligatorios.');
       error.statusCode = 400;
       throw error;
@@ -58,24 +91,37 @@ class AsociadoAfiliacionService {
     }
     const cuiLimpio = cuiCheck.clean;
 
-    const nameRegex = /^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s]+$/;
-    if (!nameRegex.test(primer_nombre.trim()) || primer_nombre.trim().length < 2) {
-      const error = new Error('El primer nombre es obligatorio (mínimo 2 letras, solo caracteres alfabéticos).');
-      error.statusCode = 400;
+    // 1.1 Un DPI ya registrado solo se afilia si es del personal (issue #32): se usan los datos que ya tiene
+    //    la cooperativa y solo se actualiza el teléfono. Un asociado no se afilia dos veces.
+    const personaPreviaRes = await pool.query(
+      `SELECT p.id_persona, p.primer_nombre, p.segundo_nombre, p.primer_apellido, p.segundo_apellido, p.direccion,
+              TO_CHAR(p.fecha_nacimiento, 'YYYY-MM-DD') AS fecha_nacimiento,
+              (a.id_asociado IS NOT NULL) AS es_asociado,
+              EXISTS (SELECT 1 FROM usuarios u WHERE u.id_persona = p.id_persona AND u.id_rol <> 3) AS es_personal,
+              (SELECT u.email FROM usuarios u WHERE u.id_persona = p.id_persona AND u.id_rol <> 3) AS email_personal
+       FROM personas p
+       LEFT JOIN asociados a ON a.id_persona = p.id_persona
+       WHERE p.cui_dpi = $1`,
+      [cuiLimpio]
+    );
+    const personaPrevia = personaPreviaRes.rows[0] || null;
+    if (personaPrevia?.es_asociado) {
+      const error = new Error('Esta persona ya es asociada de la cooperativa.');
+      error.statusCode = 409;
       throw error;
     }
-    if (segundo_nombre && !nameRegex.test(segundo_nombre.trim())) {
-      const error = new Error('El segundo nombre solo puede contener letras y espacios.');
-      error.statusCode = 400;
+    if (personaPrevia && !personaPrevia.es_personal) {
+      const error = new Error('Ya existe una persona registrada con este CUI / DPI. Consulte al administrador.');
+      error.statusCode = 409;
       throw error;
     }
-    if (!nameRegex.test(primer_apellido.trim()) || primer_apellido.trim().length < 2) {
-      const error = new Error('El primer apellido es obligatorio (mínimo 2 letras, solo caracteres alfabéticos).');
-      error.statusCode = 400;
-      throw error;
-    }
-    if (segundo_apellido && !nameRegex.test(segundo_apellido.trim())) {
-      const error = new Error('El segundo apellido solo puede contener letras y espacios.');
+
+    // Nombres y fecha de nacimiento del formulario: solo para una persona nueva. La del personal se afilia
+    // con los que ya tiene registrados.
+    if (!personaPrevia) {
+      this.validarIdentidadNueva({ primer_nombre, segundo_nombre, primer_apellido, segundo_apellido, fecha_nacimiento });
+    } else if (!validateAge18(personaPrevia.fecha_nacimiento).valid) {
+      const error = new Error('Debe ser mayor de edad (mínimo 18 años cumplidos) para afiliarse como asociado titular.');
       error.statusCode = 400;
       throw error;
     }
@@ -92,18 +138,6 @@ class AsociadoAfiliacionService {
       throw error;
     }
 
-    if (!fecha_nacimiento) {
-      const error = new Error('La fecha de nacimiento es obligatoria.');
-      error.statusCode = 400;
-      throw error;
-    }
-    const ageCheck = validateAge18(fecha_nacimiento);
-    if (!ageCheck.valid) {
-      const error = new Error('Debe ser mayor de edad (mínimo 18 años cumplidos) para afiliarse como asociado titular.');
-      error.statusCode = 400;
-      throw error;
-    }
-
     // Acceso al portal (issue #26): solo si el correo de la cooperativa funciona. Sin acceso, el correo es opcional.
     const acceso = await decidirAccesoPortal(crear_acceso_portal, email);
     const cleanEmail = acceso.email;
@@ -116,16 +150,34 @@ class AsociadoAfiliacionService {
     }
     const montoAporte = montoCheck.value;
 
-    // 2. Verificar unicidad de CUI
-    const checkCui = await pool.query('SELECT cui_dpi FROM personas WHERE cui_dpi = $1', [cuiLimpio]);
-    if (checkCui.rows.length > 0) {
-      const error = new Error('Ya existe una persona registrada con este CUI / DPI.');
-      error.statusCode = 409;
-      throw error;
-    }
+    // Identidad del asociado: la que ya tiene la cooperativa (personal) o la del formulario
+    const identidad = personaPrevia
+      ? {
+          primer_nombre: personaPrevia.primer_nombre,
+          segundo_nombre: personaPrevia.segundo_nombre,
+          primer_apellido: personaPrevia.primer_apellido,
+          segundo_apellido: personaPrevia.segundo_apellido,
+          direccion: personaPrevia.direccion,
+          fecha_nacimiento: personaPrevia.fecha_nacimiento,
+        }
+      : {
+          primer_nombre: primer_nombre.trim(),
+          segundo_nombre: segundo_nombre?.trim() || null,
+          primer_apellido: primer_apellido.trim(),
+          segundo_apellido: segundo_apellido?.trim() || null,
+          direccion: direccion?.trim() || null,
+          fecha_nacimiento,
+        };
 
     // 2.1 Verificar unicidad de Correo Electrónico en usuarios (solo si se crea el acceso: sin usuario no se guarda)
     if (acceso.crear) {
+      if (personaPrevia && cleanEmail === personaPrevia.email_personal.toLowerCase()) {
+        const error = new Error('Ese correo es del usuario del personal de esta persona. Su usuario de asociado lleva un correo distinto.');
+        error.statusCode = 409;
+        error.code = 'CORREO_DEL_PERSONAL';
+        throw error;
+      }
+
       const checkEmail = await pool.query('SELECT email FROM usuarios WHERE LOWER(email) = LOWER($1)', [cleanEmail]);
       if (checkEmail.rows.length > 0) {
         const error = new Error('El correo electrónico ya se encuentra registrado en el sistema. Ingrese un correo diferente.');
@@ -174,24 +226,29 @@ class AsociadoAfiliacionService {
         throw error;
       }
 
-      // 4.2 Inserción de Persona
-      const personaRes = await client.query(
-        `INSERT INTO personas (
-           cui_dpi, primer_nombre, segundo_nombre, primer_apellido, segundo_apellido,
-           telefono, direccion, fecha_nacimiento
-         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-         RETURNING id_persona, nombre_completo`,
-        [
-          cuiLimpio,
-          primer_nombre.trim(),
-          segundo_nombre?.trim() || null,
-          primer_apellido.trim(),
-          segundo_apellido?.trim() || null,
-          cleanTel,
-          direccion?.trim() || null,
-          fecha_nacimiento || null,
-        ]
-      );
+      // 4.2 Persona: la del personal (solo se actualiza su teléfono) o una nueva
+      const personaRes = personaPrevia
+        ? await client.query(
+          'UPDATE personas SET telefono = $1 WHERE id_persona = $2 RETURNING id_persona, nombre_completo',
+          [cleanTel, personaPrevia.id_persona]
+        )
+        : await client.query(
+          `INSERT INTO personas (
+             cui_dpi, primer_nombre, segundo_nombre, primer_apellido, segundo_apellido,
+             telefono, direccion, fecha_nacimiento
+           ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+           RETURNING id_persona, nombre_completo`,
+          [
+            cuiLimpio,
+            identidad.primer_nombre,
+            identidad.segundo_nombre,
+            identidad.primer_apellido,
+            identidad.segundo_apellido,
+            cleanTel,
+            identidad.direccion,
+            identidad.fecha_nacimiento || null,
+          ]
+        );
       const persona = personaRes.rows[0];
 
       // 4.3 Inserción de Membresía de Asociado
@@ -250,14 +307,14 @@ class AsociadoAfiliacionService {
       if (tipoAsociadoDeterminado === 'EX') {
         const bcoRes = await bancoApiService.aperturarCuentaBancaria({
           cui_dpi: cuiLimpio,
-          primer_nombre: primer_nombre.trim(),
-          segundo_nombre: segundo_nombre?.trim() || null,
-          primer_apellido: primer_apellido.trim(),
-          segundo_apellido: segundo_apellido?.trim() || null,
+          primer_nombre: identidad.primer_nombre,
+          segundo_nombre: identidad.segundo_nombre,
+          primer_apellido: identidad.primer_apellido,
+          segundo_apellido: identidad.segundo_apellido,
           telefono: cleanTel,
-          direccion: direccion?.trim() || null,
+          direccion: identidad.direccion,
           email: cleanEmail,
-          fecha_nacimiento: fecha_nacimiento,
+          fecha_nacimiento: identidad.fecha_nacimiento,
           tipo_cuenta: 'AHORRO',
           monto_inicial: montoAporte,
           referencia: referenciaBanco,

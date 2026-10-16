@@ -166,8 +166,6 @@ const rechazarCaso = async ({ idSolicitud, idOperador, motivo }) => {
  */
 const MENSAJE_YA_ASOCIADO =
   'Esta persona ya es asociada de la cooperativa. Si necesita acceso al portal, se activa desde su expediente.';
-const MENSAJE_PERSONAL =
-  'Esta persona tiene un usuario del personal de la cooperativa y no puede afiliarse como asociado por ahora.';
 
 const formalizarAfiliacion = async ({ idSolicitud, idOperador, rolUsuario, datos, nombreOperador }) => {
   const {
@@ -211,7 +209,6 @@ const formalizarAfiliacion = async ({ idSolicitud, idOperador, rolUsuario, datos
 
   const personaPreviaRes = await db.pool.query(
     `SELECT (a.id_asociado IS NOT NULL) AS es_asociado,
-            EXISTS (SELECT 1 FROM usuarios u WHERE u.id_persona = p.id_persona AND u.id_rol <> 3) AS tiene_usuario_personal,
             EXISTS (SELECT 1 FROM usuarios u WHERE u.id_persona = p.id_persona AND u.id_rol = 3) AS tiene_usuario_asociado
      FROM personas p
      LEFT JOIN asociados a ON a.id_persona = p.id_persona
@@ -223,9 +220,6 @@ const formalizarAfiliacion = async ({ idSolicitud, idOperador, rolUsuario, datos
   // cuenta a quien escribió el correo de la solicitud. Su acceso se activa desde su expediente (issue #27).
   if (personaPrevia?.es_asociado) {
     return { status: 409, success: false, message: MENSAJE_YA_ASOCIADO };
-  }
-  if (personaPrevia?.tiene_usuario_personal) {
-    return { status: 409, success: false, message: MENSAJE_PERSONAL };
   }
 
   let acceso = { crear: false, email: emailPrevio };
@@ -275,13 +269,13 @@ const formalizarAfiliacion = async ({ idSolicitud, idOperador, rolUsuario, datos
 
     // Resolver valores finales permitiendo correcciones realizadas por el operador
     const cuiFinal = (cui_dpi && cui_dpi.trim()) ? cui_dpi.trim().replace(/\s+/g, '') : sol.cui_dpi;
-    const pNombreFinal = (primer_nombre && primer_nombre.trim()) ? primer_nombre.trim() : sol.primer_nombre;
-    const sNombreFinal = segundo_nombre !== undefined ? (segundo_nombre ? segundo_nombre.trim() : null) : sol.segundo_nombre;
-    const pApellidoFinal = (primer_apellido && primer_apellido.trim()) ? primer_apellido.trim() : sol.primer_apellido;
-    const sApellidoFinal = segundo_apellido !== undefined ? (segundo_apellido ? segundo_apellido.trim() : null) : sol.segundo_apellido;
-    const telFinal = telefono !== undefined ? (telefono ? telefono.trim() : null) : sol.telefono;
-    const dirFinal = direccion !== undefined ? (direccion ? direccion.trim() : null) : sol.direccion;
-    const fNacFinal = fecha_nacimiento ? String(fecha_nacimiento).split('T')[0] : sol.fecha_nacimiento;
+    let pNombreFinal = (primer_nombre && primer_nombre.trim()) ? primer_nombre.trim() : sol.primer_nombre;
+    let sNombreFinal = segundo_nombre !== undefined ? (segundo_nombre ? segundo_nombre.trim() : null) : sol.segundo_nombre;
+    let pApellidoFinal = (primer_apellido && primer_apellido.trim()) ? primer_apellido.trim() : sol.primer_apellido;
+    let sApellidoFinal = segundo_apellido !== undefined ? (segundo_apellido ? segundo_apellido.trim() : null) : sol.segundo_apellido;
+    let telFinal = telefono !== undefined ? (telefono ? telefono.trim() : null) : sol.telefono;
+    let dirFinal = direccion !== undefined ? (direccion ? direccion.trim() : null) : sol.direccion;
+    let fNacFinal = fecha_nacimiento ? String(fecha_nacimiento).split('T')[0] : sol.fecha_nacimiento;
     const emailFinal = (email && email.trim()) ? email.trim().toLowerCase() : (sol.email ? sol.email.trim().toLowerCase() : null);
 
     // Validaciones de formato
@@ -345,23 +339,39 @@ const formalizarAfiliacion = async ({ idSolicitud, idOperador, rolUsuario, datos
       WHERE id_solicitud = $10
     `, [cuiFinal, pNombreFinal, sNombreFinal, pApellidoFinal, sApellidoFinal, telFinal, dirFinal, fNacFinal, emailFinal, idSolicitud]);
 
-    // 1. Inserción o actualización en personas con datos normalizados
+    // 1. Persona. Si ya existe (por ejemplo, alguien del personal, issue #32), se conservan sus datos: una
+    //    solicitud pública no cambia la identidad de nadie. Solo se completan el teléfono y la dirección
+    //    si no los tenía, y la cuenta del banco se abre con los datos registrados.
     let idPersona;
     let personaNombreCompleto;
-    const checkPersona = await client.query('SELECT id_persona, nombre_completo FROM personas WHERE cui_dpi = $1', [cuiFinal]);
+    const checkPersona = await client.query(
+      `SELECT id_persona, nombre_completo, primer_nombre, segundo_nombre, primer_apellido, segundo_apellido,
+              telefono, direccion, TO_CHAR(fecha_nacimiento, 'YYYY-MM-DD') AS fecha_nacimiento
+       FROM personas WHERE cui_dpi = $1`,
+      [cuiFinal]
+    );
     
     if (checkPersona.rows.length > 0) {
-      idPersona = checkPersona.rows[0].id_persona;
-      personaNombreCompleto = checkPersona.rows[0].nombre_completo;
-      await client.query(`
-        UPDATE personas 
-        SET primer_nombre = $1, segundo_nombre = $2, primer_apellido = $3, segundo_apellido = $4,
-            telefono = COALESCE($5, telefono), direccion = COALESCE($6, direccion), fecha_nacimiento = COALESCE($7, fecha_nacimiento)
-        WHERE id_persona = $8
-      `, [
-        pNombreFinal, sNombreFinal, pApellidoFinal, sApellidoFinal,
-        telFinal, dirFinal, fNacFinal, idPersona
-      ]);
+      const registrada = checkPersona.rows[0];
+      idPersona = registrada.id_persona;
+      personaNombreCompleto = registrada.nombre_completo;
+      await client.query(
+        'UPDATE personas SET telefono = COALESCE(telefono, $1), direccion = COALESCE(direccion, $2) WHERE id_persona = $3',
+        [telFinal, dirFinal, idPersona]
+      );
+      pNombreFinal = registrada.primer_nombre;
+      sNombreFinal = registrada.segundo_nombre;
+      pApellidoFinal = registrada.primer_apellido;
+      sApellidoFinal = registrada.segundo_apellido;
+      telFinal = registrada.telefono || telFinal;
+      dirFinal = registrada.direccion || dirFinal;
+      fNacFinal = registrada.fecha_nacimiento;
+      // La mayoría de edad se revisa con la fecha registrada, no con la de la solicitud
+      const edadRegistrada = validateAge18(fNacFinal);
+      if (!edadRegistrada.valid) {
+        await client.query('ROLLBACK');
+        return { status: 400, success: false, message: edadRegistrada.message };
+      }
     } else {
       const insPersona = await client.query(`
         INSERT INTO personas (
@@ -394,19 +404,14 @@ const formalizarAfiliacion = async ({ idSolicitud, idOperador, rolUsuario, datos
     }
 
     // 3. Acceso al portal.
-    //    - Si la persona ya tiene usuario de asociado (sin membresía), lo conserva tal cual; el personal
-    //      no se afilia como asociado porque un usuario tiene un solo rol (issue #32).
-    //    - Si no tiene usuario: se crea solo cuando se pidió el acceso y el correo funciona.
-    // Primero el usuario del personal, si lo hay (id_rol = 3 ordena al final).
+    //    - Si la persona ya tiene usuario de asociado (sin membresía), lo conserva tal cual.
+    //    - Si no: se crea solo cuando se pidió el acceso y el correo funciona. Si la persona es del
+    //      personal, su usuario de asociado es otro, con otro correo (issue #32).
     const checkUser = await client.query(
-      'SELECT codigo_corporativo, id_rol, estado FROM usuarios WHERE id_persona = $1 ORDER BY (id_rol = 3) LIMIT 1',
+      'SELECT codigo_corporativo, id_rol, estado FROM usuarios WHERE id_persona = $1 AND id_rol = 3',
       [idPersona]
     );
     const usuarioPrevio = checkUser.rows[0] || null;
-    if (usuarioPrevio && usuarioPrevio.id_rol !== 3) {
-      await client.query('ROLLBACK');
-      return { status: 409, success: false, message: MENSAJE_PERSONAL };
-    }
 
     let codigoUsuarioFinal = usuarioPrevio ? usuarioPrevio.codigo_corporativo : null;
     let rawPass = null;
@@ -414,18 +419,26 @@ const formalizarAfiliacion = async ({ idSolicitud, idOperador, rolUsuario, datos
     const emailUsuario = acceso.email;
 
     if (crearUsuario) {
-      // La persona no tiene usuarios, así que cualquier usuario con ese correo es de otra persona.
+      // Ningún otro usuario puede tener ese correo, tampoco el del personal de la misma persona.
       const checkDupEmail = await client.query(
-        'SELECT 1 FROM usuarios WHERE LOWER(email) = LOWER($1)',
+        'SELECT id_persona FROM usuarios WHERE LOWER(email) = LOWER($1)',
         [emailUsuario]
       );
       if (checkDupEmail.rows.length > 0) {
         await client.query('ROLLBACK');
-        return {
-          status: 400,
-          success: false,
-          message: `El correo ${emailUsuario} ya lo usa otra persona. Cámbielo en la ficha para continuar.`,
-        };
+        const esDelPersonal = Number(checkDupEmail.rows[0].id_persona) === Number(idPersona);
+        return esDelPersonal
+          ? {
+              status: 409,
+              success: false,
+              error: 'CORREO_DEL_PERSONAL',
+              message: `${emailUsuario} es el correo del usuario del personal de esta persona. Su usuario de asociado lleva un correo distinto: cámbielo en la ficha.`,
+            }
+          : {
+              status: 400,
+              success: false,
+              message: `El correo ${emailUsuario} ya lo usa otra persona. Cámbielo en la ficha para continuar.`,
+            };
       }
 
       codigoUsuarioFinal = await getNextCorporateCode(client, 'EX');

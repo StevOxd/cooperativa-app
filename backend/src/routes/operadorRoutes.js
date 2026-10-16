@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const operadorController = require('../controllers/operadorController');
 const { verifyToken, checkRole } = require('../middlewares/authMiddleware');
+const { prohibirAutoatencion } = require('../middlewares/segregacion');
 
 // Proteger todas las rutas del operador con autenticación JWT y rol de OPERADOR o ADMINISTRADOR
 router.use(verifyToken);
@@ -32,7 +33,7 @@ router.get('/traslados/historial', operadorController.getHistorialTraslados);
  * @desc    Resolver una solicitud (APROBAR o RECHAZAR) con ejecución transaccional
  * @access  Privado (Operador)
  */
-router.post('/solicitudes/:id/resolver', operadorController.resolverSolicitud);
+router.post('/solicitudes/:id/resolver', prohibirAutoatencion('solicitudTraslado', (req) => req.params.id), operadorController.resolverSolicitud);
 
 /**
  * @route   GET /api/operador/afiliaciones
@@ -46,7 +47,7 @@ router.get('/afiliaciones', operadorController.getBandejaAfiliaciones);
  * @desc    Bloquear un caso para atención exclusiva por el operador
  * @access  Privado (Operador)
  */
-router.post('/afiliaciones/:id/bloquear', operadorController.bloquearCasoAfiliacion);
+router.post('/afiliaciones/:id/bloquear', prohibirAutoatencion('solicitudAfiliacion', (req) => req.params.id), operadorController.bloquearCasoAfiliacion);
 
 /**
  * @route   POST /api/operador/afiliaciones/:id/liberar
@@ -60,14 +61,20 @@ router.post('/afiliaciones/:id/liberar', operadorController.liberarCasoAfiliacio
  * @desc    Formalizar la afiliación en ventanilla creando el asociado, cuenta y credenciales
  * @access  Privado (Operador)
  */
-router.post('/afiliaciones/:id/formalizar', operadorController.formalizarAfiliacion);
+// Se revisa el DPI de la solicitud y también el que llega corregido en el formulario
+router.post(
+  '/afiliaciones/:id/formalizar',
+  prohibirAutoatencion('solicitudAfiliacion', (req) => req.params.id),
+  prohibirAutoatencion('dpi', (req) => req.body?.cui_dpi),
+  operadorController.formalizarAfiliacion
+);
 
 /**
  * @route   POST /api/operador/afiliaciones/:id/rechazar
  * @desc    Rechazar / Cancelar solicitud de afiliación en agencia
  * @access  Privado (Operador)
  */
-router.post('/afiliaciones/:id/rechazar', operadorController.rechazarCasoAfiliacion);
+router.post('/afiliaciones/:id/rechazar', prohibirAutoatencion('solicitudAfiliacion', (req) => req.params.id), operadorController.rechazarCasoAfiliacion);
 
 /**
  * @route   GET /api/operador/creditos
@@ -81,14 +88,14 @@ router.get('/creditos', operadorController.getBandejaCreditos);
  * @desc    Resolver una solicitud de crédito (Rechazar directamente)
  * @access  Privado (Operador)
  */
-router.post('/creditos/:id/resolver', operadorController.resolverSolicitudCredito);
+router.post('/creditos/:id/resolver', prohibirAutoatencion('solicitudCredito', (req) => req.params.id), operadorController.resolverSolicitudCredito);
 
 /**
  * @route   POST /api/operador/creditos/:id/elevar
  * @desc    Elevar solicitud de crédito al Ejecutivo con dictamen operativo
  * @access  Privado (Operador)
  */
-router.post('/creditos/:id/elevar', operadorController.elevarSolicitudCredito);
+router.post('/creditos/:id/elevar', prohibirAutoatencion('solicitudCredito', (req) => req.params.id), operadorController.elevarSolicitudCredito);
 
 /**
  * @route   GET /api/operador/creditos/:id/evaluacion

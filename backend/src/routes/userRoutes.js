@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const userController = require('../controllers/userController');
 const { verifyToken, checkRole } = require('../middlewares/authMiddleware');
+const { prohibirAutoatencion } = require('../middlewares/segregacion');
 
 // Proteger todas las rutas de usuarios con autenticación JWT y rol exclusivo de ADMINISTRADOR
 router.use(verifyToken);
@@ -83,34 +84,34 @@ router.post('/', userController.createUser);
  * @desc    Actualizar datos de un usuario
  * @access  Privado
  */
-router.put('/:id', userController.updateUser);
+router.put('/:id', prohibirAutoatencion('usuario', (req) => req.params.id), userController.updateUser);
 
 /**
  * @route   DELETE /api/usuarios/:id
  * @desc    Borrado lógico de usuario (cambia estado a 'INACTIVO')
  * @access  Privado
  */
-router.delete('/:id', userController.deleteUser);
+router.delete('/:id', prohibirAutoatencion('usuario', (req) => req.params.id), userController.deleteUser);
 
 /**
  * @route   PATCH /api/usuarios/:id/desbloquear
  * @desc    Desbloquear usuario bloqueado por intentos fallidos (1 clic)
  * @access  Privado (ADMINISTRADOR)
  */
-router.patch('/:id/desbloquear', userController.desbloquearUsuario);
+router.patch('/:id/desbloquear', prohibirAutoatencion('usuario', (req) => req.params.id), userController.desbloquearUsuario);
 
 /**
  * @route   PATCH /api/usuarios/:id/estado
  * @desc    Cambiar estado de usuario (ACTIVO/INACTIVO) con motivo obligatorio
  * @access  Privado (ADMINISTRADOR)
  */
-router.patch('/:id/estado', userController.cambiarEstadoUsuario);
+router.patch('/:id/estado', prohibirAutoatencion('usuario', (req) => req.params.id), userController.cambiarEstadoUsuario);
 
 /**
  * @route   POST /api/usuarios/:id/reset-password
  * @desc    Reiniciar contraseña de usuario y generar clave temporal
  * @access  Privado (ADMINISTRADOR)
  */
-router.post('/:id/reset-password', userController.resetPasswordUsuario);
+router.post('/:id/reset-password', prohibirAutoatencion('usuario', (req) => req.params.id), userController.resetPasswordUsuario);
 
 module.exports = router;

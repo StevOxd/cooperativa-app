@@ -1,6 +1,6 @@
 import React from 'react';
 import { Lock } from 'lucide-react';
-import { Button, Field, Input, Modal, Textarea } from '../../ui';
+import { Alert, Button, Field, Input, Modal, Textarea } from '../../ui';
 import { PortalAccessOption } from '../../common/PortalAccessOption';
 
 const FORM_ID = 'formalizar-afiliacion';
@@ -94,6 +94,10 @@ const OperatorAffiliationModal = ({
     </div>
   );
 
+  // La persona ya está en la cooperativa (por ejemplo, trabaja aquí): se conservan sus datos (issue #32)
+  const personaRegistrada = Boolean(selectedAfiliacion.persona_registrada);
+  const yaEsAsociado = Boolean(selectedAfiliacion.ya_es_asociado);
+
   return (
     <Modal
       isOpen
@@ -135,47 +139,63 @@ const OperatorAffiliationModal = ({
         <form id={FORM_ID} onSubmit={handleFormalizarSubmit} className="space-y-6">
           <section aria-labelledby="datos-solicitante" className="space-y-3">
             <h3 id="datos-solicitante" className="text-sm font-semibold text-ink">Datos del solicitante</h3>
+            {yaEsAsociado ? (
+              <Alert tone="warning" title="Esta persona ya es asociada">
+                La solicitud no se puede formalizar. Cancélela; si necesita acceso al portal, se activa desde su
+                expediente.
+              </Alert>
+            ) : personaRegistrada && (
+              <Alert tone="info" title="Esta persona ya está registrada en la cooperativa">
+                Se conservan sus datos registrados, por eso quedan bloqueados: la solicitud no los cambia. Solo se usa el
+                correo, para su usuario de asociado.
+                {selectedAfiliacion.es_personal && ' Trabaja en la cooperativa: ese correo debe ser distinto al de su usuario del personal.'}
+              </Alert>
+            )}
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <Field label="Primer nombre" required>
                 <Input
                   value={editPrimerNombre}
+                  disabled={personaRegistrada}
                   onChange={(e) => setEditPrimerNombre(soloLetras(e.target.value))}
                   autoComplete="off"
                   required
                 />
               </Field>
               <Field label="Segundo nombre">
-                <Input value={editSegundoNombre} onChange={(e) => setEditSegundoNombre(soloLetras(e.target.value))} autoComplete="off" />
+                <Input value={editSegundoNombre} disabled={personaRegistrada} onChange={(e) => setEditSegundoNombre(soloLetras(e.target.value))} autoComplete="off" />
               </Field>
               <Field label="Primer apellido" required>
                 <Input
                   value={editPrimerApellido}
+                  disabled={personaRegistrada}
                   onChange={(e) => setEditPrimerApellido(soloLetras(e.target.value))}
                   autoComplete="off"
                   required
                 />
               </Field>
               <Field label="Segundo apellido">
-                <Input value={editSegundoApellido} onChange={(e) => setEditSegundoApellido(soloLetras(e.target.value))} autoComplete="off" />
+                <Input value={editSegundoApellido} disabled={personaRegistrada} onChange={(e) => setEditSegundoApellido(soloLetras(e.target.value))} autoComplete="off" />
               </Field>
               <Field label="DPI" hint={`${editCuiDpi.length}/13 dígitos`} required>
                 <Input
                   inputMode="numeric"
                   maxLength={13}
                   value={editCuiDpi}
+                  disabled={personaRegistrada}
                   onChange={(e) => setEditCuiDpi(e.target.value.replace(/\D/g, ''))}
                   className="font-mono"
                   required
                 />
               </Field>
               <Field label="Fecha de nacimiento" required>
-                <Input type="date" value={editFechaNacimiento} onChange={(e) => setEditFechaNacimiento(e.target.value)} required />
+                <Input type="date" value={editFechaNacimiento} disabled={personaRegistrada} onChange={(e) => setEditFechaNacimiento(e.target.value)} required />
               </Field>
               <Field label="Teléfono" hint={`${editTelefono.length}/8 dígitos`}>
                 <Input
                   inputMode="numeric"
                   maxLength={8}
                   value={editTelefono}
+                  disabled={personaRegistrada}
                   onChange={(e) => setEditTelefono(e.target.value.replace(/\D/g, '').slice(0, 8))}
                   className="font-mono"
                 />
@@ -189,7 +209,7 @@ const OperatorAffiliationModal = ({
                 <Input type="email" value={editEmail} onChange={(e) => setEditEmail(e.target.value)} />
               </Field>
               <Field label="Dirección" className="sm:col-span-2">
-                <Input value={editDireccion} onChange={(e) => setEditDireccion(e.target.value)} />
+                <Input value={editDireccion} disabled={personaRegistrada} onChange={(e) => setEditDireccion(e.target.value)} />
               </Field>
             </div>
           </section>

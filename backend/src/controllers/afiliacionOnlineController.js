@@ -11,11 +11,6 @@ const { verificarDominioCorreo } = require('../utils/correoDominio');
 // id_rol del asociado en la tabla roles (el mismo que se usa al crear su usuario).
 const ID_ROL_ASOCIADO = 3;
 
-// Un usuario tiene un solo rol: si es personal (operador, ejecutivo o administrador) y se afiliara
-// en línea, quedaría como asociado sin poder ver su cuenta en el portal.
-const MENSAJE_PERSONAL_NO_AFILIA_EN_LINEA =
-  'Usted ya tiene un usuario del personal de la cooperativa. Para afiliarse, acérquese a un ejecutivo.';
-
 /**
  * 1. Valida el DPI del solicitante consultando al Core Banking API (banco-backend).
  * Identifica si es cliente/colaborador de la entidad bancaria o persona sin relación previa.
@@ -140,21 +135,14 @@ const validarCredencialesBanco = async (req, res) => {
       });
     }
 
-    // Si ya tiene usuario en el portal, conserva su acceso actual; si es personal, no se afilia en línea.
+    // Si ya tiene usuario de asociado, conserva su acceso actual. Quien es del personal se afilia con un
+    // usuario de asociado aparte (issue #32): su usuario del personal no cuenta aquí.
     const usuarioRes = await client.query(
-      // Primero el usuario del personal, si lo hay (id_rol = 3 ordena al final)
-      `SELECT u.codigo_corporativo, u.id_rol FROM usuarios u JOIN personas p ON u.id_persona = p.id_persona
-       WHERE p.cui_dpi = $1 ORDER BY (u.id_rol = 3) LIMIT 1`,
-      [cuiLimpio]
+      `SELECT u.codigo_corporativo FROM usuarios u JOIN personas p ON u.id_persona = p.id_persona
+       WHERE p.cui_dpi = $1 AND u.id_rol = $2`,
+      [cuiLimpio, ID_ROL_ASOCIADO]
     );
     const usuarioExistente = usuarioRes.rows[0] || null;
-    if (usuarioExistente && usuarioExistente.id_rol !== ID_ROL_ASOCIADO) {
-      return res.status(409).json({
-        success: false,
-        es_personal: true,
-        message: MENSAJE_PERSONAL_NO_AFILIA_EN_LINEA,
-      });
-    }
 
     const tipoSujeto = cliente.tipo_cliente === 'EMPLEADO_PLANILLA' ? 'EMPLEADO_BANCO' : 'CLIENTE_BANCO';
     const tipoSujetoDescripcion = cliente.tipo_cliente === 'EMPLEADO_PLANILLA'
@@ -253,21 +241,14 @@ const procesarAfiliacionExistente = async (req, res) => {
       });
     }
 
-    // Quien ya tiene usuario en el portal conserva su acceso: no se cambia su contraseña, rol ni 2FA.
+    // Quien ya tiene usuario de asociado conserva su acceso: no se cambia su contraseña ni su 2FA.
+    // El usuario del personal de la misma persona no cuenta: el de asociado es otro (issue #32).
     const usuarioPrevioRes = await client.query(
-      // Primero el usuario del personal, si lo hay (id_rol = 3 ordena al final)
-      `SELECT u.id_persona, u.id_rol FROM usuarios u JOIN personas p ON u.id_persona = p.id_persona
-       WHERE p.cui_dpi = $1 ORDER BY (u.id_rol = 3) LIMIT 1`,
-      [cuiLimpio]
+      `SELECT u.id_persona FROM usuarios u JOIN personas p ON u.id_persona = p.id_persona
+       WHERE p.cui_dpi = $1 AND u.id_rol = $2`,
+      [cuiLimpio, ID_ROL_ASOCIADO]
     );
     const tieneUsuarioPrevio = usuarioPrevioRes.rows.length > 0;
-    if (tieneUsuarioPrevio && usuarioPrevioRes.rows[0].id_rol !== ID_ROL_ASOCIADO) {
-      return res.status(409).json({
-        success: false,
-        es_personal: true,
-        message: MENSAJE_PERSONAL_NO_AFILIA_EN_LINEA,
-      });
-    }
 
     // La contraseña la elige el solicitante sin usuario previo: se valida antes de debitar.
     if (!tieneUsuarioPrevio) {
@@ -361,18 +342,20 @@ const procesarAfiliacionExistente = async (req, res) => {
       });
     }
 
-    // Verificar que el correo electrónico no esté registrado por otro usuario
+    // Verificar que el correo electrónico no esté registrado por otro usuario, tampoco por el usuario del
+    // personal de la misma persona: el usuario de asociado lleva un correo distinto (issue #32).
     if (!tieneUsuarioPrevio && email && email.trim()) {
       const emailLimpio = email.trim().toLowerCase();
-      const checkEmail = await client.query(
-        'SELECT id_persona FROM usuarios WHERE LOWER(email) = $1 AND id_persona != $2',
-        [emailLimpio, persona.id_persona]
-      );
+      const checkEmail = await client.query('SELECT id_persona FROM usuarios WHERE LOWER(email) = $1', [emailLimpio]);
       if (checkEmail.rows.length > 0) {
         await client.query('ROLLBACK');
-        return res.status(400).json({
+        const esDelPersonal = Number(checkEmail.rows[0].id_persona) === Number(persona.id_persona);
+        return res.status(esDelPersonal ? 409 : 400).json({
           success: false,
-          message: 'Ese correo ya lo usa otra persona. Escriba otro.',
+          error: esDelPersonal ? 'CORREO_DEL_PERSONAL' : undefined,
+          message: esDelPersonal
+            ? 'Ese es el correo de su usuario del personal. Para su usuario de asociado escriba otro correo.'
+            : 'Ese correo ya lo usa otra persona. Escriba otro.',
         });
       }
     }
@@ -831,7 +814,9 @@ const verificarEmail = async (req, res) => {
   // Sin cliente dedicado: la consulta DNS del dominio no debe tener una conexión del pool ocupada.
   try {
     const rawEmail = req.body.email || req.query.email;
-    const excluirIdPersona = req.body.excluir_id_persona || req.query.excluir_id_persona;
+    // Para editar un usuario: su propio correo no cuenta como ocupado. Se excluye por usuario, no por
+    // persona, porque el usuario del personal y el de asociado de una persona llevan correos distintos.
+    const excluirIdUsuario = req.body.excluir_id_usuario || req.query.excluir_id_usuario;
     const excluirIdSolicitud = req.body.excluir_id_solicitud || req.query.excluir_id_solicitud;
 
     if (!rawEmail || !rawEmail.trim()) {
@@ -856,9 +841,9 @@ const verificarEmail = async (req, res) => {
     // 1. Verificar en usuarios (asociados, operadores, administradores)
     let userQuery = 'SELECT id_persona, codigo_corporativo FROM usuarios WHERE LOWER(email) = $1';
     const userParams = [email];
-    if (excluirIdPersona) {
-      userQuery += ' AND id_persona != $2';
-      userParams.push(excluirIdPersona);
+    if (/^\d{1,9}$/.test(String(excluirIdUsuario || ''))) {
+      userQuery += ' AND id_usuario <> $2';
+      userParams.push(Number(excluirIdUsuario));
     }
     const userCheck = await pool.query(userQuery, userParams);
 

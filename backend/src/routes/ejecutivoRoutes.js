@@ -3,6 +3,7 @@ const router = express.Router();
 const ejecutivoController = require('../controllers/ejecutivoController');
 const operadorController = require('../controllers/operadorController');
 const { verifyToken, checkRole } = require('../middlewares/authMiddleware');
+const { prohibirAutoatencion } = require('../middlewares/segregacion');
 
 // Proteger todas las rutas del ejecutivo con autenticación JWT y rol EJECUTIVO o ADMINISTRADOR
 router.use(verifyToken);
@@ -20,7 +21,7 @@ router.get('/creditos', ejecutivoController.getBandejaCreditos);
  * @desc    Resolver una solicitud de crédito: ACEPTAR, DEVOLVER o DENEGAR
  * @access  Privado (Ejecutivo / Administrador)
  */
-router.post('/creditos/:id/resolver', ejecutivoController.resolverSolicitudCredito);
+router.post('/creditos/:id/resolver', prohibirAutoatencion('solicitudCredito', (req) => req.params.id), ejecutivoController.resolverSolicitudCredito);
 
 /**
  * @route   GET /api/ejecutivo/creditos/:id/evaluacion

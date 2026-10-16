@@ -53,6 +53,7 @@ Cada cambio que toque autenticación, afiliación, dinero o correo debe pasar es
 - **Secretos fuera de respuestas y registros:** contraseñas temporales, códigos de verificación y secretos 2FA nunca en JSON ni en `console.log`.
 - **Configuración:** ninguna clave con valor por defecto en el código ni en `docker-compose.yml`; los puertos internos (5002, 5432) solo en `127.0.0.1`.
 - **Límites por conexión** (`express-rate-limit`) en toda ruta pública que reciba DPI, credenciales o correos.
+- **Segregación de funciones:** toda acción del personal sobre un trámite (afiliar, abrir cuentas, depósitos, traslados, créditos, acceso al portal, estado, beneficiarios, usuarios) pasa por `prohibirAutoatencion` o `esAutoatencion` (`middlewares/segregacion.js`), comparando la persona y no el usuario. Una ruta nueva de ese tipo sin esa revisión es un hallazgo.
 - **Solo tokens de sesión vigente:** las rutas HTTP (`verifyToken`) y los WebSockets validan con `services/sesionService.js` (sin `purpose`, usuario `ACTIVO` y `sesion_activa_id` igual al de la base de datos). Un token emitido para un paso concreto, como el del segundo paso del 2FA, nunca sirve como sesión, y un socket solo cierra su propia sesión. Cualquier otro lugar que verifique un JWT por su cuenta es un hallazgo.
 - **Correo que no sale:** un flujo que entrega credenciales por correo no deja a nadie con una contraseña que nadie recibió.
 

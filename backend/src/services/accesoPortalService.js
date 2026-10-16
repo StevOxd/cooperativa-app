@@ -19,15 +19,15 @@ const fallar = (statusCode, code, message) => {
  * - `PENDIENTE`: tiene usuario pero nunca entró; se puede reenviar (y corregir el correo).
  * - `ACTIVO`: ya entró al portal; si olvidó la contraseña, la reinicia el administrador.
  * - `INACTIVO`: su usuario está desactivado; lo reactiva el administrador.
- * - `PERSONAL`: no tiene usuario de asociado y la persona tiene uno del personal (issue #32).
  *
- * La fila trae los datos del usuario de asociado de la persona (rol ASOCIADO), si lo tiene.
+ * La fila trae los datos del usuario de asociado de la persona (rol ASOCIADO), si lo tiene. Si la persona
+ * también es del personal, ese otro usuario no cuenta: su acceso al portal es aparte (issue #32).
  *
- * @param {{estado_usuario?: string, ultimo_acceso?: Date|null, codigo_corporativo?: string, tiene_usuario_personal?: boolean}} fila
+ * @param {{estado_usuario?: string, ultimo_acceso?: Date|null, codigo_corporativo?: string}} fila
  * @returns {string}
  */
 const estadoAccesoPortal = (fila) => {
-  if (!fila.codigo_corporativo) return fila.tiene_usuario_personal ? 'PERSONAL' : 'SIN_ACCESO';
+  if (!fila.codigo_corporativo) return 'SIN_ACCESO';
   if (fila.estado_usuario !== 'ACTIVO') return 'INACTIVO';
   return fila.ultimo_acceso ? 'ACTIVO' : 'PENDIENTE';
 };
@@ -47,10 +47,7 @@ const estadoAccesoPortal = (fila) => {
 const activarAccesoPortal = async ({ idAsociado, email, operador }) => {
   const filaRes = await pool.query(
     `SELECT a.id_asociado, a.estado_asociado, p.id_persona, p.cui_dpi, p.nombre_completo,
-            u.id_usuario, u.codigo_corporativo, u.id_rol, u.estado AS estado_usuario, u.ultimo_acceso, u.email,
-            EXISTS (
-              SELECT 1 FROM usuarios s WHERE s.id_persona = a.id_persona AND s.id_rol <> $2
-            ) AS tiene_usuario_personal
+            u.id_usuario, u.codigo_corporativo, u.id_rol, u.estado AS estado_usuario, u.ultimo_acceso, u.email
      FROM asociados a
      JOIN personas p ON p.id_persona = a.id_persona
      LEFT JOIN usuarios u ON u.id_persona = a.id_persona AND u.id_rol = $2
@@ -68,9 +65,6 @@ const activarAccesoPortal = async ({ idAsociado, email, operador }) => {
   if (estado === 'INACTIVO') {
     fallar(409, 'ACCESO_DESACTIVADO', 'El usuario de este asociado está desactivado. Lo reactiva el administrador desde Usuarios.');
   }
-  if (estado === 'PERSONAL') {
-    fallar(409, 'USUARIO_PERSONAL', 'Esta persona tiene un usuario del personal de la cooperativa.');
-  }
 
   // Correo funcionando, formato y dominio que recibe correo (mismas reglas que al afiliar, issue #26)
   const acceso = await decidirAccesoPortal(true, email);
@@ -79,10 +73,15 @@ const activarAccesoPortal = async ({ idAsociado, email, operador }) => {
   // Cualquier otro usuario con ese correo lo impide, también el del personal de la misma persona:
   // el usuario de asociado lleva un correo distinto (issue #32).
   const dup = await pool.query(
-    'SELECT 1 FROM usuarios WHERE LOWER(email) = LOWER($1) AND id_usuario IS DISTINCT FROM $2',
+    'SELECT id_persona FROM usuarios WHERE LOWER(email) = LOWER($1) AND id_usuario IS DISTINCT FROM $2',
     [emailFinal, fila.id_usuario]
   );
-  if (dup.rows.length > 0) fallar(409, 'CORREO_EN_USO', 'Ese correo ya lo usa otra persona. Escriba otro.');
+  if (dup.rows.length > 0) {
+    if (Number(dup.rows[0].id_persona) === Number(fila.id_persona)) {
+      fallar(409, 'CORREO_DEL_PERSONAL', 'Ese correo es del usuario del personal de esta persona. Su usuario de asociado lleva un correo distinto.');
+    }
+    fallar(409, 'CORREO_EN_USO', 'Ese correo ya lo usa otra persona. Escriba otro.');
+  }
 
   const reenvio = estado === 'PENDIENTE';
   let codigo = fila.codigo_corporativo;
