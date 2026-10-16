@@ -149,9 +149,6 @@ const getExpedienteAsociado = async (req, res) => {
         u.email,
         u.estado AS estado_usuario,
         u.ultimo_acceso,
-        EXISTS (
-          SELECT 1 FROM usuarios s WHERE s.id_persona = a.id_persona AND s.id_rol <> 3
-        ) AS tiene_usuario_personal,
         -- Correo sugerido para activar el acceso: el del usuario o el de su última solicitud en agencia
         COALESCE(u.email, (
           SELECT s.email FROM solicitudes_afiliacion_agencia s
@@ -173,13 +170,9 @@ const getExpedienteAsociado = async (req, res) => {
       });
     }
 
-    const { ultimo_acceso: ultimoAcceso, tiene_usuario_personal: tieneUsuarioPersonal, ...asociado } = asociadoResult.rows[0];
-    // Estado del acceso al portal (issue #27): SIN_ACCESO, PENDIENTE, ACTIVO, INACTIVO o PERSONAL
-    asociado.acceso_portal = estadoAccesoPortal({
-      ...asociado,
-      ultimo_acceso: ultimoAcceso,
-      tiene_usuario_personal: tieneUsuarioPersonal,
-    });
+    const { ultimo_acceso: ultimoAcceso, ...asociado } = asociadoResult.rows[0];
+    // Estado del acceso al portal (issue #27): SIN_ACCESO, PENDIENTE, ACTIVO o INACTIVO
+    asociado.acceso_portal = estadoAccesoPortal({ ...asociado, ultimo_acceso: ultimoAcceso });
 
     // 2. Obtener las cuentas del asociado con sus beneficiarios agrupados
     const cuentasQuery = `

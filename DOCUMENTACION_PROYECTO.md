@@ -41,8 +41,9 @@ El presente sistema constituye una plataforma bancaria y cooperativa de nivel em
 ### Módulos Principales del Ecosistema:
 
 1. **Módulo 1: Afiliación Digital y Presencial (Membresía Cooperativa):**
-   - **Escenario 1 (Cliente o Colaborador de la Entidad Bancaria):** Consulta del CUI/DPI contra el Core Banking (sin revelar datos de la persona), autenticación con 3 credenciales de Banca en Línea (usuario, código y contraseña), verificación del correo con un código de 6 dígitos, débito del aporte inicial **solo desde una cuenta del propio titular** y acceso al portal con la contraseña que eligió el solicitante. El personal de la cooperativa no se afilia en línea.
+   - **Escenario 1 (Cliente o Colaborador de la Entidad Bancaria):** Consulta del CUI/DPI contra el Core Banking (sin revelar datos de la persona), autenticación con 3 credenciales de Banca en Línea (usuario, código y contraseña), verificación del correo con un código de 6 dígitos, débito del aporte inicial **solo desde una cuenta del propio titular** y acceso al portal con la contraseña que eligió el solicitante. El personal de la cooperativa también se afilia así, con un usuario de asociado aparte y un correo distinto al del personal (issue #32).
    - **Escenario 2 (Solicitante No Bancarizado / Nuevo):** Verificación matemática y legal estricta de mayoría de edad (18+ años cumplidos), verificación del correo con un código de 6 dígitos, generación de caso correlativo institucional `CASO-AFIL-YYYY-XXXX` mediante trigger en PostgreSQL, envío del número de caso por correo y emisión de comprobante oficial en PDF para formalización en ventanilla.
+   - **Personal que se Afilia desde su Sesión:** Opción «Afiliarme a la cooperativa» en el menú del administrador, el operador y el ejecutivo: con los datos que la cooperativa ya tiene, elige el correo de su usuario de asociado y puede actualizar su teléfono; la solicitud la formaliza un colega en la bandeja de afiliaciones (issue #32).
    - **Ventanilla de Operador:** Bandeja operativa de afiliaciones con bloqueo concurrente atómico (`HTTP 409 Conflict`), Formulario 1 (formalización presencial), Formulario 2 (apertura de cuentas adicionales), Formulario 3 (asignación de beneficiarios con regla estricta del 100.00%) y Expediente Integral 360° (Reporte 1.1).
    - **Comprobante Oficial de Apertura en PDF:** Generación en ventanilla de un comprobante con formato institucional estándar, desglose de operación en caja, acreditación a cuentas y firma/sello digital.
 
@@ -179,6 +180,8 @@ El sistema opera bajo un modelo estricto de Control de Acceso Basado en Roles (*
 |                   | consolidados, traslados de nómina y solicitud de préstamos. |
 +-------------------+-------------------------------------------------------------+
 ```
+
+Cada usuario tiene un solo rol. Una persona del personal que se afilia tiene dos usuarios: el del personal y el de asociado, cada uno con su código, contraseña, correo y sesión (issue #32). Nadie atiende sus propios trámites.
 
 ### Matriz de Permisos y Acceso por Componente:
 
@@ -529,6 +532,8 @@ Gestionada por el microservicio `banco-backend` (:5002):
 17. **Límites por Conexión:** 15 inicios de sesión, 30 consultas de DPI o Banca en Línea y 10 códigos de verificación cada 15 minutos.
 18. **Afiliación en Línea Verificada:** Comprobante firmado de la Banca en Línea, cuenta de débito del propio titular y correo confirmado con código antes de debitar o crear el caso.
 19. **Operaciones con el Banco desde Ventanilla:** Requieren sesión de operador; las aperturas con fondos del banco solo aceptan cuentas del propio asociado y se cancelan si el débito falla.
+20. **El Personal También es Asociado (issue #32):** Quien trabaja en la cooperativa puede afiliarse por cualquier canal (ventanilla, solicitud en agencia, en línea o «Afiliarme a la cooperativa» desde su sesión). Recibe un usuario de asociado aparte, con su propio código (`EX-X`/`EB-X`), contraseña y un correo distinto al del personal. Se afilia con los datos que la cooperativa ya tiene: solo cambian el correo y el teléfono, y una solicitud pública nunca sobrescribe los datos de una persona registrada.
+21. **Nadie Atiende sus Propios Trámites (Segregación de Funciones):** El personal no afilia, no abre cuentas, no registra depósitos ni traslados, no resuelve créditos, no activa el acceso ni cambia el estado de su propia persona (`middlewares/segregacion.js`, `HTTP 403 AUTOATENCION_NO_PERMITIDA`). Un administrador no modifica sus propios usuarios. Se compara la persona, no el usuario.
 
 ---
 
@@ -652,7 +657,7 @@ El proyecto cuenta con suites de pruebas automatizadas oficiales en la carpeta `
 8. **Servicio de Mensajería Google (`testGoogleMailer.js`):** Valida conexión y autenticación SMTP con los servidores de Google.
 9. **Protocolos de Sesión (`testSecurityProtocols.js`):** Valida el bloqueo por 3 intentos, que una cuenta inexistente responda igual que una existente, el desbloqueo administrativo y la sesión única concurrente.
 10. **Doble Factor (`test2faFlow.js`):** Valida activación, inicio de sesión con código y desactivación del 2FA. Usa el backend levantado (puerto 5001).
-11. **Usuario del personal y de asociado (`testUsuarioDoble.js`):** Valida la llave `usuarios.id_usuario` y sus llaves foráneas, que una persona tenga como máximo un usuario de cada tipo, sesiones independientes, que suspender la afiliación o desactivar al colaborador afecte solo a su usuario, la auditoría por `id_usuario` y que los tokens anteriores sigan funcionando (issue #32).
+11. **Usuario del personal y de asociado (`testUsuarioDoble.js`):** Valida la llave `usuarios.id_usuario` y sus llaves foráneas, que una persona tenga como máximo un usuario de cada tipo, sesiones independientes, que suspender la afiliación o desactivar al colaborador afecte solo a su usuario, la auditoría por `id_usuario`, que los tokens anteriores sigan funcionando, que nadie atienda sus propios trámites, la solicitud de afiliación del personal desde su sesión, la formalización que conserva sus datos, la afiliación en ventanilla y la activación del acceso con un correo distinto (issue #32).
 12. **Validación de sesión (`testValidacionSesion.js`):** Valida que las rutas HTTP y los WebSockets solo acepten el token de la sesión vigente: el token del segundo paso del 2FA y los de sesiones cerradas no sirven, la sesión única se mantiene y un socket, al desconectarse, solo cierra su propia sesión.
 
 ### Ejecución de Todas las Suites en un Solo Comando:

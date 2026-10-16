@@ -359,6 +359,9 @@ const getBandejaAfiliaciones = async (req, res) => {
         op_bloq_u.codigo_corporativo AS operador_bloqueo_codigo,
         op_res.primer_nombre || ' ' || op_res.primer_apellido AS operador_resuelve_nombre,
         u_asoc.codigo_corporativo AS asociado_codigo,
+        p_asoc.id_persona AS id_persona_registrada,
+        (a_asoc.id_asociado IS NOT NULL) AS ya_es_asociado,
+        EXISTS (SELECT 1 FROM usuarios u_per WHERE u_per.id_persona = p_asoc.id_persona AND u_per.id_rol <> 3) AS es_personal,
         COALESCE(s.numero_cuenta_bancaria, c_asoc.numero_cuenta) AS numero_cuenta,
         COALESCE(s.monto_estimado, c_asoc.saldo_disponible) AS saldo_disponible
       FROM solicitudes_afiliacion_agencia s
@@ -403,6 +406,11 @@ const getBandejaAfiliaciones = async (req, res) => {
     result.rows.forEach((r) => {
       r.esta_bloqueado = !!(r.id_operador_bloqueo && r.fecha_bloqueo);
       r.bloqueado_por_mi = r.id_operador_bloqueo === idOperador;
+      // La persona ya está en la cooperativa (por ejemplo, alguien del personal): se conservan sus datos
+      r.persona_registrada = Boolean(r.id_persona_registrada);
+      // Su propia solicitud la atiende un colega (issue #32)
+      r.es_propia = Number(r.id_persona_registrada) === Number(req.user?.id_persona);
+      delete r.id_persona_registrada;
     });
 
     return res.status(200).json({

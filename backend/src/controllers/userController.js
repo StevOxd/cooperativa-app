@@ -3,25 +3,11 @@ const db = require('../config/db');
 const socketService = require('../services/socketService');
 const mailerService = require('../services/mailerService');
 const { getNextCorporateCode, resolvePrefix, generateSecureRandomPassword } = require('../utils/codeGenerator');
+const { filtroUsuario } = require('../utils/identificadores');
 
 const ROLES_PERMITIDOS = ['ADMINISTRADOR', 'OPERADOR', 'EJECUTIVO', 'ASOCIADO'];
 const ESTADOS_PERMITIDOS = ['ACTIVO', 'INACTIVO'];
 const ID_ROL_ASOCIADO = 3;
-
-/**
- * Condición SQL para ubicar al usuario de `:id`. Un número es su id_usuario; cualquier otro valor, su
- * código. Así un código numérico (por ejemplo «1001») nunca se confunde con el id de otro usuario (issue #32).
- *
- * @param {string} id - Parámetro `:id` de la ruta.
- * @param {string} [alias] - Alias de la tabla usuarios en la consulta (vacío si no tiene).
- * @returns {{condicion: string, valor: number|string}} Condición con el parámetro $1 y su valor.
- */
-const filtroUsuario = (id, alias = 'u') => {
-  const prefijo = alias ? `${alias}.` : '';
-  return /^\d+$/.test(String(id))
-    ? { condicion: `${prefijo}id_usuario = $1`, valor: Number(id) }
-    : { condicion: `${prefijo}codigo_corporativo = $1`, valor: String(id) };
-};
 
 const getClientIp = (req) => req.headers['x-forwarded-for']?.split(',')[0].trim() || req.socket.remoteAddress || null;
 const getUserAgent = (req) => req.headers['user-agent'] || 'Desconocido';

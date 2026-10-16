@@ -4,9 +4,10 @@ import { UpdateProfileModal } from '../profile/UpdateProfileModal';
 import { ChangePasswordModal } from '../profile/ChangePasswordModal';
 import { AccountSettingsModal } from '../profile/AccountSettingsModal';
 import { GoogleEmailConfigModal } from '../admin/GoogleEmailConfigModal';
+import { StaffAffiliationModal } from '../profile/StaffAffiliationModal';
 
 /**
- * Acciones de la cuenta (seguridad, correo del sistema, cerrar sesión) y los
+ * Acciones de la cuenta (seguridad, correo del sistema, afiliarse, cerrar sesión) y los
  * modales que abren. La barra lateral y la barra superior comparten este hook
  * para que el comportamiento sea el mismo en ambas.
  *
@@ -20,6 +21,7 @@ export const useAccountActions = () => {
   const [isAccountSettingsOpen, setIsAccountSettingsOpen] = useState(false);
   const [accountSettingsInitialTab, setAccountSettingsInitialTab] = useState('2fa');
   const [isEmailConfigOpen, setIsEmailConfigOpen] = useState(false);
+  const [isStaffAffiliationOpen, setIsStaffAffiliationOpen] = useState(false);
 
   const isAdmin = user?.rol === 'ADMINISTRADOR';
 
@@ -29,6 +31,8 @@ export const useAccountActions = () => {
   };
 
   const openEmailConfig = () => setIsEmailConfigOpen(true);
+  // Afiliación del personal como asociado (issue #32)
+  const openStaffAffiliation = () => setIsStaffAffiliationOpen(true);
 
   const modals = (
     <>
@@ -47,6 +51,11 @@ export const useAccountActions = () => {
         />
       )}
 
+      <StaffAffiliationModal
+        isOpen={isStaffAffiliationOpen}
+        onClose={() => setIsStaffAffiliationOpen(false)}
+      />
+
       {/* Modales de perfil y contraseña legados (por compatibilidad) */}
       <UpdateProfileModal
         isOpen={isUpdateProfileOpen}
@@ -59,7 +68,7 @@ export const useAccountActions = () => {
     </>
   );
 
-  return { user, isAdmin, logout, openSecurity, openEmailConfig, modals };
+  return { user, isAdmin, logout, openSecurity, openEmailConfig, openStaffAffiliation, modals };
 };
 
 export default useAccountActions;

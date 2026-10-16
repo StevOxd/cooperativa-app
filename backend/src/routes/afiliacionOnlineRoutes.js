@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const afiliacionOnlineController = require('../controllers/afiliacionOnlineController');
+const afiliacionPersonalController = require('../controllers/afiliacionPersonalController');
 const { validateCuiMiddleware } = require('../middlewares/validationMiddleware');
 const rateLimit = require('express-rate-limit');
 const { verifyToken, checkRole } = require('../middlewares/authMiddleware');
@@ -56,5 +57,11 @@ router.post('/solicitar-nuevo', afiliacionOnlineController.registrarSolicitudAge
 const soloPersonal = [verifyToken, checkRole('OPERADOR', 'ADMINISTRADOR')];
 router.post('/verificar-email', ...soloPersonal, afiliacionOnlineController.verificarEmail);
 router.get('/verificar-email', ...soloPersonal, afiliacionOnlineController.verificarEmail);
+
+// 5. Afiliación del personal desde su sesión (issue #32): sus datos ya están en la cooperativa y la
+//    solicitud la formaliza un colega.
+const soloSesionPersonal = [verifyToken, checkRole('ADMINISTRADOR', 'OPERADOR', 'EJECUTIVO')];
+router.get('/personal', ...soloSesionPersonal, afiliacionPersonalController.obtenerMiAfiliacion);
+router.post('/personal/solicitud', ...soloSesionPersonal, afiliacionPersonalController.solicitarMiAfiliacion);
 
 module.exports = router;

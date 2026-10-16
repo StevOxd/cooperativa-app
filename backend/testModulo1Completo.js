@@ -8,7 +8,6 @@ const http = require('http');
 const { app } = require('./src/server');
 const { pool } = require('./src/config/db');
 const bancoApiService = require('./src/services/bancoApiService');
-const { firmarAfiliacionToken } = require('./src/utils/afiliacionToken');
 const mailerService = require('./src/services/mailerService');
 
 const server = app.listen(0, async () => {
@@ -74,13 +73,16 @@ const server = app.listen(0, async () => {
       await pool.query("DELETE FROM usuarios WHERE id_persona = $1", [idMarcos]);
     }
 
-    // Quitar una afiliación previa de María Gutiérrez (OP-2, 2000000000002), conservando su usuario de operadora
+    // Quitar una afiliación previa de María Gutiérrez (OP-2, 2000000000002) y su usuario de asociado,
+    // conservando su usuario de operadora (issue #32)
     const pOp2 = await pool.query("SELECT id_persona FROM personas WHERE cui_dpi = '2000000000002'");
     if (pOp2.rows.length > 0) {
       const idOp2 = pOp2.rows[0].id_persona;
       await pool.query("DELETE FROM transacciones WHERE id_cuenta IN (SELECT id_cuenta FROM cuentas WHERE id_asociado IN (SELECT id_asociado FROM asociados WHERE id_persona = $1))", [idOp2]);
       await pool.query("DELETE FROM cuentas WHERE id_asociado IN (SELECT id_asociado FROM asociados WHERE id_persona = $1)", [idOp2]);
       await pool.query("DELETE FROM asociados WHERE id_persona = $1", [idOp2]);
+      await pool.query("DELETE FROM historial_estados_usuario WHERE id_usuario_modificado IN (SELECT id_usuario FROM usuarios WHERE id_persona = $1 AND id_rol = 3)", [idOp2]);
+      await pool.query("DELETE FROM usuarios WHERE id_persona = $1 AND id_rol = 3", [idOp2]);
     }
 
     // Limpiar la afiliación de prueba de Valeria Méndez (EB, 1000000000004, sección 4.1.1)
@@ -394,9 +396,11 @@ const server = app.listen(0, async () => {
     }
     console.log('✓ «Ya es asociado» solo se informa después de validar la Banca en Línea.');
 
-    // 2.5 Personal con usuario en el portal (OP-2): no se afilia en línea y su acceso no cambia
+    // 2.5 Personal (OP-2): se afilia en línea con un usuario de asociado aparte (issue #32). Su usuario del
+    //     personal (contraseña, rol, 2FA) no cambia y su correo del personal no sirve para el de asociado.
     const accesoOp2Query = `SELECT u.password_hash, u.id_rol, u.mfa_secret, u.mfa_enabled, u.debe_cambiar_password
-       FROM usuarios u JOIN personas p ON u.id_persona = p.id_persona WHERE p.cui_dpi = '2000000000002'`;
+       FROM usuarios u JOIN personas p ON u.id_persona = p.id_persona
+       WHERE p.cui_dpi = '2000000000002' AND u.id_rol <> 3`;
     const accesoOp2Antes = (await pool.query(accesoOp2Query)).rows[0];
 
     const op2AuthRes = await request('/api/afiliacion/validar-credenciales-banco', 'POST', {
@@ -405,31 +409,61 @@ const server = app.listen(0, async () => {
       codigo: 'CLI-202',
       password: 'Banco123!',
     });
-    if (op2AuthRes.status !== 409 || !op2AuthRes.body.es_personal || op2AuthRes.body.afiliacion_token) {
-      throw new Error('Debería rechazar la afiliación en línea del personal sin emitir comprobante: ' + JSON.stringify(op2AuthRes.body));
+    const cuentasOp2 = op2AuthRes.body.cuentas_bancarias || [];
+    if (op2AuthRes.status !== 200 || !op2AuthRes.body.afiliacion_token || cuentasOp2.length === 0) {
+      throw new Error('El personal debería poder validar su Banca en Línea para afiliarse: ' + JSON.stringify(op2AuthRes.body));
     }
-    console.log('✓ Personal de la cooperativa (OP-2) rechazado al validar la Banca en Línea.');
+    console.log('✓ El personal (OP-2) valida su Banca en Línea para afiliarse.');
 
-    // Aunque llegara con un comprobante válido, el servidor tampoco lo afilia
-    const tokenOp2 = firmarAfiliacionToken({
+    const cuentaOp2 = cuentasOp2[0];
+    const afiliarOp2 = (email, codigo) => request('/api/afiliacion/procesar-existente', 'POST', {
       cui_dpi: '2000000000002',
-      cuentas: [{ id_cuenta_bancaria: 0, numero_cuenta_bancaria: 'CTA-BCO-MONET-2002' }],
-    });
-    const afiliacionOp2Res = await request('/api/afiliacion/procesar-existente', 'POST', {
-      cui_dpi: '2000000000002',
-      numero_cuenta_bancaria: 'CTA-BCO-MONET-2002',
+      id_cuenta_bancaria: cuentaOp2.id_cuenta_bancaria,
+      afiliacion_token: op2AuthRes.body.afiliacion_token,
       monto_aportacion: 100.00,
       password: 'OtraClave123!',
-      afiliacion_token: tokenOp2,
+      email,
+      codigo_verificacion: codigo,
     });
-    if (afiliacionOp2Res.status !== 409 || !afiliacionOp2Res.body.es_personal) {
-      throw new Error('Debería rechazar la afiliación del personal en procesar-existente: ' + JSON.stringify(afiliacionOp2Res.body));
+
+    // El código se pide igual para cualquier correo (no revela si existe); el rechazo llega al afiliar
+    const correoPersonalOp2 = 'operador.maria@cooperativa.com';
+    await pool.query('DELETE FROM codigos_verificacion_correo WHERE email = $1', [correoPersonalOp2]); // espera de reenvío
+    const saldoOp2 = async () => Number((await bancoApiService.consultarCuenta(cuentaOp2.numero_cuenta_bancaria)).data?.saldo_disponible);
+    const saldoAntes = await saldoOp2();
+    const conCorreoPersonalOp2 = await afiliarOp2(correoPersonalOp2, await pedirCodigo(correoPersonalOp2));
+    if (conCorreoPersonalOp2.status !== 409 || conCorreoPersonalOp2.body.error !== 'CORREO_DEL_PERSONAL' || (await saldoOp2()) !== saldoAntes) {
+      throw new Error('El correo del usuario del personal no debería servir para el usuario de asociado: ' + JSON.stringify(conCorreoPersonalOp2.body));
+    }
+    console.log('✓ Su correo del personal no sirve para su usuario de asociado (no se debita nada).');
+
+    const emailAsociadoOp2 = `maria.asociada.${Date.now()}@example.com`;
+    const afiliacionOp2Res = await afiliarOp2(emailAsociadoOp2, await pedirCodigo(emailAsociadoOp2));
+    const usuariosOp2 = (await pool.query(
+      `SELECT u.codigo_corporativo, u.id_rol, u.email FROM usuarios u JOIN personas p ON u.id_persona = p.id_persona
+       WHERE p.cui_dpi = '2000000000002' ORDER BY u.id_rol`
+    )).rows;
+    const usuarioAsociadoOp2 = usuariosOp2.find((u) => u.id_rol === 3);
+    if (afiliacionOp2Res.status !== 201 || usuariosOp2.length !== 2 || !usuarioAsociadoOp2
+      || usuarioAsociadoOp2.email !== emailAsociadoOp2 || !usuariosOp2.some((u) => u.codigo_corporativo === 'OP-2')) {
+      throw new Error('OP-2 debería quedar con su usuario de asociado aparte: ' + JSON.stringify({ body: afiliacionOp2Res.body, usuariosOp2 }));
     }
     const accesoOp2Despues = (await pool.query(accesoOp2Query)).rows[0];
     if (JSON.stringify(accesoOp2Antes) !== JSON.stringify(accesoOp2Despues)) {
-      throw new Error('La afiliación no debería modificar la contraseña, el rol ni el 2FA del personal.');
+      throw new Error('La afiliación no debería modificar la contraseña, el rol ni el 2FA del usuario del personal.');
     }
-    console.log('✓ Personal rechazado también en procesar-existente, sin cambios en su contraseña, rol ni 2FA.');
+    console.log(`✓ OP-2 queda afiliada con su usuario de asociado ${usuarioAsociadoOp2.codigo_corporativo}; su usuario del personal no cambió.`);
+
+    // Devolver el aporte a su cuenta del banco para que la prueba se pueda repetir
+    const devolucion = await bancoApiService.acreditarCuenta({
+      numero_cuenta: cuentaOp2.numero_cuenta_bancaria,
+      monto: 100.00,
+      concepto: 'Devolución de la prueba de afiliación del personal',
+      referencia: 'TEST-DEV-OP2-' + Date.now(),
+    });
+    if (!devolucion.success || (await saldoOp2()) !== saldoAntes) {
+      throw new Error('No se pudo devolver el aporte de la prueba a la cuenta de OP-2: ' + JSON.stringify(devolucion));
+    }
 
     // =========================================================================
     // 3. ESCENARIO 2: SOLICITUD PARA PERSONA SIN REGISTRO BANCARIO

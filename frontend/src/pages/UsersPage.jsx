@@ -612,6 +612,8 @@ export const UsersPage = () => {
               {users.map((u) => {
                 const nombre = u.nombre_completo || u.nombre;
                 const activo = u.estado === 'ACTIVO';
+                // Los usuarios de su propia persona los gestiona otro administrador (issue #32)
+                const esPropio = Number(u.id_persona) === Number(user?.id_persona);
                 return (
                   <TR key={u.id_usuario} interactive>
                     <TD className="min-w-[13rem] max-w-[16rem]">
@@ -633,7 +635,7 @@ export const UsersPage = () => {
                       {u.bloqueado_por_intentos ? (
                         <div className="flex flex-col items-start gap-1">
                           <Badge tone="warning" title="Bloqueado por intentos fallidos de inicio de sesión">Bloqueado</Badge>
-                          {canManageUsers && (
+                          {canManageUsers && !esPropio && (
                             <button
                               type="button"
                               onClick={() => handleDesbloquear(u.id_usuario)}
@@ -654,6 +656,9 @@ export const UsersPage = () => {
                     <TD className="whitespace-nowrap tabular-nums">{formatDate(u.fecha_creacion)}</TD>
                     {canManageUsers && (
                       <TD sticky className="whitespace-nowrap text-center">
+                        {esPropio ? (
+                          <span className="text-xs text-ink-subtle">Lo gestiona otro administrador</span>
+                        ) : (
                         <div className="flex items-center justify-center gap-0.5">
                           <RowAction
                             icon={KeyRound}
@@ -672,6 +677,7 @@ export const UsersPage = () => {
                             variant={activo ? 'ghostDanger' : 'ghostSuccess'}
                           />
                         </div>
+                        )}
                       </TD>
                     )}
                   </TR>

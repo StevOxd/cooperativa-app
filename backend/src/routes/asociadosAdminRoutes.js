@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const asociadosAdminController = require('../controllers/asociadosAdminController');
 const { verifyToken, checkRole } = require('../middlewares/authMiddleware');
+const { prohibirAutoatencion } = require('../middlewares/segregacion');
 
 // Proteger todas las rutas administrativas de asociados con JWT y rol OPERADOR
 router.use(verifyToken);
@@ -23,21 +24,21 @@ router.get('/:id/expediente', asociadosAdminController.getExpedienteAsociado);
  * @route   POST /api/admin/asociados/:id/acceso-portal
  * @desc    Activar el acceso al portal (o reenviarlo si nunca entró) desde el expediente (issue #27)
  */
-router.post('/:id/acceso-portal', asociadosAdminController.activarAccesoPortalAsociado);
+router.post('/:id/acceso-portal', prohibirAutoatencion('asociado', (req) => req.params.id), asociadosAdminController.activarAccesoPortalAsociado);
 
 /**
  * @route   POST /api/admin/asociados/presencial
  * @desc    Formulario 1: Registro presencial de afiliación en ventanilla (Exclusivo OPERADOR)
  */
-router.post('/presencial', checkRole('OPERADOR'), asociadosAdminController.crearAfiliacionPresencial);
+router.post('/presencial', prohibirAutoatencion('dpi', (req) => req.body?.cui_dpi), asociadosAdminController.crearAfiliacionPresencial);
 
 /**
  * @route   POST /api/admin/asociados/aperturar-cuenta
  * @route   POST /api/admin/asociados/:id/cuentas
  * @desc    Formulario 2: Apertura de cuenta financiera adicional o especializada
  */
-router.post('/aperturar-cuenta', asociadosAdminController.aperturarCuenta);
-router.post('/:id/cuentas', asociadosAdminController.aperturarCuenta);
+router.post('/aperturar-cuenta', prohibirAutoatencion('asociado', (req) => req.body?.id_asociado), asociadosAdminController.aperturarCuenta);
+router.post('/:id/cuentas', prohibirAutoatencion('asociado', (req) => req.params.id), asociadosAdminController.aperturarCuenta);
 router.post('/:id/enviar-boleta-apertura', asociadosAdminController.enviarBoletaApertura);
 
 /**
@@ -50,7 +51,7 @@ router.get('/cuentas/:id_cuenta/beneficiarios', asociadosAdminController.getBene
  * @route   POST /api/admin/asociados/cuentas/:id_cuenta/beneficiarios
  * @desc    Formulario 3: Registrar / actualizar beneficiarios con validación estricta al 100.00%
  */
-router.post('/cuentas/:id_cuenta/beneficiarios', asociadosAdminController.guardarBeneficiarios);
+router.post('/cuentas/:id_cuenta/beneficiarios', prohibirAutoatencion('cuenta', (req) => req.params.id_cuenta), asociadosAdminController.guardarBeneficiarios);
 
 /**
  * @route   GET /api/admin/asociados/beneficiarios/historial
@@ -64,6 +65,6 @@ router.get('/cuentas/:id_cuenta/beneficiarios/historial', asociadosAdminControll
  * @route   PATCH /api/admin/asociados/:id/estado
  * @desc    Cambiar estado institucional del asociado (ACTIVO, INACTIVO, SUSPENDIDO)
  */
-router.patch('/:id/estado', asociadosAdminController.cambiarEstadoAsociado);
+router.patch('/:id/estado', prohibirAutoatencion('asociado', (req) => req.params.id), asociadosAdminController.cambiarEstadoAsociado);
 
 module.exports = router;

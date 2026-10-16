@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { LogOut, Mail, Menu, ShieldCheck, X } from 'lucide-react';
+import { HandCoins, LogOut, Mail, Menu, ShieldCheck, X } from 'lucide-react';
 import { cn } from '../ui';
 import { Wordmark } from './Wordmark';
 import { ROLE_LABELS, getDisplayName, getInitials, getNavLinks } from './navigation';
@@ -12,7 +12,7 @@ const itemClasses =
 /** Contenido de la barra lateral; se usa fijo en escritorio y dentro del panel móvil. */
 const SidebarContent = ({ account, onAction }) => {
   const location = useLocation();
-  const { user, isAdmin, logout, openSecurity, openEmailConfig } = account;
+  const { user, isAdmin, logout, openSecurity, openEmailConfig, openStaffAffiliation } = account;
   const links = getNavLinks(user?.rol);
 
   const run = (action) => () => {
@@ -88,6 +88,15 @@ const SidebarContent = ({ account, onAction }) => {
             <span className={cn('text-xs', user?.mfa_enabled ? 'text-success-700' : 'text-ink-subtle')}>
               {user?.mfa_enabled ? 'En 2 pasos' : 'Básica'}
             </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={run(openStaffAffiliation)}
+            className={cn(itemClasses, 'text-ink-soft hover:bg-surface-sunken hover:text-ink')}
+          >
+            <HandCoins className="w-4 h-4 shrink-0 text-ink-subtle" aria-hidden="true" />
+            Afiliarme a la cooperativa
           </button>
 
           {isAdmin && (

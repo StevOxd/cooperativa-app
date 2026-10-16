@@ -4,9 +4,12 @@ process.env.MAIL_ENABLED = 'false';
 /**
  * testUsuarioDoble.js
  *
- * Issue #32, parte 1: cada usuario tiene su propia llave (usuarios.id_usuario) y una persona puede
- * tener un usuario del personal y uno de asociado. Prueba con una persona con los dos usuarios,
- * cuyos id_usuario no coinciden con su id_persona (los usuarios anteriores a la migración sí).
+ * Issue #32: cada usuario tiene su propia llave (usuarios.id_usuario) y una persona puede tener un
+ * usuario del personal y uno de asociado. Prueba con personas cuyos id_usuario no coinciden con su
+ * id_persona (los usuarios anteriores a la migración sí):
+ * - parte 1: llave, sesiones y estados separados, auditoría, tokens anteriores;
+ * - parte 2: nadie atiende sus propios trámites, el personal pide su afiliación desde su sesión, la
+ *   formalización conserva sus datos, ventanilla lo afilia y el acceso se activa con otro correo.
  *
  * Usa el backend en proceso (puerto efímero) y la base de datos local. Limpia lo que crea.
  */
@@ -14,6 +17,7 @@ const http = require('http');
 const jwt = require('jsonwebtoken');
 const { server } = require('./src/server');
 const db = require('./src/config/db');
+const mailerService = require('./src/services/mailerService');
 
 // Hash bcrypt de admin123 (el mismo de los datos semilla)
 const HASH_ADMIN123 = '$2a$10$vNPUEupr.jaRBJ/2vUE4CurM.mZqeEc1PTGrA8Pds020v2tm0T1Ey';
@@ -68,8 +72,13 @@ const testServer = server.listen(0, async () => {
   const codigoPersonal = `OPT32-${sufijo}`;
   const codigoAsociado = `EXT32-${sufijo}`;
   const dpiSoloPersonal = `933${sufijo}000`.slice(0, 13);
+  const dpiVentanilla = `934${sufijo}000`.slice(0, 13);
+  const dpiAjeno = `935${sufijo}000`.slice(0, 13);
   let idPersona = null;
   let idPersonaSoloPersonal = null;
+  let idPersonaVentanilla = null;
+  let idTraslado = null;
+  let idCredito = null;
   let personal = null;
   let asociadoUsuario = null;
   let idAsociado = null;
@@ -321,49 +330,223 @@ const testServer = server.listen(0, async () => {
     );
 
     // ------------------------------------------------------------------
-    console.log('\n--- 4.1 Personal sin usuario de asociado (hasta la parte 2) ---');
+    console.log('\n--- 4.1 Nadie atiende sus propios trámites ---');
+    await request(`/api/usuarios/${personal.id_usuario}/estado`, 'PATCH', { estado: 'ACTIVO' }, tokenAdmin);
+    const tokenPropio = (await login(codigoPersonal)).body.token;
+    tokensAbiertos.push(tokenPropio);
+    const esAutoatencion = (r) => r.status === 403 && r.body.error === 'AUTOATENCION_NO_PERMITIDA';
+
+    const suspenderPropia = await request(`/api/admin/asociados/${idAsociado}/estado`, 'PATCH', { estado: 'SUSPENDIDO' }, tokenPropio);
+    const cuentaPropia = await request(`/api/admin/asociados/${idAsociado}/cuentas`, 'POST', { id_tipo_cuenta: 2, monto_inicial: 0 }, tokenPropio);
+    const accesoPropio = await request(`/api/admin/asociados/${idAsociado}/acceso-portal`, 'POST', { email: `x.${sufijo}@gmail.com` }, tokenPropio);
+    const presencialPropia = await request('/api/admin/asociados/presencial', 'POST', { cui_dpi: dpi }, tokenPropio);
+    const bancoPropio = await request('/api/banco-externo/aperturar', 'POST', { cui_dpi: dpi }, tokenPropio);
+    const membresiaIntacta = (await db.query('SELECT estado_asociado FROM asociados WHERE id_asociado = $1', [idAsociado])).rows[0];
+    assert(
+      [suspenderPropia, cuentaPropia, accesoPropio, presencialPropia, bancoPropio].every(esAutoatencion)
+        && membresiaIntacta.estado_asociado === 'ACTIVO',
+      'El personal no suspende, abre cuentas, activa el acceso ni afilia a su propia persona (403)'
+    );
+
+    idTraslado = (await db.query(
+      `INSERT INTO solicitudes_traslado_apertura
+         (numero_caso, id_asociado, id_cuenta_bancaria_origen, id_tipo_cuenta_destino, monto, tipo_operacion)
+       VALUES ($1, $2, 1, 2, 10, 'APERTURA_Y_TRASLADO') RETURNING id_solicitud`,
+      [`CASO-T32-${sufijo}`, idAsociado]
+    )).rows[0].id_solicitud;
+    idCredito = (await db.query(
+      `INSERT INTO solicitudes_credito (id_asociado, monto_solicitado, plazo_meses, tasa_interes, cuota_mensual_estimada)
+       VALUES ($1, 1000, 12, 10, 90) RETURNING id_solicitud_credito`,
+      [idAsociado]
+    )).rows[0].id_solicitud_credito;
+    const trasladoPropio = await request(`/api/operador/solicitudes/${idTraslado}/resolver`, 'POST', { accion: 'APROBAR' }, tokenPropio);
+    const creditoPropio = await request(`/api/operador/creditos/${idCredito}/elevar`, 'POST', { dictamen_operador: 'x' }, tokenPropio);
+    assert(esAutoatencion(trasladoPropio) && esAutoatencion(creditoPropio), 'Tampoco resuelve su propio traslado ni su propio crédito');
+
+    const idAdmin1 = jwt.decode(tokenAdmin).id_usuario;
+    const adminPropio = await request(`/api/usuarios/${idAdmin1}/estado`, 'PATCH', { estado: 'INACTIVO', motivo: 'x' }, tokenAdmin);
+    assert(
+      esAutoatencion(adminPropio) && (await usuario(idAdmin1)).estado === 'ACTIVO',
+      'Un administrador no cambia el estado de sus propios usuarios'
+    );
+
+    // Otras formas de escribir el mismo id no se saltan la revisión
+    const conSigno = await request(`/api/admin/asociados/+${idAsociado}/estado`, 'PATCH', { estado: 'SUSPENDIDO' }, tokenPropio);
+    const conCeros = await request(`/api/admin/asociados/000${idAsociado}/estado`, 'PATCH', { estado: 'SUSPENDIDO' }, tokenPropio);
+    const usuarioConCeros = await request(`/api/usuarios/${String(idAdmin1).padStart(10, '0')}/estado`, 'PATCH', { estado: 'INACTIVO', motivo: 'x' }, tokenAdmin);
+    assert(
+      conSigno.status === 400 && esAutoatencion(conCeros) && usuarioConCeros.status !== 200
+        && (await db.query('SELECT estado_asociado FROM asociados WHERE id_asociado = $1', [idAsociado])).rows[0].estado_asociado === 'ACTIVO'
+        && (await usuario(idAdmin1)).estado === 'ACTIVO',
+      'Un id escrito de otra forma (+id, ceros a la izquierda) no se salta la revisión'
+    );
+
+    // Depósito en ventanilla a una cuenta propia del banco (OP-1 es titular de CTA-BCO-MONET-2001)
+    const depositoPropio = await request('/api/banco-externo/acreditar', 'POST', { numero_cuenta: 'CTA-BCO-MONET-2001', monto: 1 }, tokenOperador);
+    const depositoSinCuenta = await request('/api/banco-externo/acreditar', 'POST', { numero_cuenta: 'NO-EXISTE-32', monto: 1 }, tokenOperador);
+    assert(
+      esAutoatencion(depositoPropio) && depositoSinCuenta.status === 404,
+      'No se deposita en una cuenta propia, ni en una cuenta que no se puede consultar'
+    );
+
+    // ------------------------------------------------------------------
+    console.log('\n--- 4.2 El personal pide su afiliación desde su sesión ---');
     idPersonaSoloPersonal = (await db.query(
       `INSERT INTO personas (cui_dpi, primer_nombre, primer_apellido, telefono, fecha_nacimiento)
        VALUES ($1, 'Prueba', 'Personal', '55559033', '1991-01-01') RETURNING id_persona`,
       [dpiSoloPersonal]
     )).rows[0].id_persona;
+    const correoPersonalB = `solo.personal.${sufijo}@gmail.com`;
     await db.query(
       `INSERT INTO usuarios (id_persona, id_rol, codigo_corporativo, email, password_hash, estado)
        VALUES ($1, 2, $2, $3, $4, 'ACTIVO')`,
-      [idPersonaSoloPersonal, `OPU32-${sufijo}`, `solo.personal.${sufijo}@cooperativa.com`, HASH_ADMIN123]
+      [idPersonaSoloPersonal, `OPU32-${sufijo}`, correoPersonalB, HASH_ADMIN123]
     );
-    const idSolicitud = (await db.query(
-      `INSERT INTO solicitudes_afiliacion_agencia (cui_dpi, primer_nombre, primer_apellido, telefono, fecha_nacimiento, email, estado)
-       VALUES ($1, 'Prueba', 'Personal', '55559033', '1991-01-01', $2, 'PENDIENTE_AGENCIA') RETURNING id_solicitud`,
-      [dpiSoloPersonal, `solicitud.${sufijo}@gmail.com`]
-    )).rows[0].id_solicitud;
-    const formalizar = await request(
-      `/api/operador/afiliaciones/${idSolicitud}/formalizar`,
-      'POST',
-      { monto_aportacion: 100, crear_acceso_portal: false },
-      tokenOperador
-    );
-    const socioCreado = await db.query('SELECT 1 FROM asociados WHERE id_persona = $1', [idPersonaSoloPersonal]);
+    const tokenB = (await login(`OPU32-${sufijo}`)).body.token;
+    tokensAbiertos.push(tokenB);
+
+    const misDatos = await request('/api/afiliacion/personal', 'GET', null, tokenB);
     assert(
-      formalizar.status === 409 && formalizar.body.message?.includes('usuario del personal') && socioCreado.rows.length === 0,
-      'Formalizar en agencia el DPI de alguien del personal sigue rechazándose'
+      misDatos.status === 200 && misDatos.body.data?.cui_dpi === dpiSoloPersonal && misDatos.body.data?.es_asociado === false,
+      'El personal ve sus datos para afiliarse'
+    );
+    const conCorreoPersonal = await request('/api/afiliacion/personal/solicitud', 'POST', { email: correoPersonalB }, tokenB);
+    assert(
+      conCorreoPersonal.status === 409 && conCorreoPersonal.body.error === 'CORREO_DEL_PERSONAL',
+      'Su correo del personal no sirve para su usuario de asociado'
+    );
+    const correoAsociadoB = `asociado.b.${sufijo}@gmail.com`;
+    const miSolicitud = await request('/api/afiliacion/personal/solicitud', 'POST', { email: correoAsociadoB, telefono: '55550033' }, tokenB);
+    const telefonoB = (await db.query('SELECT telefono FROM personas WHERE id_persona = $1', [idPersonaSoloPersonal])).rows[0].telefono;
+    assert(
+      miSolicitud.status === 201 && /^CASO-AFIL-/.test(miSolicitud.body.data?.numero_caso || '') && telefonoB === '55550033',
+      'Registra su solicitud (número de caso) y actualiza su teléfono'
+    );
+    const otraSolicitud = await request('/api/afiliacion/personal/solicitud', 'POST', { email: `otro.b.${sufijo}@gmail.com` }, tokenB);
+    assert(otraSolicitud.status === 409, 'No registra una segunda solicitud mientras la primera está en trámite');
+
+    // Formalizar la solicitud de otra persona poniendo su propio DPI en el formulario
+    const idSolicitudAjena = (await db.query(
+      `INSERT INTO solicitudes_afiliacion_agencia (cui_dpi, primer_nombre, primer_apellido, telefono, fecha_nacimiento, email, estado)
+       VALUES ($1, 'Otra', 'Persona', '55559036', '1990-03-03', $2, 'PENDIENTE_AGENCIA') RETURNING id_solicitud`,
+      [dpiAjeno, `ajena.${sufijo}@gmail.com`]
+    )).rows[0].id_solicitud;
+    await request(`/api/operador/afiliaciones/${idSolicitudAjena}/bloquear`, 'POST', null, tokenB);
+    const formalizarConDpiPropio = await request(
+      `/api/operador/afiliaciones/${idSolicitudAjena}/formalizar`,
+      'POST',
+      { monto_aportacion: 100, crear_acceso_portal: false, cui_dpi: dpiSoloPersonal },
+      tokenB
+    );
+    await request(`/api/operador/afiliaciones/${idSolicitudAjena}/liberar`, 'POST', null, tokenB);
+    assert(
+      esAutoatencion(formalizarConDpiPropio)
+        && (await db.query('SELECT 1 FROM asociados WHERE id_persona = $1', [idPersonaSoloPersonal])).rows.length === 0,
+      'No formaliza una solicitud ajena cambiándole el DPI por el suyo'
     );
 
-    const idAsociadoSoloPersonal = (await db.query(
-      "INSERT INTO asociados (id_persona, estado_asociado) VALUES ($1, 'ACTIVO') RETURNING id_asociado",
-      [idPersonaSoloPersonal]
-    )).rows[0].id_asociado;
-    const expedientePersonal = await request(`/api/admin/asociados/${idAsociadoSoloPersonal}/expediente`, 'GET', null, tokenOperador);
-    const activarPersonal = await request(
-      `/api/admin/asociados/${idAsociadoSoloPersonal}/acceso-portal`,
+    const idSolicitudB = (await db.query(
+      "SELECT id_solicitud FROM solicitudes_afiliacion_agencia WHERE cui_dpi = $1 AND estado = 'PENDIENTE_AGENCIA'",
+      [dpiSoloPersonal]
+    )).rows[0].id_solicitud;
+    const bandejaPropia = (await request('/api/operador/afiliaciones', 'GET', null, tokenB)).body.data || [];
+    const bloquearPropia = await request(`/api/operador/afiliaciones/${idSolicitudB}/bloquear`, 'POST', null, tokenB);
+    assert(
+      bandejaPropia.find((r) => r.id_solicitud === idSolicitudB)?.es_propia === true && esAutoatencion(bloquearPropia),
+      'En la bandeja su solicitud aparece como suya y no la puede atender'
+    );
+
+    // ------------------------------------------------------------------
+    console.log('\n--- 4.3 Otro compañero la formaliza en agencia ---');
+    const filaOperador = ((await request('/api/operador/afiliaciones', 'GET', null, tokenOperador)).body.data || [])
+      .find((r) => r.id_solicitud === idSolicitudB);
+    await request(`/api/operador/afiliaciones/${idSolicitudB}/bloquear`, 'POST', null, tokenOperador);
+    const formalizada = await request(
+      `/api/operador/afiliaciones/${idSolicitudB}/formalizar`,
       'POST',
-      { email: `otro.${sufijo}@gmail.com` },
+      { monto_aportacion: 100, crear_acceso_portal: false, primer_nombre: 'Cambiado', primer_apellido: 'Porsolicitud' },
       tokenOperador
     );
+    const personaB = (await db.query('SELECT primer_nombre, primer_apellido FROM personas WHERE id_persona = $1', [idPersonaSoloPersonal])).rows[0];
+    const idAsociadoB = (await db.query('SELECT id_asociado FROM asociados WHERE id_persona = $1', [idPersonaSoloPersonal])).rows[0]?.id_asociado;
     assert(
-      expedientePersonal.body.data?.asociado?.acceso_portal === 'PERSONAL'
-        && activarPersonal.status === 409 && activarPersonal.body.error === 'USUARIO_PERSONAL',
-      'Con solo usuario del personal, el expediente indica PERSONAL y no se activa el acceso'
+      filaOperador?.es_propia === false && filaOperador?.persona_registrada === true
+        && formalizada.status === 200 && idAsociadoB
+        && personaB.primer_nombre === 'Prueba' && personaB.primer_apellido === 'Personal',
+      'Otro operador la formaliza y los datos de la persona no cambian por la solicitud'
+    );
+
+    const expedienteB = await request(`/api/admin/asociados/${idAsociadoB}/expediente`, 'GET', null, tokenOperador);
+    assert(expedienteB.body.data?.asociado?.acceso_portal === 'SIN_ACCESO', 'Su expediente indica que no tiene acceso al portal (ya no PERSONAL)');
+
+    // Activar su acceso desde el expediente (correo simulado en este proceso)
+    const disponibleOriginal = mailerService.isAvailable;
+    const enviarOriginal = mailerService.sendAccountCredentialsEmail;
+    mailerService.isAvailable = () => true;
+    mailerService.sendAccountCredentialsEmail = async () => ({ success: true, simulado: false, messageId: 'prueba' });
+    try {
+      const activarConPersonal = await request(`/api/admin/asociados/${idAsociadoB}/acceso-portal`, 'POST', { email: correoPersonalB }, tokenOperador);
+      const activado = await request(`/api/admin/asociados/${idAsociadoB}/acceso-portal`, 'POST', { email: correoAsociadoB }, tokenOperador);
+      const usuariosB = (await db.query('SELECT id_rol, email FROM usuarios WHERE id_persona = $1 ORDER BY id_rol', [idPersonaSoloPersonal])).rows;
+      assert(
+        activarConPersonal.status === 409 && activarConPersonal.body.error === 'CORREO_DEL_PERSONAL'
+          && activado.status === 200 && usuariosB.length === 2 && usuariosB.some((u) => u.id_rol === 3 && u.email === correoAsociadoB),
+        'Desde el expediente se le activa un usuario de asociado con un correo distinto al del personal'
+      );
+    } finally {
+      mailerService.isAvailable = disponibleOriginal;
+      mailerService.sendAccountCredentialsEmail = enviarOriginal;
+    }
+
+    // ------------------------------------------------------------------
+    console.log('\n--- 4.4 Afiliación en ventanilla de alguien del personal ---');
+    idPersonaVentanilla = (await db.query(
+      `INSERT INTO personas (cui_dpi, primer_nombre, primer_apellido, telefono, direccion, fecha_nacimiento)
+       VALUES ($1, 'Prueba', 'Ventanilla', '55559035', 'Zona 1', '1992-02-02') RETURNING id_persona`,
+      [dpiVentanilla]
+    )).rows[0].id_persona;
+    const correoPersonalC = `ventanilla.${sufijo}@gmail.com`;
+    await db.query(
+      `INSERT INTO usuarios (id_persona, id_rol, codigo_corporativo, email, password_hash, estado)
+       VALUES ($1, 4, $2, $3, $4, 'ACTIVO')`,
+      [idPersonaVentanilla, `EJV32-${sufijo}`, correoPersonalC, HASH_ADMIN123]
+    );
+
+    const consultaDpi = await request(`/api/banco-externo/cuentas-cliente/${dpiVentanilla}`, 'GET', null, tokenOperador);
+    const personaCoop = consultaDpi.body.persona_cooperativa;
+    assert(
+      consultaDpi.body.ya_registrado_cooperativa === false && personaCoop?.es_personal === true
+        && personaCoop?.es_propia === false && personaCoop?.datos?.primer_nombre === 'Prueba',
+      'Al consultar el DPI, ventanilla recibe sus datos para llenar el formulario'
+    );
+
+    const datosVentanilla = {
+      cui_dpi: dpiVentanilla,
+      primer_nombre: 'Cambiado',
+      primer_apellido: 'Enventanilla',
+      telefono: '55550044',
+      fecha_nacimiento: '1992-02-02',
+      monto_aportacion: 150,
+    };
+    mailerService.isAvailable = () => true;
+    let conCorreoDelPersonal;
+    try {
+      conCorreoDelPersonal = await request('/api/admin/asociados/presencial', 'POST', { ...datosVentanilla, email: correoPersonalC, crear_acceso_portal: true }, tokenOperador);
+    } finally {
+      mailerService.isAvailable = disponibleOriginal;
+    }
+    assert(
+      conCorreoDelPersonal.status === 409 && conCorreoDelPersonal.body.error === 'CORREO_DEL_PERSONAL',
+      'En ventanilla su correo del personal no sirve para el usuario de asociado'
+    );
+
+    const enVentanilla = await request('/api/admin/asociados/presencial', 'POST', { ...datosVentanilla, crear_acceso_portal: false }, tokenOperador);
+    const personaC = (await db.query('SELECT primer_nombre, primer_apellido, telefono FROM personas WHERE id_persona = $1', [idPersonaVentanilla])).rows[0];
+    const socioC = await db.query('SELECT 1 FROM asociados WHERE id_persona = $1', [idPersonaVentanilla]);
+    assert(
+      enVentanilla.status === 201 && socioC.rows.length === 1
+        && personaC.primer_nombre === 'Prueba' && personaC.primer_apellido === 'Ventanilla' && personaC.telefono === '55550044',
+      'Se afilia en ventanilla con sus datos registrados; solo cambia el teléfono'
     );
 
     // ------------------------------------------------------------------
@@ -395,16 +578,28 @@ const testServer = server.listen(0, async () => {
     for (const token of tokensAbiertos) {
       await request('/api/auth/logout', 'POST', null, token).catch(() => {});
     }
-    await db.query('DELETE FROM solicitudes_afiliacion_agencia WHERE cui_dpi = $1', [dpiSoloPersonal]);
-    for (const id of [idPersona, idPersonaSoloPersonal].filter(Boolean)) {
-      await db.query(
-        `DELETE FROM historial_estados_usuario
-         WHERE id_usuario_modificado IN (SELECT id_usuario FROM usuarios WHERE id_persona = $1)`,
-        [id]
-      );
-      await db.query('DELETE FROM usuarios WHERE id_persona = $1', [id]);
-      await db.query('DELETE FROM asociados WHERE id_persona = $1', [id]);
-      await db.query('DELETE FROM personas WHERE id_persona = $1', [id]);
+    try {
+      if (idTraslado) await db.query('DELETE FROM solicitudes_traslado_apertura WHERE id_solicitud = $1', [idTraslado]);
+      if (idCredito) await db.query('DELETE FROM solicitudes_credito WHERE id_solicitud_credito = $1', [idCredito]);
+      await db.query('DELETE FROM solicitudes_afiliacion_agencia WHERE cui_dpi = ANY($1)', [[dpiSoloPersonal, dpiVentanilla, dpiAjeno]]);
+      for (const id of [idPersona, idPersonaSoloPersonal, idPersonaVentanilla].filter(Boolean)) {
+        await db.query(
+          `DELETE FROM historial_estados_usuario
+           WHERE id_usuario_modificado IN (SELECT id_usuario FROM usuarios WHERE id_persona = $1)`,
+          [id]
+        );
+        await db.query(
+          `DELETE FROM transacciones WHERE id_cuenta IN (
+             SELECT c.id_cuenta FROM cuentas c JOIN asociados a ON a.id_asociado = c.id_asociado WHERE a.id_persona = $1)`,
+          [id]
+        );
+        await db.query('DELETE FROM cuentas WHERE id_asociado IN (SELECT id_asociado FROM asociados WHERE id_persona = $1)', [id]);
+        await db.query('DELETE FROM usuarios WHERE id_persona = $1', [id]);
+        await db.query('DELETE FROM asociados WHERE id_persona = $1', [id]);
+        await db.query('DELETE FROM personas WHERE id_persona = $1', [id]);
+      }
+    } catch (limpiezaError) {
+      console.error('[ERROR] No se pudieron borrar los datos de prueba:', limpiezaError.message);
     }
     if (idPersona) console.log('\n  [CLEANUP] Personas, usuarios y solicitud de prueba eliminados.');
 

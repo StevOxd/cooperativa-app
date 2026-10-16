@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Building2, FileDown, Landmark } from 'lucide-react';
 import api from '../../services/api';
 import { Alert, Badge, Button, Field, Input, LoadingState, Modal, Select, cn } from '../ui';
@@ -9,6 +9,28 @@ import { PortalAccessOption } from '../common/PortalAccessOption';
 import { useCorreoDisponible } from '../../hooks/useCorreoDisponible';
 
 const FORM_ID = 'nuevo-asociado';
+
+/**
+ * Datos de identidad del formulario: los de una persona del personal (issue #32) o vacíos. De la persona
+ * del personal solo llegan sus nombres y su teléfono; su fecha de nacimiento y su dirección las usa el
+ * servidor desde su registro.
+ */
+const identidadDelFormulario = (datos) => ({
+  primer_nombre: datos?.primer_nombre || '',
+  segundo_nombre: datos?.segundo_nombre || '',
+  primer_apellido: datos?.primer_apellido || '',
+  segundo_apellido: datos?.segundo_apellido || '',
+  telefono: (datos?.telefono || '').replace(/\D/g, '').slice(0, 8),
+  direccion: '',
+  fecha_nacimiento: '',
+});
+
+/** Si el formulario tenía los datos de una persona del personal, los quita (cambió el DPI). */
+const soltarIdentidad = (identidadDeRef, setFormData) => {
+  if (!identidadDeRef.current) return;
+  identidadDeRef.current = null;
+  setFormData((prev) => ({ ...prev, ...identidadDelFormulario(null) }));
+};
 
 /** Quita un error de campo sin tocar los demás. */
 const clearFieldError = (setFieldErrors, field) =>
@@ -160,6 +182,13 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess, onAbrirCuenta })
 
   const ageInfo = calculateAgeInfo(formData.fecha_nacimiento);
 
+  // Persona del personal (issue #32): se afilia con los datos que ya tiene la cooperativa y solo se
+  // pueden cambiar el teléfono y el correo. identidadDeRef guarda de qué DPI son los datos cargados, para
+  // no volver a llenarlos (y perder un teléfono corregido) cuando se repite la consulta del mismo DPI.
+  const [personaRegistrada, setPersonaRegistrada] = useState(null);
+  const datosBloqueados = Boolean(personaRegistrada);
+  const identidadDeRef = useRef(null);
+
   // Estados para cuentas bancarias del Empleado Bancario (EB)
   const [cuentasEmpleado, setCuentasEmpleado] = useState([]);
   const [loadingCuentasBanco, setLoadingCuentasBanco] = useState(false);
@@ -174,6 +203,8 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess, onAbrirCuenta })
   const fetchCuentasYVerificarDpi = async (cui) => {
     const cleanCui = cui?.trim().replace(/\D/g, '');
     if (!cleanCui || cleanCui.length !== 13) {
+      soltarIdentidad(identidadDeRef, setFormData);
+      setPersonaRegistrada(null);
       setCuentasEmpleado([]);
       setCuentaBancoSeleccionada('');
       setShowAcreditarModal(false);
@@ -201,7 +232,11 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess, onAbrirCuenta })
       const res = await api.get(`/banco-externo/cuentas-cliente/${cleanCui}`);
       if (res.data?.success) {
         if (res.data.ya_registrado_cooperativa) {
-          const errMsg = `Este DPI ya es de un asociado (${res.data.asociado_existente?.codigo_asociado || 'activo'}).`;
+          const errMsg = res.data.asociado_existente?.codigo_asociado
+            ? `Este DPI ya es de un asociado (${res.data.asociado_existente.codigo_asociado}).`
+            : 'Este DPI ya es de un asociado.';
+          soltarIdentidad(identidadDeRef, setFormData);
+          setPersonaRegistrada(null);
           setFieldErrors((prev) => ({ ...prev, cui_dpi: errMsg }));
           setDpiStatus({
             checking: false,
@@ -214,6 +249,34 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess, onAbrirCuenta })
             error: true,
           });
           return;
+        }
+
+        // DPI de alguien ya registrado en la cooperativa que no es asociado (issue #32)
+        const personaCoop = res.data.persona_cooperativa;
+        const errorPersona = personaCoop?.es_propia
+          ? 'Este DPI es el suyo. Su afiliación la registra un colega.'
+          : personaCoop && !personaCoop.es_personal
+            ? 'Ya hay una persona registrada con este DPI. Consulte al administrador.'
+            : null;
+        if (errorPersona) {
+          soltarIdentidad(identidadDeRef, setFormData);
+          setPersonaRegistrada(null);
+          setFieldErrors((prev) => ({ ...prev, cui_dpi: errorPersona }));
+          setDpiStatus((prev) => ({ ...prev, checking: false, verified: false, message: errorPersona, error: true }));
+          return;
+        }
+        if (personaCoop?.datos) {
+          if (identidadDeRef.current !== cleanCui) {
+            identidadDeRef.current = cleanCui;
+            setFormData((prev) => ({ ...prev, ...identidadDelFormulario(personaCoop.datos) }));
+            setBirthDay('');
+            setBirthMonth('');
+            setBirthYear('');
+          }
+          setPersonaRegistrada(personaCoop);
+        } else {
+          soltarIdentidad(identidadDeRef, setFormData);
+          setPersonaRegistrada(null);
         }
 
         // Si no está registrado en la cooperativa, limpiar cualquier error previo de CUI
@@ -259,8 +322,8 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess, onAbrirCuenta })
           error: false,
         });
 
-        // Autocompletar nombres si el usuario no los ha digitado aún
-        if (res.data.cliente?.nombre_completo) {
+        // Autocompletar nombres si el usuario no los ha digitado aún (no aplica al personal: ya tiene sus datos)
+        if (res.data.cliente?.nombre_completo && !personaCoop?.datos) {
           const parts = res.data.cliente.nombre_completo.trim().split(/\s+/);
           setFormData((prev) => ({
             ...prev,
@@ -313,6 +376,8 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess, onAbrirCuenta })
     if (cleanCui && cleanCui.length === 13) {
       fetchCuentasYVerificarDpi(cleanCui);
     } else {
+      soltarIdentidad(identidadDeRef, setFormData);
+      setPersonaRegistrada(null);
       setCuentasEmpleado([]);
       setCuentaBancoSeleccionada('');
       setShowAcreditarModal(false);
@@ -501,6 +566,8 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess, onAbrirCuenta })
   };
 
   const handleResetForm = () => {
+    identidadDeRef.current = null;
+    setPersonaRegistrada(null);
     setFormData({
       cui_dpi: '',
       primer_nombre: '',
@@ -545,21 +612,25 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess, onAbrirCuenta })
     const cui = formData.cui_dpi.trim().replace(/\D/g, '');
     if (cui.length !== 13) {
       errors.cui_dpi = 'El CUI / DPI debe tener exactamente 13 dígitos numéricos.';
+    } else if (dpiStatus.error) {
+      errors.cui_dpi = dpiStatus.message;
     }
 
-    // 2. Validar Nombres y Apellidos
+    // 2. Validar Nombres y Apellidos (no aplica a una persona del personal: se usan los registrados)
     const nameRegex = /^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s]+$/;
-    if (!formData.primer_nombre.trim() || !nameRegex.test(formData.primer_nombre.trim()) || formData.primer_nombre.trim().length < 2) {
-      errors.primer_nombre = 'El primer nombre es obligatorio (mínimo 2 letras, solo caracteres alfabéticos).';
-    }
-    if (formData.segundo_nombre.trim() && !nameRegex.test(formData.segundo_nombre.trim())) {
-      errors.segundo_nombre = 'El segundo nombre solo puede contener letras y espacios.';
-    }
-    if (!formData.primer_apellido.trim() || !nameRegex.test(formData.primer_apellido.trim()) || formData.primer_apellido.trim().length < 2) {
-      errors.primer_apellido = 'El primer apellido es obligatorio (mínimo 2 letras, solo caracteres alfabéticos).';
-    }
-    if (formData.segundo_apellido.trim() && !nameRegex.test(formData.segundo_apellido.trim())) {
-      errors.segundo_apellido = 'El segundo apellido solo puede contener letras y espacios.';
+    if (!datosBloqueados) {
+      if (!formData.primer_nombre.trim() || !nameRegex.test(formData.primer_nombre.trim()) || formData.primer_nombre.trim().length < 2) {
+        errors.primer_nombre = 'El primer nombre es obligatorio (mínimo 2 letras, solo caracteres alfabéticos).';
+      }
+      if (formData.segundo_nombre.trim() && !nameRegex.test(formData.segundo_nombre.trim())) {
+        errors.segundo_nombre = 'El segundo nombre solo puede contener letras y espacios.';
+      }
+      if (!formData.primer_apellido.trim() || !nameRegex.test(formData.primer_apellido.trim()) || formData.primer_apellido.trim().length < 2) {
+        errors.primer_apellido = 'El primer apellido es obligatorio (mínimo 2 letras, solo caracteres alfabéticos).';
+      }
+      if (formData.segundo_apellido.trim() && !nameRegex.test(formData.segundo_apellido.trim())) {
+        errors.segundo_apellido = 'El segundo apellido solo puede contener letras y espacios.';
+      }
     }
 
     // 3. Validar Teléfono (8 dígitos numéricos)
@@ -568,9 +639,9 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess, onAbrirCuenta })
       errors.telefono = 'El teléfono debe contener exactamente 8 dígitos numéricos.';
     }
 
-    // 4. Validar Fecha de Nacimiento (Mayor de edad)
+    // 4. Validar Fecha de Nacimiento (Mayor de edad); la de una persona del personal viene de su registro
     const ageResult = calculateAgeInfo(formData.fecha_nacimiento);
-    if (!formData.fecha_nacimiento || !ageResult || !ageResult.valid) {
+    if (!datosBloqueados && (!formData.fecha_nacimiento || !ageResult || !ageResult.valid)) {
       errors.fecha_nacimiento = ageResult?.message || 'Debe tener 18 años cumplidos.';
     }
 
@@ -790,7 +861,7 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess, onAbrirCuenta })
               form={FORM_ID}
               loading={loading}
               loadingText="Registrando…"
-              disabled={crearAcceso && emailStatus.available === false}
+              disabled={(crearAcceso && emailStatus.available === false) || dpiStatus.error || dpiStatus.checking}
             >
               Registrar asociado
             </Button>
@@ -813,6 +884,13 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess, onAbrirCuenta })
               <Badge>El tipo se detecta con el DPI</Badge>
             )}
           </div>
+          {datosBloqueados && (
+            <Alert tone="info" title="Esta persona trabaja en la cooperativa">
+              Se afilia con los datos que ya tiene registrados: sus nombres quedan bloqueados y su fecha de nacimiento y
+              su dirección se toman de su registro. Solo se pueden cambiar el teléfono y el correo, que debe ser
+              distinto al de su usuario del personal.
+            </Alert>
+          )}
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             <Field label="DPI" hint={dpiHint} error={fieldErrors.cui_dpi} required>
@@ -835,6 +913,7 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess, onAbrirCuenta })
               <Input
                 name="primer_nombre"
                 value={formData.primer_nombre}
+                disabled={datosBloqueados}
                 onChange={(e) => {
                   const val = soloLetras(e.target.value);
                   setFormData((prev) => ({ ...prev, primer_nombre: val }));
@@ -849,6 +928,7 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess, onAbrirCuenta })
               <Input
                 name="segundo_nombre"
                 value={formData.segundo_nombre}
+                disabled={datosBloqueados}
                 onChange={(e) => {
                   const val = soloLetras(e.target.value);
                   setFormData((prev) => ({ ...prev, segundo_nombre: val }));
@@ -864,6 +944,7 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess, onAbrirCuenta })
               <Input
                 name="primer_apellido"
                 value={formData.primer_apellido}
+                disabled={datosBloqueados}
                 onChange={(e) => {
                   const val = soloLetras(e.target.value);
                   setFormData((prev) => ({ ...prev, primer_apellido: val }));
@@ -878,6 +959,7 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess, onAbrirCuenta })
               <Input
                 name="segundo_apellido"
                 value={formData.segundo_apellido}
+                disabled={datosBloqueados}
                 onChange={(e) => {
                   const val = soloLetras(e.target.value);
                   setFormData((prev) => ({ ...prev, segundo_apellido: val }));
@@ -928,58 +1010,63 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess, onAbrirCuenta })
             </Field>
           </div>
 
-          <fieldset className="space-y-1.5">
-            <legend className="text-sm font-medium text-ink-soft">
-              Fecha de nacimiento
-              <span className="ml-0.5 text-danger-700" aria-hidden="true">*</span>
-              <span className="sr-only"> (obligatorio)</span>
-            </legend>
-            <div className="grid grid-cols-3 gap-2">
-              <Select
-                value={birthDay}
-                onChange={(e) => handleDatePartChange('day', e.target.value)}
-                invalid={Boolean(fieldErrors.fecha_nacimiento)}
-                aria-label="Día"
-                required
+          {/* La fecha de nacimiento y la dirección de una persona del personal se toman de su registro */}
+          {!datosBloqueados && (
+            <fieldset className="space-y-1.5">
+              <legend className="text-sm font-medium text-ink-soft">
+                Fecha de nacimiento
+                <span className="ml-0.5 text-danger-700" aria-hidden="true">*</span>
+                <span className="sr-only"> (obligatorio)</span>
+              </legend>
+              <div className="grid grid-cols-3 gap-2">
+                <Select
+                  value={birthDay}
+                  onChange={(e) => handleDatePartChange('day', e.target.value)}
+                  invalid={Boolean(fieldErrors.fecha_nacimiento)}
+                  aria-label="Día"
+                  required
+                >
+                  <option value="">Día</option>
+                  {DAYS.map((d) => <option key={d} value={d}>{d}</option>)}
+                </Select>
+                <Select
+                  value={birthMonth}
+                  onChange={(e) => handleDatePartChange('month', e.target.value)}
+                  invalid={Boolean(fieldErrors.fecha_nacimiento)}
+                  aria-label="Mes"
+                  required
+                >
+                  <option value="">Mes</option>
+                  {MONTHS.map((m) => <option key={m.val} value={m.val}>{m.name}</option>)}
+                </Select>
+                <Select
+                  value={birthYear}
+                  onChange={(e) => handleDatePartChange('year', e.target.value)}
+                  invalid={Boolean(fieldErrors.fecha_nacimiento)}
+                  aria-label="Año"
+                  required
+                >
+                  <option value="">Año</option>
+                  {YEARS.map((y) => <option key={y} value={y}>{y}</option>)}
+                </Select>
+              </div>
+              <p
+                role="status"
+                className={cn(
+                  'text-xs',
+                  ageInfo ? (ageInfo.valid ? 'text-success-700' : 'text-danger-700') : fieldErrors.fecha_nacimiento ? 'text-danger-700' : 'text-ink-subtle'
+                )}
               >
-                <option value="">Día</option>
-                {DAYS.map((d) => <option key={d} value={d}>{d}</option>)}
-              </Select>
-              <Select
-                value={birthMonth}
-                onChange={(e) => handleDatePartChange('month', e.target.value)}
-                invalid={Boolean(fieldErrors.fecha_nacimiento)}
-                aria-label="Mes"
-                required
-              >
-                <option value="">Mes</option>
-                {MONTHS.map((m) => <option key={m.val} value={m.val}>{m.name}</option>)}
-              </Select>
-              <Select
-                value={birthYear}
-                onChange={(e) => handleDatePartChange('year', e.target.value)}
-                invalid={Boolean(fieldErrors.fecha_nacimiento)}
-                aria-label="Año"
-                required
-              >
-                <option value="">Año</option>
-                {YEARS.map((y) => <option key={y} value={y}>{y}</option>)}
-              </Select>
-            </div>
-            <p
-              role="status"
-              className={cn(
-                'text-xs',
-                ageInfo ? (ageInfo.valid ? 'text-success-700' : 'text-danger-700') : fieldErrors.fecha_nacimiento ? 'text-danger-700' : 'text-ink-subtle'
-              )}
-            >
-              {ageInfo ? ageInfo.message : fieldErrors.fecha_nacimiento || 'Debe tener 18 años cumplidos.'}
-            </p>
-          </fieldset>
+                {ageInfo ? ageInfo.message : fieldErrors.fecha_nacimiento || 'Debe tener 18 años cumplidos.'}
+              </p>
+            </fieldset>
+          )}
 
-          <Field label="Dirección">
-            <Input name="direccion" value={formData.direccion} onChange={handleChange} placeholder="Calle, avenida, zona, municipio" />
-          </Field>
+          {!datosBloqueados && (
+            <Field label="Dirección">
+              <Input name="direccion" value={formData.direccion} onChange={handleChange} placeholder="Calle, avenida, zona, municipio" />
+            </Field>
+          )}
         </section>
 
         {/* ============ 2. DEPÓSITO Y CUENTA BANCARIA ============ */}
