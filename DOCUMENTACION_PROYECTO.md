@@ -659,6 +659,7 @@ El proyecto cuenta con suites de pruebas automatizadas oficiales en la carpeta `
 10. **Doble Factor (`test2faFlow.js`):** Valida activación, inicio de sesión con código y desactivación del 2FA. Usa el backend levantado (puerto 5001).
 11. **Usuario del personal y de asociado (`testUsuarioDoble.js`):** Valida la llave `usuarios.id_usuario` y sus llaves foráneas, que una persona tenga como máximo un usuario de cada tipo, sesiones independientes, que suspender la afiliación o desactivar al colaborador afecte solo a su usuario, la auditoría por `id_usuario`, que los tokens anteriores sigan funcionando, que nadie atienda sus propios trámites, la solicitud de afiliación del personal desde su sesión, la formalización que conserva sus datos, la afiliación en ventanilla y la activación del acceso con un correo distinto (issue #32).
 12. **Validación de sesión (`testValidacionSesion.js`):** Valida que las rutas HTTP y los WebSockets solo acepten el token de la sesión vigente: el token del segundo paso del 2FA y los de sesiones cerradas no sirven, la sesión única se mantiene y un socket, al desconectarse, solo cierra su propia sesión.
+13. **Errores corregidos de la fase 3 (`testErroresFase3.js`):** Valida los límites del crédito en el servidor, que desistir deje el crédito como cancelado, el parentesco con un solo juego de valores, la descarga de documentos propios del asociado, el cambio de estado del asociado auditado, el rechazo de un usuario sin fecha de nacimiento, el correo único sin distinguir mayúsculas y que la secuencia de traslados no retroceda al migrar.
 
 ### Ejecución de Todas las Suites en un Solo Comando:
 ```bash
@@ -669,7 +670,8 @@ node backend/testBandejaAfiliaciones.js && \
 node backend/testTraslados.js && \
 node backend/testModulo1Completo.js && \
 node backend/testUsuarioDoble.js && \
-node backend/testValidacionSesion.js
+node backend/testValidacionSesion.js && \
+node backend/testErroresFase3.js
 ```
 
 ---

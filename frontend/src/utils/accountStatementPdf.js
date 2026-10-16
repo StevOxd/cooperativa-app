@@ -13,6 +13,7 @@ import {
   shortDate,
   table,
 } from './pdf/pdfKit';
+import { esIngreso } from './movimientos';
 
 /** Tipos de movimiento en palabras. */
 const TIPOS = {
@@ -24,9 +25,6 @@ const TIPOS = {
   CREDITO: 'Crédito',
   CREDITO_ACH: 'Crédito ACH',
 };
-
-/** Mismo criterio que el modal de movimientos. Pendiente: los traslados que entran se ven como egreso (issue #8). */
-const TIPOS_INGRESO = ['DEPOSITO', 'PAGO_CREDITO', 'CREDITO', 'CREDITO_ACH'];
 
 const tipoLabel = (tipo) =>
   TIPOS[tipo] || (tipo ? tipo.charAt(0) + tipo.slice(1).toLowerCase().replace(/_/g, ' ') : '—');
@@ -86,14 +84,14 @@ export const generateAccountStatementPdf = ({ asociado, cuenta, transacciones = 
   let egresos = 0;
   const rows = transacciones.map((t) => {
     const monto = parseFloat(t.monto || 0);
-    const esIngreso = TIPOS_INGRESO.includes(t.tipo_transaccion);
-    if (esIngreso) ingresos += monto;
+    const ingreso = esIngreso(t);
+    if (ingreso) ingresos += monto;
     else egresos += monto;
     return [
       dateTime(t.fecha_transaccion),
       tipoLabel(t.tipo_transaccion),
       t.referencia || '—',
-      { text: `${esIngreso ? '+' : '-'} ${money(monto)}`, color: esIngreso ? C.success : C.ink, bold: true },
+      { text: `${ingreso ? '+' : '-'} ${money(monto)}`, color: ingreso ? C.success : C.ink, bold: true },
       money(t.saldo_nuevo),
     ];
   });

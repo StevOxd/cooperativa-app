@@ -72,9 +72,10 @@ const secureUploadsHandler = async (req, res) => {
          FROM solicitudes_credito sc
          JOIN asociados a ON sc.id_asociado = a.id_asociado
          WHERE a.id_persona = $1 
-           AND (sc.documento_firmado_url LIKE $2 OR sc.archivo_solicitud_firmada = $3)
+           -- El archivo pedido es exactamente el guardado en su solicitud (último tramo de la ruta)
+           AND regexp_replace(sc.documento_firmado_url, '^.*/', '') = $2
          LIMIT 1`,
-        [idPersona, `%${sanitizedFilename}%`, sanitizedFilename]
+        [idPersona, sanitizedFilename]
       );
 
       if (ownershipCheck.rows.length > 0) {

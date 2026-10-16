@@ -1,16 +1,7 @@
 import React from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 import { Alert, Button, Field, Input, Modal, Select, cn } from '../../ui';
-
-/** Valores guardados en la base de datos → texto en pantalla. */
-const PARENTESCOS = [
-  ['CÓNYUGE', 'Cónyuge'],
-  ['HIJO/A', 'Hijo o hija'],
-  ['PADRE', 'Padre'],
-  ['MADRE', 'Madre'],
-  ['HERMANO/A', 'Hermano o hermana'],
-  ['OTRO', 'Otro'],
-];
+import { PARENTESCOS, parentescoLabel } from '../../../utils/parentesco';
 
 /**
  * Edición de los beneficiarios de una cuenta. La suma de porcentajes debe ser
@@ -108,8 +99,8 @@ export const EditBeneficiariesModal = ({
                 </Field>
                 <Field label="Parentesco" required>
                   <Select value={ben.parentesco} onChange={(e) => updateField(idx, 'parentesco', e.target.value)}>
-                    {PARENTESCOS.map(([value, label]) => (
-                      <option key={value} value={value}>{label}</option>
+                    {PARENTESCOS.map((value) => (
+                      <option key={value} value={value}>{parentescoLabel(value)}</option>
                     ))}
                   </Select>
                 </Field>

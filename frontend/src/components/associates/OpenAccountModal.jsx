@@ -28,36 +28,17 @@ const OptionCard = ({ name, checked, onSelect, children }) => (
   </label>
 );
 
-const TIPOS_PRODUCTO = [
-  {
-    id_tipo_cuenta: 2,
-    nombre: 'Cuenta de Ahorro Corriente',
-    descripcion: 'Disponibilidad inmediata de fondos con capitalización mensual de intereses.',
-    monto_minimo: 100.0,
-    tasa: '3.50%',
-  },
-  {
-    id_tipo_cuenta: 3,
-    nombre: 'Ahorro a Plazo Fijo',
-    descripcion: 'Inversión a término con alto rendimiento y certificado de depósito.',
-    monto_minimo: 1000.0,
-    tasa: '7.00%',
-  },
-  {
-    id_tipo_cuenta: 4,
-    nombre: 'Plan de Ahorro Programado',
-    descripcion: 'Ahorro sistemático para objetivos específicos con tasa preferencial.',
-    monto_minimo: 100.0,
-    tasa: '5.00%',
-  },
-  {
-    id_tipo_cuenta: 5,
-    nombre: 'Ahorro Juvenil / Metas',
-    descripcion: 'Fomento al ahorro formativo y metas a mediano plazo.',
-    monto_minimo: 50.0,
-    tasa: '4.00%',
-  },
-];
+/**
+ * Producto de ahorro tal como lo muestra el modal, a partir de una fila de `/catalogo/tipos-cuenta`. Los
+ * productos, sus tasas y sus montos mínimos vienen de la base de datos, igual que en el portal (issue #9).
+ */
+const aProducto = (tipo) => ({
+  id_tipo_cuenta: tipo.id_tipo_cuenta,
+  nombre: tipo.nombre,
+  descripcion: tipo.descripcion,
+  monto_minimo: Number(tipo.monto_minimo_apertura) || 0,
+  tasa: `${Number(tipo.tasa_interes_anual || 0).toFixed(2)}%`,
+});
 
 /**
  * Apertura de una cuenta nueva para un asociado (Formulario 2).
@@ -84,6 +65,22 @@ export const OpenAccountModal = ({ isOpen, onClose, asociado, onSuccess, valores
   const [sendingEmail, setSendingEmail] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
   const [emailNotice, setEmailNotice] = useState('');
+  const [productos, setProductos] = useState([]);
+  const [errorProductos, setErrorProductos] = useState(false);
+
+  // Catálogo de productos de ahorro (issue #9)
+  useEffect(() => {
+    if (!isOpen) return undefined;
+    let vigente = true;
+    setErrorProductos(false);
+    api
+      .get('/catalogo/tipos-cuenta')
+      .then((res) => vigente && setProductos((res.data?.data || []).map(aProducto)))
+      .catch(() => vigente && setErrorProductos(true));
+    return () => {
+      vigente = false;
+    };
+  }, [isOpen]);
 
   useEffect(() => {
     if (isOpen) {
@@ -96,8 +93,8 @@ export const OpenAccountModal = ({ isOpen, onClose, asociado, onSuccess, valores
   }, [isOpen]);
 
   const productoSeleccionado =
-    TIPOS_PRODUCTO.find((p) => p.id_tipo_cuenta === parseInt(formData.id_tipo_cuenta, 10)) ||
-    TIPOS_PRODUCTO[0];
+    productos.find((p) => p.id_tipo_cuenta === parseInt(formData.id_tipo_cuenta, 10)) ||
+    productos[0] || { id_tipo_cuenta: null, nombre: '', monto_minimo: 0 };
 
   useEffect(() => {
     if (isOpen && asociado) {
@@ -160,7 +157,7 @@ export const OpenAccountModal = ({ isOpen, onClose, asociado, onSuccess, valores
     setFormData((prev) => {
       const next = { ...prev, [name]: value };
       if (name === 'id_tipo_cuenta') {
-        const prod = TIPOS_PRODUCTO.find((p) => p.id_tipo_cuenta === parseInt(value, 10));
+        const prod = productos.find((p) => p.id_tipo_cuenta === parseInt(value, 10));
         if (prod && parseFloat(next.monto_apertura) < prod.monto_minimo) {
           next.monto_apertura = prod.monto_minimo.toFixed(2);
         }
@@ -401,7 +398,10 @@ export const OpenAccountModal = ({ isOpen, onClose, asociado, onSuccess, valores
             form={FORM_ID}
             loading={loading}
             loadingText="Abriendo cuenta…"
-            disabled={formData.origen_fondos === 'BANCO_EXTERNO' && (cargandoBanco || cuentasBanco.length === 0)}
+            disabled={
+              productos.length === 0
+              || (formData.origen_fondos === 'BANCO_EXTERNO' && (cargandoBanco || cuentasBanco.length === 0))
+            }
           >
             Abrir cuenta
           </Button>
@@ -416,8 +416,12 @@ export const OpenAccountModal = ({ isOpen, onClose, asociado, onSuccess, valores
             Producto
             <span className="ml-0.5 text-danger-700" aria-hidden="true">*</span>
           </legend>
+          {errorProductos && (
+            <Alert tone="danger">No se pudo cargar la lista de productos. Cierre y vuelva a abrir para intentarlo de nuevo.</Alert>
+          )}
+          {!errorProductos && productos.length === 0 && <LoadingState label="Cargando productos…" />}
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-            {TIPOS_PRODUCTO.map((p) => (
+            {productos.map((p) => (
               <OptionCard
                 key={p.id_tipo_cuenta}
                 name="producto"

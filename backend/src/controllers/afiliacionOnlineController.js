@@ -360,29 +360,11 @@ const procesarAfiliacionExistente = async (req, res) => {
       }
     }
 
-    // 2. Ejecutar débito atómico en la Entidad Bancaria vía Banco API
+    // 2. El débito en el banco va al final, justo antes del COMMIT (issue #31): si algo de la cooperativa
+    //    falla antes, no se descuenta nada; si falla el COMMIT, se devuelve el dinero.
     const targetNumeroCuenta = cuentaDebito.numero;
     const refMovimiento = 'AFIL-COOP-' + Date.now();
 
-    const debitRes = await bancoApiService.debitarCuenta({
-      numero_cuenta: targetNumeroCuenta,
-      cui_dpi: cuiLimpio,
-      monto: monto,
-      concepto: 'Débito por aportación inicial de membresía cooperativa',
-      referencia: refMovimiento,
-    });
-
-    if (!debitRes.success || debitRes.status !== 200) {
-      await client.query('ROLLBACK');
-      return res.status(debitRes.status || 400).json({
-        success: false,
-        message: debitRes.message || 'No fue posible debitar los fondos de la cuenta bancaria en la Entidad Bancaria.',
-      });
-    }
-
-    const transaccionBanco = debitRes.data || {};
-    const nuevoSaldoBco = transaccionBanco.saldo_nuevo !== undefined ? transaccionBanco.saldo_nuevo : 0;
-    const numCtaFinal = transaccionBanco.numero_cuenta || targetNumeroCuenta;
     // 3. Registrar en asociados de la cooperativa
     const asocInsert = await client.query(
       `INSERT INTO asociados (id_persona, fecha_ingreso, estado_asociado)
@@ -406,7 +388,7 @@ const procesarAfiliacionExistente = async (req, res) => {
     await client.query(
       `INSERT INTO transacciones (id_cuenta, tipo_transaccion, monto, saldo_anterior, saldo_nuevo, referencia, id_usuario_registra)
        VALUES ($1, 'DEPOSITO', $2, 0.00, $3, $4, NULL)`,
-      [cuentaCoop.id_cuenta, monto, monto, `Depósito inicial de membresía debitada de cuenta bancaria ${numCtaFinal}`]
+      [cuentaCoop.id_cuenta, monto, monto, `Depósito inicial de membresía debitada de cuenta bancaria ${targetNumeroCuenta}`]
     );
 
     // 8. Crear o actualizar usuario en el portal web
@@ -437,21 +419,60 @@ const procesarAfiliacionExistente = async (req, res) => {
       usuarioFinal = userInsert.rows[0];
     }
 
-    // La verificación en dos pasos no se prepara aquí: el asociado la activa desde «Seguridad» (menú del usuario),
-    // que genera su propio secreto y lo confirma con un código antes de activarla.
-    if (!accesoExistente) {
-      // 8.1 Despachar correo electrónico institucional con el usuario de acceso
-      await mailerService.sendAccountCredentialsEmail({
-        to: usuarioFinal.email,
-        nombre: persona.nombre_completo,
-        codigoCorporativo: usuarioFinal.codigo_corporativo,
-        // Sin contraseña: el correo no repite la que eligió el solicitante.
-        password: null,
-        rolNombre: 'ASOCIADO COOPERATIVISTA',
+    // 9. Débito en el banco (último paso antes del COMMIT)
+    const debitRes = await bancoApiService.debitarCuenta({
+      numero_cuenta: targetNumeroCuenta,
+      cui_dpi: cuiLimpio,
+      monto: monto,
+      concepto: 'Débito por aportación inicial de membresía cooperativa',
+      referencia: refMovimiento,
+    });
+
+    if (!debitRes.success || debitRes.status !== 200) {
+      await client.query('ROLLBACK');
+      return res.status(debitRes.status || 400).json({
+        success: false,
+        message: debitRes.message || 'No fue posible debitar los fondos de la cuenta bancaria en la Entidad Bancaria.',
       });
     }
 
-    await client.query('COMMIT');
+    const transaccionBanco = debitRes.data || {};
+    const nuevoSaldoBco = transaccionBanco.saldo_nuevo !== undefined ? transaccionBanco.saldo_nuevo : 0;
+    const numCtaFinal = transaccionBanco.numero_cuenta || targetNumeroCuenta;
+
+    try {
+      await client.query('COMMIT');
+    } catch (commitError) {
+      // El dinero ya salió del banco: se devuelve con una referencia ligada a la del débito
+      const reversion = await bancoApiService.acreditarCuenta({
+        numero_cuenta: targetNumeroCuenta,
+        monto,
+        concepto: 'Reversión de aporte: la afiliación no se completó',
+        referencia: `REV-${refMovimiento}`,
+      });
+      if (!reversion.success) {
+        console.error(`[ERROR] No se pudo revertir el débito ${refMovimiento} de la cuenta ${targetNumeroCuenta}:`, reversion.message);
+      }
+      throw commitError;
+    }
+
+    // 10. Correo con el usuario de acceso, después del COMMIT (sin contraseña: no repite la que eligió).
+    //     La verificación en dos pasos la activa el asociado desde «Seguridad».
+    let correoEnviado = false;
+    if (!accesoExistente) {
+      try {
+        const mailRes = await mailerService.sendAccountCredentialsEmail({
+          to: usuarioFinal.email,
+          nombre: persona.nombre_completo,
+          codigoCorporativo: usuarioFinal.codigo_corporativo,
+          password: null,
+          rolNombre: 'ASOCIADO COOPERATIVISTA',
+        });
+        correoEnviado = mailerService.wasSent(mailRes);
+      } catch (mailErr) {
+        console.warn('[WARN] No se pudo enviar el correo de bienvenida:', mailErr.message);
+      }
+    }
 
     return res.status(201).json({
       success: true,
@@ -468,6 +489,7 @@ const procesarAfiliacionExistente = async (req, res) => {
           email: usuarioFinal.email,
           acceso_existente: accesoExistente,
         },
+        correo_enviado: correoEnviado,
         cuenta_bancaria_origen: {
           numero_cuenta_bancaria: numCtaFinal,
           monto_debitado: monto,
@@ -487,7 +509,7 @@ const procesarAfiliacionExistente = async (req, res) => {
       },
     });
   } catch (error) {
-    await client.query('ROLLBACK');
+    await client.query('ROLLBACK').catch(() => {});
     console.error('[AFILIACION EXISTENTE ERROR]:', error);
     return res.status(500).json({
       success: false,

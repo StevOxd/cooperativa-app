@@ -254,6 +254,7 @@ El proyecto incluye un conjunto completo de scripts de prueba automatizados en l
 | `testGoogleMailer.js` | Prueba de conectividad y autenticacion con el servicio SMTP de Google. |
 | `testUsuarioDoble.js` | Persona con usuario del personal y de asociado: llave `id_usuario`, sesiones y estados separados, auditoria, tokens anteriores, nadie atiende sus propios tramites y afiliacion del personal por cada canal (issue #32). |
 | `testValidacionSesion.js` | Solo la sesion vigente abre rutas y WebSockets: el token del segundo paso del 2FA y los de sesiones cerradas se rechazan, y un socket solo cierra su propia sesion. |
+| `testErroresFase3.js` | Limites del credito, desistir como cancelada, parentesco unico, documentos propios del asociado, estado del asociado auditado, usuario sin fecha de nacimiento, correo unico sin mayusculas y secuencia de traslados. |
 
 ### Ejecucion de Pruebas
 

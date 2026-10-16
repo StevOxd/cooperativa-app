@@ -4,8 +4,10 @@ const mfaService = require('../services/mfaService');
 const { activarAccesoPortal, estadoAccesoPortal } = require('../services/accesoPortalService');
 const mailerService = require('../services/mailerService');
 const bancoApiService = require('../services/bancoApiService');
+const socketService = require('../services/socketService');
 const asociadoAfiliacionService = require('../services/asociadoAfiliacionService');
 const { getNextCorporateCode, resolvePrefix } = require('../utils/codeGenerator');
+const { normalizarParentesco } = require('../utils/parentesco');
 
 /**
  * Consulta el padrón institucional de asociados con soporte para paginación, filtros de estado y métricas consolidadas.
@@ -377,6 +379,8 @@ const aperturarCuenta = async (req, res) => {
 
     // 3. Procesar débito según origen de fondos
     let refOrigen = 'Efectivo en Ventanilla';
+    // Débito en el banco: se hace al final, justo antes del COMMIT (issue #31)
+    let debitoBanco = null;
 
     if (origen_fondos === 'BANCO_EXTERNO' && montoInicial > 0) {
       // Consultar cuenta en Core Banking API (banco_db)
@@ -399,25 +403,14 @@ const aperturarCuenta = async (req, res) => {
         return res.status(400).json({ success: false, message: 'La cuenta del banco no tiene saldo suficiente.' });
       }
 
-      // Débito en Core Banking API (banco_db). Con cui_dpi el banco rechaza cuentas de otra persona.
-      // debitarCuenta no lanza errores: devuelve success false, así que hay que revisar el resultado.
-      const debitRes = await bancoApiService.debitarCuenta({
+      // Con cui_dpi el banco rechaza cuentas de otra persona
+      debitoBanco = {
         numero_cuenta: ctaBco.numero_cuenta_bancaria,
         cui_dpi: asociadoRes.rows[0].cui_dpi,
         monto: montoInicial,
         concepto: 'Débito por Apertura de Cuenta Cooperativa',
         referencia: `APERTURA-VENTANILLA-${Date.now()}`,
-      });
-      if (!debitRes.success || debitRes.status !== 200) {
-        await client.query('ROLLBACK');
-        const status = debitRes.status === 403 ? 403 : 400;
-        return res.status(status).json({
-          success: false,
-          message: debitRes.status === 403
-            ? 'La cuenta del banco no pertenece a este asociado.'
-            : debitRes.message || 'No se pudo debitar la cuenta del banco.',
-        });
-      }
+      };
 
       refOrigen = `Banco Corporativo (Cta: ${ctaBco.numero_cuenta_bancaria})`;
     }
@@ -460,7 +453,39 @@ const aperturarCuenta = async (req, res) => {
       movimientoInicial = movimientoRes.rows[0];
     }
 
-    await client.query('COMMIT');
+    // 7. Débito en Core Banking API (último paso). debitarCuenta no lanza errores: devuelve success false,
+    //    así que hay que revisar el resultado; si falla, el ROLLBACK deshace la cuenta nueva.
+    if (debitoBanco) {
+      const debitRes = await bancoApiService.debitarCuenta(debitoBanco);
+      if (!debitRes.success || debitRes.status !== 200) {
+        await client.query('ROLLBACK');
+        const status = debitRes.status === 403 ? 403 : 400;
+        return res.status(status).json({
+          success: false,
+          message: debitRes.status === 403
+            ? 'La cuenta del banco no pertenece a este asociado.'
+            : debitRes.message || 'No se pudo debitar la cuenta del banco.',
+        });
+      }
+    }
+
+    try {
+      await client.query('COMMIT');
+    } catch (commitError) {
+      // El dinero ya salió del banco: se devuelve con una referencia ligada a la del débito
+      if (debitoBanco) {
+        const reversion = await bancoApiService.acreditarCuenta({
+          numero_cuenta: debitoBanco.numero_cuenta,
+          monto: debitoBanco.monto,
+          concepto: 'Reversión de apertura de cuenta no completada',
+          referencia: `REV-${debitoBanco.referencia}`,
+        });
+        if (!reversion.success) {
+          console.error(`[ERROR] No se pudo revertir el débito ${debitoBanco.referencia}:`, reversion.message);
+        }
+      }
+      throw commitError;
+    }
 
     return res.status(201).json({
       success: true,
@@ -475,7 +500,7 @@ const aperturarCuenta = async (req, res) => {
       },
     });
   } catch (error) {
-    await client.query('ROLLBACK');
+    await client.query('ROLLBACK').catch(() => {});
     console.error('[ERROR] Fallo en asociadosAdminController.aperturarCuenta:', error.message);
     return res.status(500).json({
       success: false,
@@ -561,6 +586,15 @@ const guardarBeneficiarios = async (req, res) => {
           message: 'Cada beneficiario necesita nombre, parentesco y porcentaje.',
         });
       }
+      // Un solo juego de valores de parentesco para el operador y el asociado (issue #10)
+      const parentesco = normalizarParentesco(ben.parentesco);
+      if (!parentesco) {
+        return res.status(400).json({
+          success: false,
+          message: `El parentesco de ${ben.nombre_completo} no es válido.`,
+        });
+      }
+      ben.parentesco = parentesco;
       const pct = parseFloat(ben.porcentaje);
       if (isNaN(pct) || pct <= 0 || pct > 100) {
         return res.status(400).json({
@@ -719,33 +753,38 @@ const getHistorialBeneficiarios = async (req, res) => {
 };
 
 /**
- * Actualiza el estado de un asociado (ACTIVO, INACTIVO, SUSPENDIDO) sincronizando con la cuenta de usuario.
+ * Actualiza el estado de un asociado (ACTIVO, INACTIVO, SUSPENDIDO) sincronizando su usuario de asociado.
+ * Todo va en una transacción y el cambio del usuario queda en `historial_estados_usuario` con quién lo hizo,
+ * la IP y el motivo. Si el usuario queda inactivo, se cierra su sesión y sus conexiones en tiempo real.
  *
  * @async
  * @function cambiarEstadoAsociado
- * @param {import('express').Request} req - Solicitud HTTP con `id` en params y `estado` en body.
+ * @param {import('express').Request} req - Solicitud HTTP con `id` en params y `estado` (y `motivo` opcional) en body.
  * @param {import('express').Response} res - Objeto de respuesta HTTP de Express.
  * @returns {Promise<import('express').Response>} Retorna 200 al actualizar, 400 por estado inválido o 404/500.
  */
 const cambiarEstadoAsociado = async (req, res) => {
+  const { id } = req.params;
+  const { estado, motivo } = req.body;
+
+  const estadosValidos = ['ACTIVO', 'INACTIVO', 'SUSPENDIDO'];
+  if (!estadosValidos.includes(estado)) {
+    return res.status(400).json({
+      success: false,
+      message: 'Estado no válido.',
+    });
+  }
+
+  const client = await pool.connect();
   try {
-    const { id } = req.params;
-    const { estado } = req.body;
-
-    const estadosValidos = ['ACTIVO', 'INACTIVO', 'SUSPENDIDO'];
-    if (!estadosValidos.includes(estado)) {
-      return res.status(400).json({
-        success: false,
-        message: 'Estado no válido.',
-      });
-    }
-
-    const result = await pool.query(
+    await client.query('BEGIN');
+    const result = await client.query(
       'UPDATE asociados SET estado_asociado = $1 WHERE id_asociado = $2 RETURNING id_asociado, id_persona, estado_asociado',
       [estado, id]
     );
 
     if (result.rows.length === 0) {
+      await client.query('ROLLBACK');
       return res.status(404).json({ success: false, message: 'Asociado no encontrado.' });
     }
 
@@ -753,10 +792,37 @@ const cambiarEstadoAsociado = async (req, res) => {
     // persona no se toca: suspender la afiliación no le quita su trabajo (issue #32).
     const idPersona = result.rows[0].id_persona;
     const estadoUsuario = estado === 'ACTIVO' ? 'ACTIVO' : 'INACTIVO';
-    await pool.query(
-      'UPDATE usuarios SET estado = $1 WHERE id_persona = $2 AND id_rol = 3 /* ASOCIADO */',
-      [estadoUsuario, idPersona]
+    const usuarioRes = await client.query(
+      'SELECT id_usuario, estado, id_rol FROM usuarios WHERE id_persona = $1 AND id_rol = 3 /* ASOCIADO */ FOR UPDATE',
+      [idPersona]
     );
+    const usuarioAsociado = usuarioRes.rows[0] || null;
+    const cambiaUsuario = usuarioAsociado && usuarioAsociado.estado !== estadoUsuario;
+    if (cambiaUsuario) {
+      await client.query(
+        // Al desactivarlo también se cierra su sesión
+        'UPDATE usuarios SET estado = $1, sesion_activa_id = CASE WHEN $3 THEN sesion_activa_id ELSE NULL END WHERE id_usuario = $2',
+        [estadoUsuario, usuarioAsociado.id_usuario, estadoUsuario === 'ACTIVO']
+      );
+      await client.query(
+        `INSERT INTO historial_estados_usuario
+          (id_usuario_modificado, estado_anterior, estado_nuevo, id_rol_anterior, id_rol_nuevo, id_modificado_por, motivo, ip_origen, user_agent)
+         VALUES ($1, $2, $3, $4, $4, $5, $6, $7, $8)`,
+        [
+          usuarioAsociado.id_usuario,
+          usuarioAsociado.estado,
+          estadoUsuario,
+          usuarioAsociado.id_rol,
+          req.user?.id_usuario || null,
+          (typeof motivo === 'string' && motivo.trim()) || `Afiliación ${estado.toLowerCase()} desde la gestión de asociados`,
+          req.headers['x-forwarded-for']?.split(',')[0].trim() || req.socket.remoteAddress || null,
+          req.headers['user-agent'] || 'Desconocido',
+        ]
+      );
+    }
+    await client.query('COMMIT');
+
+    if (cambiaUsuario && estadoUsuario === 'INACTIVO') socketService.disconnectUser(usuarioAsociado.id_usuario);
 
     return res.status(200).json({
       success: true,
@@ -764,11 +830,14 @@ const cambiarEstadoAsociado = async (req, res) => {
       data: result.rows[0],
     });
   } catch (error) {
+    await client.query('ROLLBACK').catch(() => {});
     console.error('[ERROR] Fallo en asociadosAdminController.cambiarEstadoAsociado:', error.message);
     return res.status(500).json({
       success: false,
       message: 'No se pudo cambiar el estado. Intente de nuevo.',
     });
+  } finally {
+    client.release();
   }
 };
 

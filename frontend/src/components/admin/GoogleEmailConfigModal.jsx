@@ -105,7 +105,12 @@ export const GoogleEmailConfigModal = ({ isOpen, onClose, onConfigSaved }) => {
 
       if (res.data?.success) {
         setTestResult(res.data);
-        toast.success(res.data.message || 'Correo de prueba enviado.');
+        // En modo demostrativo el servidor responde bien, pero el correo no salió (issue #13)
+        if (res.data.simulado || res.data.data?.simulado) {
+          toast.warning('El correo no salió: el servicio de correo está en modo demostrativo.');
+        } else {
+          toast.success(res.data.message || 'Correo de prueba enviado.');
+        }
       }
     } catch (err) {
       const errorMsg = err.response?.data?.message || 'No se pudo enviar el correo de prueba.';

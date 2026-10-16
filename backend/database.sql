@@ -152,7 +152,9 @@ CREATE TABLE beneficiarios (
     id_beneficiario SERIAL PRIMARY KEY,
     id_cuenta INT NOT NULL REFERENCES cuentas(id_cuenta) ON DELETE CASCADE,
     nombre_completo VARCHAR(150) NOT NULL,
-    parentesco VARCHAR(100) NOT NULL,
+    -- Un solo juego de valores para el operador y el asociado (issue #10)
+    parentesco VARCHAR(100) NOT NULL CONSTRAINT chk_beneficiarios_parentesco
+        CHECK (parentesco IN ('CONYUGE', 'HIJO/A', 'PADRE/MADRE', 'HERMANO/A', 'SOBRINO/A', 'OTRO')),
     cui_dpi VARCHAR(50),
     telefono VARCHAR(50),
     porcentaje NUMERIC(5, 2) NOT NULL CHECK (porcentaje > 0 AND porcentaje <= 100),
@@ -227,7 +229,7 @@ CREATE TABLE solicitudes_credito (
     plazo_meses INT NOT NULL CHECK (plazo_meses > 0),
     tasa_interes NUMERIC(5, 2) NOT NULL CHECK (tasa_interes >= 0),
     cuota_mensual_estimada NUMERIC(14, 2) NOT NULL CHECK (cuota_mensual_estimada > 0),
-    estado VARCHAR(50) NOT NULL DEFAULT 'PENDIENTE_FIRMA' CHECK (estado IN ('PENDIENTE_FIRMA', 'EN_REVISION_OPERADOR', 'EN_AUTORIZACION_EJECUTIVO', 'DEVUELTA_OPERADOR', 'APROBADA', 'APROBADO', 'DESEMBOLSADA', 'DENEGADA', 'RECHAZADA', 'RECHAZADO', 'PENDIENTE')),
+    estado VARCHAR(50) NOT NULL DEFAULT 'PENDIENTE_FIRMA' CHECK (estado IN ('PENDIENTE_FIRMA', 'EN_REVISION_OPERADOR', 'EN_AUTORIZACION_EJECUTIVO', 'DEVUELTA_OPERADOR', 'APROBADA', 'APROBADO', 'DESEMBOLSADA', 'DENEGADA', 'RECHAZADA', 'RECHAZADO', 'PENDIENTE', 'CANCELADA')),
     id_analista INT REFERENCES usuarios(id_usuario),
     id_cuenta_destino INT REFERENCES cuentas(id_cuenta),
     id_cuenta_bancaria_destino INT,
@@ -318,6 +320,8 @@ CREATE TABLE configuracion_sistema (
 CREATE INDEX idx_usuarios_rol ON usuarios(id_rol);
 -- Como máximo un usuario del personal y uno de asociado (rol 3) por persona; también cubre la FK a personas.
 CREATE UNIQUE INDEX uq_usuarios_persona_tipo ON usuarios (id_persona, (id_rol = 3));
+-- El correo es único sin importar mayúsculas (el inicio de sesión compara con LOWER(email))
+CREATE UNIQUE INDEX uq_usuarios_email_lower ON usuarios (LOWER(email));
 CREATE INDEX idx_historial_usuario ON historial_estados_usuario(id_usuario_modificado);
 CREATE INDEX idx_historial_modificado_por ON historial_estados_usuario(id_modificado_por);
 CREATE INDEX idx_cuentas_asociado ON cuentas(id_asociado);

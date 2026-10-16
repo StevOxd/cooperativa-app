@@ -310,26 +310,31 @@ const createUser = async (req, res) => {
       });
     }
 
-    if (fecha_nacimiento) {
-      const birth = new Date(fecha_nacimiento);
-      if (isNaN(birth.getTime())) {
-        return res.status(400).json({
-          success: false,
-          message: 'La fecha de nacimiento no es válida.',
-        });
-      }
-      const today = new Date();
-      let age = today.getFullYear() - birth.getFullYear();
-      const m = today.getMonth() - birth.getMonth();
-      if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) {
-        age--;
-      }
-      if (age < 18) {
-        return res.status(400).json({
-          success: false,
-          message: `La persona debe ser mayor de edad (18 años cumplidos). Tiene ${age >= 0 ? age : 0} años.`,
-        });
-      }
+    // personas.fecha_nacimiento es obligatoria: sin ella el registro fallaba con un error interno
+    if (!fecha_nacimiento) {
+      return res.status(400).json({
+        success: false,
+        message: 'Escriba la fecha de nacimiento.',
+      });
+    }
+    const birth = new Date(fecha_nacimiento);
+    if (isNaN(birth.getTime())) {
+      return res.status(400).json({
+        success: false,
+        message: 'La fecha de nacimiento no es válida.',
+      });
+    }
+    const today = new Date();
+    let age = today.getFullYear() - birth.getFullYear();
+    const m = today.getMonth() - birth.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) {
+      age--;
+    }
+    if (age < 18) {
+      return res.status(400).json({
+        success: false,
+        message: `La persona debe ser mayor de edad (18 años cumplidos). Tiene ${age >= 0 ? age : 0} años.`,
+      });
     }
 
     // 1.1 Determinar contraseña: Por política de seguridad bancaria, se genera aleatoriamente

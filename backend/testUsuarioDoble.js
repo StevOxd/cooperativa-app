@@ -225,8 +225,14 @@ const testServer = server.listen(0, async () => {
       (await request('/api/auth/me', 'GET', null, tokenPersonal)).status === 200,
       'El usuario del personal sigue trabajando con la afiliación suspendida'
     );
+    assert(
+      (await request('/api/asociado/perfil', 'GET', null, tokenAsociado)).status !== 200,
+      'Suspender la afiliación cierra la sesión del usuario de asociado'
+    );
     await request(`/api/admin/asociados/${idAsociado}/estado`, 'PATCH', { estado: 'ACTIVO' }, tokenOperador);
     assert((await usuario(asociadoUsuario.id_usuario)).estado === 'ACTIVO', 'Reactivar la afiliación reactiva su usuario de asociado');
+    tokenAsociado = (await login(codigoAsociado)).body.token;
+    tokensAbiertos.push(tokenAsociado);
 
     const tokenAdmin = (await login('AD-1')).body.token;
     tokensAbiertos.push(tokenAdmin);
@@ -526,7 +532,7 @@ const testServer = server.listen(0, async () => {
       primer_apellido: 'Enventanilla',
       telefono: '55550044',
       fecha_nacimiento: '1992-02-02',
-      monto_aportacion: 150,
+      monto_aportacion: 100, // el mínimo, Q100.00, se acepta
     };
     mailerService.isAvailable = () => true;
     let conCorreoDelPersonal;

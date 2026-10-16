@@ -97,6 +97,18 @@ const validateCuiMiddleware = (field = 'cui_dpi') => {
 };
 
 /**
+ * Valida que un monto sea numérico y alcance un mínimo inclusivo (>= min), por ejemplo el aporte
+ * inicial de Q100.00, que debe aceptar exactamente Q100.00.
+ * @param {number|string} monto
+ * @param {number} min
+ * @returns {{ valid: boolean, value?: number }}
+ */
+const validateMinimumAmount = (monto, min) => {
+  const num = parseFloat(monto);
+  return isNaN(num) || num < min ? { valid: false } : { valid: true, value: num };
+};
+
+/**
  * Express Middleware: Valida monto en solicitudes de crédito o traslado
  */
 const validateMontoMiddleware = (field = 'monto', min = 0) => {
@@ -111,6 +123,7 @@ const validateMontoMiddleware = (field = 'monto', min = 0) => {
 };
 
 module.exports = {
+  validateMinimumAmount,
   validateCui,
   validateAge18,
   validatePositiveAmount,

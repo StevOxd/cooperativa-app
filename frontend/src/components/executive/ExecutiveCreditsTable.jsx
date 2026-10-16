@@ -13,6 +13,7 @@ const STATES = {
   DESEMBOLSADA: { label: 'Desembolsada', tone: 'success' },
   DENEGADA: { label: 'Denegada', tone: 'danger' },
   RECHAZADA: { label: 'Denegada', tone: 'danger' },
+  CANCELADA: { label: 'Cancelada por el asociado', tone: 'neutral' },
   EN_REVISION_OPERADOR: { label: 'Con el operador', tone: 'brand' },
   PENDIENTE: { label: 'Con el operador', tone: 'brand' },
 };

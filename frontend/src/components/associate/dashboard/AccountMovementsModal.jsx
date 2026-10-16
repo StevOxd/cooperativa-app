@@ -2,6 +2,7 @@ import React from 'react';
 import { Activity, FileDown } from 'lucide-react';
 import { Badge, Button, EmptyState, LoadingState, Modal, Table, TBody, TD, TH, THead, TR, cn } from '../../ui';
 import { formatDateTime, formatQ, humanize } from '../../../utils/format';
+import { esIngreso } from '../../../utils/movimientos';
 
 /**
  * Movimientos de una cuenta del asociado, con descarga del estado de cuenta en PDF.
@@ -84,7 +85,7 @@ export const AccountMovementsModal = ({
             </THead>
             <TBody>
               {transactions.map((t) => {
-                const isCredit = ['DEPOSITO', 'PAGO_CREDITO'].includes(t.tipo_transaccion);
+                const isCredit = esIngreso(t);
                 return (
                   <TR key={t.id_transaccion}>
                     <TD className="whitespace-nowrap text-xs">{formatDateTime(t.fecha_transaccion)}</TD>

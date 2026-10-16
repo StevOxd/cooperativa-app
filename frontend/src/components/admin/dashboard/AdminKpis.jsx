@@ -18,7 +18,7 @@ export const AdminKpis = ({ kpis, loading }) => {
       <StatCard
         label="Usuarios registrados"
         value={show(kpis.total)}
-        hint={`${kpis.asociadosCount} asociados · ${kpis.operadoresCount} operadores`}
+        hint={`${kpis.asociadosCount} asociados · ${kpis.operadoresCount} operadores · ${kpis.ejecutivosCount} ejecutivos · ${kpis.adminCount} administradores`}
       />
       <StatCard
         label="Activos"

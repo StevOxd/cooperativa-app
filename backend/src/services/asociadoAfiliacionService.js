@@ -10,7 +10,7 @@ const constants = require('../config/constants');
 const mailerService = require('./mailerService');
 const bancoApiService = require('./bancoApiService');
 const { getNextCorporateCode, resolvePrefix, generateSecureRandomPassword } = require('../utils/codeGenerator');
-const { validateCui, validateAge18, validatePositiveAmount } = require('../middlewares/validationMiddleware');
+const { validateCui, validateAge18, validateMinimumAmount } = require('../middlewares/validationMiddleware');
 const { decidirAccesoPortal } = require('../utils/accesoPortal');
 
 class AsociadoAfiliacionService {
@@ -142,7 +142,8 @@ class AsociadoAfiliacionService {
     const acceso = await decidirAccesoPortal(crear_acceso_portal, email);
     const cleanEmail = acceso.email;
 
-    const montoCheck = validatePositiveAmount(monto_aportacion, constants.FINANCIERO.MONTO_MINIMO_APORTACION, 'monto_aportacion');
+    // Mínimo inclusivo: Q100.00 se acepta
+    const montoCheck = validateMinimumAmount(monto_aportacion, constants.FINANCIERO.MONTO_MINIMO_APORTACION);
     if (!montoCheck.valid) {
       const error = new Error(`La aportación inicial de membresía no puede ser inferior a Q${constants.FINANCIERO.MONTO_MINIMO_APORTACION.toFixed(2)}.`);
       error.statusCode = 400;
