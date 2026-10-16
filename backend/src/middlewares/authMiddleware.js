@@ -1,4 +1,5 @@
 const jwt = require('jsonwebtoken');
+const { validarSesion } = require('../services/sesionService');
 require('dotenv').config();
 
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -16,11 +17,9 @@ const JWT_SECRET = process.env.JWT_SECRET;
  * @param {import('express').Request} req - Objeto de solicitud HTTP de Express.
  * @param {import('express').Response} res - Objeto de respuesta HTTP de Express.
  * @param {import('express').NextFunction} next - Función para continuar al siguiente middleware.
- * @returns {void|import('express').Response} Retorna 401 si falta o expiró el token, 403 si es inválido.
+ * @returns {void|import('express').Response} Retorna 401 si falta el token, venció, no es de sesión o la sesión ya
+ *   no es la vigente; 403 si el usuario está inactivo o la firma es inválida.
  */
-const db = require('../config/db');
-const { idUsuarioDelToken } = require('../utils/tokenUsuario');
-
 const verifyToken = async (req, res, next) => {
   const authHeader = req.headers['authorization'] || req.headers['Authorization'];
 
@@ -45,44 +44,17 @@ const verifyToken = async (req, res, next) => {
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
 
-    // Validación de Revocación de Sesión y Estado Activo en BD (SEC-08).
-    // Un token que no identifica a un usuario no es una sesión.
-    const idUsuario = idUsuarioDelToken(decoded);
-    if (!idUsuario) {
-      return res.status(401).json({
+    // Sesión vigente: token de sesión (no de un paso concreto), usuario ACTIVO y sesion_activa_id
+    // igual a la de la base de datos (SEC-08). Las mismas reglas se aplican a los WebSockets.
+    const sesion = await validarSesion(decoded);
+    if (!sesion.valida) {
+      return res.status(sesion.status).json({
         success: false,
-        message: 'Su sesión no es válida. Inicie sesión de nuevo.',
+        message: sesion.message,
+        ...(sesion.sesionRevocada && { sesion_revocada: true }),
       });
     }
-
-    const userCheck = await db.query(
-      'SELECT id_persona, estado, sesion_activa_id, bloqueado_hasta, debe_cambiar_password FROM usuarios WHERE id_usuario = $1',
-      [idUsuario]
-    );
-
-    if (userCheck.rows.length === 0) {
-      return res.status(401).json({
-        success: false,
-        message: 'Su sesión no es válida. Inicie sesión de nuevo.',
-      });
-    }
-
-    const dbUser = userCheck.rows[0];
-    if (dbUser.estado !== 'ACTIVO') {
-      return res.status(403).json({
-        success: false,
-        message: 'Su cuenta está inactiva. Comuníquese con el administrador.',
-      });
-    }
-
-    // Si el token incluye sesion_activa_id, verificar que la sesión siga activa y no haya sido revocada (ej. por logout)
-    if (decoded.sesion_activa_id && (!dbUser.sesion_activa_id || dbUser.sesion_activa_id !== decoded.sesion_activa_id)) {
-      return res.status(401).json({
-        success: false,
-        message: 'Su sesión terminó o se abrió en otro dispositivo. Inicie sesión de nuevo.',
-        sesion_revocada: true,
-      });
-    }
+    const { idUsuario, usuario: dbUser } = sesion;
 
     // Restricción por cambio de contraseña obligatorio en primer inicio de sesión
     if (dbUser.debe_cambiar_password) {

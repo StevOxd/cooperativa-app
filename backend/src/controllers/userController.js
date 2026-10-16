@@ -113,7 +113,7 @@ const getUsers = async (req, res) => {
 
     const mappedUsers = result.rows.map((u) => {
       const tieneSesion = Boolean(u.sesion_activa_id);
-      const socketActivo = socketService.isUserConnected(u.id_usuario);
+      const socketActivo = socketService.isUserConnected(u.id_usuario, u.sesion_activa_id);
       const pingReciente = Boolean(u.ultimo_ping && (now - new Date(u.ultimo_ping)) < dosMinutosEnMs);
       const en_linea = Boolean(tieneSesion && (socketActivo || pingReciente));
 
@@ -924,6 +924,8 @@ const deleteUser = async (req, res) => {
 
     // CONFIRMAR TRANSACCIÓN
     await client.query('COMMIT');
+    // Sus conexiones en tiempo real se cierran junto con el usuario
+    socketService.disconnectUser(targetUserId);
 
     const result = await db.query(
       `SELECT 
@@ -1257,6 +1259,10 @@ const cambiarEstadoUsuario = async (req, res) => {
     );
 
     await client.query('COMMIT');
+    if (nuevoEstado === 'INACTIVO') {
+      // Sus conexiones en tiempo real se cierran junto con la sesión
+      socketService.disconnectUser(targetUserId);
+    }
 
     return res.status(200).json({
       success: true,
@@ -1383,6 +1389,8 @@ const resetPasswordUsuario = async (req, res) => {
     }
 
     await client.query('COMMIT');
+    // La sesión anterior quedó cerrada: sus conexiones en tiempo real también se cierran
+    socketService.disconnectUser(targetUserId);
 
     // Por protocolos de seguridad bancaria, la contraseña temporal NO se devuelve en la respuesta al Administrador
     return res.status(200).json({
