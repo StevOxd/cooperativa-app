@@ -1,3 +1,4 @@
+const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 const { pool } = require('../config/db');
 const mfaService = require('../services/mfaService');
@@ -10,6 +11,9 @@ const { getNextCorporateCode, resolvePrefix } = require('../utils/codeGenerator'
 const { normalizarParentesco } = require('../utils/parentesco');
 const { respuestaDeError, estadoPorFalloDelBanco } = require('../utils/errores');
 const { ipDelCliente } = require('../utils/ipCliente');
+const { leerMonto } = require('../utils/montos');
+const { registrarEfectivo } = require('../services/efectivoVentanillaService');
+const { revertirOAnotar, anotarSinConfirmar, errorTrasCommitFallido } = require('../services/reversionesService');
 
 /**
  * Consulta el padrón institucional de asociados con soporte para paginación, filtros de estado y métricas consolidadas.
@@ -368,7 +372,18 @@ const aperturarCuenta = async (req, res) => {
     }
     const tipoCuenta = tipoRes.rows[0];
     const montoMinimo = parseFloat(tipoCuenta.monto_minimo_apertura);
-    const montoInicial = parseFloat(monto_apertura || 0);
+    // Sin monto, la cuenta se abre en cero; con monto, tiene que ser un número válido (parseFloat dejaba pasar
+    // textos y NaN, que llegaba a guardarse como saldo). El efectivo cuenta además para el tope del día por persona
+    // (registrarEfectivo); el débito al banco no.
+    const montoTexto = String(monto_apertura ?? '').trim();
+    let montoInicial = 0;
+    if (montoTexto !== '' && Number(montoTexto) !== 0) {
+      try {
+        montoInicial = leerMonto(montoTexto, 'el monto de apertura');
+      } catch (montoError) {
+        return res.status(montoError.statusCode || 400).json({ success: false, message: montoError.message });
+      }
+    }
 
     if (montoInicial < montoMinimo) {
       return res.status(400).json({
@@ -411,10 +426,29 @@ const aperturarCuenta = async (req, res) => {
         cui_dpi: asociadoRes.rows[0].cui_dpi,
         monto: montoInicial,
         concepto: 'Débito por Apertura de Cuenta Cooperativa',
-        referencia: `APERTURA-VENTANILLA-${Date.now()}`,
+        // Única por intento (48 bits al azar): el banco toma una referencia repetida como un reintento de la misma
+        // operación, y dos aperturas no pueden compartir un débito
+        referencia: `APERTURA-VENT-${Date.now()}-${crypto.randomBytes(6).toString('hex')}`,
       };
 
       refOrigen = `Banco Corporativo (Cta: ${ctaBco.numero_cuenta_bancaria})`;
+    }
+
+    // 3.1 El efectivo de ventanilla queda registrado (y cuenta para el tope del día de la persona)
+    if (!debitoBanco && montoInicial > 0) {
+      try {
+        await registrarEfectivo(client, {
+          idOperador: req.user.id_usuario,
+          cui: asociadoRes.rows[0].cui_dpi,
+          monto: montoInicial,
+          origen: 'APERTURA_CUENTA',
+          referencia: `Apertura de ${tipoCuenta.nombre}`,
+        });
+      } catch (efectivoError) {
+        await client.query('ROLLBACK');
+        if (!efectivoError.statusCode) throw efectivoError;
+        return res.status(efectivoError.statusCode).json({ success: false, message: efectivoError.message });
+      }
     }
 
     // 4. Generar número de cuenta correlativo
@@ -457,16 +491,31 @@ const aperturarCuenta = async (req, res) => {
 
     // 7. Débito en Core Banking API (último paso). debitarCuenta no lanza errores: devuelve success false,
     //    así que hay que revisar el resultado; si falla, el ROLLBACK deshace la cuenta nueva.
+    const reversionDelDebito = debitoBanco && {
+      origen: 'APERTURA_CUENTA',
+      tipo: 'CREDITO',
+      numeroCuenta: debitoBanco.numero_cuenta,
+      cui: debitoBanco.cui_dpi,
+      monto: debitoBanco.monto,
+      referencia: debitoBanco.referencia,
+      concepto: 'Reversión de apertura de cuenta no completada',
+      detalle: `Apertura de ${tipoCuenta.nombre} para el DPI ${debitoBanco.cui_dpi}`,
+      clave: nuevaCuenta.id_cuenta,
+    };
     if (debitoBanco) {
       const debitRes = await bancoApiService.debitarCuenta(debitoBanco);
       if (!debitRes.success || debitRes.status !== 200) {
         await client.query('ROLLBACK');
+        // Sin respuesta a tiempo el débito pudo hacerse: queda en «Conciliación» para devolverlo si entró
+        const anotado = debitRes.status === 504 && await anotarSinConfirmar(reversionDelDebito);
         const status = estadoPorFalloDelBanco(debitRes.status);
         return res.status(status).json({
           success: false,
           message: debitRes.status === 403
             ? 'La cuenta del banco no pertenece a este asociado.'
-            : debitRes.message || 'No se pudo debitar la cuenta del banco.',
+            : anotado
+              ? `El banco no respondió a tiempo. Si llegó a debitar, el administrador lo devolverá desde «Conciliación» (referencia ${debitoBanco.referencia}). Puede intentarlo de nuevo en unos minutos.`
+              : debitRes.message || 'No se pudo debitar la cuenta del banco.',
         });
       }
     }
@@ -474,19 +523,11 @@ const aperturarCuenta = async (req, res) => {
     try {
       await client.query('COMMIT');
     } catch (commitError) {
-      // El dinero ya salió del banco: se devuelve con una referencia ligada a la del débito
-      if (debitoBanco) {
-        const reversion = await bancoApiService.acreditarCuenta({
-          numero_cuenta: debitoBanco.numero_cuenta,
-          monto: debitoBanco.monto,
-          concepto: 'Reversión de apertura de cuenta no completada',
-          referencia: `REV-${debitoBanco.referencia}`,
-        });
-        if (!reversion.success) {
-          console.error(`[ERROR] No se pudo revertir el débito ${debitoBanco.referencia}:`, reversion.message);
-        }
-      }
-      throw commitError;
+      // El dinero ya salió del banco: se devuelve, o queda en «Conciliación» si no se puede. Si el COMMIT sí se
+      // aplicó (se confirma con otra conexión), la cuenta quedó abierta y se responde como tal.
+      if (!debitoBanco) throw commitError;
+      const reversion = await revertirOAnotar({ ...reversionDelDebito, pid: client.processID });
+      if (!reversion.aplicada) throw errorTrasCommitFallido(reversion, commitError, debitoBanco.referencia);
     }
 
     return res.status(201).json({
@@ -504,10 +545,8 @@ const aperturarCuenta = async (req, res) => {
   } catch (error) {
     await client.query('ROLLBACK').catch(() => {});
     console.error('[ERROR] Fallo en asociadosAdminController.aperturarCuenta:', error.message);
-    return res.status(500).json({
-      success: false,
-      message: 'No se pudo abrir la cuenta. Intente de nuevo.',
-    });
+    const { status, message } = respuestaDeError(error, 'No se pudo abrir la cuenta. Intente de nuevo.');
+    return res.status(status).json({ success: false, message });
   } finally {
     client.release();
   }

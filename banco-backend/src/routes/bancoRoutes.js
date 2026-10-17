@@ -31,6 +31,7 @@ router.get('/cuentas/:numero_cuenta', cuentasController.consultarCuenta);
 router.post('/cuentas/aperturar', cuentasController.aperturarCuenta);
 router.post('/cuentas/debitar', cuentasController.debitar);
 router.post('/cuentas/acreditar', cuentasController.acreditar);
+router.get('/movimientos/:referencia', cuentasController.consultarMovimiento);
 router.get('/demo/cuentas', cuentasController.getCuentasDemo);
 
 module.exports = router;

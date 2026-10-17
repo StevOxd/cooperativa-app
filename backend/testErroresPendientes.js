@@ -7,7 +7,11 @@ process.env.MAIL_ENABLED = 'false';
  * - Los números de caso no se repiten a partir del 10000 (el correlativo no se corta a 4 dígitos).
  * - El operador solo rechaza créditos: la aprobación y el desembolso son del ejecutivo.
  * - El desembolso del ejecutivo acredita en el banco como último paso: si el banco falla no se aprueba nada,
- *   y si falla el COMMIT la acreditación se revierte.
+ *   y si falla el COMMIT la acreditación se revierte (salvo que el COMMIT sí se haya aplicado).
+ * - Un traslado con un intento por revertir no se aprueba, tampoco si la reversión empieza mientras se aprueba.
+ * - La reversión automática espera a que termine quien tenga la operación y no revierte si quedó hecha.
+ * - Al denegar o rechazar, el movimiento que un intento anterior dejó en el banco se revierte; sin poder consultar
+ *   el banco, la solicitud no se cierra.
  * - El desembolso a una cuenta de la cooperativa registra su movimiento.
  *
  * Usa el backend en proceso (puerto efímero) y la base de datos local. El banco se simula: la prueba no mueve
@@ -23,7 +27,7 @@ const db = require('./src/config/db');
 const bancoApiService = require('./src/services/bancoApiService');
 const { runMigrations } = require('./src/config/migrations');
 const { estadoPorFalloDelBanco } = require('./src/utils/errores');
-const { makeRequest, createTestReporter, crearUsuarioDePrueba, borrarPersonaDePrueba } = require('./testHelper');
+const { makeRequest, createTestReporter, crearUsuarioDePrueba, borrarPersonaDePrueba, purgarReversionesDePrueba } = require('./testHelper');
 
 const PDF = `data:application/pdf;base64,${Buffer.from('%PDF-1.4 prueba').toString('base64')}`;
 const CARPETA_CREDITOS = path.join(__dirname, 'uploads', 'creditos');
@@ -67,6 +71,8 @@ const testServer = server.listen(0, async () => {
   const anio = new Date().getFullYear();
   const tokens = [];
   const solicitudes = [];
+  // Referencias de las operaciones de la prueba, para borrar sus reversiones
+  const referencias = [];
   let idPersona = null;
   let errorInesperado = false;
 
@@ -75,9 +81,11 @@ const testServer = server.listen(0, async () => {
     obtenerCuentasCliente: bancoApiService.obtenerCuentasCliente,
     acreditarCuenta: bancoApiService.acreditarCuenta,
     debitarCuenta: bancoApiService.debitarCuenta,
+    consultarMovimiento: bancoApiService.consultarMovimiento,
     connect: db.pool.connect,
   };
-  const banco = { acreditar: null, debitar: null, cuentas: [], acreditaciones: [], reversiones: [] };
+  // movimientos: los que el banco simulado tiene de intentos anteriores, por «referencia|tipo»
+  const banco = { acreditar: null, debitar: null, cuentas: [], acreditaciones: [], reversiones: [], movimientos: {}, caido: false };
   let registro = [];
   // null, 'falla' (el COMMIT no se aplica) o 'aplicadoConError' (se aplica, pero la conexión informa un error)
   let modoCommit = null;
@@ -90,6 +98,13 @@ const testServer = server.listen(0, async () => {
   bancoApiService.debitarCuenta = async (datos) => {
     banco.reversiones.push(datos);
     return banco.debitar || { success: true, status: 200 };
+  };
+  bancoApiService.consultarMovimiento = async (referencia, tipo) => {
+    if (banco.caido) return { success: false, status: 503, message: 'Banco no disponible' };
+    const movimiento = banco.movimientos[`${referencia}|${tipo}`];
+    return movimiento
+      ? { success: true, status: 200, data: { referencia, tipo_movimiento: tipo, revertido: false, ...movimiento } }
+      : { success: false, status: 404, message: 'No hay un movimiento con esa referencia.' };
   };
   // Solo se interceptan las transacciones (connect() sin argumentos); pool.query usa connect con callback
   db.pool.connect = async (...args) => {
@@ -159,6 +174,13 @@ const testServer = server.listen(0, async () => {
       return id;
     };
     const estadoDe = async (id) => (await db.query('SELECT estado FROM solicitudes_credito WHERE id_solicitud_credito = $1', [id])).rows[0].estado;
+    // La referencia del desembolso en el banco: la de la solicitud y el segundo en que se creó
+    const referenciaDe = async (id) => {
+      const { fecha_solicitud: creada } = (await db.query('SELECT fecha_solicitud FROM solicitudes_credito WHERE id_solicitud_credito = $1', [id])).rows[0];
+      const referencia = bancoApiService.referenciaDeOperacion(`SOL-CRED-${id}`, creada);
+      referencias.push(referencia);
+      return referencia;
+    };
 
     // ------------------------------------------------------------------
     console.log('\n--- Créditos desde la bandeja del operador ---');
@@ -198,6 +220,10 @@ const testServer = server.listen(0, async () => {
     const caido = await aceptar(conBancoCaido);
     banco.acreditar = null;
     assert(caido.status === 502 && (await estadoDe(conBancoCaido)) === 'EN_AUTORIZACION_EJECUTIVO', 'Si el banco no acredita, la solicitud sigue por autorizar (502)');
+    const archivosHuerfanos = fs.existsSync(CARPETA_CREDITOS)
+      ? fs.readdirSync(CARPETA_CREDITOS).filter((a) => a.startsWith(`solicitud_credito_${conBancoCaido}_`))
+      : [];
+    assert(archivosHuerfanos.length === 0, 'Si la resolución no se completa, no queda el PDF guardado (issue #63)');
 
     // Falla el COMMIT después de acreditar: el dinero se retira del banco
     const conCommitFallido = await nuevaSolicitud('EN_AUTORIZACION_EJECUTIVO', destinoBanco);
@@ -209,7 +235,7 @@ const testServer = server.listen(0, async () => {
     const reversion = banco.reversiones[0];
     assert(
       commitFallido.status === 500 && (await estadoDe(conCommitFallido)) === 'EN_AUTORIZACION_EJECUTIVO'
-        && reversion?.referencia === `REV-SOL-CRED-${conCommitFallido}` && reversion?.cui_dpi === dpiAsociado && Number(reversion?.monto) === 1000,
+        && reversion?.referencia === `REV-${await referenciaDe(conCommitFallido)}` && reversion?.cui_dpi === dpiAsociado && Number(reversion?.monto) === 1000,
       'Si falla el COMMIT, la acreditación se revierte en el banco con el DPI del titular'
     );
 
@@ -220,10 +246,17 @@ const testServer = server.listen(0, async () => {
     const noRevertida = await aceptar(sinReversion);
     modoCommit = null;
     banco.debitar = null;
+    const anotada = (await db.query(
+      'SELECT estado, tipo_movimiento FROM reversiones_pendientes WHERE referencia_original = $1', [await referenciaDe(sinReversion)]
+    )).rows[0];
     assert(
-      noRevertida.status === 500 && /No la reintente/.test(noRevertida.body.message || '') && (await estadoDe(sinReversion)) === 'EN_AUTORIZACION_EJECUTIVO',
-      'Si tampoco se puede revertir, se avisa que no se reintente y se pide conciliar'
+      noRevertida.status === 500 && /No la repita/.test(noRevertida.body.message || '') && (await estadoDe(sinReversion)) === 'EN_AUTORIZACION_EJECUTIVO'
+        && anotada?.estado === 'PENDIENTE' && anotada?.tipo_movimiento === 'DEBITO',
+      'Si tampoco se puede revertir, se avisa que no se reintente y la reversión queda en «Conciliación»'
     );
+    // Mientras esa reversión esté pendiente, la solicitud no se vuelve a aprobar
+    const reintentoBloqueado = await aceptar(sinReversion);
+    assert(reintentoBloqueado.status === 409 && (await estadoDe(sinReversion)) === 'EN_AUTORIZACION_EJECUTIVO', 'Con una reversión pendiente, la solicitud no se vuelve a aprobar (409)');
 
     // El COMMIT se aplicó aunque la conexión informó un error: no se retira el dinero de un crédito aprobado
     const aplicado = await nuevaSolicitud('EN_AUTORIZACION_EJECUTIVO', destinoBanco);
@@ -231,9 +264,13 @@ const testServer = server.listen(0, async () => {
     modoCommit = 'aplicadoConError';
     const commitAplicado = await aceptar(aplicado);
     modoCommit = null;
+    const descartada = (await db.query(
+      'SELECT estado FROM reversiones_pendientes WHERE referencia_original = $1', [await referenciaDe(aplicado)]
+    )).rows[0];
     assert(
-      commitAplicado.status === 200 && (await estadoDe(aplicado)) === 'APROBADA' && banco.reversiones.length === 0,
-      'Si el COMMIT sí se aplicó, la solicitud queda aprobada y no se revierte'
+      commitAplicado.status === 200 && (await estadoDe(aplicado)) === 'APROBADA' && banco.reversiones.length === 0
+        && descartada?.estado === 'DESCARTADA',
+      'Si el COMMIT sí se aplicó, la solicitud queda aprobada y no se revierte (la reversión queda descartada)'
     );
 
     // Desembolso normal: se acredita después de registrar la aprobación y antes del COMMIT
@@ -247,6 +284,106 @@ const testServer = server.listen(0, async () => {
         && registro.indexOf('UPDATE solicitudes_credito') < registro.indexOf('ACREDITAR')
         && registro.indexOf('ACREDITAR') < registro.lastIndexOf('COMMIT'),
       `La acreditación en el banco es el último paso antes del COMMIT (${orden})`
+    );
+
+    // ------------------------------------------------------------------
+    console.log('\n--- Traslado con un intento por revertir ---');
+    const nuevoTraslado = async () => {
+      const t = (await db.query(
+        `INSERT INTO solicitudes_traslado_apertura (id_asociado, id_cuenta_bancaria_origen, id_cuenta_destino, id_tipo_cuenta_destino, monto, tipo_operacion)
+         VALUES ($1, 999999, $2, (SELECT id_tipo_cuenta FROM cuentas WHERE id_cuenta = $2), 50, 'TRASLADO_DIRECTO')
+         RETURNING id_solicitud, numero_caso, fecha_solicitud`,
+        [asociado.idAsociado, idCuentaCoop]
+      )).rows[0];
+      t.referencia = bancoApiService.referenciaDeOperacion(t.numero_caso, t.fecha_solicitud);
+      referencias.push(t.referencia);
+      return t;
+    };
+    const anotarPendiente = (t) => db.query(
+      `INSERT INTO reversiones_pendientes (origen, tipo_movimiento, numero_cuenta_bancaria, cui_dpi, monto, concepto,
+         referencia_original, referencia_reversion, clave_operacion)
+       VALUES ('TRASLADO', 'CREDITO', $1, $2, 50, 'Reversión de prueba', $3, $4, $5)`,
+      [`CTA-BCO-TP-${sufijo}`, dpiAsociado, t.referencia, `REV-${t.referencia}`, String(t.id_solicitud)]
+    );
+    const estadoTraslado = async (t) => (await db.query('SELECT estado FROM solicitudes_traslado_apertura WHERE id_solicitud = $1', [t.id_solicitud])).rows[0].estado;
+    const aprobarTraslado = (t) => request(`/api/operador/solicitudes/${t.id_solicitud}/resolver`, 'POST', { accion: 'APROBAR' }, tokenOperador);
+
+    // Un intento anterior quedó por revertir: no se debita otra vez
+    const conPendiente = await nuevoTraslado();
+    await anotarPendiente(conPendiente);
+    banco.reversiones = [];
+    const bloqueado = await aprobarTraslado(conPendiente);
+    assert(
+      bloqueado.status === 409 && (await estadoTraslado(conPendiente)) === 'PENDIENTE' && banco.reversiones.length === 0,
+      'Con un intento por revertir, el traslado no se aprueba ni se debita (409)'
+    );
+    // La reversión del intento anterior empieza mientras se aprueba: el banco devuelve ese débito (idempotente),
+    // pero no se registra, porque se está revirtiendo
+    const enCarrera = await nuevoTraslado();
+    const debitarSimulado = bancoApiService.debitarCuenta;
+    bancoApiService.debitarCuenta = async (datos) => {
+      if (datos.referencia !== enCarrera.referencia) return debitarSimulado(datos);
+      await anotarPendiente(enCarrera);
+      return { success: true, status: 200, idempotente: true, data: { referencia: datos.referencia } };
+    };
+    const enCarreraRes = await aprobarTraslado(enCarrera);
+    bancoApiService.debitarCuenta = debitarSimulado;
+    assert(
+      enCarreraRes.status === 409 && (await estadoTraslado(enCarrera)) === 'PENDIENTE',
+      'Si el banco devuelve un débito que se está revirtiendo, el traslado no se registra (409)'
+    );
+
+    // La reversión automática bloquea la operación: si otro la tiene y la deja hecha, no se revierte
+    const ocupado = await nuevoTraslado();
+    const otro = await original.connect.call(db.pool);
+    await otro.query('BEGIN');
+    await otro.query('SELECT 1 FROM solicitudes_traslado_apertura WHERE id_solicitud = $1 FOR UPDATE', [ocupado.id_solicitud]);
+    banco.acreditaciones = [];
+    const { revertirOAnotar } = require('./src/services/reversionesService');
+    const enEspera = revertirOAnotar({
+      origen: 'TRASLADO', tipo: 'CREDITO', numeroCuenta: `CTA-BCO-TP-${sufijo}`, cui: dpiAsociado, monto: 50,
+      referencia: ocupado.referencia, concepto: 'Reversión de prueba', clave: ocupado.id_solicitud,
+    });
+    await new Promise((resolver) => { setTimeout(resolver, 300); });
+    await otro.query("UPDATE solicitudes_traslado_apertura SET estado = 'APROBADO' WHERE id_solicitud = $1", [ocupado.id_solicitud]);
+    await otro.query('COMMIT');
+    otro.release();
+    const trasEsperar = await enEspera;
+    assert(
+      trasEsperar.aplicada && banco.acreditaciones.length === 0,
+      'La reversión espera a quien tiene la operación y, si la deja hecha, no revierte nada'
+    );
+
+    // ------------------------------------------------------------------
+    console.log('\n--- Cerrar sin hacer la operación ---');
+    // Un intento anterior de desembolsar agotó el tiempo, pero el banco sí acreditó: al denegar se retira
+    const conDesembolsoSuelto = await nuevaSolicitud('EN_AUTORIZACION_EJECUTIVO', destinoBanco);
+    const refSuelta = await referenciaDe(conDesembolsoSuelto);
+    banco.movimientos[`${refSuelta}|CREDITO`] = { numero_cuenta: `CTA-BCO-TP-${sufijo}`, titular_cui: dpiAsociado, monto: 1000 };
+    const denegar = (id) => request(`/api/ejecutivo/creditos/${id}/resolver`, 'POST', {
+      accion: 'DENEGAR', observaciones: 'Prueba de denegación',
+    }, tokenEjecutivo);
+    banco.caido = true;
+    const sinBanco = await denegar(conDesembolsoSuelto);
+    banco.caido = false;
+    assert(sinBanco.status === 502 && (await estadoDe(conDesembolsoSuelto)) === 'EN_AUTORIZACION_EJECUTIVO', 'Sin poder consultar el banco, la solicitud no se deniega (502)');
+    banco.reversiones = [];
+    const denegada = await denegar(conDesembolsoSuelto);
+    const retiro = banco.reversiones[0];
+    assert(
+      denegada.status === 200 && (await estadoDe(conDesembolsoSuelto)) === 'DENEGADA' && retiro?.referencia === `REV-${refSuelta}`
+        && retiro?.cui_dpi === dpiAsociado && Number(retiro?.monto) === 1000 && /se revirtió/.test(denegada.body.message || ''),
+      'Al denegar, el desembolso que un intento anterior dejó en el banco se retira'
+    );
+    // Un traslado cuyo débito quedó en el banco: al rechazarlo se devuelve
+    const trasladoSuelto = await nuevoTraslado();
+    banco.movimientos[`${trasladoSuelto.referencia}|DEBITO`] = { numero_cuenta: `CTA-BCO-TP-${sufijo}`, titular_cui: dpiAsociado, monto: 50 };
+    banco.acreditaciones = [];
+    const rechazado = await request(`/api/operador/solicitudes/${trasladoSuelto.id_solicitud}/resolver`, 'POST', { accion: 'RECHAZAR', observaciones: 'Prueba' }, tokenOperador);
+    assert(
+      rechazado.status === 200 && (await estadoTraslado(trasladoSuelto)) === 'RECHAZADO'
+        && banco.acreditaciones[0]?.referencia === `REV-${trasladoSuelto.referencia}` && Number(banco.acreditaciones[0]?.monto) === 50,
+      'Al rechazar un traslado, el débito que un intento anterior dejó en el banco se devuelve'
     );
 
     // Respuesta a un débito que el banco no hizo (afiliación, apertura y traslado)
@@ -274,6 +411,7 @@ const testServer = server.listen(0, async () => {
       obtenerCuentasCliente: original.obtenerCuentasCliente,
       acreditarCuenta: original.acreditarCuenta,
       debitarCuenta: original.debitarCuenta,
+      consultarMovimiento: original.consultarMovimiento,
     });
     db.pool.connect = original.connect;
     for (const token of tokens.filter(Boolean)) {
@@ -286,6 +424,14 @@ const testServer = server.listen(0, async () => {
           if (solicitudes.some((id) => archivo.startsWith(`solicitud_credito_${id}_`))) fs.unlinkSync(path.join(CARPETA_CREDITOS, archivo));
         }
       }
+      // Las reversiones que la prueba dejó anotadas (también las de un desembolso que falló a medias)
+      if (solicitudes.length) {
+        const creadas = (await db.query(
+          'SELECT id_solicitud_credito, fecha_solicitud FROM solicitudes_credito WHERE id_solicitud_credito = ANY($1)', [solicitudes]
+        )).rows;
+        referencias.push(...creadas.map((c) => bancoApiService.referenciaDeOperacion(`SOL-CRED-${c.id_solicitud_credito}`, c.fecha_solicitud)));
+      }
+      await purgarReversionesDePrueba(db, referencias);
       if (idPersona) await borrarPersonaDePrueba(db, idPersona);
       console.log('\n  [CLEANUP] Datos de prueba eliminados.');
     } catch (limpiezaError) {

@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const db = require('../config/db');
 const { errorDeNegocio } = require('./errores');
 
 const UPLOADS_ROOT = path.join(__dirname, '../../uploads');
@@ -68,7 +69,38 @@ const saveBase64File = async (base64Data, subfolder = 'creditos', originalName =
   };
 };
 
+/**
+ * Borra un archivo que se guardó para una operación que no se completó (issue #63), para no dejar documentos que
+ * ninguna solicitud usa. Si ya no existe, no hace nada.
+ *
+ * @param {{ fullPath?: string }|null} archivo - Lo que devolvió `saveBase64File`.
+ * @returns {Promise<void>}
+ */
+const eliminarArchivoGuardado = async (archivo) => {
+  if (!archivo?.fullPath) return;
+  await fs.promises.unlink(archivo.fullPath).catch((error) => {
+    if (error.code !== 'ENOENT') console.warn(`[WARN] No se pudo borrar ${archivo.fullPath}:`, error.message);
+  });
+};
+
+/**
+ * Borra el PDF de una solicitud de crédito que no se completó, salvo que una solicitud lo tenga: un UPDATE o un
+ * COMMIT que informó un error pudo aplicarse igual. Sin poder comprobarlo, el archivo se conserva.
+ *
+ * @param {{ relativeUrl: string, fullPath: string }|null} archivo - El resultado de `saveBase64File`.
+ * @returns {Promise<void>}
+ */
+const eliminarPdfDeCreditoSinUso = async (archivo) => {
+  if (!archivo) return;
+  const enUso = await db.query('SELECT 1 FROM solicitudes_credito WHERE documento_firmado_url = $1', [archivo.relativeUrl])
+    .then((r) => r.rowCount > 0)
+    .catch(() => true);
+  if (!enUso) await eliminarArchivoGuardado(archivo);
+};
+
 module.exports = {
   saveBase64File,
+  eliminarArchivoGuardado,
+  eliminarPdfDeCreditoSinUso,
   UPLOADS_ROOT,
 };

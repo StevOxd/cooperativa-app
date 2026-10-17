@@ -160,6 +160,10 @@ async function test2FA() {
     console.log(` [RESULTADOS] PRUEBAS SUPERADAS: ${passed} / ${total}`);
     if (passed === total) {
       console.log(' [SUCCESS] FLUJO COMPLETO DE DOBLE FACTOR (2FA/TOTP) VERIFICADO');
+    } else {
+      // Con alguna prueba fallida, la suite termina con código 1 (para el CI)
+      console.log(' [FAIL] Hay pruebas que no pasaron.');
+      process.exitCode = 1;
     }
     console.log('===============================================================\n');
 

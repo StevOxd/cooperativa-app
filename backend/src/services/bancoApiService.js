@@ -258,7 +258,100 @@ const aperturarCuentaBancaria = async (datos) => {
   }
 };
 
+/**
+ * Consulta un movimiento del banco por su referencia y tipo (conciliación de operaciones sin confirmar).
+ *
+ * @param {string} referencia
+ * @param {'DEBITO'|'CREDITO'} tipo
+ * @returns {Promise<Object>} `{ success, status, data? }`; 404 si el banco no tiene ese movimiento.
+ */
+const consultarMovimiento = async (referencia, tipo) => {
+  try {
+    const res = await fetchWithTimeout(
+      `${getBaseUrl()}/api/banco/v1/movimientos/${encodeURIComponent(referencia)}?tipo=${encodeURIComponent(tipo)}`,
+      { method: 'GET', headers: { 'Content-Type': 'application/json' } }
+    );
+    const data = await res.json();
+    return { status: res.status, ...data };
+  } catch (error) {
+    console.error('[BANCO API SERVICE] Error al consultar movimiento:', error.message);
+    return formatCatchError(error, 'Error de conexión con la Entidad Bancaria.');
+  }
+};
+
+/**
+ * Referencia fija de una operación con el banco: su número (`CASO-2026-0001`, `SOL-CRED-7`) y el segundo en que se
+ * creó la solicitud. Se repite en cada intento de la misma operación, pero no en una solicitud con el mismo número
+ * de otra instalación de la base de datos (el banco conserva sus movimientos).
+ *
+ * @param {string} base
+ * @param {Date|string} creada - Fecha de creación de la solicitud.
+ * @returns {string}
+ * @throws {Error} si la fecha no es válida.
+ */
+const referenciaDeOperacion = (base, creada) => {
+  const segundos = Math.floor(new Date(creada).getTime() / 1000);
+  if (!creada || !Number.isFinite(segundos)) throw new Error(`La solicitud ${base} no tiene fecha de creación.`);
+  return `${base}-${segundos}`;
+};
+
+/**
+ * Mensaje para una operación que el banco rechazó por su referencia: ya la tiene con otra cuenta u otro monto
+ * (`REFERENCIA_USADA`), o se revirtió en todos los intentos (`REFERENCIA_REVERTIDA`).
+ *
+ * @param {Object} respuesta - Respuesta de `bancoApiService`.
+ * @returns {string|null} El mensaje, o null si el rechazo no es por la referencia.
+ */
+const mensajePorReferencia = (respuesta) => {
+  const ref = respuesta?.referencia_usada ? ` (referencia ${respuesta.referencia_usada})` : '';
+  if (respuesta?.error === 'REFERENCIA_USADA') {
+    return `El banco ya tiene esta operación con otra cuenta o con otro monto${ref}. No la repita: pida al administrador que la revise con el banco.`;
+  }
+  if (respuesta?.error === 'REFERENCIA_REVERTIDA') {
+    return `Esta operación se intentó y se revirtió varias veces en el banco${ref}. Pida al administrador que la revise antes de repetirla.`;
+  }
+  return null;
+};
+
+/**
+ * Débito, acreditación o apertura con la referencia fija de una operación (`referenciaDeOperacion`). El banco es
+ * idempotente por referencia: un reintento tras un tiempo agotado no mueve el dinero dos veces (la respuesta trae
+ * `idempotente: true`). Si responde que esa referencia se revirtió en un intento anterior
+ * (`REFERENCIA_REVERTIDA`), se reintenta con un sufijo (`-2`, `-3`…). La respuesta trae `referencia_usada`, la
+ * que hay que usar para revertir.
+ *
+ * Llama a los métodos por `module.exports` para que las pruebas puedan simular el banco.
+ *
+ * @param {'debitarCuenta'|'acreditarCuenta'|'aperturarCuentaBancaria'} metodo
+ * @param {Object} datos - Los del método, con `referencia`.
+ * @returns {Promise<Object>} La respuesta del banco más `referencia_usada`.
+ */
+const conReferenciaDeOperacion = async (metodo, datos) => {
+  let respuesta = null;
+  for (let intento = 1; intento <= 5; intento += 1) {
+    const referencia = intento === 1 ? datos.referencia : `${datos.referencia}-${intento}`;
+    respuesta = { ...(await module.exports[metodo]({ ...datos, referencia })), referencia_usada: referencia };
+    if (!(respuesta.status === 409 && respuesta.error === 'REFERENCIA_REVERTIDA')) return respuesta;
+  }
+  return respuesta;
+};
+
+/** Débito con la referencia fija de una operación. Ver `conReferenciaDeOperacion`. */
+const debitarConReferenciaDeOperacion = (datos) => conReferenciaDeOperacion('debitarCuenta', datos);
+
+/** Acreditación con la referencia fija de una operación. Ver `conReferenciaDeOperacion`. */
+const acreditarConReferenciaDeOperacion = (datos) => conReferenciaDeOperacion('acreditarCuenta', datos);
+
+/** Apertura con depósito inicial y la referencia fija de una operación. Ver `conReferenciaDeOperacion`. */
+const aperturarConReferenciaDeOperacion = (datos) => conReferenciaDeOperacion('aperturarCuentaBancaria', datos);
+
 module.exports = {
+  referenciaDeOperacion,
+  mensajePorReferencia,
+  debitarConReferenciaDeOperacion,
+  acreditarConReferenciaDeOperacion,
+  aperturarConReferenciaDeOperacion,
+  consultarMovimiento,
   verificarDpi,
   validarCredenciales,
   obtenerCuentasCliente,

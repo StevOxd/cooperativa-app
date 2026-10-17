@@ -7,6 +7,7 @@ process.env.CODIGO_VERIFICACION_DEV = CODIGO_DEV;
 const http = require('http');
 const { app } = require('./src/server');
 const { pool } = require('./src/config/db');
+const { purgarEfectivoDePrueba } = require('./testHelper');
 const bancoApiService = require('./src/services/bancoApiService');
 const mailerService = require('./src/services/mailerService');
 
@@ -62,6 +63,9 @@ const server = app.listen(0, async () => {
     return CODIGO_DEV;
   };
 
+  // DPI con efectivo de ventanilla registrado en la prueba (es registro de auditoría: se purga al final)
+  const dpisConEfectivo = ['7777666655551'];
+
   try {
     // Limpiar afiliación previa de prueba para Marcos Castillo (4000000000001) para idempotencia
     const pMarcos = await pool.query("SELECT id_persona FROM personas WHERE cui_dpi = '4000000000001'");
@@ -98,8 +102,10 @@ const server = app.listen(0, async () => {
     // Limpiar solicitudes de agencia de prueba con el DPI de Marcos (caso de suplantación, sección 4.3)
     await pool.query("DELETE FROM solicitudes_afiliacion_agencia WHERE cui_dpi = '4000000000001'");
 
-    // Limpiar solicitud de agencia previa para Gabriela Alvarado (7777666655551)
+    // Limpiar solicitud de agencia previa para Gabriela Alvarado (7777666655551) y el efectivo que una corrida
+    // fallida le haya dejado (cuenta para su tope del día)
     await pool.query("DELETE FROM solicitudes_afiliacion_agencia WHERE cui_dpi = '7777666655551'");
+    await purgarEfectivoDePrueba({ pool }, dpisConEfectivo);
 
     // =========================================================================
     // 1. VERIFICACIÓN PREVIA OBLIGATORIA POR DPI
@@ -592,6 +598,7 @@ const server = app.listen(0, async () => {
     // 4. FORMULARIO 1: Afiliación presencial en ventanilla con efectivo (OPERADOR)
     console.log('\n--- 4. Formulario 1: Afiliación Presencial en Ventanilla ---');
     const dpiPresencial = '2' + Math.floor(100000000000 + Math.random() * 900000000000).toString();
+    dpisConEfectivo.push(dpiPresencial);
     const datosPresencial = {
       cui_dpi: dpiPresencial,
       primer_nombre: 'Juan',
@@ -988,6 +995,9 @@ const server = app.listen(0, async () => {
     console.log(`  - Saldo total disponible: Q${exp.metricas.saldo_total_disponible}`);
     console.log(`  - Total aportaciones: Q${exp.metricas.saldo_aportaciones}`);
 
+    // El efectivo de las afiliaciones y aperturas de prueba queda en un registro de auditoría: se purga
+    await purgarEfectivoDePrueba({ pool }, dpisConEfectivo);
+
     console.log('\n===============================================================');
     console.log(' [RESULTADO] ¡TODAS LAS PRUEBAS DEL MÓDULO 1 PASARON CON ÉXITO!');
     console.log('===============================================================\n');
@@ -997,6 +1007,7 @@ const server = app.listen(0, async () => {
     process.exit(0);
   } catch (err) {
     console.error('\n[FALLO EN SUITE DE PRUEBAS]', err);
+    await purgarEfectivoDePrueba({ pool }, dpisConEfectivo).catch((e) => console.error('[ERROR] No se pudo purgar el efectivo de prueba:', e.message));
     server.close();
     await pool.end();
     process.exit(1);

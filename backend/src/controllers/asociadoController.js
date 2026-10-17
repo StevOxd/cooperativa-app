@@ -1,11 +1,12 @@
 const db = require('../config/db');
 const bancoApiService = require('../services/bancoApiService');
 const creditScoringService = require('../services/creditScoringService');
-const { saveBase64File } = require('../utils/fileStorage');
+const { saveBase64File, eliminarArchivoGuardado, eliminarPdfDeCreditoSinUso } = require('../utils/fileStorage');
 const socketService = require('../services/socketService');
 const { FINANCIERO } = require('../config/constants');
 const { normalizarParentesco } = require('../utils/parentesco');
 const { respuestaDeError } = require('../utils/errores');
+const { movimientoSinRegistrar, revertirMovimientoSinRegistrar } = require('../services/reversionesService');
 
 // Constantes institucionales para eliminación de números mágicos
 const CONSTANTS = {
@@ -550,18 +551,32 @@ const subirExpedienteFirmado = async (req, res) => {
       `solicitud_asoc_${idAsociado}_folio_${id}`
     );
 
-    // Actualizar solicitud a EN_REVISION_OPERADOR
-    const updateRes = await db.query(
-      `UPDATE solicitudes_credito 
-       SET estado = 'EN_REVISION_OPERADOR',
-           documento_firmado_url = $1,
-           nombre_archivo_firmado = $2,
-           peso_archivo_bytes = $3,
-           fecha_carga_archivo = CURRENT_TIMESTAMP
-       WHERE id_solicitud_credito = $4
-       RETURNING *`,
-      [fileRes.relativeUrl, fileRes.filename, fileRes.sizeBytes, id]
-    );
+    // Actualizar solicitud a EN_REVISION_OPERADOR, solo si sigue esperando el formulario (issue #62)
+    let updateRes;
+    try {
+      updateRes = await db.query(
+        `UPDATE solicitudes_credito 
+         SET estado = 'EN_REVISION_OPERADOR',
+             documento_firmado_url = $1,
+             nombre_archivo_firmado = $2,
+             peso_archivo_bytes = $3,
+             fecha_carga_archivo = CURRENT_TIMESTAMP
+         WHERE id_solicitud_credito = $4 AND estado IN ('PENDIENTE_FIRMA', 'DEVUELTA_OPERADOR')
+         RETURNING *`,
+        [fileRes.relativeUrl, fileRes.filename, fileRes.sizeBytes, id]
+      );
+    } catch (updateError) {
+      // El UPDATE se confirma solo: pudo aplicarse aunque la respuesta se perdiera
+      await eliminarPdfDeCreditoSinUso(fileRes);
+      throw updateError;
+    }
+    if (updateRes.rowCount === 0) {
+      await eliminarArchivoGuardado(fileRes);
+      return res.status(409).json({
+        success: false,
+        message: `La solicitud #${id} cambió de estado mientras subía el formulario. Vuelva a cargarla.`,
+      });
+    }
 
     // Notificar a operadores vía WebSockets
     try {
@@ -1093,7 +1108,7 @@ const cancelarCredito = async (req, res) => {
 
     // Verificar que la solicitud existe, pertenece al asociado y está en estado cancelable
     const solRes = await db.query(
-      `SELECT id_solicitud_credito, estado 
+      `SELECT id_solicitud_credito, estado, fecha_solicitud
        FROM solicitudes_credito 
        WHERE id_solicitud_credito = $1 AND id_asociado = $2`,
       [id, idAsociado]
@@ -1112,6 +1127,12 @@ const cancelarCredito = async (req, res) => {
       });
     }
 
+    // Si esperaba al ejecutivo, un intento de aprobarla pudo dejar el desembolso en el banco sin registrar (un tiempo
+    // agotado): se busca antes de cancelar y se retira después
+    const sinRegistrar = sol.estado === 'EN_AUTORIZACION_EJECUTIVO'
+      ? await movimientoSinRegistrar(bancoApiService.referenciaDeOperacion(`SOL-CRED-${sol.id_solicitud_credito}`, sol.fecha_solicitud), 'CREDITO')
+      : null;
+
     // Se vuelve a exigir un estado cancelable en el UPDATE: si el ejecutivo la resolvió entre la consulta y
     // este paso, no se cancela una solicitud ya aprobada o desembolsada.
     const cancelada = await db.query(
@@ -1124,6 +1145,13 @@ const cancelarCredito = async (req, res) => {
     if (cancelada.rowCount === 0) {
       return res.status(400).json({ success: false, message: 'Esa solicitud ya no se puede cancelar.' });
     }
+    // Si no se puede retirar, queda en «Conciliación» para el administrador
+    await revertirMovimientoSinRegistrar(sinRegistrar, {
+      origen: 'DESEMBOLSO_CREDITO',
+      concepto: `Reversión de desembolso: la solicitud #${sol.id_solicitud_credito} se canceló`,
+      detalle: `Solicitud de crédito #${sol.id_solicitud_credito} (cancelada por el asociado)`,
+      clave: sol.id_solicitud_credito,
+    });
 
     return res.status(200).json({
       success: true,
@@ -1131,7 +1159,8 @@ const cancelarCredito = async (req, res) => {
     });
   } catch (error) {
     console.error('Error en asociadoController.cancelarCredito:', error);
-    return res.status(500).json({ success: false, message: 'No se pudo cancelar la solicitud. Intente de nuevo.' });
+    const { status, message } = respuestaDeError(error, 'No se pudo cancelar la solicitud. Intente de nuevo.');
+    return res.status(status).json({ success: false, message });
   }
 };
 

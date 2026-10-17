@@ -141,8 +141,8 @@ async function crearUsuarioDePrueba(db, { dpi, codigo, email, rol, estado = 'ACT
 }
 
 /**
- * Borra una persona de prueba con todo lo suyo: usuarios, auditoría, cuentas, movimientos y solicitudes. Todo
- * en una transacción: si un paso falla, no queda a medias.
+ * Borra una persona de prueba con todo lo suyo: usuarios, auditoría, cuentas, movimientos, solicitudes y el
+ * efectivo de ventanilla registrado a su nombre. Todo en una transacción: si un paso falla, no queda a medias.
  *
  * Pensada para asociados y para personal que no atendió trámites: no limpia lo que un usuario del personal
  * registró sobre otras personas (`transacciones.id_usuario_registra`, los revisores de `solicitudes_credito`
@@ -159,7 +159,10 @@ async function borrarPersonaDePrueba(db, idPersona) {
   const pasos = [
     // depositos_ventanilla_banco es un registro de auditoría: solo se borra con la marca de purga de pruebas
     "SET LOCAL cooperativa.purga_pruebas = 'on'",
-    `DELETE FROM depositos_ventanilla_banco WHERE id_usuario_operador IN (${usuarios})`,
+    `DELETE FROM depositos_ventanilla_banco WHERE id_usuario_operador IN (${usuarios})
+       OR titular_cui = (SELECT cui_dpi FROM personas WHERE id_persona = $1)`,
+    `DELETE FROM efectivo_ventanilla WHERE id_usuario_operador IN (${usuarios})
+       OR cui_dpi = (SELECT cui_dpi FROM personas WHERE id_persona = $1)`,
     `DELETE FROM historial_estados_usuario WHERE id_usuario_modificado IN (${usuarios}) OR id_modificado_por IN (${usuarios})`,
     `DELETE FROM historial_cambios_beneficiarios WHERE id_cuenta IN (${cuentas})`,
     `DELETE FROM beneficiarios WHERE id_cuenta IN (${cuentas})`,
@@ -186,8 +189,61 @@ async function borrarPersonaDePrueba(db, idPersona) {
   }
 }
 
+/**
+ * Borra el efectivo de ventanilla (y los depósitos al banco) registrados a nombre de unos DPI de prueba. Son
+ * registros de auditoría: solo se borran con la marca de purga de pruebas.
+ *
+ * @param {{ pool: import('pg').Pool }} db - Módulo `src/config/db` (o un objeto con su `pool`).
+ * @param {string[]} dpis
+ * @returns {Promise<void>}
+ */
+async function purgarEfectivoDePrueba(db, dpis) {
+  const lista = dpis.filter(Boolean);
+  if (lista.length === 0) return;
+  const client = await db.pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query("SET LOCAL cooperativa.purga_pruebas = 'on'");
+    await client.query('DELETE FROM efectivo_ventanilla WHERE cui_dpi = ANY($1)', [lista]);
+    await client.query('DELETE FROM depositos_ventanilla_banco WHERE titular_cui = ANY($1)', [lista]);
+    await client.query('COMMIT');
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => {});
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+/**
+ * Borra las reversiones pendientes de prueba por su referencia original. Son registro de auditoría: solo se
+ * borran con la marca de purga de pruebas.
+ *
+ * @param {{ pool: import('pg').Pool }} db
+ * @param {string[]} referencias - Referencias originales (`SOL-CRED-…`, `CASO-…`).
+ * @returns {Promise<void>}
+ */
+async function purgarReversionesDePrueba(db, referencias) {
+  const lista = referencias.filter(Boolean);
+  if (lista.length === 0) return;
+  const client = await db.pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query("SET LOCAL cooperativa.purga_pruebas = 'on'");
+    await client.query('DELETE FROM reversiones_pendientes WHERE referencia_original = ANY($1)', [lista]);
+    await client.query('COMMIT');
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => {});
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
 module.exports = {
   makeRequest,
+  purgarEfectivoDePrueba,
+  purgarReversionesDePrueba,
   createTestReporter,
   HASH_ADMIN123,
   crearUsuarioDePrueba,

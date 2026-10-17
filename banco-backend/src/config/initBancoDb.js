@@ -71,6 +71,21 @@ const initBancoDb = async () => {
       CREATE INDEX IF NOT EXISTS idx_movimientos_banco_cuenta ON movimientos_bancarios(id_cuenta_bancaria, fecha_movimiento DESC);
     `);
 
+    // 1.1 Idempotencia de débitos y acreditaciones: una referencia se usa una sola vez por tipo de movimiento.
+    //     Si ya hubiera repetidas, no se crea el índice y se avisa (hay que corregirlas a mano) sin detener el
+    //     arranque; la revisión por referencia del controlador sigue funcionando.
+    const repetidas = await client.query(
+      `SELECT 1 FROM movimientos_bancarios WHERE referencia IS NOT NULL
+       GROUP BY referencia, tipo_movimiento HAVING COUNT(*) > 1 LIMIT 1`
+    );
+    if (repetidas.rowCount > 0) {
+      console.warn('[BANCO DB] Hay referencias de movimientos repetidas: no se creó uq_movimientos_referencia_tipo. Corríjalas y reinicie.');
+    } else {
+      await client.query(
+        'CREATE UNIQUE INDEX IF NOT EXISTS uq_movimientos_referencia_tipo ON movimientos_bancarios (referencia, tipo_movimiento) WHERE referencia IS NOT NULL'
+      );
+    }
+
     // 2. Hash bcrypt estándar para las contraseñas bancarias ("Banco123!")
     const defaultPasswordHash = await bcrypt.hash('Banco123!', 10);
 

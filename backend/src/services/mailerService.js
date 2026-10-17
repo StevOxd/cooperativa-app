@@ -17,6 +17,11 @@ const TIEMPOS_SMTP = { connectionTimeout: 10000, greetingTimeout: 10000, socketT
 
 const isMailDisabled = () => String(process.env.MAIL_ENABLED || '').trim().toLowerCase() === 'false';
 
+/** Texto para insertar en el HTML de un correo: sin etiquetas ni atributos que cambien lo que se ve. */
+const escaparHtml = (texto) => String(texto ?? '').replace(/[&<>"']/g, (c) => ({
+  '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+}[c]));
+
 class MailerService {
   constructor() {
     this.transporter = null;
@@ -422,6 +427,36 @@ class MailerService {
     }
     console.log(`[MAILER DEMO] Correo de ${etiqueta} NO enviado (modo demostrativo) para ${to}.`);
     return { success: true, simulado: true, provider: 'demo' };
+  }
+
+  /**
+   * Aviso al correo anterior cuando el administrador cambia el correo de un usuario desde «Usuarios».
+   * Si la persona no lo pidió, sabe que debe reclamar antes de que se pueda reiniciar su contraseña.
+   *
+   * @param {Object} datos
+   * @param {string} datos.to - Correo anterior.
+   * @param {string} [datos.nombre] - Primer nombre de la persona.
+   * @param {string} datos.codigoCorporativo - Código del usuario.
+   * @param {string} datos.correoNuevo - Se muestra oculto en parte.
+   * @param {number} datos.horasEspera - Horas en que su contraseña no se puede reiniciar.
+   * @returns {Promise<Object>} El resultado de `enviarCorreo` (ver `wasSent`).
+   */
+  async sendUserEmailChangedNotice({ to, nombre, codigoCorporativo, correoNuevo, horasEspera }) {
+    const oculto = escaparHtml(String(correoNuevo).replace(/^(.{2}).*(@.*)$/, '$1***$2'));
+    const html = `
+      <!DOCTYPE html>
+      <html>
+      <head><meta charset="utf-8"></head>
+      <body style="font-family: 'Segoe UI', Helvetica, Arial, sans-serif; background-color: #f1f5f9; margin: 0; padding: 20px; color: #1e293b;">
+        <div style="max-width: 520px; margin: 0 auto; background: #ffffff; border-radius: 12px; padding: 28px;">
+          <h1 style="margin: 0 0 12px 0; font-size: 18px;">Cambió el correo de su usuario</h1>
+          <p style="font-size: 14px;">Estimado(a) <strong>${escaparHtml(nombre || 'usuario')}</strong>, en la cooperativa se cambió el correo de su usuario <strong>${escaparHtml(codigoCorporativo)}</strong> a <strong>${oculto}</strong>.</p>
+          <p style="font-size: 14px;">Si usted no lo pidió, comuníquese con la cooperativa de inmediato: durante las próximas ${horasEspera} horas su contraseña no se puede reiniciar.</p>
+        </div>
+      </body>
+      </html>
+    `;
+    return this.enviarCorreo({ to, subject: 'Cambió el correo de su usuario', html, etiqueta: 'aviso de cambio de correo de usuario' });
   }
 
   /**

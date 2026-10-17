@@ -4,6 +4,14 @@ const bancoApiService = require('../services/bancoApiService');
 const operadorAfiliacionService = require('../services/operadorAfiliacionService');
 const operadorCreditoService = require('../services/operadorCreditoService');
 const { errorDeNegocio, respuestaDeError, estadoPorFalloDelBanco } = require('../utils/errores');
+const {
+  revertirOAnotar,
+  errorTrasCommitFallido,
+  hayReversionPendiente,
+  movimientoSinRegistrar,
+  revertirMovimientoSinRegistrar,
+  avisoDeReversion,
+} = require('../services/reversionesService');
 
 /**
  * Obtener solicitudes en estado 'PENDIENTE' para traslados y aperturas
@@ -118,6 +126,11 @@ const resolverSolicitud = async (req, res) => {
     }
 
     if (accion === 'RECHAZAR') {
+      // Un intento anterior de aprobarlo pudo dejar el débito en el banco sin registrar (un tiempo agotado): se
+      // busca antes de rechazar (sin poder consultar el banco no se rechaza) y después se devuelve
+      const sinRegistrar = solicitud.id_cuenta_bancaria_origen
+        ? await movimientoSinRegistrar(bancoApiService.referenciaDeOperacion(solicitud.numero_caso, solicitud.fecha_solicitud), 'DEBITO')
+        : null;
       const updateQuery = `
         UPDATE solicitudes_traslado_apertura 
         SET estado = 'RECHAZADO',
@@ -131,9 +144,15 @@ const resolverSolicitud = async (req, res) => {
       if (updateRes.rowCount === 0) {
         return res.status(409).json({ success: false, message: 'Esa solicitud ya fue resuelta.' });
       }
+      const reversion = await revertirMovimientoSinRegistrar(sinRegistrar, {
+        origen: 'TRASLADO',
+        concepto: `Reversión de traslado rechazado - Caso ${solicitud.numero_caso}`,
+        detalle: `Caso ${solicitud.numero_caso} (rechazado)`,
+        clave: solicitud.id_solicitud,
+      });
       return res.status(200).json({
         success: true,
-        message: 'Solicitud rechazada.',
+        message: `Solicitud rechazada.${avisoDeReversion(reversion)}`,
         data: updateRes.rows[0],
       });
     }
@@ -183,13 +202,19 @@ const resolverSolicitud = async (req, res) => {
             : errorDeNegocio(404, 'No encontramos la cuenta del banco de origen entre las del asociado.');
         }
 
+        // La referencia es la del caso: si un intento anterior agotó el tiempo pero el banco sí debitó, el banco no
+        // debita dos veces. Si ese intento quedó por revertir, hasta conciliarlo no se vuelve a debitar.
+        const referenciaCaso = bancoApiService.referenciaDeOperacion(solicitud.numero_caso, solicitud.fecha_solicitud);
+        if (await hayReversionPendiente(client, referenciaCaso)) {
+          throw errorDeNegocio(409, 'Un intento anterior de este caso quedó pendiente de conciliar con el banco. El administrador debe conciliarlo antes de aprobarlo.');
+        }
         debitoBanco = {
           numero_cuenta: numCuentaBco,
           // El banco rechaza el débito si la cuenta no es del asociado.
           cui_dpi: assocCui.rows[0]?.cui_dpi,
           monto,
           concepto: `Traslado a Cuenta Cooperativa - Caso ${solicitud.numero_caso}`,
-          referencia: `CASO-${solicitud.numero_caso}`,
+          referencia: referenciaCaso,
         };
       } else {
         const originQuery = 'SELECT saldo_disponible, numero_cuenta FROM cuentas WHERE id_cuenta = $1 FOR UPDATE';
@@ -314,28 +339,38 @@ const resolverSolicitud = async (req, res) => {
 
       // Débito en el banco (último paso): si falla, el ROLLBACK deshace lo de la cooperativa
       if (debitoBanco) {
-        const debitRes = await bancoApiService.debitarCuenta(debitoBanco);
+        const debitRes = await bancoApiService.debitarConReferenciaDeOperacion(debitoBanco);
         if (!debitRes.success) {
+          const porReferencia = bancoApiService.mensajePorReferencia(debitRes);
+          if (porReferencia) throw errorDeNegocio(409, porReferencia);
           throw errorDeNegocio(estadoPorFalloDelBanco(debitRes.status), debitRes.message || 'No se pudo debitar la cuenta bancaria de origen.');
+        }
+        debitoBanco.referencia = debitRes.referencia_usada;
+        // El banco devolvió el débito de un intento anterior: si ese intento se está revirtiendo, no se registra
+        if (debitRes.idempotente && await hayReversionPendiente(client, debitoBanco.referencia)) {
+          throw errorDeNegocio(409, 'Un intento anterior de este caso se está revirtiendo en el banco. Espere a que termine y vuelva a intentarlo.');
         }
       }
 
       try {
         await client.query('COMMIT');
       } catch (commitError) {
-        // El dinero ya salió del banco: se devuelve con una referencia ligada a la del débito
-        if (debitoBanco) {
-          const reversion = await bancoApiService.acreditarCuenta({
-            numero_cuenta: debitoBanco.numero_cuenta,
-            monto,
-            concepto: `Reversión de traslado no completado - Caso ${solicitud.numero_caso}`,
-            referencia: `REV-${debitoBanco.referencia}`,
-          });
-          if (!reversion.success) {
-            console.error(`[ERROR] No se pudo revertir el débito ${debitoBanco.referencia}:`, reversion.message);
-          }
-        }
-        throw commitError;
+        if (!debitoBanco) throw commitError;
+        // El dinero ya salió del banco: se devuelve, o queda en «Conciliación» si no se puede. Si el COMMIT sí se
+        // aplicó (se confirma con otra conexión), el traslado quedó hecho y se responde como tal.
+        const reversion = await revertirOAnotar({
+          origen: 'TRASLADO',
+          tipo: 'CREDITO',
+          numeroCuenta: debitoBanco.numero_cuenta,
+          cui: debitoBanco.cui_dpi,
+          monto,
+          referencia: debitoBanco.referencia,
+          concepto: `Reversión de traslado no completado - Caso ${solicitud.numero_caso}`,
+          detalle: `Caso ${solicitud.numero_caso}`,
+          clave: solicitud.id_solicitud,
+          pid: client.processID,
+        });
+        if (!reversion.aplicada) throw errorTrasCommitFallido(reversion, commitError, debitoBanco.referencia);
       }
       client.release();
 
@@ -546,10 +581,8 @@ const rechazarCasoAfiliacion = async (req, res) => {
     return res.status(result.status).json(result);
   } catch (error) {
     console.error('Error en operadorController.rechazarCasoAfiliacion:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'No se pudo rechazar el caso. Intente de nuevo.',
-    });
+    const { status, message } = respuestaDeError(error, 'No se pudo rechazar el caso. Intente de nuevo.');
+    return res.status(status).json({ success: false, message });
   }
 };
 

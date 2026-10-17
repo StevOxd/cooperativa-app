@@ -9,7 +9,10 @@
 -- =============================================================================
 
 -- Limpieza previa en cascada para reejecución limpia
--- (depositos_ventanilla_banco y codigos_verificacion_correo las crea migrations.js al arrancar el backend)
+-- (depositos_ventanilla_banco, efectivo_ventanilla, reversiones_pendientes y codigos_verificacion_correo las
+-- crea migrations.js al arrancar el backend)
+DROP TABLE IF EXISTS reversiones_pendientes CASCADE;
+DROP TABLE IF EXISTS efectivo_ventanilla CASCADE;
 DROP TABLE IF EXISTS depositos_ventanilla_banco CASCADE;
 DROP TABLE IF EXISTS configuracion_sistema CASCADE;
 DROP TABLE IF EXISTS historial_cambios_beneficiarios CASCADE;
@@ -201,7 +204,7 @@ CREATE TABLE solicitudes_afiliacion_agencia (
     id_operador_resuelve INT REFERENCES usuarios(id_usuario) ON DELETE SET NULL,
     fecha_resolucion TIMESTAMP WITH TIME ZONE,
     numero_cuenta_bancaria VARCHAR(50),
-    fecha_solicitud TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    fecha_solicitud TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Secuencia atómica y trigger para correlativo de casos de afiliación
@@ -252,7 +255,7 @@ CREATE TABLE solicitudes_credito (
     observaciones_ejecutivo TEXT,
     fecha_resolucion TIMESTAMP WITH TIME ZONE,
     observaciones TEXT,
-    fecha_solicitud TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    fecha_solicitud TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 -- 5.3 Solicitudes de Traslado de Nómina a Cuentas Cooperativas
@@ -269,7 +272,7 @@ CREATE TABLE solicitudes_traslado_apertura (
     estado VARCHAR(20) DEFAULT 'PENDIENTE' CHECK (estado IN ('PENDIENTE', 'APROBADO', 'RECHAZADO')),
     id_operador_resuelve INT REFERENCES usuarios(id_usuario) ON DELETE RESTRICT,
     observaciones_operador TEXT,
-    fecha_solicitud TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    fecha_solicitud TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     fecha_resolucion TIMESTAMP WITH TIME ZONE,
     CONSTRAINT chk_traslado_origen_valido CHECK (id_cuenta_origen IS NOT NULL OR id_cuenta_bancaria_origen IS NOT NULL),
     CONSTRAINT chk_traslado_cuentas_diferentes CHECK (id_cuenta_destino IS NULL OR id_cuenta_origen IS NULL OR id_cuenta_origen <> id_cuenta_destino)

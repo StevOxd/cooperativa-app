@@ -446,7 +446,12 @@ export const UsersPage = () => {
 
         const response = await api.put(`/usuarios/${editingUserId}`, payload);
         if (response.data?.success) {
-          setSuccessMessage('Cambios guardados.');
+          // Cambió el correo y el aviso al correo anterior no salió: la persona no sabe que puede reclamar
+          if (response.data.aviso_enviado === false) {
+            toast.warning(response.data.message, 'Aviso no enviado', 10000);
+          } else {
+            setSuccessMessage('Cambios guardados.');
+          }
           setIsModalOpen(false);
           fetchUsers();
         }

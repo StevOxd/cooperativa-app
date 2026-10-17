@@ -9,6 +9,16 @@ const { getNextCorporateCode, generateSecureRandomPassword } = require('../utils
 const mailerService = require('./mailerService');
 const { decidirAccesoPortal } = require('../utils/accesoPortal');
 const bancoApiService = require('./bancoApiService');
+const { leerMontoEfectivo, registrarEfectivo } = require('./efectivoVentanillaService');
+const {
+  revertirOAnotar,
+  errorTrasCommitFallido,
+  hayReversionPendiente,
+  hayAperturaPorRevertirDelDpi,
+  movimientoSinRegistrar,
+  revertirMovimientoSinRegistrar,
+  avisoDeReversion,
+} = require('./reversionesService');
 const { validateCui, validateAge18 } = require('../middlewares/validationMiddleware');
 
 /**
@@ -122,7 +132,10 @@ const liberarCaso = async ({ idSolicitud, idOperador, esAdmin }) => {
 };
 
 /**
- * Rechaza o cancela un caso de afiliación en agencia
+ * Rechaza o cancela un caso de afiliación en agencia. Si un intento anterior de formalizarlo dejó abierta en el banco
+ * una cuenta con el depósito (un tiempo agotado), se retira el depósito.
+ *
+ * @throws {Error} `errorDeNegocio(502)` si no se puede consultar el banco: sin saberlo, el caso no se cancela.
  */
 const rechazarCaso = async ({ idSolicitud, idOperador, motivo }) => {
   if (!motivo || !motivo.trim()) {
@@ -132,6 +145,14 @@ const rechazarCaso = async ({ idSolicitud, idOperador, motivo }) => {
       message: 'Escriba el motivo del rechazo.',
     };
   }
+
+  const caso = (await db.query(
+    "SELECT numero_caso, fecha_solicitud FROM solicitudes_afiliacion_agencia WHERE id_solicitud = $1 AND estado = 'PENDIENTE_AGENCIA'",
+    [idSolicitud]
+  )).rows[0];
+  const sinRegistrar = caso
+    ? await movimientoSinRegistrar(bancoApiService.referenciaDeOperacion(caso.numero_caso, caso.fecha_solicitud), 'CREDITO')
+    : null;
 
   const updateRes = await db.query(`
     UPDATE solicitudes_afiliacion_agencia 
@@ -153,10 +174,16 @@ const rechazarCaso = async ({ idSolicitud, idOperador, motivo }) => {
     };
   }
 
+  const reversion = await revertirMovimientoSinRegistrar(sinRegistrar, {
+    origen: 'FORMALIZACION_AGENCIA',
+    concepto: `Reversión de aporte: el caso ${updateRes.rows[0].numero_caso} se canceló`,
+    detalle: `Caso ${updateRes.rows[0].numero_caso} (cancelado)`,
+    clave: updateRes.rows[0].id_solicitud,
+  });
   return {
     status: 200,
     success: true,
-    message: `Se canceló el caso ${updateRes.rows[0].numero_caso}.`,
+    message: `Se canceló el caso ${updateRes.rows[0].numero_caso}.${avisoDeReversion(reversion)}`,
     data: updateRes.rows[0],
   };
 };
@@ -185,8 +212,14 @@ const formalizarAfiliacion = async ({ idSolicitud, idOperador, rolUsuario, datos
     crear_acceso_portal,
   } = datos;
 
-  const montoAporte = parseFloat(monto_aportacion);
-  if (isNaN(montoAporte) || montoAporte < 100.00) {
+  // Efectivo recibido en ventanilla: número válido, mínimo Q100.00 y dentro del tope del día por persona
+  let montoAporte;
+  try {
+    montoAporte = leerMontoEfectivo(monto_aportacion);
+  } catch (montoError) {
+    return { status: montoError.statusCode || 400, success: false, message: montoError.message };
+  }
+  if (montoAporte < 100.00) {
     return {
       status: 400,
       success: false,
@@ -453,11 +486,33 @@ const formalizarAfiliacion = async ({ idSolicitud, idOperador, rolUsuario, datos
       `, [idPersona, codigoUsuarioFinal, emailUsuario, passwordHash]);
     }
 
+    // 3.8 La referencia del banco es la del caso: si un intento anterior agotó el tiempo pero el banco sí abrió la
+    //     cuenta, el banco devuelve esa cuenta en lugar de abrir otra. Si un intento anterior (de este caso o de
+    //     esta persona) quedó con el depósito por retirar, no se abre otra cuenta hasta conciliarlo.
+    const referenciaBanco = bancoApiService.referenciaDeOperacion(sol.numero_caso, sol.fecha_solicitud);
+    if (await hayReversionPendiente(client, referenciaBanco) || await hayAperturaPorRevertirDelDpi(client, cuiFinal)) {
+      await client.query('ROLLBACK');
+      return {
+        status: 409,
+        success: false,
+        message: 'Un intento anterior de esta afiliación quedó pendiente de conciliar con el banco. Pida al administrador que lo concilie en «Conciliación» antes de formalizarla.',
+      };
+    }
+
+    // 3.9 El efectivo queda registrado (y cuenta para el tope del día de la persona) dentro de la transacción
+    await registrarEfectivo(client, {
+      idOperador,
+      cui: cuiFinal,
+      monto: montoAporte,
+      origen: 'FORMALIZACION_AGENCIA',
+      referencia: sol.numero_caso,
+    });
+
     // 4. Apertura de Cuenta Bancaria de Ahorro en la Entidad Bancaria (Core Banking)
     // El nuevo asociado formaliza su membresía en la cooperativa, y su aportación/depósito inicial
     // se apertura y acredita en una cuenta de ahorro en la Entidad Bancaria.
     // Posteriormente, el asociado traslada desde esta cuenta hacia las cuentas de la cooperativa.
-    const bancoRes = await bancoApiService.aperturarCuentaBancaria({
+    const bancoRes = await bancoApiService.aperturarConReferenciaDeOperacion({
       cui_dpi: cuiFinal,
       primer_nombre: pNombreFinal,
       segundo_nombre: sNombreFinal,
@@ -469,15 +524,29 @@ const formalizarAfiliacion = async ({ idSolicitud, idOperador, rolUsuario, datos
       fecha_nacimiento: fNacFinal,
       monto_inicial: montoAporte,
       tipo_cuenta: 'AHORRO',
-      referencia: `CASO-${sol.numero_caso}`,
+      referencia: referenciaBanco,
     });
 
     if (!bancoRes.success || !bancoRes.data) {
       await client.query('ROLLBACK');
+      const porReferencia = bancoApiService.mensajePorReferencia(bancoRes);
       return {
-        status: 502,
+        status: porReferencia ? 409 : 502,
         success: false,
-        message: bancoRes.message || 'Error al aperturar la cuenta de ahorro en la Entidad Bancaria.',
+        message: porReferencia
+          || (bancoRes.status === 504
+            ? 'El banco no confirmó a tiempo. Puede intentarlo de nuevo: si ya había abierto la cuenta, no abre otra.'
+            : bancoRes.message || 'Error al aperturar la cuenta de ahorro en la Entidad Bancaria.'),
+      };
+    }
+    const referenciaUsada = bancoRes.referencia_usada;
+    // El banco devolvió la cuenta de un intento anterior: si ese intento se está revirtiendo, no se registra
+    if (bancoRes.idempotente && await hayReversionPendiente(client, referenciaUsada)) {
+      await client.query('ROLLBACK');
+      return {
+        status: 409,
+        success: false,
+        message: 'Un intento anterior de esta afiliación se está revirtiendo en el banco. Espere a que termine y vuelva a intentarlo.',
       };
     }
 
@@ -501,7 +570,25 @@ const formalizarAfiliacion = async ({ idSolicitud, idOperador, rolUsuario, datos
       WHERE id_solicitud = $5
     `, [idOperador, montoAporte, cuentaBancaria.numero_cuenta, obsFinal, idSolicitud]);
 
-    await client.query('COMMIT');
+    try {
+      await client.query('COMMIT');
+    } catch (commitError) {
+      // La cuenta del banco ya se abrió con el aporte: se retira, o queda en «Conciliación» si no se puede. Si el
+      // COMMIT sí se aplicó (se confirma con otra conexión), la afiliación quedó hecha y se sigue.
+      const reversion = await revertirOAnotar({
+        origen: 'FORMALIZACION_AGENCIA',
+        tipo: 'DEBITO',
+        numeroCuenta: cuentaBancaria.numero_cuenta,
+        cui: cuiFinal,
+        monto: montoAporte,
+        referencia: referenciaUsada,
+        concepto: `Reversión de aporte: la formalización del caso ${sol.numero_caso} no se completó`,
+        detalle: `Caso ${sol.numero_caso}`,
+        clave: sol.id_solicitud,
+        pid: client.processID,
+      });
+      if (!reversion.aplicada) throw errorTrasCommitFallido(reversion, commitError, referenciaUsada);
+    }
 
     // Las credenciales se envían después del COMMIT: así nunca llega un correo de una afiliación que se deshizo.
     // Si el correo no sale, la afiliación queda hecha y se avisa al operador.
@@ -556,7 +643,7 @@ const formalizarAfiliacion = async ({ idSolicitud, idOperador, rolUsuario, datos
       },
     };
   } catch (error) {
-    await client.query('ROLLBACK');
+    await client.query('ROLLBACK').catch(() => {});
     if (error.code === '23505' && (['usuarios_email_key', 'uq_usuarios_email_lower'].includes(error.constraint) || (error.message && error.message.includes('usuarios_email_key')))) {
       return {
         status: 400,

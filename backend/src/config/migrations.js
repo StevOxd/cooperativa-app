@@ -655,8 +655,10 @@ const runMigrations = async () => {
           IF current_setting('cooperativa.purga_pruebas', true) = 'on' THEN
               RETURN COALESCE(NEW, OLD);
           END IF;
+          -- De un depósito sin cerrar solo cambian el estado y quién lo concilió y cuándo (10.3)
           IF TG_OP = 'UPDATE' AND OLD.estado IN ('PENDIENTE', 'SIN_CONFIRMAR')
-             AND (to_jsonb(NEW) - 'estado') = (to_jsonb(OLD) - 'estado') THEN
+             AND (to_jsonb(NEW) - 'estado' - 'id_usuario_concilia' - 'fecha_conciliacion')
+               = (to_jsonb(OLD) - 'estado' - 'id_usuario_concilia' - 'fecha_conciliacion') THEN
               RETURN NEW;
           END IF;
           RAISE EXCEPTION 'depositos_ventanilla_banco es un registro de auditoría: no se modifica ni se borra'
@@ -672,6 +674,168 @@ const runMigrations = async () => {
       CREATE TRIGGER trg_depositos_ventanilla_sin_truncate
           BEFORE TRUNCATE ON depositos_ventanilla_banco
           FOR EACH STATEMENT EXECUTE FUNCTION trg_depositos_ventanilla_inmutable();
+    `);
+
+    // 10.3 Conciliación de depósitos (issue #66): quién cerró un depósito sin confirmar y cuándo. El trigger (10.2)
+    //      deja cambiar solo el estado y estos dos datos de un depósito sin cerrar.
+    await pool.query(`
+      ALTER TABLE depositos_ventanilla_banco ADD COLUMN IF NOT EXISTS id_usuario_concilia INT REFERENCES usuarios(id_usuario);
+      ALTER TABLE depositos_ventanilla_banco ADD COLUMN IF NOT EXISTS fecha_conciliacion TIMESTAMP WITH TIME ZONE;
+      CREATE INDEX IF NOT EXISTS idx_depositos_ventanilla_concilia
+        ON depositos_ventanilla_banco (id_usuario_concilia) WHERE id_usuario_concilia IS NOT NULL;
+      -- Quién concilia y cuándo van juntos; el usuario no se borra mientras tenga conciliaciones
+      ALTER TABLE depositos_ventanilla_banco DROP CONSTRAINT IF EXISTS chk_depositos_ventanilla_conciliacion;
+      ALTER TABLE depositos_ventanilla_banco ADD CONSTRAINT chk_depositos_ventanilla_conciliacion
+        CHECK ((id_usuario_concilia IS NULL) = (fecha_conciliacion IS NULL));
+      ALTER TABLE depositos_ventanilla_banco DROP CONSTRAINT IF EXISTS depositos_ventanilla_banco_id_usuario_concilia_fkey;
+      ALTER TABLE depositos_ventanilla_banco ADD CONSTRAINT depositos_ventanilla_banco_id_usuario_concilia_fkey
+        FOREIGN KEY (id_usuario_concilia) REFERENCES usuarios(id_usuario) ON DELETE RESTRICT;
+    `);
+
+    // 11. Efectivo recibido en ventanilla (aportación al afiliar, formalización de agencia y apertura de cuentas):
+    //     con el depósito al banco, suma el acumulado del día por persona. Registro de auditoría: solo se inserta.
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS efectivo_ventanilla (
+        id_efectivo SERIAL PRIMARY KEY,
+        id_usuario_operador INT NOT NULL REFERENCES usuarios(id_usuario) ON DELETE RESTRICT,
+        cui_dpi VARCHAR(13) NOT NULL CHECK (cui_dpi ~ '^[0-9]{13}$'),
+        monto NUMERIC(14, 2) NOT NULL CHECK (monto > 0),
+        origen VARCHAR(25) NOT NULL
+          CHECK (origen IN ('AFILIACION_PRESENCIAL', 'FORMALIZACION_AGENCIA', 'APERTURA_CUENTA')),
+        referencia VARCHAR(100),
+        fecha_registro TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE INDEX IF NOT EXISTS idx_efectivo_ventanilla_persona ON efectivo_ventanilla (cui_dpi, fecha_registro DESC);
+      CREATE INDEX IF NOT EXISTS idx_efectivo_ventanilla_operador ON efectivo_ventanilla (id_usuario_operador, fecha_registro DESC);
+
+      CREATE OR REPLACE FUNCTION trg_registro_solo_insercion()
+      RETURNS TRIGGER AS $$
+      BEGIN
+          IF current_setting('cooperativa.purga_pruebas', true) = 'on' THEN
+              RETURN COALESCE(NEW, OLD);
+          END IF;
+          RAISE EXCEPTION '% es un registro de auditoría: no se modifica ni se borra', TG_TABLE_NAME
+              USING ERRCODE = 'restrict_violation';
+      END;
+      $$ LANGUAGE plpgsql;
+
+      DROP TRIGGER IF EXISTS trg_efectivo_ventanilla_inmutable ON efectivo_ventanilla;
+      CREATE TRIGGER trg_efectivo_ventanilla_inmutable
+          BEFORE UPDATE OR DELETE ON efectivo_ventanilla
+          FOR EACH ROW EXECUTE FUNCTION trg_registro_solo_insercion();
+      DROP TRIGGER IF EXISTS trg_efectivo_ventanilla_sin_truncate ON efectivo_ventanilla;
+      CREATE TRIGGER trg_efectivo_ventanilla_sin_truncate
+          BEFORE TRUNCATE ON efectivo_ventanilla
+          FOR EACH STATEMENT EXECUTE FUNCTION trg_registro_solo_insercion();
+    `);
+
+    // 12. Reversiones con el banco (issue #64): cada una queda registrada antes de pedirla. RESUELTA si el banco la
+    //     hizo (sin usuario: la hizo el sistema), DESCARTADA si no había nada que revertir y PENDIENTE para hacerla
+    //     desde «Conciliación». El banco es idempotente por referencia, así que reintentarlas es seguro.
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS reversiones_pendientes (
+        id_reversion SERIAL PRIMARY KEY,
+        origen VARCHAR(30) NOT NULL CHECK (origen IN (
+          'TRASLADO', 'APERTURA_CUENTA', 'AFILIACION_EN_LINEA', 'AFILIACION_PRESENCIAL', 'FORMALIZACION_AGENCIA', 'DESEMBOLSO_CREDITO'
+        )),
+        tipo_movimiento VARCHAR(10) NOT NULL CHECK (tipo_movimiento IN ('DEBITO', 'CREDITO')),
+        -- NULL solo en una apertura que el banco no confirmó: la cuenta se toma del movimiento al conciliar
+        numero_cuenta_bancaria VARCHAR(50),
+        cui_dpi VARCHAR(20),
+        monto NUMERIC(14, 2) NOT NULL CHECK (monto > 0),
+        concepto VARCHAR(255) NOT NULL,
+        referencia_original VARCHAR(50) NOT NULL,
+        referencia_reversion VARCHAR(55) NOT NULL UNIQUE,
+        detalle TEXT,
+        -- Con qué se confirma si la operación quedó registrada: la solicitud, o el asociado o la cuenta del intento
+        clave_operacion VARCHAR(60) NOT NULL,
+        estado VARCHAR(15) NOT NULL DEFAULT 'PENDIENTE',
+        id_usuario_resuelve INT REFERENCES usuarios(id_usuario),
+        fecha_registro TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        fecha_resolucion TIMESTAMP WITH TIME ZONE
+      );
+      CREATE INDEX IF NOT EXISTS idx_reversiones_pendientes_abiertas
+        ON reversiones_pendientes (fecha_registro) WHERE estado = 'PENDIENTE';
+      CREATE INDEX IF NOT EXISTS idx_reversiones_pendientes_resuelve
+        ON reversiones_pendientes (id_usuario_resuelve) WHERE id_usuario_resuelve IS NOT NULL;
+
+      ALTER TABLE reversiones_pendientes DROP CONSTRAINT IF EXISTS reversiones_pendientes_id_usuario_resuelve_fkey;
+      ALTER TABLE reversiones_pendientes ADD CONSTRAINT reversiones_pendientes_id_usuario_resuelve_fkey
+        FOREIGN KEY (id_usuario_resuelve) REFERENCES usuarios(id_usuario) ON DELETE RESTRICT;
+      -- Una reversión cerrada dice cuándo (y quién, si no la cerró el sistema); un débito lleva el DPI del titular
+      -- (el banco lo exige); la referencia de la reversión es REV-<original> y cabe en el banco (50 caracteres)
+      ALTER TABLE reversiones_pendientes ALTER COLUMN numero_cuenta_bancaria DROP NOT NULL;
+      ALTER TABLE reversiones_pendientes DROP CONSTRAINT IF EXISTS chk_reversiones_cuenta;
+      ALTER TABLE reversiones_pendientes ADD CONSTRAINT chk_reversiones_cuenta
+        CHECK (estado <> 'RESUELTA' OR numero_cuenta_bancaria IS NOT NULL);
+      ALTER TABLE reversiones_pendientes DROP CONSTRAINT IF EXISTS reversiones_pendientes_estado_check;
+      ALTER TABLE reversiones_pendientes DROP CONSTRAINT IF EXISTS chk_reversiones_estado;
+      ALTER TABLE reversiones_pendientes ADD CONSTRAINT chk_reversiones_estado
+        CHECK (estado IN ('PENDIENTE', 'RESUELTA', 'DESCARTADA'));
+      ALTER TABLE reversiones_pendientes DROP CONSTRAINT IF EXISTS chk_reversiones_resolucion;
+      ALTER TABLE reversiones_pendientes ADD CONSTRAINT chk_reversiones_resolucion
+        CHECK ((estado = 'PENDIENTE') = (fecha_resolucion IS NULL)
+               AND (estado <> 'PENDIENTE' OR id_usuario_resuelve IS NULL));
+      ALTER TABLE reversiones_pendientes DROP CONSTRAINT IF EXISTS chk_reversiones_cui;
+      ALTER TABLE reversiones_pendientes ADD CONSTRAINT chk_reversiones_cui
+        CHECK (cui_dpi IS NULL OR cui_dpi ~ '^[0-9]{13}$');
+      ALTER TABLE reversiones_pendientes DROP CONSTRAINT IF EXISTS chk_reversiones_debito_con_dpi;
+      ALTER TABLE reversiones_pendientes ADD CONSTRAINT chk_reversiones_debito_con_dpi
+        CHECK (tipo_movimiento <> 'DEBITO' OR cui_dpi IS NOT NULL);
+      ALTER TABLE reversiones_pendientes DROP CONSTRAINT IF EXISTS chk_reversiones_ref_cabe;
+      ALTER TABLE reversiones_pendientes ADD CONSTRAINT chk_reversiones_ref_cabe
+        CHECK (length(referencia_reversion) <= 50 AND referencia_reversion = 'REV-' || referencia_original);
+
+      -- Registro de auditoría: no se borra ni se cambia; una pendiente solo se cierra (resuelta o descartada) y, si se
+      -- anotó sin la cuenta del banco, al cerrarla se guarda la cuenta en que se hizo
+      CREATE OR REPLACE FUNCTION trg_reversiones_pendientes_inmutable()
+      RETURNS TRIGGER AS $$
+      BEGIN
+          IF current_setting('cooperativa.purga_pruebas', true) = 'on' THEN
+              RETURN COALESCE(NEW, OLD);
+          END IF;
+          IF TG_OP = 'UPDATE' AND OLD.estado = 'PENDIENTE' AND NEW.estado IN ('RESUELTA', 'DESCARTADA')
+             AND (OLD.numero_cuenta_bancaria IS NULL OR NEW.numero_cuenta_bancaria = OLD.numero_cuenta_bancaria)
+             AND (to_jsonb(NEW) - 'estado' - 'id_usuario_resuelve' - 'fecha_resolucion' - 'numero_cuenta_bancaria')
+               = (to_jsonb(OLD) - 'estado' - 'id_usuario_resuelve' - 'fecha_resolucion' - 'numero_cuenta_bancaria') THEN
+              RETURN NEW;
+          END IF;
+          RAISE EXCEPTION 'reversiones_pendientes es un registro de auditoría: solo se cierra'
+              USING ERRCODE = 'restrict_violation';
+      END;
+      $$ LANGUAGE plpgsql;
+
+      DROP TRIGGER IF EXISTS trg_reversiones_pendientes_inmutable ON reversiones_pendientes;
+      CREATE TRIGGER trg_reversiones_pendientes_inmutable
+          BEFORE UPDATE OR DELETE ON reversiones_pendientes
+          FOR EACH ROW EXECUTE FUNCTION trg_reversiones_pendientes_inmutable();
+      DROP TRIGGER IF EXISTS trg_reversiones_pendientes_sin_truncate ON reversiones_pendientes;
+      CREATE TRIGGER trg_reversiones_pendientes_sin_truncate
+          BEFORE TRUNCATE ON reversiones_pendientes
+          FOR EACH STATEMENT EXECUTE FUNCTION trg_reversiones_pendientes_inmutable();
+    `);
+
+    // 12.1 El DPI de una persona tiene 13 dígitos (el registro de efectivo lo exige). Si hubiera alguno que no,
+    //      no se crea la restricción y se avisa (hay que corregirlo a mano) en lugar de detener el arranque.
+    const dpiFueraDeFormato = await pool.query("SELECT 1 FROM personas WHERE cui_dpi !~ '^[0-9]{13}$' LIMIT 1");
+    if (dpiFueraDeFormato.rowCount > 0) {
+      console.warn('[MIGRATION] Hay personas con un DPI que no tiene 13 dígitos: no se creó chk_personas_cui. Corríjalos y reinicie.');
+    } else {
+      await pool.query(`
+        ALTER TABLE personas DROP CONSTRAINT IF EXISTS chk_personas_cui;
+        ALTER TABLE personas ADD CONSTRAINT chk_personas_cui CHECK (cui_dpi ~ '^[0-9]{13}$');
+      `);
+    }
+
+    // 12.2 La fecha de creación de una solicitud forma su referencia fija con el banco (`referenciaDeOperacion`):
+    //      no puede faltar. Ya tiene valor por defecto; las filas sin ella (no debería haber) toman la fecha actual.
+    await pool.query(`
+      UPDATE solicitudes_credito SET fecha_solicitud = CURRENT_TIMESTAMP WHERE fecha_solicitud IS NULL;
+      ALTER TABLE solicitudes_credito ALTER COLUMN fecha_solicitud SET NOT NULL;
+      UPDATE solicitudes_traslado_apertura SET fecha_solicitud = CURRENT_TIMESTAMP WHERE fecha_solicitud IS NULL;
+      ALTER TABLE solicitudes_traslado_apertura ALTER COLUMN fecha_solicitud SET NOT NULL;
+      UPDATE solicitudes_afiliacion_agencia SET fecha_solicitud = CURRENT_TIMESTAMP WHERE fecha_solicitud IS NULL;
+      ALTER TABLE solicitudes_afiliacion_agencia ALTER COLUMN fecha_solicitud SET NOT NULL;
     `);
 
     console.log('[MIGRATION] Esquema, cuenta_bancaria corporativa, MFA TOTP, roles, beneficiarios y optimizaciones DBA aplicadas exitosamente.');

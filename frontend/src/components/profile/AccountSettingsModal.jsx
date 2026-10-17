@@ -293,7 +293,8 @@ export const AccountSettingsModal = ({ isOpen, onClose, initialTab = '2fa' }) =>
     setErrorMsg('');
     setSuccessMsg('');
 
-    const cleanTel = telefono.trim();
+    // Se aceptan espacios o guiones al escribirlo («5555-1234»), como en el servidor
+    const cleanTel = telefono.replace(/[\s-]/g, '');
     if (!cleanTel) {
       setErrorMsg('Escriba su número de teléfono.');
       return;

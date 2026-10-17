@@ -6,7 +6,7 @@
 
 require('dotenv').config({ path: __dirname + '/.env' });
 const db = require('./src/config/db');
-const { makeRequest, createTestReporter } = require('./testHelper');
+const { makeRequest, createTestReporter, purgarEfectivoDePrueba } = require('./testHelper');
 
 const BASE_URL = process.env.TEST_BASE_URL || 'http://localhost:5001';
 
@@ -22,6 +22,8 @@ async function runTests() {
   // Variables para cleanup e idempotencia en finally
   let casoMarvin = null;
   let formalizedSocio = null;
+  // Una excepción o una limpieza fallida hacen fallar la suite aunque ninguna aserción haya fallado
+  let errorInesperado = false;
 
   try {
     // 1. Iniciar sesión como OP-1 y OP-2
@@ -184,6 +186,7 @@ async function runTests() {
 
   } catch (err) {
     console.error('\n[ERROR] Fallo crítico durante la suite de bandeja:', err.message);
+    errorInesperado = true;
   } finally {
     // 8. Limpieza e idempotencia defensiva
     console.log('\n[CLEANUP] Restaurando estado original para garantizar idempotencia...');
@@ -216,21 +219,24 @@ async function runTests() {
           WHERE id_solicitud = $1
         `, [casoMarvin.id_solicitud]);
         console.log(`  [CLEANUP] Caso ${casoMarvin.numero_caso} restablecido a PENDIENTE_AGENCIA.`);
+        // El aporte de la formalización quedó en el registro de efectivo de ventanilla
+        await purgarEfectivoDePrueba(db, [casoMarvin.cui_dpi]);
       }
     } catch (cleanErr) {
       console.error('  [ERROR] Fallo en cleanup:', cleanErr.message);
+      errorInesperado = true;
     } finally {
       const stats = reporter.getStats();
       console.log('\n===================================================================');
       console.log(` [RESULTADO] PRUEBAS SUPERADAS: ${stats.passed} / ${stats.total}`);
-      if (stats.failed === 0) {
+      if (stats.failed === 0 && !errorInesperado) {
         console.log(' [SUCCESS] TODAS LAS PRUEBAS DE BANDEJA Y BLOQUEO PASARON AL 100%');
       } else {
-        console.log(' [FAIL] Algunas aserciones de la suite fallaron.');
+        console.log(' [FAIL] Algunas aserciones de la suite fallaron o hubo un error inesperado.');
       }
       console.log('===================================================================\n');
 
-      process.exit(stats.failed === 0 ? 0 : 1);
+      process.exit(stats.failed === 0 && !errorInesperado ? 0 : 1);
     }
   }
 }
