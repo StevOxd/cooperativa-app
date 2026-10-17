@@ -8,6 +8,7 @@ const socketService = require('../services/socketService');
 const asociadoAfiliacionService = require('../services/asociadoAfiliacionService');
 const { getNextCorporateCode, resolvePrefix } = require('../utils/codeGenerator');
 const { normalizarParentesco } = require('../utils/parentesco');
+const { respuestaDeError } = require('../utils/errores');
 
 /**
  * Consulta el padrón institucional de asociados con soporte para paginación, filtros de estado y métricas consolidadas.
@@ -296,12 +297,12 @@ const crearAfiliacionPresencial = async (req, res) => {
     });
   } catch (error) {
     console.error('[ERROR] Fallo en asociadosAdminController.crearAfiliacionPresencial:', error.message);
-    const status = error.statusCode || 500;
+    const { status, message } = respuestaDeError(error, 'No se pudo registrar la afiliación. Intente de nuevo.');
     return res.status(status).json({
       success: false,
       // Solo los códigos propios del acceso al portal (CORREO_*), nunca códigos internos de la base o del sistema.
       error: typeof error.code === 'string' && error.code.startsWith('CORREO_') ? error.code : undefined,
-      message: error.message || 'Error al procesar la afiliación presencial.',
+      message,
     });
   }
 };
@@ -700,7 +701,7 @@ const guardarBeneficiarios = async (req, res) => {
     console.error('[ERROR] Fallo en asociadosAdminController.guardarBeneficiarios:', error.message);
     return res.status(500).json({
       success: false,
-      message: 'No se pudieron guardar los beneficiarios: ' + error.message,
+      message: 'No se pudieron guardar los beneficiarios. Intente de nuevo.',
     });
   } finally {
     client.release();

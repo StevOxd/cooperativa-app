@@ -49,7 +49,7 @@ router.post('/procesar-existente', afiliacionOnlineController.procesarAfiliacion
 router.post('/online', afiliacionOnlineController.procesarAfiliacionExistente);
 
 // 3. Escenario 2: Registra solicitud para persona que no pertenece al banco (emite número de caso para agencia)
-router.post('/solicitar-nuevo', afiliacionOnlineController.registrarSolicitudAgencia);
+router.post('/solicitar-nuevo', consultaDpiLimiter, afiliacionOnlineController.registrarSolicitudAgencia);
 
 // 4. Disponibilidad de un correo: solo para el personal (formularios de ventanilla). No es pública
 //    porque revelaría qué correos están registrados; en la afiliación en línea el correo repetido

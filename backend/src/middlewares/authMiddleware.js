@@ -77,6 +77,8 @@ const verifyToken = async (req, res, next) => {
     decoded.id = idUsuario;
     decoded.id_usuario = idUsuario;
     decoded.id_persona = dbUser.id_persona;
+    // El rol vigente es el de la base de datos: si se lo cambiaron, no vale el que trae el token
+    decoded.rol = dbUser.rol;
     decoded.debe_cambiar_password = Boolean(dbUser.debe_cambiar_password);
 
     // Asignar los datos del usuario decodificado a la request

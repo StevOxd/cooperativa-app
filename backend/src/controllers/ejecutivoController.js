@@ -2,6 +2,7 @@ const db = require('../config/db');
 const socketService = require('../services/socketService');
 const bancoApiService = require('../services/bancoApiService');
 const { saveBase64File } = require('../utils/fileStorage');
+const { errorDeNegocio, respuestaDeError } = require('../utils/errores');
 
 /**
  * Obtener solicitudes de crédito para revisión y resolución de la Gerencia Ejecutiva
@@ -120,7 +121,7 @@ const resolverSolicitudCredito = async (req, res) => {
 
     // 1. Obtener la solicitud con bloqueo transaccional estricto
     const solRes = await client.query(`
-      SELECT sc.*, a.id_persona, p.primer_nombre, p.primer_apellido,
+      SELECT sc.*, a.id_persona, p.cui_dpi, p.primer_nombre, p.primer_apellido,
         (SELECT u.id_usuario FROM usuarios u WHERE u.id_persona = a.id_persona AND u.id_rol = 3 /* ASOCIADO */) AS id_usuario_asociado
       FROM solicitudes_credito sc
       JOIN asociados a ON sc.id_asociado = a.id_asociado
@@ -301,7 +302,7 @@ const resolverSolicitudCredito = async (req, res) => {
           cuentaCoopId = autoCoop.rows[0].id_cuenta;
           destinoInfo = `Cuenta de ${autoCoop.rows[0].tipo_cuenta} (${autoCoop.rows[0].numero_cuenta})`;
         } else {
-          throw new Error('El asociado no posee una cuenta activa para realizar la acreditación de los fondos.');
+          throw errorDeNegocio(409, 'El asociado no posee una cuenta activa para realizar la acreditación de los fondos.');
         }
       }
     }
@@ -309,11 +310,14 @@ const resolverSolicitudCredito = async (req, res) => {
     // Acreditación según el destino
     if (cuentaBancariaId) {
       let targetNumeroCuenta = null;
+      let bancoSinRespuesta = false;
       if (sol.cui_dpi) {
         const bcoRes = await bancoApiService.obtenerCuentasCliente(sol.cui_dpi);
         if (bcoRes.success && Array.isArray(bcoRes.data)) {
           const matched = bcoRes.data.find(c => String(c.id_cuenta_bancaria) === String(cuentaBancariaId));
           if (matched) targetNumeroCuenta = matched.numero_cuenta_bancaria;
+        } else {
+          bancoSinRespuesta = true;
         }
       }
       if (!targetNumeroCuenta && destinoInfo) {
@@ -321,8 +325,11 @@ const resolverSolicitudCredito = async (req, res) => {
         if (matchRegex) targetNumeroCuenta = matchRegex[1];
       }
 
+      // Sin el número no se acredita: el banco identifica la cuenta solo por su número
       if (!targetNumeroCuenta) {
-        targetNumeroCuenta = String(cuentaBancariaId);
+        throw bancoSinRespuesta
+          ? errorDeNegocio(502, 'No pudimos comunicarnos con el banco. Intente de nuevo en unos minutos.')
+          : errorDeNegocio(404, 'No encontramos la cuenta del banco de destino entre las del asociado.');
       }
 
       // Acreditar en Core Banking API (banco_db)
@@ -334,7 +341,7 @@ const resolverSolicitudCredito = async (req, res) => {
       });
 
       if (!acreRes.success) {
-        throw new Error(acreRes.message || 'Error al acreditar fondos en la cuenta bancaria corporativa.');
+        throw errorDeNegocio(502, acreRes.message || 'No se pudieron acreditar los fondos en la cuenta del banco.');
       }
     } else if (cuentaCoopId) {
       const coopRes = await client.query(`
@@ -345,7 +352,7 @@ const resolverSolicitudCredito = async (req, res) => {
       `, [cuentaCoopId]);
 
       if (coopRes.rows.length === 0) {
-        throw new Error('La cuenta cooperativa de acreditación no existe o fue cancelada.');
+        throw errorDeNegocio(409, 'La cuenta cooperativa de acreditación no existe o fue cancelada.');
       }
 
       const saldoAnterior = parseFloat(coopRes.rows[0].saldo_disponible);
@@ -430,10 +437,8 @@ const resolverSolicitudCredito = async (req, res) => {
   } catch (error) {
     await client.query('ROLLBACK');
     console.error('Error en ejecutivoController.resolverSolicitudCredito:', error);
-    return res.status(500).json({
-      success: false,
-      message: error.message || 'Error al procesar la resolución de la solicitud de crédito.',
-    });
+    const { status, message } = respuestaDeError(error, 'No se pudo resolver la solicitud de crédito. Intente de nuevo.');
+    return res.status(status).json({ success: false, message });
   } finally {
     client.release();
   }

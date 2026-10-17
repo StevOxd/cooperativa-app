@@ -16,6 +16,8 @@ const userSockets = new Map();
 const socketUser = new Map();
 // socketId -> sesion_activa_id con la que se autenticó
 const socketSesion = new Map();
+// Sala de los sockets que reciben la presencia de los usuarios: solo administradores con sesión vigente
+const SALA_PRESENCIA = 'presencia-administradores';
 
 /**
  * Inicializa el servidor de Socket.io y configura los interceptores de autenticación y presencia.
@@ -58,6 +60,7 @@ const init = (httpServer) => {
         if (sesion) {
           socket.userId = sesion.idUsuario;
           socket.sesionId = sesion.sesionId;
+          socket.rol = sesion.rol;
         }
       } catch (err) {
         registrarErrorDeToken(err);
@@ -70,6 +73,7 @@ const init = (httpServer) => {
     // Si vino autenticado en el handshake
     if (socket.userId) {
       registrarSocketUsuario(socket.userId, socket.id, socket.sesionId);
+      if (socket.rol === 'ADMINISTRADOR') socket.join(SALA_PRESENCIA);
     }
 
     // Evento de autenticación manual o re-autenticación
@@ -92,7 +96,10 @@ const init = (httpServer) => {
         }
         socket.userId = sesion.idUsuario;
         socket.sesionId = sesion.sesionId;
+        socket.rol = sesion.rol;
         registrarSocketUsuario(sesion.idUsuario, socket.id, sesion.sesionId);
+        if (sesion.rol === 'ADMINISTRADOR') socket.join(SALA_PRESENCIA);
+        else socket.leave(SALA_PRESENCIA);
         socket.emit('authenticated', { success: true, userId: sesion.idUsuario });
       } catch (error) {
         registrarErrorDeToken(error);
@@ -149,13 +156,13 @@ const init = (httpServer) => {
  *
  * @async
  * @param {string} token - JWT enviado por el cliente.
- * @returns {Promise<{idUsuario: number, sesionId: string}|null>} null si no es una sesión vigente.
+ * @returns {Promise<{idUsuario: number, sesionId: string, rol: string}|null>} null si no es una sesión vigente.
  * @throws {Error} si la firma es inválida, el token venció o falla la consulta a la base de datos.
  */
 const autenticarToken = async (token) => {
   const decoded = jwt.verify(token, JWT_SECRET);
   const sesion = await validarSesion(decoded);
-  return sesion.valida ? { idUsuario: sesion.idUsuario, sesionId: decoded.sesion_activa_id } : null;
+  return sesion.valida ? { idUsuario: sesion.idUsuario, sesionId: decoded.sesion_activa_id, rol: sesion.usuario.rol } : null;
 };
 
 /**
@@ -263,12 +270,13 @@ const sendSecurityAlert = (userId, message, sesionId) => {
 };
 
 /**
- * Emite una actualización de presencia a todos los clientes conectados
+ * Emite una actualización de presencia. Solo la reciben los administradores con sesión vigente (su monitor de
+ * presencia): un socket anónimo o de otro rol no se entera de quién entra y sale.
  */
 const broadcastPresence = (userId, enLinea) => {
   userId = Number(userId);
   if (io) {
-    io.emit('presence_update', { id_usuario: userId, en_linea: Boolean(enLinea) });
+    io.to(SALA_PRESENCIA).emit('presence_update', { id_usuario: userId, en_linea: Boolean(enLinea) });
   }
 };
 

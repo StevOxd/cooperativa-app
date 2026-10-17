@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const { errorDeNegocio } = require('./errores');
 
 const UPLOADS_ROOT = path.join(__dirname, '../../uploads');
 
@@ -15,7 +16,7 @@ const UPLOADS_ROOT = path.join(__dirname, '../../uploads');
  */
 const saveBase64File = async (base64Data, subfolder = 'creditos', originalName = 'formulario.pdf', prefix = 'doc') => {
   if (!base64Data || typeof base64Data !== 'string') {
-    throw new Error('Datos de archivo inválidos o vacíos.');
+    throw errorDeNegocio(400, 'Datos de archivo inválidos o vacíos.');
   }
 
   // Extraer extensión del nombre original o del tipo MIME
@@ -42,7 +43,7 @@ const saveBase64File = async (base64Data, subfolder = 'creditos', originalName =
   // Normalizar extensiones permitidas
   const allowedExtensions = ['.pdf', '.png', '.jpg', '.jpeg'];
   if (!allowedExtensions.includes(extension)) {
-    throw new Error(`Extensión de archivo "${extension}" no permitida. Solo se aceptan PDF o imágenes.`);
+    throw errorDeNegocio(400, `Extensión de archivo "${extension}" no permitida. Solo se aceptan PDF o imágenes.`);
   }
 
   const targetDir = path.join(UPLOADS_ROOT, subfolder);

@@ -528,7 +528,7 @@ const server = app.listen(0, async () => {
     console.log(`  - Solicitante: ${dataCaso.nombre_completo} (DPI: ${dataCaso.cui_dpi})`);
     console.log(`  - Estado: ${dataCaso.estado}`);
 
-    // 3.3 Reintento con el mismo DPI devuelve el caso existente sin duplicar
+    // 3.3 Reintento con el mismo DPI: no duplica el caso ni revela su número (quien escribe no se puede identificar)
     const emailReintento = `gabriela.reintento.${Date.now()}@example.com`;
     const codigoReintento = await pedirCodigo(emailReintento);
     const reintentoCasoRes = await request('/api/afiliacion/solicitar-nuevo', 'POST', {
@@ -540,10 +540,15 @@ const server = app.listen(0, async () => {
       email: emailReintento,
       codigo_verificacion: codigoReintento,
     });
-    if (reintentoCasoRes.status !== 200 || reintentoCasoRes.body.data.numero_caso !== dataCaso.numero_caso) {
-      throw new Error('Debería retornar el número de caso existente sin duplicar registro.');
+    const casosDelDpi = await pool.query(
+      "SELECT COUNT(*)::int AS n FROM solicitudes_afiliacion_agencia WHERE cui_dpi = $1 AND estado = 'PENDIENTE_AGENCIA'",
+      [dpiNuevoValido]
+    );
+    if (reintentoCasoRes.status !== 409 || reintentoCasoRes.body.error !== 'SOLICITUD_EN_TRAMITE'
+      || JSON.stringify(reintentoCasoRes.body).includes(dataCaso.numero_caso) || casosDelDpi.rows[0].n !== 1) {
+      throw new Error('Con un DPI que ya tiene caso en trámite no debería duplicarlo ni revelar su número: ' + JSON.stringify(reintentoCasoRes.body));
     }
-    console.log(`✓ Retención de caso activo confirmada para DPI duplicado (${reintentoCasoRes.body.data.numero_caso}).`);
+    console.log('✓ Un DPI con caso en trámite no duplica la solicitud ni revela el número de caso.');
 
     // =========================================================================
     // 4. AUTORIZACIÓN: RESTRICCIÓN DE ADMINISTRADOR Y ACCESO DE OPERADOR

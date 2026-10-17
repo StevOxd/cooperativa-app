@@ -548,6 +548,16 @@ const solicitarCodigoCorreo = async (req, res) => {
 /**
  * 3. Registra una solicitud para personas que NO pertenecen a la entidad bancaria (Escenario 2).
  * Emite un número de caso oficial para que el solicitante acuda a una agencia bancaria a formalizar.
+ * Si el DPI ya tiene una solicitud en trámite no registra otra ni revela su número, y el código de
+ * verificación queda gastado igual.
+ *
+ * @async
+ * @route POST /api/afiliacion/solicitar-nuevo
+ * @param {import('express').Request} req - Datos de la persona, `email` y `codigo_verificacion`.
+ * @param {import('express').Response} res
+ * @returns {Promise<import('express').Response>} 201 con el número de caso; 400 por datos inválidos, correo en
+ *   uso o código incorrecto o vencido; 409 `SOLICITUD_EN_TRAMITE` si el DPI ya tiene una; 429 por el límite
+ *   por conexión; 500.
  */
 const registrarSolicitudAgencia = async (req, res) => {
   const client = await pool.connect();
@@ -702,34 +712,34 @@ const registrarSolicitudAgencia = async (req, res) => {
       if (checkSolEmail.rows.length > 0) {
         return res.status(400).json({
           success: false,
-          message: `Ya hay una solicitud en trámite con este correo (caso ${checkSolEmail.rows[0].numero_caso}).`,
+          message: 'Ya hay una solicitud en trámite con este correo. Escriba otro.',
         });
       }
     }
 
-    // Comprobar si ya existe un caso pendiente para este DPI
+    // Si el DPI ya tiene un caso en trámite, no se registra otro. No se devuelve el número ni la fecha de ese
+    // caso: quien escribe no se puede identificar, y en la agencia lo encuentran con el DPI.
     const existingCase = await client.query(
-      `SELECT numero_caso, fecha_solicitud, estado
-       FROM solicitudes_afiliacion_agencia
+      `SELECT 1 FROM solicitudes_afiliacion_agencia
        WHERE cui_dpi = $1 AND estado = 'PENDIENTE_AGENCIA'
-       ORDER BY id_solicitud DESC LIMIT 1`,
+       LIMIT 1`,
       [cuiLimpio]
     );
 
     if (existingCase.rows.length > 0) {
-      const caso = existingCase.rows[0];
-      return res.status(200).json({
-        success: true,
-        reincidente: true,
-        numero_caso: caso.numero_caso,
-        fecha_solicitud: caso.fecha_solicitud,
-        message: `Ya tiene una solicitud en trámite (caso ${caso.numero_caso}). Preséntese en cualquier agencia con ese número.`,
-        data: {
-          numero_caso: caso.numero_caso,
-          cui_dpi: cuiLimpio,
-          nombre_completo: `${primer_nombre} ${primer_apellido}`,
-          fecha_solicitud: caso.fecha_solicitud,
-        },
+      // El código se gasta igual: con él no se puede probar un DPI tras otro
+      try {
+        await codigoVerificacion.consumirCodigo(client, email);
+      } catch (codigoError) {
+        if (codigoError instanceof codigoVerificacion.CodigoVerificacionError) {
+          return codigoVerificacion.responderError(res, codigoError);
+        }
+        throw codigoError;
+      }
+      return res.status(409).json({
+        success: false,
+        error: 'SOLICITUD_EN_TRAMITE',
+        message: 'Ya hay una solicitud en trámite con este DPI. Preséntese en una agencia con su DPI original: ahí la encuentran.',
       });
     }
 
@@ -814,8 +824,6 @@ const registrarSolicitudAgencia = async (req, res) => {
       errorMsg = 'Uno de los campos ingresados excede la longitud máxima permitida (ej: número de teléfono o nombres demasiado extensos).';
     } else if (error.code === '23505') {
       errorMsg = 'Ya existe un registro con los datos ingresados.';
-    } else if (error.message) {
-      errorMsg = error.message;
     }
     return res.status(400).json({
       success: false,

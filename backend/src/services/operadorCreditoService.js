@@ -8,6 +8,7 @@ const creditScoringService = require('./creditScoringService');
 const bancoApiService = require('./bancoApiService');
 const socketService = require('./socketService');
 const { saveBase64File } = require('../utils/fileStorage');
+const { errorDeNegocio } = require('../utils/errores');
 
 /**
  * Obtiene la evaluación crediticia y scoring para una solicitud de crédito
@@ -175,8 +176,10 @@ const resolverCredito = async ({ idSolicitud, idOperador, accion, observaciones 
     await client.query('BEGIN');
 
     // 1. Obtener la solicitud con bloqueo
+    // El DPI se pide aparte para no bloquear también la fila de la persona
     const solRes = await client.query(`
-      SELECT sc.*, a.id_persona
+      SELECT sc.*, a.id_persona,
+        (SELECT p.cui_dpi FROM personas p WHERE p.id_persona = a.id_persona) AS cui_dpi
       FROM solicitudes_credito sc
       JOIN asociados a ON sc.id_asociado = a.id_asociado
       WHERE sc.id_solicitud_credito = $1
@@ -268,18 +271,21 @@ const resolverCredito = async ({ idSolicitud, idOperador, accion, observaciones 
           cuentaCoopId = autoCoop.rows[0].id_cuenta;
           destinoInfo = `Cuenta de ${autoCoop.rows[0].tipo_cuenta} (${autoCoop.rows[0].numero_cuenta})`;
         } else {
-          throw new Error('El asociado no posee ninguna cuenta activa (de ahorro o monetaria) para acreditar el desembolso.');
+          throw errorDeNegocio(409, 'El asociado no posee ninguna cuenta activa (de ahorro o monetaria) para acreditar el desembolso.');
         }
       }
     }
 
     if (cuentaBancariaId) {
       let targetNumeroCuenta = null;
+      let bancoSinRespuesta = false;
       if (sol.cui_dpi) {
         const bcoRes = await bancoApiService.obtenerCuentasCliente(sol.cui_dpi);
         if (bcoRes.success && Array.isArray(bcoRes.data)) {
           const matched = bcoRes.data.find(c => String(c.id_cuenta_bancaria) === String(cuentaBancariaId));
           if (matched) targetNumeroCuenta = matched.numero_cuenta_bancaria;
+        } else {
+          bancoSinRespuesta = true;
         }
       }
       if (!targetNumeroCuenta && destinoInfo) {
@@ -287,8 +293,11 @@ const resolverCredito = async ({ idSolicitud, idOperador, accion, observaciones 
         if (matchRegex) targetNumeroCuenta = matchRegex[1];
       }
 
+      // Sin el número no se acredita: el banco identifica la cuenta solo por su número
       if (!targetNumeroCuenta) {
-        targetNumeroCuenta = String(cuentaBancariaId);
+        throw bancoSinRespuesta
+          ? errorDeNegocio(502, 'No pudimos comunicarnos con el banco. Intente de nuevo en unos minutos.')
+          : errorDeNegocio(404, 'No encontramos la cuenta del banco de destino entre las del asociado.');
       }
 
       // Acreditar en Core Banking API (banco_db)
@@ -300,7 +309,7 @@ const resolverCredito = async ({ idSolicitud, idOperador, accion, observaciones 
       });
 
       if (!acreRes.success) {
-        throw new Error(acreRes.message || 'Error al acreditar fondos en la cuenta bancaria corporativa.');
+        throw errorDeNegocio(502, acreRes.message || 'No se pudieron acreditar los fondos en la cuenta del banco.');
       }
     } else if (cuentaCoopId) {
       const coopRes = await client.query(`
@@ -311,7 +320,7 @@ const resolverCredito = async ({ idSolicitud, idOperador, accion, observaciones 
       `, [cuentaCoopId]);
 
       if (coopRes.rows.length === 0) {
-        throw new Error('La cuenta cooperativa de acreditación no existe o fue cancelada.');
+        throw errorDeNegocio(409, 'La cuenta cooperativa de acreditación no existe o fue cancelada.');
       }
 
       const saldoAnterior = parseFloat(coopRes.rows[0].saldo_disponible);
