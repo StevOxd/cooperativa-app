@@ -14,6 +14,11 @@ module.exports = Object.freeze({
     CREDITO_MONTO_MAXIMO: 500000.00,
     CREDITO_PLAZO_MINIMO_MESES: 3,
     CREDITO_PLAZO_MAXIMO_MESES: 120,
+    // Depósitos en ventanilla a la cuenta del banco de un colaborador que se afilia: tope por depósito y
+    // acumulados del día (por colaborador y por operador)
+    DEPOSITO_VENTANILLA_BANCO_MAXIMO: 5000.00,
+    DEPOSITO_VENTANILLA_BANCO_DIARIO_POR_DPI: 5000.00,
+    DEPOSITO_VENTANILLA_BANCO_DIARIO_POR_OPERADOR: 20000.00,
     CUENTA_APORTACIONES_ID: 1,
     CUENTA_AHORRO_DISPONIBLE_ID: 2,
     CUENTA_PLAZO_FIJO_ID: 3,

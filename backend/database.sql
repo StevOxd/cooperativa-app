@@ -9,6 +9,8 @@
 -- =============================================================================
 
 -- Limpieza previa en cascada para reejecución limpia
+-- (depositos_ventanilla_banco y codigos_verificacion_correo las crea migrations.js al arrancar el backend)
+DROP TABLE IF EXISTS depositos_ventanilla_banco CASCADE;
 DROP TABLE IF EXISTS configuracion_sistema CASCADE;
 DROP TABLE IF EXISTS historial_cambios_beneficiarios CASCADE;
 DROP TABLE IF EXISTS beneficiarios CASCADE;

@@ -19,9 +19,14 @@ router.get('/creditos', ejecutivoController.getBandejaCreditos);
 /**
  * @route   POST /api/ejecutivo/creditos/:id/resolver
  * @desc    Resolver una solicitud de crédito: ACEPTAR, DEVOLVER o DENEGAR
- * @access  Privado (Ejecutivo / Administrador)
+ * @access  Privado (solo Ejecutivo: el comité de crédito; el administrador puede consultar la bandeja)
  */
-router.post('/creditos/:id/resolver', prohibirAutoatencion('solicitudCredito', (req) => req.params.id), ejecutivoController.resolverSolicitudCredito);
+router.post(
+  '/creditos/:id/resolver',
+  checkRole('EJECUTIVO'),
+  prohibirAutoatencion('solicitudCredito', (req) => req.params.id),
+  ejecutivoController.resolverSolicitudCredito
+);
 
 /**
  * @route   GET /api/ejecutivo/creditos/:id/evaluacion

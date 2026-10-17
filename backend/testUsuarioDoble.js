@@ -387,9 +387,13 @@ const testServer = server.listen(0, async () => {
       'Un id escrito de otra forma (+id, ceros a la izquierda) no se salta la revisión'
     );
 
-    // Depósito en ventanilla a una cuenta propia del banco (OP-1 es titular de CTA-BCO-MONET-2001)
-    const depositoPropio = await request('/api/banco-externo/acreditar', 'POST', { numero_cuenta: 'CTA-BCO-MONET-2001', monto: 1 }, tokenOperador);
-    const depositoSinCuenta = await request('/api/banco-externo/acreditar', 'POST', { numero_cuenta: 'NO-EXISTE-32', monto: 1 }, tokenOperador);
+    // Depósito en ventanilla a una cuenta propia del banco (OP-1 es titular de CTA-BCO-MONET-2001). El depósito
+    // exige el DPI del titular: aun indicándolo, no se deposita en una cuenta propia
+    const dpiOp1 = (await db.query(
+      "SELECT p.cui_dpi FROM usuarios u JOIN personas p ON p.id_persona = u.id_persona WHERE u.codigo_corporativo = 'OP-1'"
+    )).rows[0].cui_dpi;
+    const depositoPropio = await request('/api/banco-externo/acreditar', 'POST', { cui_dpi: dpiOp1, numero_cuenta: 'CTA-BCO-MONET-2001', monto: 1 }, tokenOperador);
+    const depositoSinCuenta = await request('/api/banco-externo/acreditar', 'POST', { cui_dpi: dpiOp1, numero_cuenta: 'NO-EXISTE-32', monto: 1 }, tokenOperador);
     assert(
       esAutoatencion(depositoPropio) && depositoSinCuenta.status === 404,
       'No se deposita en una cuenta propia, ni en una cuenta que no se puede consultar'

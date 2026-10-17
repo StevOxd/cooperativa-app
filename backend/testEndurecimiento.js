@@ -13,8 +13,14 @@ process.env.CODIGO_VERIFICACION_DEV = '246810';
  * - El DPI de una persona no se cambia desde «Usuarios» y los cambios de sus datos quedan auditados.
  * - Cambiar el estado de un usuario cierra su sesión.
  * - El banco identifica las cuentas solo por su número.
+ * - El alta de usuarios no acepta una contraseña elegida por quien lo crea.
+ * - Solo el ejecutivo aprueba créditos, si los elevó un operador y no fue él mismo (comité de crédito).
+ * - El depósito en ventanilla al banco es solo para un colaborador del banco que se afilia, exige el DPI del
+ *   titular, tiene tope por depósito y acumulados del día, y queda registrado; abrir una cuenta en el banco
+ *   desde la cooperativa no le pone saldo ni crea clientes.
  *
- * Usa el backend en proceso (puerto efímero), el banco y la base de datos locales. Limpia lo que crea.
+ * Usa el backend en proceso (puerto efímero), el banco y la base de datos locales; el depósito y la apertura
+ * se prueban con el banco simulado. Limpia lo que crea.
  */
 const fs = require('fs');
 const path = require('path');
@@ -24,6 +30,25 @@ const { server } = require('./src/server');
 const db = require('./src/config/db');
 const bancoApiService = require('./src/services/bancoApiService');
 const { errorDeNegocio, respuestaDeError } = require('./src/utils/errores');
+const { borrarPersonaDePrueba } = require('./testHelper');
+
+const PDF = `data:application/pdf;base64,${Buffer.from('%PDF-1.4 prueba').toString('base64')}`;
+
+// depositos_ventanilla_banco es un registro de auditoría: solo se limpia con la marca de purga de pruebas
+const purgarDepositosDePrueba = async (dpis) => {
+  const client = await db.pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query("SET LOCAL cooperativa.purga_pruebas = 'on'");
+    await client.query('DELETE FROM depositos_ventanilla_banco WHERE titular_cui = ANY($1)', [dpis]);
+    await client.query('COMMIT');
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => {});
+    throw error;
+  } finally {
+    client.release();
+  }
+};
 
 const esperar = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -83,6 +108,13 @@ const testServer = server.listen(0, async () => {
   let ultimoHistorialPrevio = 0;
   let idPersonaAsociado = null;
   const codigoAsociado = `EX-T8${sufijo}`;
+  const dpiConClave = `948${sufijo}000`.slice(0, 13);
+  // DPI del colaborador que se atiende y de otra persona (cuenta ajena) en el depósito con el banco simulado
+  const dpiColaborador = `949${sufijo}000`.slice(0, 13);
+  const dpiAjenoBanco = `950${sufijo}000`.slice(0, 13);
+  // Un cliente externo del banco (no colaborador) y otros colaboradores para el tope diario del operador
+  const dpiExterno = `951${sufijo}000`.slice(0, 13);
+  const dpiOtrosColaboradores = ['952', '953', '954', '955'].map((p) => `${p}${sufijo}000`.slice(0, 13));
 
   try {
     // ------------------------------------------------------------------
@@ -233,6 +265,184 @@ const testServer = server.listen(0, async () => {
     );
 
     // ------------------------------------------------------------------
+    console.log('\n--- Alta de usuarios ---');
+    const conClave = await request('/api/usuarios', 'POST', {
+      primer_nombre: 'Prueba',
+      primer_apellido: 'Clave',
+      cui_dpi: dpiConClave,
+      telefono: '55550003',
+      fecha_nacimiento: '1990-01-01',
+      email: `test.clave.${sufijo}@cooperativa.com`,
+      rol: 'OPERADOR',
+      password: 'abc123',
+    }, tokenAdmin);
+    const creadoConClave = (await db.query('SELECT 1 FROM personas WHERE cui_dpi = $1', [dpiConClave])).rows.length;
+    assert(conClave.status === 400 && creadoConClave === 0, 'El alta de un usuario no acepta una contraseña elegida por quien lo crea');
+
+    // ------------------------------------------------------------------
+    console.log('\n--- Comité de crédito ---');
+    const idAdmin = (await db.query("SELECT id_usuario FROM usuarios WHERE codigo_corporativo = 'AD-1'")).rows[0].id_usuario;
+    const idEjecutivo = (await db.query("SELECT id_usuario FROM usuarios WHERE codigo_corporativo = 'EJ-1'")).rows[0].id_usuario;
+    const idAsociadoPrueba = (await db.query('SELECT id_asociado FROM asociados WHERE id_persona = $1', [idPersonaAsociado])).rows[0].id_asociado;
+    const solicitudEnComite = async (idRevisor) => (await db.query(
+      `INSERT INTO solicitudes_credito (id_asociado, monto_solicitado, plazo_meses, tasa_interes, cuota_mensual_estimada, estado, id_operador_revisa)
+       VALUES ($1, 1000, 12, 10, 90, 'EN_AUTORIZACION_EJECUTIVO', $2) RETURNING id_solicitud_credito`,
+      [idAsociadoPrueba, idRevisor]
+    )).rows[0].id_solicitud_credito;
+    const estadoCredito = async (id) => (await db.query('SELECT estado FROM solicitudes_credito WHERE id_solicitud_credito = $1', [id])).rows[0].estado;
+    const tokenEjecutivo = (await login('EJ-1')).body.token;
+    tokens.push(tokenEjecutivo);
+    const aceptar = (id, token) => request(`/api/ejecutivo/creditos/${id}/resolver`, 'POST', {
+      accion: 'ACEPTAR',
+      observaciones: 'Prueba',
+      documento_firmado: PDF,
+      nombre_archivo_firmado: 'resolucion.pdf',
+    }, token);
+
+    const elevadaPorAdmin = await solicitudEnComite(idAdmin);
+    const comoAdmin = await aceptar(elevadaPorAdmin, tokenAdmin);
+    const elevadaPorEjecutivo = await solicitudEnComite(idEjecutivo);
+    const autoaprobacion = await aceptar(elevadaPorEjecutivo, tokenEjecutivo);
+    const sinRevision = await solicitudEnComite(null);
+    const sinOperador = await aceptar(sinRevision, tokenEjecutivo);
+    assert(
+      comoAdmin.status === 403 && (await estadoCredito(elevadaPorAdmin)) === 'EN_AUTORIZACION_EJECUTIVO',
+      'Solo el ejecutivo aprueba créditos: el administrador no (403)'
+    );
+    assert(
+      autoaprobacion.status === 403 && autoaprobacion.body.error === 'APROBACION_POR_QUIEN_ELEVO'
+        && (await estadoCredito(elevadaPorEjecutivo)) === 'EN_AUTORIZACION_EJECUTIVO',
+      'Quien elevó un crédito no lo aprueba'
+    );
+    assert(
+      sinOperador.status === 409 && (await estadoCredito(sinRevision)) === 'EN_AUTORIZACION_EJECUTIVO',
+      'Un crédito que no elevó un operador no se aprueba (409)'
+    );
+
+    // ------------------------------------------------------------------
+    console.log('\n--- Depósito en ventanilla al banco ---');
+    const idOperador = (await db.query("SELECT id_usuario FROM usuarios WHERE codigo_corporativo = 'OP-1'")).rows[0].id_usuario;
+    // La sesión de OP-1 de la prueba de presencia se cerró al desconectar su socket: se abre otra
+    const tokenVentanilla = (await login('OP-1')).body.token;
+    tokens.push(tokenVentanilla);
+    const originales = {
+      verificarDpi: bancoApiService.verificarDpi,
+      consultarCuenta: bancoApiService.consultarCuenta,
+      acreditarCuenta: bancoApiService.acreditarCuenta,
+      aperturarCuentaBancaria: bancoApiService.aperturarCuentaBancaria,
+    };
+    const enviadosAlBanco = [];
+    try {
+      // Banco simulado: CTA-BCO-DPI-<dpi> es de ese DPI; todos son colaboradores salvo el cliente externo
+      const titularDe = (numero) => {
+        if (numero.startsWith('CTA-BCO-DPI-')) return numero.slice('CTA-BCO-DPI-'.length);
+        return numero === 'CTA-BCO-AJENA' ? dpiAjenoBanco : dpiColaborador;
+      };
+      bancoApiService.verificarDpi = async (cui) => ({
+        success: true,
+        status: 200,
+        existe_en_banco: true,
+        cliente: { tipo_cliente: cui === dpiExterno ? 'CLIENTE_EXTERNO' : 'EMPLEADO_PLANILLA' },
+      });
+      bancoApiService.consultarCuenta = async (numero) => ({
+        success: true,
+        status: 200,
+        data: { numero_cuenta_bancaria: numero, titular_cui: titularDe(numero), estado: 'ACTIVA' },
+      });
+      let respuestaBanco = { success: true, status: 200 };
+      bancoApiService.acreditarCuenta = async (datos) => {
+        enviadosAlBanco.push(datos);
+        return respuestaBanco;
+      };
+      bancoApiService.aperturarCuentaBancaria = async (datos) => {
+        enviadosAlBanco.push(datos);
+        return { success: true, status: 201, data: {} };
+      };
+      const depositar = (datos) => request('/api/banco-externo/acreditar', 'POST', datos, tokenVentanilla);
+
+      const sinDpi = await depositar({ numero_cuenta: 'CTA-BCO-PROPIA', monto: 100 });
+      const sobreTope = await depositar({ cui_dpi: dpiColaborador, numero_cuenta: 'CTA-BCO-PROPIA', monto: 5000.01 });
+      const ajena = await depositar({ cui_dpi: dpiColaborador, numero_cuenta: 'CTA-BCO-AJENA', monto: 100 });
+      const montosInvalidos = await Promise.all(['1.234', 'abc', -5, 0].map((monto) =>
+        depositar({ cui_dpi: dpiColaborador, numero_cuenta: 'CTA-BCO-PROPIA', monto })));
+      assert(
+        sinDpi.status === 400 && sobreTope.status === 400 && ajena.status === 403 && enviadosAlBanco.length === 0
+          && montosInvalidos.every((r) => r.status === 400),
+        'Sin el DPI del titular, sobre el tope, con un monto inválido o a la cuenta de otra persona no se deposita'
+      );
+
+      const deposito = await depositar({ cui_dpi: dpiColaborador, numero_cuenta: 'CTA-BCO-PROPIA', monto: '150.00', referencia: 'ELEGIDA-1' });
+      const registroDe = async (referencia) => (await db.query(
+        'SELECT id_usuario_operador, monto, referencia, titular_cui, estado FROM depositos_ventanilla_banco WHERE referencia = $1',
+        [referencia || '']
+      )).rows[0];
+      const registro = await registroDe(deposito.body.data?.referencia);
+      assert(
+        deposito.status === 200 && registro?.id_usuario_operador === idOperador && Number(registro?.monto) === 150
+          && registro?.titular_cui === dpiColaborador && registro?.estado === 'ACREDITADO'
+          && /^DEP-VENT-/.test(registro?.referencia || '') && enviadosAlBanco[0]?.referencia === registro?.referencia,
+        'El depósito queda registrado (ACREDITADO) a nombre del operador, con una referencia que pone el servidor'
+      );
+
+      // El registro de auditoría no se cambia ni se borra
+      const cambio = await db.query("UPDATE depositos_ventanilla_banco SET monto = 1 WHERE referencia = $1", [registro?.referencia]).catch((e) => e);
+      const borrado = await db.query('DELETE FROM depositos_ventanilla_banco WHERE referencia = $1', [registro?.referencia]).catch((e) => e);
+      assert(cambio?.code === '23001' && borrado?.code === '23001', 'Un depósito registrado no se puede modificar ni borrar');
+
+      // El banco rechaza o no responde: queda el intento con su estado, y ante la falta de respuesta, la referencia
+      enviadosAlBanco.length = 0;
+      respuestaBanco = { success: false, status: 409, message: 'Cuenta bloqueada' };
+      const rechazado = await depositar({ cui_dpi: dpiColaborador, numero_cuenta: 'CTA-BCO-PROPIA', monto: 10 });
+      respuestaBanco = { success: false, status: 504, message: 'Tiempo agotado' };
+      const sinConfirmar = await depositar({ cui_dpi: dpiColaborador, numero_cuenta: 'CTA-BCO-PROPIA', monto: 20 });
+      respuestaBanco = { success: true, status: 200 };
+      const [refRechazado, refSinConfirmar] = enviadosAlBanco.map((d) => d.referencia);
+      assert(
+        rechazado.status === 409 && (await registroDe(refRechazado))?.estado === 'RECHAZADO'
+          && sinConfirmar.status === 504 && sinConfirmar.body.message.includes(refSinConfirmar)
+          && (await registroDe(refSinConfirmar))?.estado === 'SIN_CONFIRMAR',
+        'Si el banco rechaza queda RECHAZADO; si no confirma a tiempo queda SIN_CONFIRMAR con su referencia para conciliar'
+      );
+
+      // Solo para un colaborador del banco que se afilia, y con acumulados del día
+      enviadosAlBanco.length = 0;
+      const aExterno = await depositar({ cui_dpi: dpiExterno, numero_cuenta: `CTA-BCO-DPI-${dpiExterno}`, monto: 10 });
+      assert(aExterno.status === 403 && enviadosAlBanco.length === 0, 'No se deposita a un cliente del banco que no es colaborador (403)');
+      // El colaborador ya lleva Q170 hoy (150 acreditados y 20 sin confirmar): Q4,900 más pasan el tope de Q5,000
+      const sobreTopeDia = await depositar({ cui_dpi: dpiColaborador, numero_cuenta: 'CTA-BCO-PROPIA', monto: 4900 });
+      assert(sobreTopeDia.status === 400 && enviadosAlBanco.length === 0, 'Un colaborador no recibe más del tope del día (400)');
+      // El operador lleva Q170: tres depósitos de Q5,000 a otros colaboradores pasan; el cuarto supera Q20,000
+      const porOperador = [];
+      for (const dpi of dpiOtrosColaboradores) {
+        porOperador.push((await depositar({ cui_dpi: dpi, numero_cuenta: `CTA-BCO-DPI-${dpi}`, monto: 5000 })).status);
+      }
+      assert(
+        porOperador.join(',') === '200,200,200,400',
+        `Un operador no registra más del tope del día en depósitos (${porOperador.join(', ')})`
+      );
+
+      enviadosAlBanco.length = 0;
+      await request('/api/banco-externo/aperturar', 'POST', {
+        cui_dpi: dpiColaborador,
+        primer_nombre: 'Prueba',
+        primer_apellido: 'Banco',
+        tipo_cuenta: 'AHORRO',
+        monto_inicial: 999999,
+      }, tokenVentanilla);
+      assert(enviadosAlBanco[0]?.monto_inicial === 0, 'Abrir una cuenta en el banco desde la cooperativa no le pone saldo');
+      enviadosAlBanco.length = 0;
+      const aperturaExterno = await request('/api/banco-externo/aperturar', 'POST', {
+        cui_dpi: dpiExterno,
+        primer_nombre: 'Prueba',
+        primer_apellido: 'Externo',
+        tipo_cuenta: 'AHORRO',
+      }, tokenVentanilla);
+      assert(aperturaExterno.status === 403 && enviadosAlBanco.length === 0, 'Desde la cooperativa solo se abren cuentas en el banco a un colaborador que se afilia');
+    } finally {
+      Object.assign(bancoApiService, originales);
+    }
+
+    // ------------------------------------------------------------------
     console.log('\n--- Banco ---');
     const porId = await bancoApiService.acreditarCuenta({ numero_cuenta: '8', monto: 0.01, concepto: 'Prueba', referencia: `TEST-ID-${sufijo}` });
     assert(!porId.success && porId.status === 404, 'El banco no acepta el id interno de una cuenta en lugar de su número');
@@ -261,15 +471,10 @@ const testServer = server.listen(0, async () => {
           [idUsuarioOp2, ultimoHistorialPrevio]
         );
       }
-      if (idPersonaAsociado) {
-        await db.query(
-          'DELETE FROM historial_estados_usuario WHERE id_usuario_modificado IN (SELECT id_usuario FROM usuarios WHERE id_persona = $1)',
-          [idPersonaAsociado]
-        );
-        await db.query('DELETE FROM usuarios WHERE id_persona = $1', [idPersonaAsociado]);
-        await db.query('DELETE FROM asociados WHERE id_persona = $1', [idPersonaAsociado]);
-        await db.query('DELETE FROM personas WHERE id_persona = $1', [idPersonaAsociado]);
-      }
+      if (idPersonaAsociado) await borrarPersonaDePrueba(db, idPersonaAsociado);
+      await purgarDepositosDePrueba([dpiColaborador, dpiAjenoBanco, dpiExterno, ...dpiOtrosColaboradores]);
+      const conClaveCreada = (await db.query('SELECT id_persona FROM personas WHERE cui_dpi = $1', [dpiConClave])).rows[0];
+      if (conClaveCreada) await borrarPersonaDePrueba(db, conClaveCreada.id_persona);
       console.log('\n  [CLEANUP] Datos de prueba eliminados.');
     } catch (limpiezaError) {
       console.error('[ERROR] No se pudieron borrar los datos de prueba:', limpiezaError.message);

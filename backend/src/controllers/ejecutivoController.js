@@ -102,7 +102,7 @@ const getBandejaCreditos = async (req, res) => {
  *   documento_firmado, nombre_archivo_firmado }`. ACEPTAR exige el PDF firmado; DEVOLVER y DENEGAR, el motivo.
  * @param {import('express').Response} res
  * @returns {Promise<import('express').Response>} 200 al resolver; 400 por datos inválidos o si la solicitud ya
- *   no espera al ejecutivo; 404 si no existe o la cuenta de destino no es del asociado; 409 si no tiene cuenta
+ *   no espera al ejecutivo; 403 si quien aprueba es quien la elevó; 409 si no la elevó un operador; 404 si no existe o la cuenta de destino no es del asociado; 409 si no tiene cuenta
  *   activa o el banco rechaza la acreditación; 502 o 504 si el banco no responde; 500 si no se completa.
  */
 const resolverSolicitudCredito = async (req, res) => {
@@ -158,6 +158,29 @@ const resolverSolicitudCredito = async (req, res) => {
         success: false,
         message: `Esa solicitud ya no está pendiente de su autorización.`,
       });
+    }
+
+    // Cuatro ojos: una solicitud se aprueba solo si la elevó un operador, y no la aprueba quien la elevó
+    if (accion === 'ACEPTAR' && !sol.id_operador_revisa) {
+      await client.query('ROLLBACK');
+      return res.status(409).json({
+        success: false,
+        message: 'Esta solicitud no tiene la revisión de un operador: debe elevarla un operador antes de aprobarla.',
+      });
+    }
+    if (accion === 'ACEPTAR') {
+      const elevo = await client.query('SELECT id_persona FROM usuarios WHERE id_usuario = $1', [sol.id_operador_revisa]);
+      if (
+        Number(sol.id_operador_revisa) === Number(idEjecutivo)
+        || Number(elevo.rows[0]?.id_persona) === Number(req.user.id_persona)
+      ) {
+        await client.query('ROLLBACK');
+        return res.status(403).json({
+          success: false,
+          error: 'APROBACION_POR_QUIEN_ELEVO',
+          message: 'Usted elevó esta solicitud: la aprueba otra persona del comité de crédito.',
+        });
+      }
     }
 
     // Procesar archivo firmado si fue adjuntado por el Ejecutivo

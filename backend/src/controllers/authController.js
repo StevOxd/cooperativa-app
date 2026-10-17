@@ -5,6 +5,7 @@ const db = require('../config/db');
 const socketService = require('../services/socketService');
 const mfaService = require('../services/mfaService');
 const { idUsuarioDelToken } = require('../utils/tokenUsuario');
+const { ipDelCliente } = require('../utils/ipCliente');
 require('dotenv').config();
 
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -113,7 +114,7 @@ const login = async (req, res) => {
           [nuevosIntentos, user.id_usuario]
         );
 
-        const clientIp = req.headers['x-forwarded-for']?.split(',')[0].trim() || req.socket.remoteAddress || null;
+        const clientIp = ipDelCliente(req);
         const userAgent = req.headers['user-agent'] || 'Desconocido';
 
         await db.query(

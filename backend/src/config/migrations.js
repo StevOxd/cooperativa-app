@@ -612,6 +612,68 @@ const runMigrations = async () => {
       await pool.query('CREATE UNIQUE INDEX IF NOT EXISTS uq_usuarios_email_lower ON usuarios (LOWER(email))');
     }
 
+    // 10. Registro de los depósitos en ventanilla a cuentas del banco: quién, cuánto, a qué cuenta y desde dónde.
+    //     Solo se insertan filas; el índice cubre la FK y la consulta por operador.
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS depositos_ventanilla_banco (
+        id_deposito SERIAL PRIMARY KEY,
+        id_usuario_operador INT NOT NULL REFERENCES usuarios(id_usuario) ON DELETE RESTRICT,
+        numero_cuenta_bancaria VARCHAR(50) NOT NULL,
+        titular_cui VARCHAR(13) NOT NULL,
+        monto NUMERIC(14, 2) NOT NULL CHECK (monto > 0),
+        referencia VARCHAR(50) NOT NULL UNIQUE,
+        ip_origen VARCHAR(45),
+        user_agent TEXT,
+        fecha_deposito TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE INDEX IF NOT EXISTS idx_depositos_ventanilla_operador
+        ON depositos_ventanilla_banco (id_usuario_operador, fecha_deposito DESC);
+    `);
+
+    // 10.1 El depósito se registra antes de llamar al banco y luego se cierra su estado: si el banco no confirma
+    //      a tiempo queda SIN_CONFIRMAR para conciliarlo con la referencia. El DPI se valida también aquí.
+    await pool.query(`
+      ALTER TABLE depositos_ventanilla_banco ADD COLUMN IF NOT EXISTS estado VARCHAR(15) NOT NULL DEFAULT 'PENDIENTE';
+      ALTER TABLE depositos_ventanilla_banco DROP CONSTRAINT IF EXISTS chk_depositos_ventanilla_estado;
+      ALTER TABLE depositos_ventanilla_banco ADD CONSTRAINT chk_depositos_ventanilla_estado
+        CHECK (estado IN ('PENDIENTE', 'ACREDITADO', 'RECHAZADO', 'SIN_CONFIRMAR', 'REVERTIDO'));
+      ALTER TABLE depositos_ventanilla_banco DROP CONSTRAINT IF EXISTS chk_depositos_ventanilla_cui;
+      ALTER TABLE depositos_ventanilla_banco ADD CONSTRAINT chk_depositos_ventanilla_cui CHECK (titular_cui ~ '^[0-9]{13}$');
+      CREATE INDEX IF NOT EXISTS idx_depositos_ventanilla_por_conciliar
+        ON depositos_ventanilla_banco (fecha_deposito) WHERE estado IN ('PENDIENTE', 'SIN_CONFIRMAR');
+      -- Acumulado del día por colaborador (el del operador usa idx_depositos_ventanilla_operador)
+      CREATE INDEX IF NOT EXISTS idx_depositos_ventanilla_titular
+        ON depositos_ventanilla_banco (titular_cui, fecha_deposito DESC);
+    `);
+
+    // 10.2 Es un registro de auditoría: no se borra ni se cambia, salvo el estado de un depósito sin cerrar
+    //      (PENDIENTE o SIN_CONFIRMAR). Las pruebas lo limpian con SET LOCAL cooperativa.purga_pruebas = 'on'.
+    await pool.query(`
+      CREATE OR REPLACE FUNCTION trg_depositos_ventanilla_inmutable()
+      RETURNS TRIGGER AS $$
+      BEGIN
+          IF current_setting('cooperativa.purga_pruebas', true) = 'on' THEN
+              RETURN COALESCE(NEW, OLD);
+          END IF;
+          IF TG_OP = 'UPDATE' AND OLD.estado IN ('PENDIENTE', 'SIN_CONFIRMAR')
+             AND (to_jsonb(NEW) - 'estado') = (to_jsonb(OLD) - 'estado') THEN
+              RETURN NEW;
+          END IF;
+          RAISE EXCEPTION 'depositos_ventanilla_banco es un registro de auditoría: no se modifica ni se borra'
+              USING ERRCODE = 'restrict_violation';
+      END;
+      $$ LANGUAGE plpgsql;
+
+      DROP TRIGGER IF EXISTS trg_depositos_ventanilla_inmutable ON depositos_ventanilla_banco;
+      CREATE TRIGGER trg_depositos_ventanilla_inmutable
+          BEFORE UPDATE OR DELETE ON depositos_ventanilla_banco
+          FOR EACH ROW EXECUTE FUNCTION trg_depositos_ventanilla_inmutable();
+      DROP TRIGGER IF EXISTS trg_depositos_ventanilla_sin_truncate ON depositos_ventanilla_banco;
+      CREATE TRIGGER trg_depositos_ventanilla_sin_truncate
+          BEFORE TRUNCATE ON depositos_ventanilla_banco
+          FOR EACH STATEMENT EXECUTE FUNCTION trg_depositos_ventanilla_inmutable();
+    `);
+
     console.log('[MIGRATION] Esquema, cuenta_bancaria corporativa, MFA TOTP, roles, beneficiarios y optimizaciones DBA aplicadas exitosamente.');
     return true;
   } catch (error) {
