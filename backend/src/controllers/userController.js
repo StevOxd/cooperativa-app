@@ -5,12 +5,13 @@ const mailerService = require('../services/mailerService');
 const { getNextCorporateCode, resolvePrefix, generateSecureRandomPassword } = require('../utils/codeGenerator');
 const { filtroUsuario } = require('../utils/identificadores');
 const { respuestaDeError } = require('../utils/errores');
+const { ipDelCliente } = require('../utils/ipCliente');
 
 const ROLES_PERMITIDOS = ['ADMINISTRADOR', 'OPERADOR', 'EJECUTIVO', 'ASOCIADO'];
 const ESTADOS_PERMITIDOS = ['ACTIVO', 'INACTIVO'];
 const ID_ROL_ASOCIADO = 3;
 
-const getClientIp = (req) => req.headers['x-forwarded-for']?.split(',')[0].trim() || req.socket.remoteAddress || null;
+const getClientIp = ipDelCliente;
 const getUserAgent = (req) => req.headers['user-agent'] || 'Desconocido';
 
 /**
@@ -226,6 +227,16 @@ const getNextCode = async (req, res) => {
 /**
  * Crear un nuevo usuario mediante Transacción SQL (personas + usuarios + auditoría)
  * POST /api/usuarios
+ *
+ * La contraseña temporal se genera al azar y solo se envía por correo, después del COMMIT; el usuario debe
+ * cambiarla al entrar. Si la petición trae `password`, se rechaza.
+ *
+ * @async
+ * @param {import('express').Request} req - `req.body`: datos de la persona, `email`, `rol` y `estado`.
+ * @param {import('express').Response} res
+ * @returns {Promise<import('express').Response>} 201 con el usuario (sin contraseña) y `correo_enviado`; 400 por
+ *   datos inválidos o si trae contraseña; 403 si el rol no se crea desde aquí; 409 si el correo, el código o el
+ *   DPI ya están en uso; 500.
  */
 const createUser = async (req, res) => {
   const client = await db.pool.connect();
@@ -265,14 +276,12 @@ const createUser = async (req, res) => {
       });
     }
 
-    if (cui_dpi) {
-      const cleanCui = cui_dpi.trim().replace(/\s+/g, '');
-      if (!/^\d{13}$/.test(cleanCui)) {
-        return res.status(400).json({
-          success: false,
-          message: 'El DPI debe tener 13 dígitos.',
-        });
-      }
+    // El DPI es obligatorio: identifica a la persona en la segregación de funciones y en el banco
+    if (typeof cui_dpi !== 'string' || !/^\d{13}$/.test(cui_dpi.trim().replace(/\s+/g, ''))) {
+      return res.status(400).json({
+        success: false,
+        message: 'El DPI debe tener 13 dígitos.',
+      });
     }
 
     if (telefono) {
@@ -338,22 +347,16 @@ const createUser = async (req, res) => {
       });
     }
 
-    // 1.1 Determinar contraseña: Por política de seguridad bancaria, se genera aleatoriamente
-    let rawPassword = (password && password.trim()) ? password.trim() : null;
-    let passwordFueAutogenerada = false;
-
-    if (!rawPassword) {
-      rawPassword = generateSecureRandomPassword(12);
-      passwordFueAutogenerada = true;
-    } else {
-      if (rawPassword.length < 6 || !/[a-zA-Z]/.test(rawPassword) || !/[0-9]/.test(rawPassword)) {
-        return res.status(400).json({
-          success: false,
-          message: 'La contraseña debe tener al menos 6 caracteres y combinar obligatoriamente letras y números por política de seguridad bancaria.',
-          error: 'PASSWORD_COMPLEXITY_REQUIRED',
-        });
-      }
+    // 1.1 La contraseña temporal siempre se genera al azar y solo viaja por correo: nadie la elige ni la conoce,
+    //     tampoco el administrador (igual que al editar o al reiniciarla)
+    if (typeof password === 'string' ? password.trim() !== '' : password != null) {
+      return res.status(400).json({
+        success: false,
+        message: 'La contraseña no se elige al crear un usuario: se genera al azar y se envía a su correo.',
+        error: 'PASSWORD_CHANGE_NOT_ALLOWED',
+      });
     }
+    const rawPassword = generateSecureRandomPassword(12);
 
     // 2. Normalizar y validar rol
     const rolUpper = rol.toUpperCase();
@@ -414,7 +417,7 @@ const createUser = async (req, res) => {
          OR ($3::text IS NOT NULL AND p.cui_dpi = $3)
       LIMIT 1
     `;
-    const cleanDpi = cui_dpi ? cui_dpi.trim() : null;
+    const cleanDpi = cui_dpi.trim().replace(/\s+/g, '');
     const existsResult = await client.query(existsQuery, [email.trim(), finalCodigoCorp, cleanDpi]);
 
     if (existsResult.rows.length > 0) {
@@ -422,7 +425,7 @@ const createUser = async (req, res) => {
       let field = 'campo';
       if (existing.email.toLowerCase() === email.trim().toLowerCase()) field = 'correo electrónico';
       else if (existing.codigo_corporativo === finalCodigoCorp) field = 'código corporativo';
-      else if (cleanDpi && existing.cui_dpi === cleanDpi) field = 'DPI / CUI';
+      else if (existing.cui_dpi === cleanDpi) field = 'DPI / CUI';
 
       return res.status(409).json({
         success: false,
@@ -456,7 +459,7 @@ const createUser = async (req, res) => {
       }
     }
 
-    const cui = cleanDpi || `DPI-${Date.now()}`;
+    const cui = cleanDpi;
 
     // INICIAR TRANSACCIÓN SQL
     await client.query('BEGIN');
@@ -571,7 +574,6 @@ const createUser = async (req, res) => {
         rol_nombre: roleData.nombre,
         estado: createdUser.estado,
         fecha_creacion: createdUser.fecha_creacion,
-        password_autogenerada: passwordFueAutogenerada,
         debe_cambiar_password: Boolean(createdUser.debe_cambiar_password),
         mfa: {
           enabled: false,

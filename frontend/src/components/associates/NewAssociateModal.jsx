@@ -8,6 +8,11 @@ import { toast } from '../../context/ToastContext';
 import { PortalAccessOption } from '../common/PortalAccessOption';
 import { useCorreoDisponible } from '../../hooks/useCorreoDisponible';
 
+// Tope de un depósito en ventanilla a la cuenta del banco mientras no llega el del servidor
+// (FINANCIERO.DEPOSITO_VENTANILLA_BANCO_MAXIMO, viene en GET /banco-externo/cuentas-cliente)
+const TOPE_DEPOSITO_VENTANILLA = 5000;
+const formatoTope = (tope) => `Q${tope.toLocaleString('es-GT', { minimumFractionDigits: 2 })}`;
+
 const FORM_ID = 'nuevo-asociado';
 
 /**
@@ -191,6 +196,7 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess, onAbrirCuenta })
 
   // Estados para cuentas bancarias del Empleado Bancario (EB)
   const [cuentasEmpleado, setCuentasEmpleado] = useState([]);
+  const [topeDeposito, setTopeDeposito] = useState(TOPE_DEPOSITO_VENTANILLA);
   const [loadingCuentasBanco, setLoadingCuentasBanco] = useState(false);
   const [cuentaBancoSeleccionada, setCuentaBancoSeleccionada] = useState('');
   const [showAcreditarModal, setShowAcreditarModal] = useState(false);
@@ -231,6 +237,7 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess, onAbrirCuenta })
     try {
       const res = await api.get(`/banco-externo/cuentas-cliente/${cleanCui}`);
       if (res.data?.success) {
+        if (Number(res.data.tope_deposito_ventanilla) > 0) setTopeDeposito(Number(res.data.tope_deposito_ventanilla));
         if (res.data.ya_registrado_cooperativa) {
           const errMsg = res.data.asociado_existente?.codigo_asociado
             ? `Este DPI ya es de un asociado (${res.data.asociado_existente.codigo_asociado}).`
@@ -394,7 +401,8 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess, onAbrirCuenta })
     }
   }, [formData.cui_dpi]);
 
-  // Acreditar o depositar saldo a la cuenta bancaria del empleado
+  // Depósito en ventanilla a la cuenta bancaria del colaborador: con tope por depósito y registrado a nombre
+  // de quien atiende (la referencia la genera el servidor)
   const handleAcreditarFondos = async () => {
     if (!cuentaBancoSeleccionada) {
       setAcreditarErrorMsg('Elija la cuenta del banco a la que se acreditará.');
@@ -405,20 +413,23 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess, onAbrirCuenta })
       setAcreditarErrorMsg('Escriba un monto mayor que Q0.00.');
       return;
     }
+    if (monto > topeDeposito) {
+      setAcreditarErrorMsg(`El depósito en ventanilla es de hasta ${formatoTope(topeDeposito)}.`);
+      return;
+    }
 
     setAcreditando(true);
     setAcreditarErrorMsg('');
     setAcreditarSuccessMsg('');
     try {
       const res = await api.post('/banco-externo/acreditar', {
+        cui_dpi: formData.cui_dpi,
         numero_cuenta: cuentaBancoSeleccionada,
-        monto,
-        concepto: 'Depósito en ventanilla a cuenta bancaria de colaborador',
-        referencia: `DEP-VENT-${Date.now()}`,
+        monto: monto.toFixed(2),
       });
 
       if (res.data?.success) {
-        setAcreditarSuccessMsg(`Se acreditaron Q${monto.toFixed(2)} a la cuenta ${cuentaBancoSeleccionada}.`);
+        setAcreditarSuccessMsg(res.data.message || `Se acreditaron Q${monto.toFixed(2)} a la cuenta ${cuentaBancoSeleccionada}.`);
         await fetchCuentasEmpleado(formData.cui_dpi);
         setTimeout(() => {
           setAcreditarSuccessMsg('');
@@ -436,8 +447,8 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess, onAbrirCuenta })
 
   // Aperturar cuenta en el banco para el colaborador si no tuviese cuentas activas
   const handleAperturarCuentaBanco = async () => {
-    if (!formData.cui_dpi || formData.cui_dpi.length !== 13 || !formData.primer_nombre) {
-      setErrorMsg('Escriba el DPI (13 dígitos) y los nombres antes de abrir la cuenta en el banco.');
+    if (!formData.cui_dpi || formData.cui_dpi.length !== 13 || !formData.primer_nombre || !formData.primer_apellido) {
+      setErrorMsg('Escriba el DPI (13 dígitos), el primer nombre y el primer apellido antes de abrir la cuenta en el banco.');
       return;
     }
     setLoadingCuentasBanco(true);
@@ -453,7 +464,6 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess, onAbrirCuenta })
         email: formData.email,
         fecha_nacimiento: formData.fecha_nacimiento,
         tipo_cuenta: 'MONETARIA',
-        monto_inicial: 0.00,
       });
 
       if (res.data?.success) {
@@ -461,6 +471,7 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess, onAbrirCuenta })
       }
     } catch (err) {
       console.error('Error al aperturar cuenta en banco:', err);
+      setErrorMsg(err.response?.data?.message || 'No se pudo abrir la cuenta en el banco. Intente de nuevo.');
     } finally {
       setLoadingCuentasBanco(false);
     }
@@ -1182,6 +1193,10 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess, onAbrirCuenta })
                       <p className="text-sm text-ink-soft">
                         Acreditar a la cuenta <span className="font-mono text-ink">{cuentaBancoSeleccionada}</span>
                       </p>
+                      <p className="text-xs text-ink-subtle">
+                        Hasta {formatoTope(topeDeposito)} por depósito, en efectivo recibido en ventanilla. Queda
+                        registrado a nombre de quien atiende.
+                      </p>
                       {acreditarSuccessMsg && <Alert tone="success">{acreditarSuccessMsg}</Alert>}
                       {acreditarErrorMsg && <Alert tone="danger">{acreditarErrorMsg}</Alert>}
                       <div className="flex gap-2">
@@ -1189,7 +1204,8 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess, onAbrirCuenta })
                           <Input
                             type="number"
                             step="0.01"
-                            min="1"
+                            min="0.01"
+                            max={topeDeposito}
                             prefix="Q"
                             value={montoAcreditar}
                             onChange={(e) => setMontoAcreditar(e.target.value)}

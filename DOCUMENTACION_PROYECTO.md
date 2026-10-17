@@ -478,6 +478,7 @@ PostgreSQL 16 gestiona dos bases de datos relacionales: `cooperativa_db` (entida
 13. **`solicitudes_credito`:** Préstamos radicados por los asociados (`monto_solicitado`, `plazo_meses`, `cuota_mensual_estimada`, `documento_firmado_url`, `id_ejecutivo_resuelve`).
 14. **`transacciones`:** Libro mayor contable de doble partida (`tipo_transaccion`, `monto`, `saldo_anterior`, `saldo_nuevo`, `referencia`).
 15. **`codigos_verificacion_correo`:** Códigos de 6 dígitos de la afiliación en línea (`email` PK, `codigo_hash`, `expira_en`, `intentos`, `enviado_en`, `envios_hora`, `ventana_inicio`). Solo guarda el hash; la crea `migrations.js` al arrancar el backend.
+16. **`depositos_ventanilla_banco`:** Registro de los depósitos en ventanilla a la cuenta del banco de un colaborador que se afilia (`id_deposito` PK, `id_usuario_operador` FK usuarios, `numero_cuenta_bancaria`, `titular_cui`, `monto` NUMERIC(14,2), `referencia` UNIQUE generada por el servidor, `estado` PENDIENTE/ACREDITADO/RECHAZADO/SIN_CONFIRMAR/REVERTIDO, `ip_origen`, `user_agent`, `fecha_deposito`). Se registra antes de llamar al banco; un trigger impide modificar o borrar filas (solo cambia el estado de un depósito sin cerrar). La crea `migrations.js` al arrancar el backend.
 
 ---
 

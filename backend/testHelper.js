@@ -157,6 +157,9 @@ async function borrarPersonaDePrueba(db, idPersona) {
   const asociados = 'SELECT id_asociado FROM asociados WHERE id_persona = $1';
   const cuentas = `SELECT id_cuenta FROM cuentas WHERE id_asociado IN (${asociados})`;
   const pasos = [
+    // depositos_ventanilla_banco es un registro de auditoría: solo se borra con la marca de purga de pruebas
+    "SET LOCAL cooperativa.purga_pruebas = 'on'",
+    `DELETE FROM depositos_ventanilla_banco WHERE id_usuario_operador IN (${usuarios})`,
     `DELETE FROM historial_estados_usuario WHERE id_usuario_modificado IN (${usuarios}) OR id_modificado_por IN (${usuarios})`,
     `DELETE FROM historial_cambios_beneficiarios WHERE id_cuenta IN (${cuentas})`,
     `DELETE FROM beneficiarios WHERE id_cuenta IN (${cuentas})`,
@@ -172,7 +175,7 @@ async function borrarPersonaDePrueba(db, idPersona) {
   try {
     await client.query('BEGIN');
     for (const sql of pasos) {
-      await client.query(sql, [idPersona]);
+      await client.query(sql, sql.includes('$1') ? [idPersona] : []);
     }
     await client.query('COMMIT');
   } catch (error) {

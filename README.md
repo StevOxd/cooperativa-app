@@ -149,7 +149,7 @@ El sistema implementa una estricta jerarquia de cuatro roles independientes. Se 
 ## 7. Estructura de Base de Datos y Modelo Relacional
 
 El motor PostgreSQL aloja de manera aislada dos bases de datos:
-- `cooperativa_db`: Esquema institucional de la cooperativa conformado por 15 tablas en Tercera Forma Normal (3FN), que incluyen `personas`, `usuarios`, `roles`, `asociados`, `tipos_cuenta`, `cuentas`, `beneficiarios`, `solicitudes_afiliacion_agencia`, `solicitudes_traslado_apertura`, `solicitudes_credito`, `transacciones`, `historial_estados_usuario` y `codigos_verificacion_correo`.
+- `cooperativa_db`: Esquema institucional de la cooperativa conformado por 16 tablas en Tercera Forma Normal (3FN), que incluyen `personas`, `usuarios`, `roles`, `asociados`, `tipos_cuenta`, `cuentas`, `beneficiarios`, `solicitudes_afiliacion_agencia`, `solicitudes_traslado_apertura`, `solicitudes_credito`, `transacciones`, `historial_estados_usuario`, `codigos_verificacion_correo` y `depositos_ventanilla_banco`.
 - `banco_db`: Esquema del Core Banking corporativo con tablas para `clientes_banco`, `cuentas_bancarias`, `usuarios_banca_en_linea` y `movimientos_bancarios`.
 
 La base de datos cuenta con indices optimizados B-Tree sobre todas las llaves foraneas e indices parciales para consultas de alto rendimiento en bandejas de solicitudes pendientes.

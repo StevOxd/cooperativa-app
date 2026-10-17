@@ -4,6 +4,7 @@
  */
 
 const http = require('http');
+const bcrypt = require('bcryptjs');
 const db = require('./src/config/db');
 const { borrarPersonaDePrueba } = require('./testHelper');
 
@@ -63,8 +64,8 @@ async function testForcedPasswordChange() {
     const adminToken = adminLogin.data.token;
     tokens.push(adminToken);
 
-    // 2. Crear un nuevo usuario Operador con una contraseña temporal indicada por la prueba.
-    //    La API no devuelve la contraseña temporal (solo viaja por correo), así que la prueba la fija.
+    // 2. Crear un nuevo usuario Operador. La contraseña temporal se genera al azar y solo viaja por correo
+    //    (la API no la acepta ni la devuelve), así que la prueba le pone una conocida en la base de datos.
     const userTimestamp = Date.now().toString().slice(-4);
     dpiPrueba = `9999${userTimestamp}00101`; // 13 dígitos
     const tempPassword = `Temporal${userTimestamp}A1`;
@@ -84,15 +85,25 @@ async function testForcedPasswordChange() {
       rol: 'OPERADOR',
       cui_dpi: dpiPrueba,
       fecha_nacimiento: '1995-01-01',
-      password: tempPassword,
     });
 
     assert(createRes.status === 201 && createRes.data?.success, 'Operador creado exitosamente por Admin');
     const newUser = createRes.data?.data;
+    if (newUser?.id_usuario) {
+      await db.query('UPDATE usuarios SET password_hash = $1 WHERE id_usuario = $2', [await bcrypt.hash(tempPassword, 10), newUser.id_usuario]);
+    }
     assert(newUser?.debe_cambiar_password === true, 'El nuevo usuario tiene debe_cambiar_password = TRUE en BD');
-    const respuestaTexto = JSON.stringify(createRes.data);
-    assert(!respuestaTexto.includes(tempPassword) && !('password_generada' in (createRes.data || {})) && !newUser?.mfa?.secret,
-      'La respuesta no incluye la contraseña temporal ni el secreto 2FA');
+    // Ninguna clave de la respuesta lleva el texto de una contraseña o un secreto (las banderas booleanas sí)
+    const clavesSensibles = [];
+    const revisar = (valor) => {
+      if (!valor || typeof valor !== 'object') return;
+      for (const [clave, interno] of Object.entries(valor)) {
+        if (/pass|contrase|clave|secret/i.test(clave) && typeof interno === 'string') clavesSensibles.push(clave);
+        revisar(interno);
+      }
+    };
+    revisar(createRes.data);
+    assert(clavesSensibles.length === 0 && !newUser?.mfa?.secret, 'La respuesta no incluye la contraseña temporal ni el secreto 2FA');
 
     // 3. Iniciar sesión con el nuevo usuario usando su contraseña temporal
     const newUserLogin = await httpRequest({

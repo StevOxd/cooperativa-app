@@ -27,7 +27,7 @@ Documento maestro de reglas técnicas, directrices de desarrollo, arquitectura d
 
 1. **ADMINISTRADOR (`AD-X`):** Gobernanza de colaboradores, centro de mando con KPIs en vivo, monitor de presencia por WebSockets, desbloqueo en 1 clic de cuentas bloqueadas por fuerza bruta y auditoría forense inmutable.
 2. **OPERADOR (`OP-X`):** Atención de ventanilla en agencia, bloqueo concurrente (HTTP 409), formalización en Formulario 1 con detección automática de DPI (EB vs EX), apertura de cuentas adicionales (Formulario 2), beneficiarios con regla estricta del 100% (Formulario 3), expedientes 360°, y triaje de crédito con obligatoriedad de PDF firmado.
-3. **EJECUTIVO (`EJ-X`):** Evaluación colegiada del Comité de Crédito, motor de scoring crediticio, análisis de flujo financiero (CRÉDITO vs DÉBITO), verificación de contrato PDF firmado manuscrito y resolución resolutiva (Aprobar con desembolso, Devolver con comentarios o Denegar).
+3. **EJECUTIVO (`EJ-X`):** Evaluación colegiada del Comité de Crédito, motor de scoring crediticio, análisis de flujo financiero (CRÉDITO vs DÉBITO), verificación de contrato PDF firmado manuscrito y resolución resolutiva (Aprobar con desembolso, Devolver con comentarios o Denegar). Solo el EJECUTIVO aprueba y desembolsa, y solo lo que elevó un operador distinto de quien aprueba (HTTP 403 `APROBACION_POR_QUIEN_ELEVO`).
 4. **ASOCIADO (`EB-X` / `EX-X`):** Cada usuario tiene un solo rol, pero una persona puede tener un usuario del personal y uno de asociado (`usuarios.id_usuario` es la llave; issue #32). El personal se afilia por cualquier canal con un usuario de asociado aparte y un correo distinto, y nadie atiende sus propios trámites (`middlewares/segregacion.js`, HTTP 403 `AUTOATENCION_NO_PERMITIDA`). Portal financiero de autogestión, consulta de balances consolidados (Total Cooperativa vs Saldo Banco Externo), traslados de nómina con correlativo `CASO-YYYY-XXXX`, simulador de crédito con amortización francesa y descarga de estados de cuenta oficiales en PDF.
 
 ---
@@ -45,7 +45,7 @@ Documento maestro de reglas técnicas, directrices de desarrollo, arquitectura d
 9. **Auditoría Forense Inmutable:** Todo cambio de estado de usuario se registra en `historial_estados_usuario` con dirección IP de origen, cabecera User-Agent y motivo justificado.
 10. **Política de Contraseñas:** Las contraseñas elegidas por el usuario tienen mínimo 8 caracteres, con letras, números y al menos un símbolo (`utils/passwordPolicy.js` en backend y frontend).
 11. **Respuestas que no Revelan Cuentas:** Login, Banca en Línea y consulta pública del DPI responden igual exista o no la cuenta, sin datos personales y con un tiempo equivalente. Las consultas de disponibilidad (`verificar-email`) son solo para el personal.
-12. **Límites por Conexión (`express-rate-limit`):** 15 inicios de sesión, 30 consultas de DPI o Banca en Línea y 10 códigos de verificación de correo cada 15 minutos.
+12. **Límites por Conexión (`express-rate-limit`):** 15 inicios de sesión, 30 consultas de DPI o Banca en Línea, 10 códigos de verificación de correo y 20 depósitos o aperturas en el banco desde ventanilla cada 15 minutos.
 13. **Titularidad y Resultados de Operaciones Bancarias:** Todo débito lleva el DPI del titular (el banco rechaza cuentas de otra persona) y se revisa el resultado de `bancoApiService` (devuelve `success: false`, no lanza errores) antes de registrar el movimiento.
 14. **Sin Secretos en Registros ni Respuestas:** Contraseñas, códigos de verificación y secretos 2FA no se escriben en consola ni viajan en respuestas JSON.
 
@@ -61,6 +61,7 @@ Documento maestro de reglas técnicas, directrices de desarrollo, arquitectura d
 6. **Detección Automática por DPI:** En ventanilla (Formulario 1), el sistema inspecciona el DPI contra el Core Banking y determina de forma autónoma si es Empleado Bancario (`EB-X`) o Cliente Externo (`EX-X`), suprimiendo selectores manuales.
 7. **Borrado Lógico Obligatorio:** Queda prohibido el `DELETE` físico de usuarios, asociados o cuentas; toda desvinculación se realiza mediante actualización de `estado` a `'INACTIVO'` con registro auditado.
 8. **Afiliación en Línea Verificada:** Requiere el comprobante firmado de la Banca en Línea (15 minutos, solo para ese DPI y sus cuentas), una cuenta de débito del propio titular y el correo confirmado con un código de 6 dígitos (hash, 10 minutos, 5 intentos) antes de debitar o crear el caso.
+9. **Depósito en Ventanilla a la Cuenta del Banco:** Solo para un colaborador del banco que se está afiliando, a una cuenta activa suya, con tope de Q5,000.00 por depósito y por colaborador al día, y Q20,000.00 por operador al día. Cada depósito queda en `depositos_ventanilla_banco` (inmutable) antes de llamar al banco, con su estado (ACREDITADO, RECHAZADO o SIN_CONFIRMAR para conciliar). Desde la cooperativa, las cuentas del banco se abren sin saldo y sin cambiar los datos del cliente.
 
 ---
 

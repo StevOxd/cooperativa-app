@@ -1,6 +1,7 @@
 import React from 'react';
 import { CheckCircle, RotateCcw, XCircle } from 'lucide-react';
 import { getSecureDocumentUrl } from '../../utils/documentUrl';
+import { useAuth } from '../../context/AuthContext';
 import { Alert, Badge, Button, Field, LoadingState, Modal, TabPanel, Tabs, Textarea } from '../ui';
 import { formatDate } from '../../utils/format';
 import { SignedPdfPanel } from '../credit/SignedPdfPanel';
@@ -31,9 +32,12 @@ export const ExecutiveResolutionModal = ({
   resolving,
   handleResolver,
 }) => {
+  const { user } = useAuth();
   if (!selectedCredito) return null;
 
   const isPending = selectedCredito.estado === 'EN_AUTORIZACION_EJECUTIVO';
+  // Comité de crédito: quien elevó la solicitud no la aprueba (el servidor también lo rechaza)
+  const laElevoUsted = Boolean(selectedCredito.id_operador_revisa) && Number(selectedCredito.id_operador_revisa) === Number(user?.id_usuario);
   const status = executiveCreditStatus(selectedCredito.estado);
   const apto = evaluacionData?.evaluacion?.dictamen === 'APTO';
 
@@ -48,7 +52,11 @@ export const ExecutiveResolutionModal = ({
           className="max-h-24 resize-none"
         />
       </Field>
-      {!archivoFirmado && (
+      {laElevoUsted ? (
+        <p className="text-sm text-warning-800">
+          Usted elevó esta solicitud: la aprueba otra persona del comité de crédito. Puede devolverla o denegarla.
+        </p>
+      ) : !archivoFirmado && (
         <p className="text-sm text-warning-800">
           Para aceptar y desembolsar, descargue el documento, fírmelo y súbalo en la pestaña «Documento firmado».
         </p>
@@ -80,9 +88,13 @@ export const ExecutiveResolutionModal = ({
             icon={CheckCircle}
             loading={resolving}
             loadingText="Procesando…"
-            disabled={!archivoFirmado}
+            disabled={!archivoFirmado || laElevoUsted}
             onClick={() => handleResolver('ACEPTAR')}
-            title={!archivoFirmado ? 'Suba el documento firmado para poder autorizar' : 'Aprobar el crédito y desembolsar los fondos'}
+            title={
+              laElevoUsted
+                ? 'Usted elevó esta solicitud: la aprueba otra persona'
+                : !archivoFirmado ? 'Suba el documento firmado para poder autorizar' : 'Aprobar el crédito y desembolsar los fondos'
+            }
           >
             Aceptar y desembolsar
           </Button>

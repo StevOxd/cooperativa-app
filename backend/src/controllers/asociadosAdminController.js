@@ -9,6 +9,7 @@ const asociadoAfiliacionService = require('../services/asociadoAfiliacionService
 const { getNextCorporateCode, resolvePrefix } = require('../utils/codeGenerator');
 const { normalizarParentesco } = require('../utils/parentesco');
 const { respuestaDeError, estadoPorFalloDelBanco } = require('../utils/errores');
+const { ipDelCliente } = require('../utils/ipCliente');
 
 /**
  * Consulta el padrón institucional de asociados con soporte para paginación, filtros de estado y métricas consolidadas.
@@ -816,7 +817,7 @@ const cambiarEstadoAsociado = async (req, res) => {
           usuarioAsociado.id_rol,
           req.user?.id_usuario || null,
           (typeof motivo === 'string' && motivo.trim()) || `Afiliación ${estado.toLowerCase()} desde la gestión de asociados`,
-          req.headers['x-forwarded-for']?.split(',')[0].trim() || req.socket.remoteAddress || null,
+          ipDelCliente(req),
           req.headers['user-agent'] || 'Desconocido',
         ]
       );
@@ -932,7 +933,7 @@ const activarAccesoPortalAsociado = async (req, res) => {
       email: req.body.email,
       operador: {
         id: req.user?.id_usuario || null,
-        ip: req.headers['x-forwarded-for']?.split(',')[0].trim() || req.socket.remoteAddress || null,
+        ip: ipDelCliente(req),
         userAgent: req.headers['user-agent'] || 'Desconocido',
       },
     });

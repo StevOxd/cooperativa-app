@@ -145,12 +145,15 @@ const testServer = server.listen(0, async () => {
     )).rows[0].id_cuenta;
     // La cuenta del banco que el banco devuelve para el DPI del asociado
     banco.cuentas = [{ id_cuenta_bancaria: 999999, numero_cuenta_bancaria: `CTA-BCO-TP-${sufijo}`, estado: 'ACTIVA', tipo_cuenta: 'AHORRO' }];
+    // Las que esperan al ejecutivo las elevó OP-1: el comité solo aprueba lo que revisó un operador
+    const idRevisor = (await db.query("SELECT id_usuario FROM usuarios WHERE codigo_corporativo = 'OP-1'")).rows[0].id_usuario;
     const nuevaSolicitud = async (estado, destino = {}) => {
       const id = (await db.query(
         `INSERT INTO solicitudes_credito (id_asociado, monto_solicitado, plazo_meses, tasa_interes, cuota_mensual_estimada, estado,
-                                          id_cuenta_bancaria_destino, cuenta_destino_info, id_cuenta_destino)
-         VALUES ($1, 1000, 12, 10, 90, $2, $3, $4, $5) RETURNING id_solicitud_credito`,
-        [asociado.idAsociado, estado, destino.idBanco || null, destino.info || null, destino.idCoop || null]
+                                          id_cuenta_bancaria_destino, cuenta_destino_info, id_cuenta_destino, id_operador_revisa)
+         VALUES ($1, 1000, 12, 10, 90, $2, $3, $4, $5, $6) RETURNING id_solicitud_credito`,
+        [asociado.idAsociado, estado, destino.idBanco || null, destino.info || null, destino.idCoop || null,
+          estado === 'EN_AUTORIZACION_EJECUTIVO' ? idRevisor : null]
       )).rows[0].id_solicitud_credito;
       solicitudes.push(id);
       return id;

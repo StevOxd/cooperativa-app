@@ -368,21 +368,20 @@ const aperturarCuenta = async (req, res) => {
     );
 
     if (clientCheck.rows.length > 0) {
+      // Un cliente que ya existe conserva sus datos (el banco es la fuente de su identidad): abrirle otra
+      // cuenta solo completa los datos de contacto que le falten
       idCliente = clientCheck.rows[0].id_cliente;
       await client.query(
         `UPDATE clientes_banco 
-         SET primer_nombre = $1, segundo_nombre = $2, primer_apellido = $3, segundo_apellido = $4,
-             telefono = COALESCE($5, telefono), direccion = COALESCE($6, direccion),
-             email = COALESCE($7, email), fecha_nacimiento = COALESCE($8, fecha_nacimiento)
-         WHERE id_cliente = $9`,
+         SET telefono = COALESCE(NULLIF(telefono, ''), $1), direccion = COALESCE(NULLIF(direccion, ''), $2),
+             email = COALESCE(NULLIF(email, ''), $3), fecha_nacimiento = COALESCE(fecha_nacimiento, $4)
+         WHERE id_cliente = $5
+           AND (NULLIF(telefono, '') IS NULL OR NULLIF(direccion, '') IS NULL OR NULLIF(email, '') IS NULL
+                OR fecha_nacimiento IS NULL)`,
         [
-          primer_nombre.trim(),
-          segundo_nombre ? segundo_nombre.trim() : null,
-          primer_apellido.trim(),
-          segundo_apellido ? segundo_apellido.trim() : null,
-          telefono ? telefono.trim() : null,
-          direccion ? direccion.trim() : null,
-          email ? email.trim() : null,
+          telefono?.trim() || null,
+          direccion?.trim() || null,
+          email?.trim() || null,
           fecha_nacimiento || null,
           idCliente,
         ]
