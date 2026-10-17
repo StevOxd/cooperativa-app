@@ -1,14 +1,13 @@
 /**
  * Servicio de Dominio: Créditos Operativos (ARQ-03)
- * Centraliza la lógica de negocio, evaluación crediticia, elevación a ejecutivo y desembolso contable.
+ * Centraliza la evaluación crediticia, la elevación al ejecutivo y el rechazo desde la bandeja del operador.
+ * La aprobación y el desembolso son del ejecutivo (ejecutivoController).
  */
 
 const db = require('../config/db');
 const creditScoringService = require('./creditScoringService');
-const bancoApiService = require('./bancoApiService');
 const socketService = require('./socketService');
 const { saveBase64File } = require('../utils/fileStorage');
-const { errorDeNegocio } = require('../utils/errores');
 
 /**
  * Obtiene la evaluación crediticia y scoring para una solicitud de crédito
@@ -160,14 +159,40 @@ const elevarCredito = async ({ idSolicitud, idOperador, dictamen_operador, docum
 };
 
 /**
- * Resuelve una solicitud de crédito (APROBAR o RECHAZAR) con desembolso contable
+ * Rechaza una solicitud de crédito desde la bandeja del operador.
+ *
+ * El operador no aprueba ni desembolsa: eso lo decide el ejecutivo (comité de crédito) después de que el
+ * operador eleva la solicitud. Por eso esta ruta solo acepta RECHAZAR.
+ *
+ * @param {Object} params
+ * @param {number|string} params.idSolicitud
+ * @param {number} params.idOperador - `id_usuario` del operador.
+ * @param {string} params.accion - Solo `RECHAZAR`.
+ * @param {string} params.observaciones - Motivo del rechazo (obligatorio).
+ * @returns {Promise<{status: number, success: boolean, message: string, data?: Object}>} 200 al rechazar; 400 si
+ *   la acción no es válida, falta el motivo o la solicitud ya se resolvió; 403 si se intenta aprobar; 404 si no existe.
  */
 const resolverCredito = async ({ idSolicitud, idOperador, accion, observaciones }) => {
-  if (!['APROBAR', 'RECHAZAR'].includes(accion)) {
+  if (accion === 'APROBAR') {
+    return {
+      status: 403,
+      success: false,
+      message: 'La aprobación y el desembolso los hace el ejecutivo. Use «Elevar al ejecutivo».',
+    };
+  }
+  if (accion !== 'RECHAZAR') {
     return {
       status: 400,
       success: false,
-      message: "La acción debe ser 'APROBAR' o 'RECHAZAR'.",
+      message: "La acción debe ser 'RECHAZAR'.",
+    };
+  }
+  // Como al denegar en el ejecutivo, el rechazo queda con su motivo
+  if (typeof observaciones !== 'string' || !observaciones.trim()) {
+    return {
+      status: 400,
+      success: false,
+      message: 'Escriba el motivo del rechazo.',
     };
   }
 
@@ -176,12 +201,9 @@ const resolverCredito = async ({ idSolicitud, idOperador, accion, observaciones 
     await client.query('BEGIN');
 
     // 1. Obtener la solicitud con bloqueo
-    // El DPI se pide aparte para no bloquear también la fila de la persona
     const solRes = await client.query(`
-      SELECT sc.*, a.id_persona,
-        (SELECT p.cui_dpi FROM personas p WHERE p.id_persona = a.id_persona) AS cui_dpi
+      SELECT sc.estado
       FROM solicitudes_credito sc
-      JOIN asociados a ON sc.id_asociado = a.id_asociado
       WHERE sc.id_solicitud_credito = $1
       FOR UPDATE
     `, [idSolicitud]);
@@ -195,10 +217,8 @@ const resolverCredito = async ({ idSolicitud, idOperador, accion, observaciones 
       };
     }
 
-    const sol = solRes.rows[0];
-
     const estadosPermitidos = ['PENDIENTE', 'EN_REVISION_OPERADOR', 'DEVUELTA_OPERADOR'];
-    if (!estadosPermitidos.includes(sol.estado)) {
+    if (!estadosPermitidos.includes(solRes.rows[0].estado)) {
       await client.query('ROLLBACK');
       return {
         status: 400,
@@ -207,170 +227,29 @@ const resolverCredito = async ({ idSolicitud, idOperador, accion, observaciones 
       };
     }
 
-    if (accion === 'RECHAZAR') {
-      const updateRes = await client.query(`
-        UPDATE solicitudes_credito
-        SET 
-          estado = 'RECHAZADA',
-          id_analista = $1,
-          id_operador_revisa = $1,
-          fecha_resolucion = CURRENT_TIMESTAMP,
-          fecha_revision_operador = CURRENT_TIMESTAMP,
-          dictamen_operador = COALESCE($2, dictamen_operador),
-          observaciones = COALESCE($2, observaciones)
-        WHERE id_solicitud_credito = $3
-        RETURNING id_solicitud_credito, monto_solicitado, estado, fecha_resolucion
-      `, [idOperador, observaciones || null, idSolicitud]);
-
-      await client.query('COMMIT');
-      return {
-        status: 200,
-        success: true,
-        message: `Se rechazó la solicitud #${idSolicitud}.`,
-        data: updateRes.rows[0],
-      };
-    }
-
-    // ACCION === 'APROBAR': Desembolso y acreditación contable
-    if (accion === 'APROBAR' && !documento_firmado) {
-      await client.query('ROLLBACK');
-      return {
-        status: 400,
-        success: false,
-        message: 'Adjunte el PDF firmado por usted para aprobar la solicitud.',
-      };
-    }
-    const monto = parseFloat(sol.monto_solicitado);
-    let cuentaBancariaId = sol.id_cuenta_bancaria_destino;
-    let cuentaCoopId = sol.id_cuenta_destino;
-    let destinoInfo = sol.cuenta_destino_info;
-
-    // Si la solicitud no tenía cuenta fijada, buscar la cuenta bancaria o cooperativa del asociado
-    if (!cuentaBancariaId && !cuentaCoopId) {
-      let autoBcoAccount = null;
-      if (sol.cui_dpi) {
-        const bcoRes = await bancoApiService.obtenerCuentasCliente(sol.cui_dpi);
-        if (bcoRes.success && Array.isArray(bcoRes.data)) {
-          autoBcoAccount = bcoRes.data.find(c => c.estado === 'ACTIVA');
-        }
-      }
-
-      if (autoBcoAccount) {
-        cuentaBancariaId = autoBcoAccount.id_cuenta_bancaria;
-        destinoInfo = `Cuenta Bancaria de ${autoBcoAccount.tipo_cuenta} (${autoBcoAccount.numero_cuenta_bancaria})`;
-      } else {
-        const autoCoop = await client.query(`
-          SELECT c.id_cuenta, c.numero_cuenta, tc.nombre AS tipo_cuenta
-          FROM cuentas c
-          JOIN tipos_cuenta tc ON c.id_tipo_cuenta = tc.id_tipo_cuenta
-          WHERE c.id_asociado = $1 AND c.estado = 'ACTIVA'
-          ORDER BY c.id_cuenta ASC LIMIT 1
-        `, [sol.id_asociado]);
-
-        if (autoCoop.rows.length > 0) {
-          cuentaCoopId = autoCoop.rows[0].id_cuenta;
-          destinoInfo = `Cuenta de ${autoCoop.rows[0].tipo_cuenta} (${autoCoop.rows[0].numero_cuenta})`;
-        } else {
-          throw errorDeNegocio(409, 'El asociado no posee ninguna cuenta activa (de ahorro o monetaria) para acreditar el desembolso.');
-        }
-      }
-    }
-
-    if (cuentaBancariaId) {
-      let targetNumeroCuenta = null;
-      let bancoSinRespuesta = false;
-      if (sol.cui_dpi) {
-        const bcoRes = await bancoApiService.obtenerCuentasCliente(sol.cui_dpi);
-        if (bcoRes.success && Array.isArray(bcoRes.data)) {
-          const matched = bcoRes.data.find(c => String(c.id_cuenta_bancaria) === String(cuentaBancariaId));
-          if (matched) targetNumeroCuenta = matched.numero_cuenta_bancaria;
-        } else {
-          bancoSinRespuesta = true;
-        }
-      }
-      if (!targetNumeroCuenta && destinoInfo) {
-        const matchRegex = destinoInfo.match(/\((CTA-BCO-[^)]+)\)/i);
-        if (matchRegex) targetNumeroCuenta = matchRegex[1];
-      }
-
-      // Sin el número no se acredita: el banco identifica la cuenta solo por su número
-      if (!targetNumeroCuenta) {
-        throw bancoSinRespuesta
-          ? errorDeNegocio(502, 'No pudimos comunicarnos con el banco. Intente de nuevo en unos minutos.')
-          : errorDeNegocio(404, 'No encontramos la cuenta del banco de destino entre las del asociado.');
-      }
-
-      // Acreditar en Core Banking API (banco_db)
-      const acreRes = await bancoApiService.acreditarCuenta({
-        numero_cuenta: targetNumeroCuenta,
-        monto,
-        concepto: `Desembolso de Crédito Aprobado - Solicitud #${idSolicitud}`,
-        referencia: `SOL-CRED-${idSolicitud}`,
-      });
-
-      if (!acreRes.success) {
-        throw errorDeNegocio(502, acreRes.message || 'No se pudieron acreditar los fondos en la cuenta del banco.');
-      }
-    } else if (cuentaCoopId) {
-      const coopRes = await client.query(`
-        SELECT id_cuenta, numero_cuenta, saldo_disponible
-        FROM cuentas
-        WHERE id_cuenta = $1
-        FOR UPDATE
-      `, [cuentaCoopId]);
-
-      if (coopRes.rows.length === 0) {
-        throw errorDeNegocio(409, 'La cuenta cooperativa de acreditación no existe o fue cancelada.');
-      }
-
-      const saldoAnterior = parseFloat(coopRes.rows[0].saldo_disponible);
-      const saldoPosterior = saldoAnterior + monto;
-
-      await client.query(`
-        UPDATE cuentas 
-        SET saldo_disponible = $1 
-        WHERE id_cuenta = $2
-      `, [saldoPosterior, cuentaCoopId]);
-
-      await client.query(`
-        INSERT INTO transacciones (
-          id_cuenta, id_usuario_registra, tipo_transaccion, monto, saldo_anterior, saldo_nuevo, referencia
-        ) VALUES ($1, $2, 'DEPOSITO', $3, $4, $5, $6)
-      `, [
-        cuentaCoopId,
-        idOperador,
-        monto,
-        saldoAnterior,
-        saldoPosterior,
-        `Desembolso de Crédito Aprobado - Solicitud #${idSolicitud}`
-      ]);
-    }
-
-    // Actualizar solicitud
     const updateRes = await client.query(`
       UPDATE solicitudes_credito
       SET 
-        estado = 'APROBADA',
+        estado = 'RECHAZADA',
         id_analista = $1,
+        id_operador_revisa = $1,
         fecha_resolucion = CURRENT_TIMESTAMP,
-        id_cuenta_bancaria_destino = $2,
-        id_cuenta_destino = $3,
-        cuenta_destino_info = $4,
-        observaciones = COALESCE($5, observaciones)
-      WHERE id_solicitud_credito = $6
-      RETURNING id_solicitud_credito, monto_solicitado, estado, fecha_resolucion, cuenta_destino_info
-    `, [idOperador, cuentaBancariaId, cuentaCoopId, destinoInfo, observaciones || null, idSolicitud]);
+        fecha_revision_operador = CURRENT_TIMESTAMP,
+        dictamen_operador = COALESCE($2, dictamen_operador),
+        observaciones = COALESCE($2, observaciones)
+      WHERE id_solicitud_credito = $3
+      RETURNING id_solicitud_credito, monto_solicitado, estado, fecha_resolucion
+    `, [idOperador, observaciones.trim(), idSolicitud]);
 
     await client.query('COMMIT');
-
     return {
       status: 200,
       success: true,
-      message: `Se aprobó la solicitud #${idSolicitud} y se acreditaron Q${monto.toFixed(2)} a ${destinoInfo}.`,
+      message: `Se rechazó la solicitud #${idSolicitud}.`,
       data: updateRes.rows[0],
     };
   } catch (error) {
-    await client.query('ROLLBACK');
+    await client.query('ROLLBACK').catch(() => {});
     throw error;
   } finally {
     client.release();

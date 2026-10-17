@@ -3,7 +3,7 @@ const mailerService = require('../services/mailerService');
 const bancoApiService = require('../services/bancoApiService');
 const operadorAfiliacionService = require('../services/operadorAfiliacionService');
 const operadorCreditoService = require('../services/operadorCreditoService');
-const { errorDeNegocio, respuestaDeError } = require('../utils/errores');
+const { errorDeNegocio, respuestaDeError, estadoPorFalloDelBanco } = require('../utils/errores');
 
 /**
  * Obtener solicitudes en estado 'PENDIENTE' para traslados y aperturas
@@ -316,9 +316,7 @@ const resolverSolicitud = async (req, res) => {
       if (debitoBanco) {
         const debitRes = await bancoApiService.debitarCuenta(debitoBanco);
         if (!debitRes.success) {
-          // 403: la cuenta no es del asociado; 5xx: el banco no respondió
-          const status = debitRes.status === 403 ? 403 : debitRes.status >= 500 ? 502 : 400;
-          throw errorDeNegocio(status, debitRes.message || 'No se pudo debitar la cuenta bancaria de origen.');
+          throw errorDeNegocio(estadoPorFalloDelBanco(debitRes.status), debitRes.message || 'No se pudo debitar la cuenta bancaria de origen.');
         }
       }
 
@@ -407,6 +405,7 @@ const getBandejaAfiliaciones = async (req, res) => {
         (a_asoc.id_asociado IS NOT NULL) AS ya_es_asociado,
         EXISTS (SELECT 1 FROM usuarios u_per WHERE u_per.id_persona = p_asoc.id_persona AND u_per.id_rol <> 3) AS es_personal,
         COALESCE(s.numero_cuenta_bancaria, c_asoc.numero_cuenta) AS numero_cuenta,
+        s.numero_cuenta_bancaria,
         COALESCE(s.monto_estimado, c_asoc.saldo_disponible) AS saldo_disponible
       FROM solicitudes_afiliacion_agencia s
       LEFT JOIN usuarios op_bloq_u ON op_bloq_u.id_usuario = s.id_operador_bloqueo
@@ -638,7 +637,8 @@ const getBandejaCreditos = async (req, res) => {
 };
 
 /**
- * Resolver una solicitud de crédito (APROBAR o RECHAZAR) con desembolso contable
+ * Rechazar una solicitud de crédito desde la bandeja del operador. Aprobar y desembolsar lo hace el
+ * ejecutivo (ver `operadorCreditoService.resolverCredito`).
  * POST /api/operador/creditos/:id/resolver
  */
 const resolverSolicitudCredito = async (req, res) => {
@@ -648,8 +648,6 @@ const resolverSolicitudCredito = async (req, res) => {
       idOperador: req.user.id_usuario,
       accion: req.body.accion,
       observaciones: req.body.observaciones,
-      documento_firmado: req.body.documento_firmado,
-      nombre_archivo_firmado: req.body.nombre_archivo_firmado,
     });
     return res.status(result.status).json(result);
   } catch (error) {

@@ -12,6 +12,7 @@ const bancoApiService = require('./bancoApiService');
 const { getNextCorporateCode, resolvePrefix, generateSecureRandomPassword } = require('../utils/codeGenerator');
 const { validateCui, validateAge18, validateMinimumAmount } = require('../middlewares/validationMiddleware');
 const { decidirAccesoPortal } = require('../utils/accesoPortal');
+const { estadoPorFalloDelBanco } = require('../utils/errores');
 
 class AsociadoAfiliacionService {
   /**
@@ -340,7 +341,7 @@ class AsociadoAfiliacionService {
               ? 'La cuenta del banco no pertenece a este asociado.'
               : debitRes.message || 'No se pudo debitar la cuenta del banco. No se registró la afiliación.'
           );
-          error.statusCode = debitRes.status === 403 ? 403 : 400;
+          error.statusCode = estadoPorFalloDelBanco(debitRes.status);
           throw error;
         }
         debitoRealizado = true;
@@ -351,12 +352,16 @@ class AsociadoAfiliacionService {
       } catch (commitError) {
         // El débito ya salió del banco: se devuelve para no dejar el dinero en el aire (mismo problema del issue #31)
         if (debitoRealizado) {
-          await bancoApiService.acreditarCuenta({
+          // acreditarCuenta no lanza errores: devuelve success false
+          const reversion = await bancoApiService.acreditarCuenta({
             numero_cuenta: cuentaBancoEb,
             monto: montoAporte,
             concepto: 'Reversión de aporte: la afiliación no se completó',
             referencia: `REV-${referenciaBanco}`,
-          }).catch((revError) => console.error('[AFILIACION] No se pudo revertir el débito:', revError.message));
+          });
+          if (!reversion.success) {
+            console.error(`[AFILIACION] No se pudo revertir el débito ${referenciaBanco}:`, reversion.message);
+          }
         }
         throw commitError;
       }

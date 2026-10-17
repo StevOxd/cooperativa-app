@@ -260,9 +260,13 @@ const runMigrations = async () => {
       -- Función y trigger atómico para generar numero_caso en PostgreSQL
       CREATE OR REPLACE FUNCTION trg_generar_numero_caso()
       RETURNS TRIGGER AS $$
+      DECLARE
+          correlativo TEXT;
       BEGIN
           IF NEW.numero_caso IS NULL OR NEW.numero_caso = '' THEN
-              NEW.numero_caso := 'CASO-' || TO_CHAR(CURRENT_DATE, 'YYYY') || '-' || LPAD(nextval('seq_numero_caso_traslado')::text, 4, '0');
+              -- Al menos 4 dígitos; desde el 10000 el número sigue creciendo (LPAD a 4 lo cortaría y se repetiría)
+              correlativo := nextval('seq_numero_caso_traslado')::text;
+              NEW.numero_caso := 'CASO-' || TO_CHAR(CURRENT_DATE, 'YYYY') || '-' || LPAD(correlativo, GREATEST(LENGTH(correlativo), 4), '0');
           END IF;
           RETURN NEW;
       END;
@@ -499,9 +503,13 @@ const runMigrations = async () => {
       -- 7.6 Trigger anti-concurrencia para solicitudes_afiliacion_agencia
       CREATE OR REPLACE FUNCTION trg_generar_numero_caso_afiliacion()
       RETURNS TRIGGER AS $$
+      DECLARE
+          correlativo TEXT;
       BEGIN
           IF NEW.numero_caso IS NULL OR NEW.numero_caso = '' THEN
-              NEW.numero_caso := 'CASO-AFIL-' || TO_CHAR(CURRENT_DATE, 'YYYY') || '-' || LPAD(nextval('seq_numero_caso_afiliacion')::text, 4, '0');
+              -- Al menos 4 dígitos; desde el 10000 el número sigue creciendo (LPAD a 4 lo cortaría y se repetiría)
+              correlativo := nextval('seq_numero_caso_afiliacion')::text;
+              NEW.numero_caso := 'CASO-AFIL-' || TO_CHAR(CURRENT_DATE, 'YYYY') || '-' || LPAD(correlativo, GREATEST(LENGTH(correlativo), 4), '0');
           END IF;
           RETURN NEW;
       END;

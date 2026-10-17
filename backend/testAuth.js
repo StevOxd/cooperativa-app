@@ -1,161 +1,101 @@
 // Las pruebas nunca envían correo real (ver mailerService): debe ir antes de cargar el servidor.
 process.env.MAIL_ENABLED = 'false';
 
-const http = require('http');
+/**
+ * testAuth.js
+ *
+ * Inicio de sesión por correo y por código, respuestas que no revelan si la cuenta existe, usuario inactivo y
+ * validación del token en rutas protegidas.
+ *
+ * Usa el backend en proceso (puerto efímero) y la base de datos local. Limpia lo que crea.
+ */
 const { app } = require('./src/server');
+const db = require('./src/config/db');
+const { makeRequest, createTestReporter, crearUsuarioDePrueba, borrarPersonaDePrueba } = require('./testHelper');
 
-// Iniciar servidor en un puerto de prueba
 const server = app.listen(0, async () => {
-  const testPort = server.address().port;
-  console.log('\n=========================================');
-  console.log('[SUITE] INICIANDO PRUEBAS DE AUTENTICACIÓN (3FN)');
-  console.log(`[INFO] Puerto de prueba: ${testPort}`);
-  console.log('=========================================\n');
+  const port = server.address().port;
+  const request = (ruta, method = 'GET', data = null, token = null) => makeRequest(port, ruta, method, data, token);
+  const { assert, getStats } = createTestReporter();
 
-  const request = (path, method, data, token) => {
-    return new Promise((resolve, reject) => {
-      const payload = data ? JSON.stringify(data) : '';
-      const headers = {
-        'Content-Type': 'application/json',
-      };
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
-      }
-      if (data) {
-        headers['Content-Length'] = Buffer.byteLength(payload);
-      }
+  console.log('\n=============================================================');
+  console.log('[SUITE] AUTENTICACIÓN');
+  console.log('=============================================================\n');
 
-      const req = http.request(
-        {
-          hostname: 'localhost',
-          port: testPort,
-          path,
-          method,
-          headers,
-        },
-
-        (res) => {
-          let body = '';
-          res.on('data', (chunk) => (body += chunk));
-          res.on('end', () => {
-            try {
-              resolve({ status: res.statusCode, body: JSON.parse(body) });
-            } catch (e) {
-              resolve({ status: res.statusCode, body });
-            }
-          });
-        }
-      );
-
-      req.on('error', reject);
-      if (payload) req.write(payload);
-      req.end();
-    });
-  };
+  const sufijo = String(Date.now()).slice(-7);
+  const tokens = [];
+  let idPersonaInactiva = null;
+  let errorInesperado = false;
 
   try {
-    let adminToken = '';
+    console.log('--- Inicio de sesión ---');
+    const porCorreo = await request('/api/auth/login', 'POST', { identifier: 'admin@cooperativa.com', password: 'admin123' });
+    assert(porCorreo.status === 200 && Boolean(porCorreo.body.token), 'Entra con el correo (AD-1)');
+    if (porCorreo.body.token) tokens.push(porCorreo.body.token);
 
-    // Prueba 1: Login exitoso con Administrador Activo (por Email)
-    console.log('1. Probando Login exitoso por Correo (admin@cooperativa.com)...');
-    const res1 = await request('/api/auth/login', 'POST', {
-      email: 'admin@cooperativa.com',
-      password: 'admin123',
+    const porCodigo = await request('/api/auth/login', 'POST', { identifier: 'AD-1', password: 'admin123' });
+    assert(porCodigo.status === 200 && Boolean(porCodigo.body.token), 'Entra con el código corporativo (AD-1)');
+    if (porCodigo.body.token) tokens.push(porCodigo.body.token);
+    const adminToken = porCodigo.body.token;
+
+    console.log('\n--- Fallos que no revelan si la cuenta existe ---');
+    const claveIncorrecta = await request('/api/auth/login', 'POST', { identifier: 'AD-1', password: 'claveIncorrecta1!' });
+    const noExiste = await request('/api/auth/login', 'POST', { identifier: `NO-EXISTE-${sufijo}`, password: 'claveIncorrecta1!' });
+    assert(claveIncorrecta.status === 401 && !claveIncorrecta.body.token, 'Con la contraseña incorrecta responde 401 sin token');
+    assert(
+      noExiste.status === claveIncorrecta.status && noExiste.body.message === claveIncorrecta.body.message,
+      'Un usuario que no existe recibe la misma respuesta que una contraseña incorrecta'
+    );
+    // El intento fallido de AD-1 no debe quedar contando para otras suites
+    await db.query("UPDATE usuarios SET intentos_fallidos = 0, bloqueado_hasta = NULL WHERE codigo_corporativo = 'AD-1'");
+
+    console.log('\n--- Usuario inactivo ---');
+    const inactivo = await crearUsuarioDePrueba(db, {
+      dpi: `941${sufijo}000`.slice(0, 13),
+      codigo: `OP-T9${sufijo}`,
+      email: `auth.inactivo.${sufijo}@cooperativa.com`,
+      rol: 'OPERADOR',
+      estado: 'INACTIVO',
     });
-    console.log('   Status:', res1.status);
-    console.log('   Token generado:', res1.body.token ? 'SÍ' : 'NO');
-    console.log('   Cód. Corporativo:', res1.body.user?.codigo_corporativo);
-    console.log('   Rol en respuesta:', res1.body.user?.rol);
-    if (res1.status === 200 && res1.body.token && res1.body.user?.rol === 'ADMINISTRADOR') {
-      console.log('   [PASS] PRUEBA 1 SUPERADA');
-      adminToken = res1.body.token;
-    } else {
-      console.error('   [FAIL] PRUEBA 1 FALLÓ', res1.body);
-    }
+    idPersonaInactiva = inactivo.idPersona;
+    const inactivoClaveCorrecta = await request('/api/auth/login', 'POST', { identifier: `OP-T9${sufijo}`, password: 'admin123' });
+    const inactivoClaveIncorrecta = await request('/api/auth/login', 'POST', { identifier: `OP-T9${sufijo}`, password: 'claveIncorrecta1!' });
+    assert(inactivoClaveCorrecta.status === 403 && !inactivoClaveCorrecta.body.token, 'Un usuario inactivo con su contraseña correcta recibe 403 sin token');
+    assert(
+      inactivoClaveIncorrecta.status === 401 && inactivoClaveIncorrecta.body.message === claveIncorrecta.body.message,
+      'Con la contraseña incorrecta, un usuario inactivo recibe la respuesta genérica (no se revela que existe)'
+    );
 
-    // Prueba 1b: Login exitoso usando Código Corporativo (1001)
-    console.log('\n1b. Probando Login exitoso por Código Corporativo ("1001")...');
-    const res1b = await request('/api/auth/login', 'POST', {
-      email: '1001',
-      password: 'admin123',
-    });
-    console.log('   Status:', res1b.status);
-    console.log('   Usuario autenticado:', res1b.body.user?.nombre);
-    if (res1b.status === 200 && res1b.body.token && res1b.body.user?.codigo_corporativo === '1001') {
-      console.log('   [PASS] PRUEBA 1b SUPERADA: Login flexible con Código Corporativo funciona');
-    } else {
-      console.error('   [FAIL] PRUEBA 1b FALLÓ', res1b.body);
-    }
-
-
-    // Prueba 2: Login con contraseña incorrecta
-    console.log('\n2. Probando Login con contraseña incorrecta...');
-    const res2 = await request('/api/auth/login', 'POST', {
-      email: 'admin@cooperativa.com',
-      password: 'wrongpassword',
-    });
-    console.log('   Status:', res2.status, '(Esperado: 401)');
-    console.log('   Mensaje:', res2.body.message);
-    if (res2.status === 401) {
-      console.log('   [PASS] PRUEBA 2 SUPERADA');
-    } else {
-      console.error('   [FAIL] PRUEBA 2 FALLÓ', res2.body);
-    }
-
-    // Prueba 3: Login con usuario inactivo
-    console.log('\n3. Probando Login con usuario inactivo (inactivo@cooperativa.com)...');
-    const res3 = await request('/api/auth/login', 'POST', {
-      email: 'inactivo@cooperativa.com',
-      password: 'admin123',
-    });
-    console.log('   Status:', res3.status, '(Esperado: 403)');
-    console.log('   Mensaje:', res3.body.message);
-    if (res3.status === 403) {
-      console.log('   [PASS] PRUEBA 3 SUPERADA');
-    } else {
-      console.error('   [FAIL] PRUEBA 3 FALLÓ', res3.body);
-    }
-
-    // Prueba 4: verifyToken con token válido (GET /api/auth/me)
-    console.log('\n4. Probando verifyToken con token válido (GET /api/auth/me)...');
-    const res4 = await request('/api/auth/me', 'GET', null, adminToken);
-    console.log('   Status:', res4.status, '(Esperado: 200)');
-    console.log('   Usuario autenticado:', res4.body.user?.nombre);
-    if (res4.status === 200 && res4.body.user?.email === 'admin@cooperativa.com') {
-      console.log('   [PASS] PRUEBA 4 SUPERADA');
-    } else {
-      console.error('   [FAIL] PRUEBA 4 FALLÓ', res4.body);
-    }
-
-    // Prueba 5: verifyToken sin token (GET /api/auth/me)
-    console.log('\n5. Probando acceso a ruta protegida sin token...');
-    const res5 = await request('/api/auth/me', 'GET', null, null);
-    console.log('   Status:', res5.status, '(Esperado: 401)');
-    console.log('   Mensaje:', res5.body.message);
-    if (res5.status === 401) {
-      console.log('   [PASS] PRUEBA 5 SUPERADA');
-    } else {
-      console.error('   [FAIL] PRUEBA 5 FALLÓ', res5.body);
-    }
-
-    // Prueba 6: verifyToken con token inválido/falso
-    console.log('\n6. Probando acceso a ruta protegida con token adulterado...');
-    const res6 = await request('/api/auth/me', 'GET', null, 'token_invalido_12345');
-    console.log('   Status:', res6.status, '(Esperado: 403)');
-    console.log('   Mensaje:', res6.body.message);
-    if (res6.status === 403) {
-      console.log('   [PASS] PRUEBA 6 SUPERADA');
-    } else {
-      console.error('   [FAIL] PRUEBA 6 FALLÓ', res6.body);
-    }
-
-    console.log('\n=========================================');
-    console.log('[SUCCESS] TODAS LAS PRUEBAS COMPLETADAS CON ÉXITO');
-    console.log('=========================================\n');
+    console.log('\n--- Rutas protegidas ---');
+    const conToken = await request('/api/auth/me', 'GET', null, adminToken);
+    assert(conToken.status === 200 && conToken.body.user?.codigo_corporativo === 'AD-1', 'GET /api/auth/me con un token vigente responde 200 con el usuario');
+    const sinToken = await request('/api/auth/me');
+    assert(sinToken.status === 401, 'Sin token responde 401');
+    const adulterado = await request('/api/auth/me', 'GET', null, 'token_invalido_12345');
+    // Un token que no se puede verificar se rechaza con 403 (authMiddleware); uno vencido o sin sesión, con 401
+    assert(adulterado.status === 403 && !adulterado.body.user, 'Con un token adulterado se rechaza (403)');
+    const tokenAnterior = await request('/api/auth/me', 'GET', null, porCorreo.body.token);
+    assert(tokenAnterior.status === 401, 'El token de la sesión anterior deja de servir al iniciar una nueva');
   } catch (error) {
-    console.error('Error durante las pruebas:', error);
+    console.error('[ERROR] Error inesperado durante las pruebas:', error);
+    errorInesperado = true;
   } finally {
+    for (const token of tokens) {
+      await request('/api/auth/logout', 'POST', null, token).catch(() => {});
+    }
+    try {
+      if (idPersonaInactiva) await borrarPersonaDePrueba(db, idPersonaInactiva);
+      console.log('\n  [CLEANUP] Datos de prueba eliminados.');
+    } catch (limpiezaError) {
+      console.error('[ERROR] No se pudieron borrar los datos de prueba:', limpiezaError.message);
+      errorInesperado = true;
+    }
+
+    const { total, passed } = getStats();
+    console.log('\n=============================================================');
+    console.log(`[RESULTADO] PRUEBAS SUPERADAS: ${passed} / ${total}`);
+    console.log('=============================================================\n');
     server.close();
-    process.exit(0);
+    process.exit(passed === total && !errorInesperado ? 0 : 1);
   }
 });

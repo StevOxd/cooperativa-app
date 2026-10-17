@@ -8,7 +8,7 @@ const socketService = require('../services/socketService');
 const asociadoAfiliacionService = require('../services/asociadoAfiliacionService');
 const { getNextCorporateCode, resolvePrefix } = require('../utils/codeGenerator');
 const { normalizarParentesco } = require('../utils/parentesco');
-const { respuestaDeError } = require('../utils/errores');
+const { respuestaDeError, estadoPorFalloDelBanco } = require('../utils/errores');
 
 /**
  * Consulta el padrón institucional de asociados con soporte para paginación, filtros de estado y métricas consolidadas.
@@ -460,7 +460,7 @@ const aperturarCuenta = async (req, res) => {
       const debitRes = await bancoApiService.debitarCuenta(debitoBanco);
       if (!debitRes.success || debitRes.status !== 200) {
         await client.query('ROLLBACK');
-        const status = debitRes.status === 403 ? 403 : 400;
+        const status = estadoPorFalloDelBanco(debitRes.status);
         return res.status(status).json({
           success: false,
           message: debitRes.status === 403

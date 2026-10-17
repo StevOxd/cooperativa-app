@@ -27,4 +27,17 @@ const respuestaDeError = (error, mensajeGenerico) =>
     ? { status: error.statusCode, message: error.message }
     : { status: 500, message: mensajeGenerico };
 
-module.exports = { errorDeNegocio, respuestaDeError };
+/**
+ * Estado HTTP con que se responde un débito que el banco no hizo (issue #55): 403 si la cuenta no es del
+ * titular, 502 si el banco no respondió (5xx o sin respuesta) y 400 en lo demás (datos de la operación).
+ *
+ * @param {number} [status] - El `status` que devolvió `bancoApiService`.
+ * @returns {403|502|400}
+ */
+const estadoPorFalloDelBanco = (status) => {
+  if (status === 403) return 403;
+  if (!status || status >= 500) return 502;
+  return 400;
+};
+
+module.exports = { errorDeNegocio, respuestaDeError, estadoPorFalloDelBanco };

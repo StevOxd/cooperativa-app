@@ -51,22 +51,32 @@ const testServer = server.listen(0, async () => {
     }
   };
 
+  // Sesiones de prueba: se cierran siempre, para no dejarlas abiertas a otras suites
+  const tokens = [];
+  const cerrarSesiones = async () => {
+    for (const token of tokens.filter(Boolean)) {
+      await request('/api/auth/logout', 'POST', null, token).catch(() => {});
+    }
+  };
+
   try {
-    // 1. Iniciar sesión como Administrador (1001)
+    // 1. Iniciar sesión como Administrador (AD-1)
     const adminLogin = await request('/api/auth/login', 'POST', {
-      identifier: '1001',
+      identifier: 'AD-1',
       password: 'admin123',
     });
     assert(adminLogin.status === 200, 'Inicio de sesión exitoso como Administrador');
     const adminToken = adminLogin.body.token;
+    tokens.push(adminToken);
 
-    // 2. Iniciar sesión como Operador (2001)
+    // 2. Iniciar sesión como Operador (OP-1)
     const opLogin = await request('/api/auth/login', 'POST', {
-      identifier: '2001',
+      identifier: 'OP-1',
       password: 'admin123',
     });
     assert(opLogin.status === 200, 'Inicio de sesión exitoso como Operador');
     const opToken = opLogin.body.token;
+    tokens.push(opToken);
 
     // =========================================================================
     // CASO 1: CONSULTA DE EVENTOS RECIENTES COMO ADMINISTRADOR
@@ -81,9 +91,9 @@ const testServer = server.listen(0, async () => {
     );
     assert(auditRes.status === 200, 'GET /api/usuarios/auditoria/eventos-recientes responde 200 OK');
     assert(Array.isArray(auditRes.body.data), 'La respuesta contiene un arreglo de eventos');
-    assert(auditRes.body.data.length <= 5, 'Retorna como máximo los últimos 5 eventos');
+    assert((auditRes.body.data || []).length <= 5, 'Retorna como máximo los últimos 5 eventos');
 
-    if (auditRes.body.data.length > 0) {
+    if (auditRes.body.data?.length > 0) {
       const firstEvent = auditRes.body.data[0];
       assert(firstEvent.id_historial_estado !== undefined, 'El evento contiene id_historial_estado');
       assert(firstEvent.usuario_codigo !== undefined, 'El evento contiene código del usuario afectado');
@@ -116,13 +126,16 @@ const testServer = server.listen(0, async () => {
     );
     assert(anonAuditRes.status === 401, 'Petición sin token es rechazada con 401 Unauthorized');
 
+
     console.log('\n=============================================================');
     console.log(`[SUMMARY] RESULTADO: ${passedTests}/${totalTests} pruebas aprobadas exitosamente.`);
     console.log('=============================================================\n');
 
+    await cerrarSesiones();
     process.exit(passedTests === totalTests ? 0 : 1);
   } catch (error) {
     console.error('[ERROR] Error inesperado durante las pruebas:', error);
+    await cerrarSesiones();
     process.exit(1);
   } finally {
     testServer.close();

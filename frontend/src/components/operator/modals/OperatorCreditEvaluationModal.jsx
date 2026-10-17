@@ -114,7 +114,7 @@ const OperatorCreditEvaluationModal = ({
         <div className="flex flex-col-reverse gap-2 sm:flex-row">
           <Button
             variant="danger"
-            onClick={() => handleResolveCreditoSubmit('RECHAZAR', archivoFirmado)}
+            onClick={() => handleResolveCreditoSubmit('RECHAZAR')}
             disabled={resolvingCredito}
           >
             Rechazar solicitud
