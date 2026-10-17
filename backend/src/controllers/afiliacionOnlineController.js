@@ -1,7 +1,10 @@
+const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 const { pool } = require('../config/db');
 const mailerService = require('../services/mailerService');
 const bancoApiService = require('../services/bancoApiService');
+const { revertirOAnotar, anotarSinConfirmar } = require('../services/reversionesService');
+const { errorDeNegocio, respuestaDeError } = require('../utils/errores');
 const { getNextCorporateCode, resolvePrefix } = require('../utils/codeGenerator');
 const { validatePassword } = require('../utils/passwordPolicy');
 const { firmarAfiliacionToken, verificarAfiliacionToken } = require('../utils/afiliacionToken');
@@ -363,7 +366,9 @@ const procesarAfiliacionExistente = async (req, res) => {
     // 2. El débito en el banco va al final, justo antes del COMMIT (issue #31): si algo de la cooperativa
     //    falla antes, no se descuenta nada; si falla el COMMIT, se devuelve el dinero.
     const targetNumeroCuenta = cuentaDebito.numero;
-    const refMovimiento = 'AFIL-COOP-' + Date.now();
+    // Única por intento (48 bits al azar): el banco toma una referencia repetida como un reintento de la misma
+    // operación, y dos solicitudes no pueden compartir un débito
+    const refMovimiento = `AFIL-COOP-${Date.now()}-${crypto.randomBytes(6).toString('hex')}`;
 
     // 3. Registrar en asociados de la cooperativa
     const asocInsert = await client.query(
@@ -428,8 +433,27 @@ const procesarAfiliacionExistente = async (req, res) => {
       referencia: refMovimiento,
     });
 
+    const reversionDelDebito = {
+      origen: 'AFILIACION_EN_LINEA',
+      tipo: 'CREDITO',
+      numeroCuenta: targetNumeroCuenta,
+      cui: cuiLimpio,
+      monto,
+      referencia: refMovimiento,
+      concepto: 'Reversión de aporte: la afiliación no se completó',
+      detalle: `Afiliación en línea del DPI ${cuiLimpio}`,
+      clave: idAsociado,
+    };
+
     if (!debitRes.success || debitRes.status !== 200) {
       await client.query('ROLLBACK');
+      // Sin respuesta a tiempo el débito pudo hacerse: queda en «Conciliación» para devolverlo si entró
+      if (debitRes.status === 504 && await anotarSinConfirmar(reversionDelDebito)) {
+        return res.status(504).json({
+          success: false,
+          message: 'El banco no respondió a tiempo. Si llegó a debitar su cuenta, la cooperativa le devolverá ese monto. Intente de nuevo en unos minutos.',
+        });
+      }
       return res.status(debitRes.status || 400).json({
         success: false,
         message: debitRes.message || 'No fue posible debitar los fondos de la cuenta bancaria en la Entidad Bancaria.',
@@ -443,17 +467,14 @@ const procesarAfiliacionExistente = async (req, res) => {
     try {
       await client.query('COMMIT');
     } catch (commitError) {
-      // El dinero ya salió del banco: se devuelve con una referencia ligada a la del débito
-      const reversion = await bancoApiService.acreditarCuenta({
-        numero_cuenta: targetNumeroCuenta,
-        monto,
-        concepto: 'Reversión de aporte: la afiliación no se completó',
-        referencia: `REV-${refMovimiento}`,
-      });
-      if (!reversion.success) {
-        console.error(`[ERROR] No se pudo revertir el débito ${refMovimiento} de la cuenta ${targetNumeroCuenta}:`, reversion.message);
+      // El dinero ya salió del banco: se devuelve, o queda en «Conciliación» si no se puede. Si el COMMIT sí se
+      // aplicó (se confirma con otra conexión), la afiliación quedó hecha y se sigue.
+      const reversion = await revertirOAnotar({ ...reversionDelDebito, pid: client.processID });
+      if (!reversion.aplicada) {
+        throw reversion.revertida
+          ? commitError
+          : errorDeNegocio(500, `No se pudo completar la afiliación y el débito quedó en su cuenta del banco. No repita la solicitud: comuníquese con la cooperativa e indique la referencia ${refMovimiento}.`);
       }
-      throw commitError;
     }
 
     // 10. Correo con el usuario de acceso, después del COMMIT (sin contraseña: no repite la que eligió).
@@ -511,11 +532,8 @@ const procesarAfiliacionExistente = async (req, res) => {
   } catch (error) {
     await client.query('ROLLBACK').catch(() => {});
     console.error('[AFILIACION EXISTENTE ERROR]:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'No se pudo completar la afiliación. Intente de nuevo.',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined,
-    });
+    const { status, message } = respuestaDeError(error, 'No se pudo completar la afiliación. Intente de nuevo.');
+    return res.status(status).json({ success: false, message });
   } finally {
     client.release();
   }

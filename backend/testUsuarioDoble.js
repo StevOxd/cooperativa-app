@@ -17,6 +17,7 @@ const http = require('http');
 const jwt = require('jsonwebtoken');
 const { server } = require('./src/server');
 const db = require('./src/config/db');
+const { purgarEfectivoDePrueba } = require('./testHelper');
 const mailerService = require('./src/services/mailerService');
 
 // Hash bcrypt de admin123 (el mismo de los datos semilla)
@@ -592,6 +593,7 @@ const testServer = server.listen(0, async () => {
       if (idTraslado) await db.query('DELETE FROM solicitudes_traslado_apertura WHERE id_solicitud = $1', [idTraslado]);
       if (idCredito) await db.query('DELETE FROM solicitudes_credito WHERE id_solicitud_credito = $1', [idCredito]);
       await db.query('DELETE FROM solicitudes_afiliacion_agencia WHERE cui_dpi = ANY($1)', [[dpiSoloPersonal, dpiVentanilla, dpiAjeno]]);
+      await purgarEfectivoDePrueba(db, [dpi, dpiSoloPersonal, dpiVentanilla, dpiAjeno]);
       for (const id of [idPersona, idPersonaSoloPersonal, idPersonaVentanilla].filter(Boolean)) {
         await db.query(
           `DELETE FROM historial_estados_usuario
@@ -610,6 +612,8 @@ const testServer = server.listen(0, async () => {
       }
     } catch (limpiezaError) {
       console.error('[ERROR] No se pudieron borrar los datos de prueba:', limpiezaError.message);
+      // Cuenta como una prueba fallida: los datos que quedan alteran la siguiente corrida
+      total++;
     }
     if (idPersona) console.log('\n  [CLEANUP] Personas, usuarios y solicitud de prueba eliminados.');
 

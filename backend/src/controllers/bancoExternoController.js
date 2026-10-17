@@ -1,8 +1,16 @@
 const crypto = require('crypto');
 const db = require('../config/db');
 const bancoApiService = require('../services/bancoApiService');
-const { FINANCIERO, SEGURIDAD } = require('../config/constants');
+const { SEGURIDAD } = require('../config/constants');
+const {
+  TOPE_DIARIO: TOPE_EFECTIVO_DIARIO,
+  leerMontoEfectivo,
+  bloquearEfectivoDePersona,
+  excesoDelDia,
+} = require('../services/efectivoVentanillaService');
+const { formatoQ } = require('../utils/montos');
 const { ipDelCliente } = require('../utils/ipCliente');
+const { respuestaDeError } = require('../utils/errores');
 const { esAutoatencion } = require('../services/segregacionService');
 const { RESPUESTA_AUTOATENCION } = require('../middlewares/segregacion');
 
@@ -177,8 +185,8 @@ const getCuentasCliente = async (req, res) => {
       tipo_cliente: tipoCliente,
       tipo_asociado: tipoAsociado,
       cliente: dpiCheck.cliente || null,
-      // Tope del depósito en ventanilla, para que la pantalla use el mismo que valida el servidor
-      tope_deposito_ventanilla: FINANCIERO.DEPOSITO_VENTANILLA_BANCO_MAXIMO,
+      // Tope del efectivo en ventanilla por persona al día, para que la pantalla use el mismo que el servidor
+      tope_deposito_ventanilla: TOPE_EFECTIVO_DIARIO,
       data: bcoRes.success ? (bcoRes.data || []) : [],
     });
   } catch (error) {
@@ -190,10 +198,6 @@ const getCuentasCliente = async (req, res) => {
     });
   }
 };
-
-const TOPE_DEPOSITO = FINANCIERO.DEPOSITO_VENTANILLA_BANCO_MAXIMO;
-const TOPE_DIA_DPI = FINANCIERO.DEPOSITO_VENTANILLA_BANCO_DIARIO_POR_DPI;
-const TOPE_DIA_OPERADOR = FINANCIERO.DEPOSITO_VENTANILLA_BANCO_DIARIO_POR_OPERADOR;
 
 /**
  * El depósito y la apertura en el banco desde ventanilla son solo para un colaborador del banco (empleado de
@@ -221,45 +225,21 @@ const motivoParaNoOperar = async (cui) => {
 };
 
 /**
- * Monto en quetzales para los mensajes (`Q1,234.50`).
- *
- * @param {number} monto
- * @returns {string}
- */
-const formatoQ = (monto) => `Q${Number(monto).toLocaleString('es-GT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-
-/**
- * Registra el depósito como PENDIENTE si no supera los acumulados del día. Un candado por operador y otro por
- * colaborador (en ese orden, para no cruzarse) hacen que dos depósitos simultáneos no pasen juntos el tope.
+ * Registra el depósito como PENDIENTE si, con el resto del efectivo de ventanilla de la persona en el día, no pasa
+ * el tope. El efectivo de la persona queda bloqueado mientras tanto: dos entradas simultáneas no pasan juntas.
  *
  * @param {Object} d - `{ idOperador, numeroCuenta, cui, monto, referencia, ip, userAgent }`.
- * @returns {Promise<string|null>} El mensaje si se supera un acumulado del día, o null si quedó registrado.
+ * @returns {Promise<string|null>} El mensaje si se pasa el tope del día, o null si quedó registrado.
  */
 const registrarDepositoPendiente = async ({ idOperador, numeroCuenta, cui, monto, referencia, ip, userAgent }) => {
   const client = await db.pool.connect();
   try {
     await client.query('BEGIN');
-    await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [`deposito-ventanilla-operador:${idOperador}`]);
-    await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [`deposito-ventanilla-dpi:${cui}`]);
-    // Cuenta lo que pudo haber entrado al banco hoy (hora de Guatemala): no los rechazados ni los revertidos
-    const hoy = (await client.query(
-      `SELECT COALESCE(SUM(monto) FILTER (WHERE titular_cui = $1), 0) AS por_dpi,
-              COALESCE(SUM(monto) FILTER (WHERE id_usuario_operador = $2), 0) AS por_operador
-       FROM depositos_ventanilla_banco
-       WHERE (titular_cui = $1 OR id_usuario_operador = $2)
-         AND estado IN ('PENDIENTE', 'ACREDITADO', 'SIN_CONFIRMAR')
-         AND fecha_deposito >= (date_trunc('day', now() AT TIME ZONE 'America/Guatemala') AT TIME ZONE 'America/Guatemala')`,
-      [cui, idOperador]
-    )).rows[0];
-    let excedido = null;
-    if (Number(hoy.por_dpi) + monto > TOPE_DIA_DPI) {
-      excedido = `Este colaborador ya recibió ${formatoQ(hoy.por_dpi)} hoy en depósitos de ventanilla; el máximo por día es ${formatoQ(TOPE_DIA_DPI)}.`;
-    } else if (Number(hoy.por_operador) + monto > TOPE_DIA_OPERADOR) {
-      excedido = `Usted ya registró ${formatoQ(hoy.por_operador)} hoy en depósitos de ventanilla; el máximo por día es ${formatoQ(TOPE_DIA_OPERADOR)}.`;
-    }
-    if (excedido) {
+    await bloquearEfectivoDePersona(client, cui);
+    const exceso = await excesoDelDia(client, cui, monto);
+    if (exceso) {
       await client.query('ROLLBACK');
-      return excedido;
+      return exceso;
     }
     await client.query(
       `INSERT INTO depositos_ventanilla_banco
@@ -280,7 +260,7 @@ const registrarDepositoPendiente = async ({ idOperador, numeroCuenta, cui, monto
 /**
  * Depósito en ventanilla a la cuenta del banco del colaborador que se afilia (el efectivo que entrega en la
  * agencia). Solo para un empleado del banco que todavía no es asociado, a una cuenta activa suya y nunca a una
- * propia, con tope por depósito y acumulados del día por colaborador y por operador.
+ * propia, dentro del tope de efectivo de ventanilla por persona al día (sin tope por operador).
  *
  * La referencia la genera el servidor y cada depósito queda registrado en `depositos_ventanilla_banco` (quién,
  * cuánto, a qué cuenta y desde dónde) antes de llamar al banco, como PENDIENTE; después se cierra su estado:
@@ -292,24 +272,22 @@ const registrarDepositoPendiente = async ({ idOperador, numeroCuenta, cui, monto
  * @param {import('express').Request} req - `req.body`: `{ cui_dpi, numero_cuenta, monto }`.
  * @param {import('express').Response} res
  * @returns {Promise<import('express').Response>} 200 con la referencia; 400 por datos inválidos o si supera el
- *   tope o el acumulado del día; 403 si no es un colaborador del banco, si la cuenta es de quien atiende o no es
+ *   tope del día por persona; 403 si no es un colaborador del banco, si la cuenta es de quien atiende o no es
  *   del DPI indicado; 404 si la cuenta no existe; 409 si ya es asociado, la cuenta no está activa o el banco
  *   rechaza el depósito; 502 o 504 si el banco no responde; 500.
  */
 const acreditarCuenta = async (req, res) => {
   const cui = String(req.body?.cui_dpi ?? '').replace(/\D/g, '');
   const numeroCuenta = String(req.body?.numero_cuenta ?? '').trim();
-  const montoTexto = String(req.body?.monto ?? '').trim();
-  const monto = Number(montoTexto);
 
   if (cui.length !== SEGURIDAD.LONGITUD_CUI_DPI || !numeroCuenta) {
     return res.status(400).json({ success: false, message: 'Indique el DPI del colaborador y la cuenta del banco.' });
   }
-  if (!/^\d+(\.\d{1,2})?$/.test(montoTexto) || !(monto > 0)) {
-    return res.status(400).json({ success: false, message: 'Escriba un monto mayor que Q0.00, con hasta 2 decimales.' });
-  }
-  if (monto > TOPE_DEPOSITO) {
-    return res.status(400).json({ success: false, message: `El depósito en ventanilla es de hasta ${formatoQ(TOPE_DEPOSITO)}.` });
+  let monto;
+  try {
+    monto = leerMontoEfectivo(req.body?.monto);
+  } catch (montoError) {
+    return res.status(montoError.statusCode || 400).json({ success: false, message: montoError.message });
   }
 
   try {
@@ -349,9 +327,13 @@ const acreditarCuenta = async (req, res) => {
       userAgent: req.headers['user-agent'] || null,
     });
     if (excedido) return res.status(400).json({ success: false, message: excedido });
+    // Si ya no está PENDIENTE (alguien lo concilió mientras tanto) no se cambia, pero queda la discrepancia en el registro
     const cerrarRegistro = (estado) =>
       db
         .query("UPDATE depositos_ventanilla_banco SET estado = $2 WHERE referencia = $1 AND estado = 'PENDIENTE'", [referencia, estado])
+        .then((r) => {
+          if (r.rowCount === 0) console.error(`[ERROR] El depósito ${referencia} ya no estaba PENDIENTE al quedar ${estado}: revíselo en Conciliación.`);
+        })
         .catch((cierreError) => console.error(`[ERROR] El depósito ${referencia} quedó PENDIENTE (debía quedar ${estado}):`, cierreError.message));
 
     const bcoRes = await bancoApiService.acreditarCuenta({
@@ -367,7 +349,7 @@ const acreditarCuenta = async (req, res) => {
         await cerrarRegistro('SIN_CONFIRMAR');
         return res.status(504).json({
           success: false,
-          message: `El banco no confirmó a tiempo. Antes de reintentar, verifique en el banco si entró el depósito (referencia ${referencia}).`,
+          message: `El banco no confirmó a tiempo. No vuelva a depositar: el administrador lo verificará en «Conciliación» (referencia ${referencia}).`,
         });
       }
       await cerrarRegistro('RECHAZADO');
@@ -389,10 +371,8 @@ const acreditarCuenta = async (req, res) => {
     });
   } catch (error) {
     console.error('[ERROR] bancoExternoController.acreditarCuenta:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'No se pudieron acreditar los fondos. Intente de nuevo.',
-    });
+    const { status, message } = respuestaDeError(error, 'No se pudieron acreditar los fondos. Intente de nuevo.');
+    return res.status(status).json({ success: false, message });
   }
 };
 

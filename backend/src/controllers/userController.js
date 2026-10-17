@@ -6,6 +6,10 @@ const { getNextCorporateCode, resolvePrefix, generateSecureRandomPassword } = re
 const { filtroUsuario } = require('../utils/identificadores');
 const { respuestaDeError } = require('../utils/errores');
 const { ipDelCliente } = require('../utils/ipCliente');
+const { SEGURIDAD } = require('../config/constants');
+
+// Motivo con que queda en la auditoría el cambio de correo; el reinicio de contraseña lo busca
+const MOTIVO_CAMBIO_CORREO = 'Correo cambiado';
 
 const ROLES_PERMITIDOS = ['ADMINISTRADOR', 'OPERADOR', 'EJECUTIVO', 'ASOCIADO'];
 const ESTADOS_PERMITIDOS = ['ACTIVO', 'INACTIVO'];
@@ -677,6 +681,9 @@ const updateUser = async (req, res) => {
     }
 
     const updatedEmail = email ? email.trim().toLowerCase() : currentUser.email;
+    if (email && !/^[^\s@<>"']+@[^\s@<>"']+\.[^\s@<>"']+$/.test(updatedEmail)) {
+      return res.status(400).json({ success: false, message: 'Revise el correo. Debe verse así: nombre@correo.com.' });
+    }
     const updatedCodigoCorp = codigo_corporativo ? codigo_corporativo.trim() : currentUser.codigo_corporativo;
 
     if (codigo_corporativo && !/^(AD|OP|EJ|EX|EB)-[0-9]+$/i.test(updatedCodigoCorp) && !/^[0-9]{4}$/.test(updatedCodigoCorp)) {
@@ -824,6 +831,26 @@ const updateUser = async (req, res) => {
       [updatedCodigoCorp, updatedEmail, password_hash, rolId, estadoUpper, targetUserId]
     );
 
+    // 7.1 Cambio de correo: queda en la auditoría con el valor anterior y, después del COMMIT, se avisa al correo
+    //     anterior. El reinicio de contraseña espera un tiempo tras el cambio (ver resetPasswordUsuario).
+    const cambiaCorreo = String(currentUser.email || '').toLowerCase() !== String(updatedEmail || '').toLowerCase();
+    if (cambiaCorreo) {
+      await client.query(
+        `INSERT INTO historial_estados_usuario
+          (id_usuario_modificado, estado_anterior, estado_nuevo, id_rol_anterior, id_rol_nuevo, id_modificado_por, motivo, ip_origen, user_agent)
+         VALUES ($1, $2, $2, $3, $3, $4, $5, $6, $7)`,
+        [
+          targetUserId,
+          currentUser.estado,
+          currentUser.id_rol,
+          req.user?.id_usuario || null,
+          `${MOTIVO_CAMBIO_CORREO}: «${currentUser.email}» → «${updatedEmail}»`,
+          getClientIp(req),
+          getUserAgent(req),
+        ]
+      );
+    }
+
     // 8. Registrar en historial de auditoría si cambió rol o estado
     const cambiaAcceso = currentUser.estado !== estadoUpper || currentUser.id_rol !== rolId;
     if (cambiaAcceso) {
@@ -853,6 +880,24 @@ const updateUser = async (req, res) => {
     if (cambiaAcceso) {
       socketService.disconnectUser(targetUserId);
       socketService.broadcastPresence(targetUserId, false);
+    }
+    // El aviso es lo que permite reclamar a tiempo: si no sale, se le dice al administrador
+    let avisoEnviado = null;
+    if (cambiaCorreo && currentUser.email) {
+      avisoEnviado = false;
+      try {
+        const aviso = await mailerService.sendUserEmailChangedNotice({
+          to: currentUser.email,
+          nombre: personaActual.primer_nombre,
+          codigoCorporativo: updatedCodigoCorp,
+          correoNuevo: updatedEmail,
+          horasEspera: SEGURIDAD.HORAS_ESPERA_REINICIO_TRAS_CAMBIO_CORREO,
+        });
+        avisoEnviado = mailerService.wasSent(aviso);
+      } catch (avisoError) {
+        console.warn('[WARN] No se pudo avisar al correo anterior del usuario:', avisoError.message);
+      }
+      if (!avisoEnviado) console.warn(`[WARN] El aviso de cambio de correo del usuario ${updatedCodigoCorp} no se envió.`);
     }
 
     // 9. Consultar datos consolidados
@@ -888,8 +933,12 @@ const updateUser = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: 'Cambios guardados.',
+      message: avisoEnviado === false
+        ? 'Cambios guardados, pero no se pudo avisar del cambio al correo anterior. Avísele a la persona por otro medio.'
+        : 'Cambios guardados.',
       data: updatedUserRes.rows[0],
+      // null si no cambió el correo
+      aviso_enviado: avisoEnviado,
     });
   } catch (error) {
     await client.query('ROLLBACK');
@@ -1366,6 +1415,27 @@ const resetPasswordUsuario = async (req, res) => {
         success: false,
         error: 'CORREO_NO_DISPONIBLE',
         message: 'No se puede reiniciar la contraseña porque el correo de la cooperativa no está funcionando. Configúrelo en «Correo de notificaciones» y vuelva a intentarlo. La contraseña actual no se cambió.',
+      });
+    }
+
+    // Si el correo cambió hace poco, la temporal no se envía todavía: el correo anterior recibió un aviso y la
+    // persona tiene tiempo de reclamar si no lo pidió
+    const horasEspera = SEGURIDAD.HORAS_ESPERA_REINICIO_TRAS_CAMBIO_CORREO;
+    // El registro se reconoce por su forma completa («Correo cambiado: «anterior» → «actual»»), no solo por el
+    // inicio: el motivo de otros cambios lo escribe el administrador y podría empezar igual
+    const cambioReciente = await client.query(
+      `SELECT 1 FROM historial_estados_usuario
+       WHERE id_usuario_modificado = $1
+         AND starts_with(motivo, $2) AND right(motivo, char_length($3)) = $3
+         AND fecha_cambio > CURRENT_TIMESTAMP - make_interval(hours => $4)
+       LIMIT 1`,
+      [targetUserId, `${MOTIVO_CAMBIO_CORREO}: «`, `» → «${current.email}»`, horasEspera]
+    );
+    if (cambioReciente.rowCount > 0) {
+      return res.status(409).json({
+        success: false,
+        error: 'CORREO_CAMBIADO_RECIENTEMENTE',
+        message: `El correo de este usuario cambió hace menos de ${horasEspera} horas. Por seguridad, su contraseña se puede reiniciar cuando pase ese tiempo.`,
       });
     }
 

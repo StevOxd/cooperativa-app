@@ -16,7 +16,7 @@ process.env.CODIGO_VERIFICACION_DEV = '246810';
  * - El alta de usuarios no acepta una contraseña elegida por quien lo crea.
  * - Solo el ejecutivo aprueba créditos, si los elevó un operador y no fue él mismo (comité de crédito).
  * - El depósito en ventanilla al banco es solo para un colaborador del banco que se afilia, exige el DPI del
- *   titular, tiene tope por depósito y acumulados del día, y queda registrado; abrir una cuenta en el banco
+ *   titular, entra en el tope de efectivo por persona al día, y queda registrado; abrir una cuenta en el banco
  *   desde la cooperativa no le pone saldo ni crea clientes.
  *
  * Usa el backend en proceso (puerto efímero), el banco y la base de datos locales; el depósito y la apertura
@@ -361,7 +361,7 @@ const testServer = server.listen(0, async () => {
       const depositar = (datos) => request('/api/banco-externo/acreditar', 'POST', datos, tokenVentanilla);
 
       const sinDpi = await depositar({ numero_cuenta: 'CTA-BCO-PROPIA', monto: 100 });
-      const sobreTope = await depositar({ cui_dpi: dpiColaborador, numero_cuenta: 'CTA-BCO-PROPIA', monto: 5000.01 });
+      const sobreTope = await depositar({ cui_dpi: dpiColaborador, numero_cuenta: 'CTA-BCO-PROPIA', monto: 100000.01 });
       const ajena = await depositar({ cui_dpi: dpiColaborador, numero_cuenta: 'CTA-BCO-AJENA', monto: 100 });
       const montosInvalidos = await Promise.all(['1.234', 'abc', -5, 0].map((monto) =>
         depositar({ cui_dpi: dpiColaborador, numero_cuenta: 'CTA-BCO-PROPIA', monto })));
@@ -408,18 +408,15 @@ const testServer = server.listen(0, async () => {
       enviadosAlBanco.length = 0;
       const aExterno = await depositar({ cui_dpi: dpiExterno, numero_cuenta: `CTA-BCO-DPI-${dpiExterno}`, monto: 10 });
       assert(aExterno.status === 403 && enviadosAlBanco.length === 0, 'No se deposita a un cliente del banco que no es colaborador (403)');
-      // El colaborador ya lleva Q170 hoy (150 acreditados y 20 sin confirmar): Q4,900 más pasan el tope de Q5,000
-      const sobreTopeDia = await depositar({ cui_dpi: dpiColaborador, numero_cuenta: 'CTA-BCO-PROPIA', monto: 4900 });
-      assert(sobreTopeDia.status === 400 && enviadosAlBanco.length === 0, 'Un colaborador no recibe más del tope del día (400)');
-      // El operador lleva Q170: tres depósitos de Q5,000 a otros colaboradores pasan; el cuarto supera Q20,000
+      // El colaborador ya lleva Q170 hoy (150 acreditados y 20 sin confirmar): Q99,900 más pasan el tope de Q100,000
+      const sobreTopeDia = await depositar({ cui_dpi: dpiColaborador, numero_cuenta: 'CTA-BCO-PROPIA', monto: 99900 });
+      assert(sobreTopeDia.status === 400 && enviadosAlBanco.length === 0, 'Una persona no recibe más del tope de efectivo del día (400)');
+      // Sin tope por operador: depósitos grandes a varios colaboradores pasan
       const porOperador = [];
       for (const dpi of dpiOtrosColaboradores) {
-        porOperador.push((await depositar({ cui_dpi: dpi, numero_cuenta: `CTA-BCO-DPI-${dpi}`, monto: 5000 })).status);
+        porOperador.push((await depositar({ cui_dpi: dpi, numero_cuenta: `CTA-BCO-DPI-${dpi}`, monto: 50000 })).status);
       }
-      assert(
-        porOperador.join(',') === '200,200,200,400',
-        `Un operador no registra más del tope del día en depósitos (${porOperador.join(', ')})`
-      );
+      assert(porOperador.every((st) => st === 200), `El operador no tiene tope propio en el día (${porOperador.join(', ')})`);
 
       enviadosAlBanco.length = 0;
       await request('/api/banco-externo/aperturar', 'POST', {

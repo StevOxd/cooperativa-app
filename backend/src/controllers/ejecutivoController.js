@@ -1,8 +1,16 @@
 const db = require('../config/db');
 const socketService = require('../services/socketService');
 const bancoApiService = require('../services/bancoApiService');
-const { saveBase64File } = require('../utils/fileStorage');
+const { saveBase64File, eliminarArchivoGuardado, eliminarPdfDeCreditoSinUso } = require('../utils/fileStorage');
 const { errorDeNegocio, respuestaDeError } = require('../utils/errores');
+const {
+  revertirOAnotar,
+  errorTrasCommitFallido,
+  hayReversionPendiente,
+  movimientoSinRegistrar,
+  revertirMovimientoSinRegistrar,
+  avisoDeReversion,
+} = require('../services/reversionesService');
 
 /**
  * Obtener solicitudes de crédito para revisión y resolución de la Gerencia Ejecutiva
@@ -93,8 +101,8 @@ const getBandejaCreditos = async (req, res) => {
  * 3. DENEGAR: Rechaza formal y definitivamente la solicitud de crédito.
  *
  * En ACEPTAR, el desembolso a una cuenta del banco es el último paso antes del COMMIT (issue #54): si el banco
- * falla no se aprueba nada. Si falla el COMMIT, se confirma el estado con otra conexión y, si la solicitud no
- * quedó aprobada, se retira el dinero del banco; si tampoco se puede, se pide no reintentar y conciliar.
+ * falla no se aprueba nada. Si falla el COMMIT, `revertirOAnotar` confirma el estado con otra conexión y, si la
+ * solicitud no quedó aprobada, retira el dinero del banco; si tampoco puede, queda en «Conciliación».
  *
  * POST /api/ejecutivo/creditos/:id/resolver
  *
@@ -128,6 +136,10 @@ const resolverSolicitudCredito = async (req, res) => {
 
   const client = await db.pool.connect();
   let conexionRota = false;
+  // El PDF del ejecutivo se borra si la resolución no se completa (issue #63)
+  let fileData = null;
+  // Si el COMMIT informa un error, pudo aplicarse igual: el PDF se borra solo si la solicitud no lo guardó
+  let commitIntentado = false;
   try {
     await client.query('BEGIN');
 
@@ -160,6 +172,17 @@ const resolverSolicitudCredito = async (req, res) => {
       });
     }
 
+    // La referencia del desembolso es la de la solicitud: si un intento anterior agotó el tiempo pero el banco sí
+    // acreditó, el banco no acredita dos veces. Si ese intento quedó por revertir, no se vuelve a aprobar.
+    const referenciaSolicitud = bancoApiService.referenciaDeOperacion(`SOL-CRED-${sol.id_solicitud_credito}`, sol.fecha_solicitud);
+    if (accion === 'ACEPTAR' && await hayReversionPendiente(client, referenciaSolicitud)) {
+      await client.query('ROLLBACK');
+      return res.status(409).json({
+        success: false,
+        message: 'Un intento anterior de esta solicitud quedó pendiente de conciliar con el banco. Pida al administrador que lo concilie en «Conciliación» antes de aprobarla.',
+      });
+    }
+
     // Cuatro ojos: una solicitud se aprueba solo si la elevó un operador, y no la aprueba quien la elevó
     if (accion === 'ACEPTAR' && !sol.id_operador_revisa) {
       await client.query('ROLLBACK');
@@ -183,8 +206,17 @@ const resolverSolicitudCredito = async (req, res) => {
       }
     }
 
+    // Al devolver o denegar: un intento anterior de aprobarla pudo dejar el desembolso en el banco sin registrar (un
+    // tiempo agotado). Se busca ahora (sin poder consultar el banco no se resuelve) y se retira después del COMMIT.
+    const sinRegistrar = accion === 'ACEPTAR' ? null : await movimientoSinRegistrar(referenciaSolicitud, 'CREDITO');
+    const revertirIntentoAnterior = () => revertirMovimientoSinRegistrar(sinRegistrar, {
+      origen: 'DESEMBOLSO_CREDITO',
+      concepto: `Reversión de desembolso: la solicitud #${sol.id_solicitud_credito} no se aprobó`,
+      detalle: `Solicitud de crédito #${sol.id_solicitud_credito} (${accion === 'DEVOLVER' ? 'devuelta' : 'denegada'})`,
+      clave: sol.id_solicitud_credito,
+    });
+
     // Procesar archivo firmado si fue adjuntado por el Ejecutivo
-    let fileData = null;
     if (documento_firmado) {
       fileData = await saveBase64File(
         documento_firmado,
@@ -221,7 +253,9 @@ const resolverSolicitudCredito = async (req, res) => {
 
       const updateRes = await client.query(devolverQuery, devolverParams);
 
+      commitIntentado = true;
       await client.query('COMMIT');
+      const reversion = await revertirIntentoAnterior();
 
       // Notificaciones WebSocket
       try {
@@ -242,7 +276,7 @@ const resolverSolicitudCredito = async (req, res) => {
 
       return res.status(200).json({
         success: true,
-        message: `La solicitud #${id} se devolvió al operador con sus observaciones.`,
+        message: `La solicitud #${id} se devolvió al operador con sus observaciones.${avisoDeReversion(reversion)}`,
         data: updateRes.rows[0],
       });
     }
@@ -277,7 +311,9 @@ const resolverSolicitudCredito = async (req, res) => {
 
       const updateRes = await client.query(denegarQuery, denegarParams);
 
+      commitIntentado = true;
       await client.query('COMMIT');
+      const reversion = await revertirIntentoAnterior();
 
       // Notificaciones WebSocket
       try {
@@ -292,7 +328,7 @@ const resolverSolicitudCredito = async (req, res) => {
 
       return res.status(200).json({
         success: true,
-        message: `Se denegó la solicitud #${id}.`,
+        message: `Se denegó la solicitud #${id}.${avisoDeReversion(reversion)}`,
         data: updateRes.rows[0],
       });
     }
@@ -357,12 +393,11 @@ const resolverSolicitudCredito = async (req, res) => {
         throw errorDeNegocio(404, 'No encontramos la cuenta del banco de destino entre las del asociado.');
       }
 
-      // La referencia usa el id de la solicitud tal como está guardado (no el texto de la URL, que puede traer ceros)
       acreditacionBanco = {
         numero_cuenta: cuentaDestino.numero_cuenta_bancaria,
         monto,
         concepto: `Desembolso de Crédito Aprobado por Ejecutivo - Solicitud #${sol.id_solicitud_credito}`,
-        referencia: `SOL-CRED-${sol.id_solicitud_credito}`,
+        referencia: referenciaSolicitud,
       };
     } else if (cuentaCoopId) {
       const coopRes = await client.query(`
@@ -433,48 +468,46 @@ const resolverSolicitudCredito = async (req, res) => {
 
     // Acreditación en el banco (último paso): si falla, el ROLLBACK deshace lo de la cooperativa
     if (acreditacionBanco) {
-      const acreRes = await bancoApiService.acreditarCuenta(acreditacionBanco);
+      const acreRes = await bancoApiService.acreditarConReferenciaDeOperacion(acreditacionBanco);
       if (!acreRes.success) {
-        console.error(`[ERROR] El banco no acreditó ${acreditacionBanco.referencia} (${acreRes.status}):`, acreRes.message);
-        // Sin respuesta a tiempo no se sabe si el banco acreditó: no se invita a reintentar a ciegas
+        console.error(`[ERROR] El banco no acreditó ${acreRes.referencia_usada} (${acreRes.status}):`, acreRes.message);
         if (acreRes.status === 504) {
-          throw errorDeNegocio(504, `El banco no confirmó a tiempo. Antes de reintentar, verifique en el banco si entró el desembolso (referencia ${acreditacionBanco.referencia}).`);
+          throw errorDeNegocio(504, 'El banco no confirmó a tiempo. Puede intentarlo de nuevo: si el desembolso ya había entrado, no se acredita dos veces.');
         }
+        // Por ejemplo, un intento anterior acreditó en otra cuenta del asociado
+        const porReferencia = bancoApiService.mensajePorReferencia(acreRes);
+        if (porReferencia) throw errorDeNegocio(409, porReferencia);
         throw acreRes.status >= 500 || !acreRes.status
           ? errorDeNegocio(502, 'El banco no respondió. No se desembolsó nada: intente de nuevo en unos minutos.')
           : errorDeNegocio(409, 'El banco rechazó la acreditación en la cuenta de destino. Revise la cuenta del asociado.');
       }
+      acreditacionBanco.referencia = acreRes.referencia_usada;
+      // El banco devolvió el desembolso de un intento anterior: si ese intento se está revirtiendo, no se aprueba
+      if (acreRes.idempotente && await hayReversionPendiente(client, acreditacionBanco.referencia)) {
+        throw errorDeNegocio(409, 'Un intento anterior de esta solicitud se está revirtiendo en el banco. Espere a que termine y vuelva a intentarlo.');
+      }
     }
 
     try {
+      commitIntentado = true;
       await client.query('COMMIT');
     } catch (commitError) {
       if (!acreditacionBanco) throw commitError;
-      // El dinero ya entró al banco. Si se cayó la conexión, el COMMIT pudo aplicarse: se confirma con otra
-      // conexión antes de revertir, para no retirar el dinero de un crédito que sí quedó aprobado.
-      const referencia = acreditacionBanco.referencia;
-      const estadoReal = await db
-        .query('SELECT estado FROM solicitudes_credito WHERE id_solicitud_credito = $1', [sol.id_solicitud_credito])
-        .then((r) => r.rows[0]?.estado || null)
-        .catch(() => null);
-      if (estadoReal !== 'APROBADA') {
-        const reversion = estadoReal
-          ? await bancoApiService.debitarCuenta({
-            numero_cuenta: acreditacionBanco.numero_cuenta,
-            cui_dpi: sol.cui_dpi,
-            monto,
-            concepto: `Reversión de desembolso no completado - Solicitud #${sol.id_solicitud_credito}`,
-            referencia: `REV-${referencia}`,
-          })
-          : null;
-        if (!reversion?.success) {
-          // El dinero quedó en el banco sin crédito aprobado: un reintento lo desembolsaría dos veces
-          console.error(`[ERROR] Desembolso ${referencia} sin conciliar (estado: ${estadoReal || 'desconocido'}):`, reversion?.message || 'no se pudo leer el estado');
-          throw errorDeNegocio(500, `La aprobación no se completó y el desembolso quedó en el banco. No la reintente: pida al administrador conciliar la solicitud #${sol.id_solicitud_credito} (referencia ${referencia}).`);
-        }
-        throw commitError;
-      }
-      console.warn(`[WARN] El COMMIT del desembolso ${referencia} informó un error, pero la solicitud quedó aprobada.`);
+      // El dinero ya entró al banco: se retira, o queda en «Conciliación» si no se puede. Si el COMMIT sí se aplicó
+      // (se confirma con otra conexión), la solicitud quedó aprobada y se responde como tal.
+      const reversion = await revertirOAnotar({
+        origen: 'DESEMBOLSO_CREDITO',
+        tipo: 'DEBITO',
+        numeroCuenta: acreditacionBanco.numero_cuenta,
+        cui: sol.cui_dpi,
+        monto,
+        referencia: acreditacionBanco.referencia,
+        concepto: `Reversión de desembolso no completado - Solicitud #${sol.id_solicitud_credito}`,
+        detalle: `Solicitud de crédito #${sol.id_solicitud_credito}`,
+        clave: sol.id_solicitud_credito,
+        pid: client.processID,
+      });
+      if (!reversion.aplicada) throw errorTrasCommitFallido(reversion, commitError, acreditacionBanco.referencia);
     }
 
     // Notificaciones WebSocket
@@ -502,6 +535,9 @@ const resolverSolicitudCredito = async (req, res) => {
   } catch (error) {
     // Si ni el ROLLBACK responde, la conexión se descarta en lugar de volver al pool
     await client.query('ROLLBACK').catch(() => { conexionRota = true; });
+    // La resolución no se completó: el PDF sobra, salvo que un COMMIT que informó un error sí lo haya guardado
+    if (commitIntentado) await eliminarPdfDeCreditoSinUso(fileData);
+    else await eliminarArchivoGuardado(fileData);
     console.error('Error en ejecutivoController.resolverSolicitudCredito:', error);
     const { status, message } = respuestaDeError(error, 'No se pudo resolver la solicitud de crédito. Intente de nuevo.');
     return res.status(status).json({ success: false, message });

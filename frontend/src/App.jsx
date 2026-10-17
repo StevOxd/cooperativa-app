@@ -15,6 +15,7 @@ const UsersPage = lazy(() => import('./pages/UsersPage'));
 const CreditSimulatorPage = lazy(() => import('./pages/CreditSimulatorPage'));
 const PublicAffiliationPage = lazy(() => import('./pages/PublicAffiliationPage'));
 const AssociatesManagementPage = lazy(() => import('./pages/AssociatesManagementPage'));
+const ConciliacionPage = lazy(() => import('./pages/ConciliacionPage'));
 
 function App() {
   return (
@@ -52,6 +53,14 @@ function App() {
                     element={
                       <RoleProtectedRoute allowedRoles={['ADMINISTRADOR']}>
                         <UsersPage />
+                      </RoleProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/conciliacion"
+                    element={
+                      <RoleProtectedRoute allowedRoles={['ADMINISTRADOR']}>
+                        <ConciliacionPage />
                       </RoleProtectedRoute>
                     }
                   />

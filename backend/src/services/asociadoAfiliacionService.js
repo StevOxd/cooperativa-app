@@ -10,9 +10,17 @@ const constants = require('../config/constants');
 const mailerService = require('./mailerService');
 const bancoApiService = require('./bancoApiService');
 const { getNextCorporateCode, resolvePrefix, generateSecureRandomPassword } = require('../utils/codeGenerator');
-const { validateCui, validateAge18, validateMinimumAmount } = require('../middlewares/validationMiddleware');
+const { validateCui, validateAge18 } = require('../middlewares/validationMiddleware');
 const { decidirAccesoPortal } = require('../utils/accesoPortal');
 const { estadoPorFalloDelBanco } = require('../utils/errores');
+const { leerMonto } = require('../utils/montos');
+const { registrarEfectivo } = require('./efectivoVentanillaService');
+const {
+  revertirOAnotar,
+  anotarSinConfirmar,
+  errorTrasCommitFallido,
+  hayAperturaPorRevertirDelDpi,
+} = require('./reversionesService');
 
 class AsociadoAfiliacionService {
   /**
@@ -143,14 +151,14 @@ class AsociadoAfiliacionService {
     const acceso = await decidirAccesoPortal(crear_acceso_portal, email);
     const cleanEmail = acceso.email;
 
-    // Mínimo inclusivo: Q100.00 se acepta
-    const montoCheck = validateMinimumAmount(monto_aportacion, constants.FINANCIERO.MONTO_MINIMO_APORTACION);
-    if (!montoCheck.valid) {
+    // Número válido (no «12abc» ni NaN); mínimo inclusivo: Q100.00 se acepta. El efectivo (EX) cuenta además para
+    // el tope del día por persona (registrarEfectivo); el débito al banco (EB) no.
+    const montoAporte = leerMonto(monto_aportacion, 'la aportación');
+    if (montoAporte < constants.FINANCIERO.MONTO_MINIMO_APORTACION) {
       const error = new Error(`La aportación inicial de membresía no puede ser inferior a Q${constants.FINANCIERO.MONTO_MINIMO_APORTACION.toFixed(2)}.`);
       error.statusCode = 400;
       throw error;
     }
-    const montoAporte = montoCheck.value;
 
     // Identidad del asociado: la que ya tiene la cooperativa (personal) o la del formulario
     const identidad = personaPrevia
@@ -201,6 +209,7 @@ class AsociadoAfiliacionService {
 
     // 3. Transacción ACID para persistir el asociado completo
     const client = await pool.connect();
+    let conexionRota = false;
     try {
       await client.query('BEGIN');
 
@@ -306,7 +315,35 @@ class AsociadoAfiliacionService {
       // 4.8 Operación con el banco (al final): EX abre su cuenta con el efectivo; EB debita el aporte.
       let cuentaBancariaAperturada = null;
       let debitoRealizado = false;
+      const reversionDelDebito = {
+        origen: 'AFILIACION_PRESENCIAL',
+        tipo: 'CREDITO',
+        numeroCuenta: cuentaBancoEb,
+        cui: cuiLimpio,
+        monto: montoAporte,
+        referencia: referenciaBanco,
+        concepto: 'Reversión de aporte: la afiliación no se completó',
+        detalle: `Afiliación presencial del DPI ${cuiLimpio}`,
+        clave: asociado.id_asociado,
+      };
+      // A EX se le retira el depósito de la cuenta que se abrió (DEBITO)
+      const reversionDeLaApertura = { tipo: 'DEBITO', concepto: 'Reversión de depósito: la afiliación no se completó' };
       if (tipoAsociadoDeterminado === 'EX') {
+        // Si un intento anterior dejó una cuenta del banco con el depósito por retirar, no se abre otra hasta
+        // conciliarlo: la persona tendría el depósito dos veces
+        if (await hayAperturaPorRevertirDelDpi(client, cuiLimpio)) {
+          const error = new Error('Un intento anterior de afiliar a esta persona quedó pendiente de conciliar con el banco. Pida al administrador que lo concilie en «Conciliación».');
+          error.statusCode = 409;
+          throw error;
+        }
+        // El aporte en efectivo queda registrado (y cuenta para el tope del día de la persona)
+        await registrarEfectivo(client, {
+          idOperador: operadorId,
+          cui: cuiLimpio,
+          monto: montoAporte,
+          origen: 'AFILIACION_PRESENCIAL',
+          referencia: referenciaBanco,
+        });
         const bcoRes = await bancoApiService.aperturarCuentaBancaria({
           cui_dpi: cuiLimpio,
           primer_nombre: identidad.primer_nombre,
@@ -322,7 +359,16 @@ class AsociadoAfiliacionService {
           referencia: referenciaBanco,
         });
         if (!bcoRes.success || !bcoRes.data) {
-          const error = new Error(bcoRes.message || 'No se pudo abrir la cuenta de ahorro en el banco. No se registró la afiliación.');
+          // Sin respuesta a tiempo no se sabe si el banco abrió la cuenta: queda en «Conciliación» (la cuenta se toma
+          // del movimiento al conciliar) y, hasta resolverlo, a esta persona no se le abre otra
+          const anotado = bcoRes.status === 504 && await anotarSinConfirmar({
+            ...reversionDelDebito,
+            ...reversionDeLaApertura,
+            numeroCuenta: null,
+          });
+          const error = new Error(anotado
+            ? `El banco no respondió a tiempo. Si llegó a abrir la cuenta, el administrador retirará ese depósito desde «Conciliación» (referencia ${referenciaBanco}); después podrá repetir la afiliación.`
+            : bcoRes.message || 'No se pudo abrir la cuenta de ahorro en el banco. No se registró la afiliación.');
           error.statusCode = 502;
           throw error;
         }
@@ -336,10 +382,14 @@ class AsociadoAfiliacionService {
           referencia: referenciaBanco,
         });
         if (!debitRes.success || debitRes.status !== 200) {
+          // Sin respuesta a tiempo el débito pudo hacerse: queda en «Conciliación» para devolverlo si entró
+          const anotado = debitRes.status === 504 && await anotarSinConfirmar(reversionDelDebito);
           const error = new Error(
             debitRes.status === 403
               ? 'La cuenta del banco no pertenece a este asociado.'
-              : debitRes.message || 'No se pudo debitar la cuenta del banco. No se registró la afiliación.'
+              : anotado
+                ? `El banco no respondió a tiempo. Si llegó a debitar, el administrador lo devolverá desde «Conciliación» (referencia ${referenciaBanco}). Puede intentarlo de nuevo en unos minutos.`
+                : debitRes.message || 'No se pudo debitar la cuenta del banco. No se registró la afiliación.'
           );
           error.statusCode = estadoPorFalloDelBanco(debitRes.status);
           throw error;
@@ -350,20 +400,14 @@ class AsociadoAfiliacionService {
       try {
         await client.query('COMMIT');
       } catch (commitError) {
-        // El débito ya salió del banco: se devuelve para no dejar el dinero en el aire (mismo problema del issue #31)
-        if (debitoRealizado) {
-          // acreditarCuenta no lanza errores: devuelve success false
-          const reversion = await bancoApiService.acreditarCuenta({
-            numero_cuenta: cuentaBancoEb,
-            monto: montoAporte,
-            concepto: 'Reversión de aporte: la afiliación no se completó',
-            referencia: `REV-${referenciaBanco}`,
-          });
-          if (!reversion.success) {
-            console.error(`[AFILIACION] No se pudo revertir el débito ${referenciaBanco}:`, reversion.message);
-          }
-        }
-        throw commitError;
+        // El dinero ya se movió en el banco (issue #31): EB recupera su débito; a EX se le retira el aporte de la
+        // cuenta que se abrió. Si no se puede, queda en «Conciliación». Si el COMMIT sí se aplicó (se confirma con
+        // otra conexión), la afiliación quedó hecha y se sigue.
+        if (!debitoRealizado && !cuentaBancariaAperturada) throw commitError;
+        const reversion = await revertirOAnotar(debitoRealizado
+          ? { ...reversionDelDebito, pid: client.processID }
+          : { ...reversionDelDebito, ...reversionDeLaApertura, numeroCuenta: cuentaBancariaAperturada, pid: client.processID });
+        if (!reversion.aplicada) throw errorTrasCommitFallido(reversion, commitError, referenciaBanco);
       }
 
       // 4.9 Despacho de Correo Institucional con Credenciales y QR de 2FA, después del COMMIT:
@@ -400,10 +444,11 @@ class AsociadoAfiliacionService {
         tipo_asociado: tipoAsociadoDeterminado,
       };
     } catch (txError) {
-      await client.query('ROLLBACK');
+      // Si ni el ROLLBACK responde, la conexión se descarta en lugar de volver al pool
+      await client.query('ROLLBACK').catch(() => { conexionRota = true; });
       throw txError;
     } finally {
-      client.release();
+      client.release(conexionRota);
     }
   }
 }

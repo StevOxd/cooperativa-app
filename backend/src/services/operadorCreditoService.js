@@ -7,7 +7,7 @@
 const db = require('../config/db');
 const creditScoringService = require('./creditScoringService');
 const socketService = require('./socketService');
-const { saveBase64File } = require('../utils/fileStorage');
+const { saveBase64File, eliminarArchivoGuardado, eliminarPdfDeCreditoSinUso } = require('../utils/fileStorage');
 
 /**
  * Obtiene la evaluación crediticia y scoring para una solicitud de crédito
@@ -128,10 +128,27 @@ const elevarCredito = async ({ idSolicitud, idOperador, dictamen_operador, docum
     updateParams.push(fileData.relativeUrl, fileData.filename, fileData.sizeBytes);
   }
 
-  updateQuery += ` WHERE id_solicitud_credito = $${updateParams.length + 1} RETURNING *`;
-  updateParams.push(idSolicitud);
+  // Solo si sigue en el estado que se revisó (issue #62): una aprobación hecha mientras tanto no vuelve a la bandeja
+  // del ejecutivo, y un firmado que el asociado suba mientras tanto no se eleva sin que nadie lo revise
+  updateQuery += ` WHERE id_solicitud_credito = $${updateParams.length + 1} AND estado = $${updateParams.length + 2} RETURNING *`;
+  updateParams.push(idSolicitud, sol.estado);
 
-  const updateRes = await db.query(updateQuery, updateParams);
+  let updateRes;
+  try {
+    updateRes = await db.query(updateQuery, updateParams);
+  } catch (updateError) {
+    // El UPDATE se confirma solo: pudo aplicarse aunque la respuesta se perdiera
+    await eliminarPdfDeCreditoSinUso(fileData);
+    throw updateError;
+  }
+  if (updateRes.rowCount === 0) {
+    await eliminarArchivoGuardado(fileData);
+    return {
+      status: 409,
+      success: false,
+      message: 'La solicitud cambió de estado mientras la revisaba. Vuelva a abrirla.',
+    };
+  }
 
   // Notificaciones en tiempo real por WebSockets
   try {

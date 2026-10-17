@@ -8,9 +8,9 @@ import { toast } from '../../context/ToastContext';
 import { PortalAccessOption } from '../common/PortalAccessOption';
 import { useCorreoDisponible } from '../../hooks/useCorreoDisponible';
 
-// Tope de un depósito en ventanilla a la cuenta del banco mientras no llega el del servidor
-// (FINANCIERO.DEPOSITO_VENTANILLA_BANCO_MAXIMO, viene en GET /banco-externo/cuentas-cliente)
-const TOPE_DEPOSITO_VENTANILLA = 5000;
+// Tope del efectivo en ventanilla por persona al día mientras no llega el del servidor
+// (FINANCIERO.EFECTIVO_VENTANILLA_DIARIO_POR_PERSONA, viene en GET /banco-externo/cuentas-cliente)
+const TOPE_DEPOSITO_VENTANILLA = 100000;
 const formatoTope = (tope) => `Q${tope.toLocaleString('es-GT', { minimumFractionDigits: 2 })}`;
 
 const FORM_ID = 'nuevo-asociado';
@@ -401,8 +401,8 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess, onAbrirCuenta })
     }
   }, [formData.cui_dpi]);
 
-  // Depósito en ventanilla a la cuenta bancaria del colaborador: con tope por depósito y registrado a nombre
-  // de quien atiende (la referencia la genera el servidor)
+  // Depósito en ventanilla a la cuenta bancaria del colaborador: cuenta para el tope de efectivo del día de la
+  // persona y queda registrado a nombre de quien atiende (la referencia la genera el servidor)
   const handleAcreditarFondos = async () => {
     if (!cuentaBancoSeleccionada) {
       setAcreditarErrorMsg('Elija la cuenta del banco a la que se acreditará.');
@@ -414,7 +414,7 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess, onAbrirCuenta })
       return;
     }
     if (monto > topeDeposito) {
-      setAcreditarErrorMsg(`El depósito en ventanilla es de hasta ${formatoTope(topeDeposito)}.`);
+      setAcreditarErrorMsg(`El efectivo en ventanilla es de hasta ${formatoTope(topeDeposito)} por persona al día.`);
       return;
     }
 
@@ -1193,9 +1193,9 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess, onAbrirCuenta })
                       <p className="text-sm text-ink-soft">
                         Acreditar a la cuenta <span className="font-mono text-ink">{cuentaBancoSeleccionada}</span>
                       </p>
-                      <p className="text-xs text-ink-subtle">
-                        Hasta {formatoTope(topeDeposito)} por depósito, en efectivo recibido en ventanilla. Queda
-                        registrado a nombre de quien atiende.
+                      <p id="ayuda-monto-acreditar" className="text-xs text-ink-subtle">
+                        Hasta {formatoTope(topeDeposito)} por persona al día, sumando todo el efectivo recibido en
+                        ventanilla. Queda registrado a nombre de quien atiende.
                       </p>
                       {acreditarSuccessMsg && <Alert tone="success">{acreditarSuccessMsg}</Alert>}
                       {acreditarErrorMsg && <Alert tone="danger">{acreditarErrorMsg}</Alert>}
@@ -1210,6 +1210,7 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess, onAbrirCuenta })
                             value={montoAcreditar}
                             onChange={(e) => setMontoAcreditar(e.target.value)}
                             aria-label="Monto a acreditar"
+                            aria-describedby="ayuda-monto-acreditar"
                             className="tabular-nums"
                           />
                         </div>

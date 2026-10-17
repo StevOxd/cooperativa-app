@@ -391,7 +391,14 @@ const updateProfile = async (req, res) => {
       });
     }
 
-    const cleanPhone = telefono ? telefono.trim() : null;
+    // Como en el resto de formularios: 8 dígitos (se aceptan espacios o guiones al escribirlo)
+    const cleanPhone = typeof telefono === 'string' ? telefono.replace(/[\s-]/g, '') : '';
+    if (!/^\d{8}$/.test(cleanPhone)) {
+      return res.status(400).json({
+        success: false,
+        message: 'El teléfono debe tener 8 dígitos.',
+      });
+    }
 
     // Actualizar teléfono en la tabla personas
     const updateQuery = `

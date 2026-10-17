@@ -14,11 +14,12 @@ module.exports = Object.freeze({
     CREDITO_MONTO_MAXIMO: 500000.00,
     CREDITO_PLAZO_MINIMO_MESES: 3,
     CREDITO_PLAZO_MAXIMO_MESES: 120,
-    // Depósitos en ventanilla a la cuenta del banco de un colaborador que se afilia: tope por depósito y
-    // acumulados del día (por colaborador y por operador)
-    DEPOSITO_VENTANILLA_BANCO_MAXIMO: 5000.00,
-    DEPOSITO_VENTANILLA_BANCO_DIARIO_POR_DPI: 5000.00,
-    DEPOSITO_VENTANILLA_BANCO_DIARIO_POR_OPERADOR: 20000.00,
+    // Efectivo recibido en ventanilla (aportación, formalización, apertura de cuentas y depósito al banco):
+    // tope por persona al día, sumando todas las vías. Sin tope por operador (decisión de negocio).
+    EFECTIVO_VENTANILLA_DIARIO_POR_PERSONA: 100000.00,
+    // Un movimiento que el banco no confirmó a tiempo se concilia pasado este tiempo: antes, su llamada al banco
+    // puede seguir en curso (el banco no lo tiene todavía y se cerraría como si no hubiera entrado)
+    MINUTOS_PARA_CONCILIAR: 2,
     CUENTA_APORTACIONES_ID: 1,
     CUENTA_AHORRO_DISPONIBLE_ID: 2,
     CUENTA_PLAZO_FIJO_ID: 3,
@@ -33,6 +34,9 @@ module.exports = Object.freeze({
     LONGITUD_CUI_DPI: 13,
     EDAD_MINIMA_LEGAL: 18,
     ADMIN_ROOT_CUI: '1000000000008',
+    // Tras cambiar el correo de un usuario, su contraseña no se reinicia hasta pasado este tiempo: el correo
+    // anterior recibe un aviso y la persona puede reclamar antes de que una temporal llegue al correo nuevo
+    HORAS_ESPERA_REINICIO_TRAS_CAMBIO_CORREO: 24,
   },
   ROLES: {
     ADMINISTRADOR: 'ADMINISTRADOR',
