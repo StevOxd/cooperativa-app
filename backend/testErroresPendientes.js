@@ -27,17 +27,18 @@ const db = require('./src/config/db');
 const bancoApiService = require('./src/services/bancoApiService');
 const { runMigrations } = require('./src/config/migrations');
 const { estadoPorFalloDelBanco } = require('./src/utils/errores');
-const { makeRequest, createTestReporter, crearUsuarioDePrueba, borrarPersonaDePrueba, purgarReversionesDePrueba } = require('./testHelper');
+const { makeRequest, createTestReporter, crearUsuarioDePrueba, borrarPersonaDePrueba, purgarReversionesDePrueba, poolDueno } = require('./testHelper');
 
 const PDF = `data:application/pdf;base64,${Buffer.from('%PDF-1.4 prueba').toString('base64')}`;
 const CARPETA_CREDITOS = path.join(__dirname, 'uploads', 'creditos');
 
 /**
  * Número de caso que genera un trigger cuando su secuencia va en `valor`. Usa una tabla temporal con el mismo
- * trigger y devuelve la secuencia a su valor anterior (setval no se deshace con ROLLBACK).
+ * trigger y devuelve la secuencia a su valor anterior (setval no se deshace con ROLLBACK). Lo hace el rol dueño:
+ * el de la aplicación no crea tablas temporales ni cambia secuencias.
  */
 const numeroDeCaso = async (funcion, secuencia, valor) => {
-  const client = await db.pool.connect();
+  const client = await poolDueno(db.pool).connect();
   try {
     const previo = (await client.query(`SELECT last_value, is_called FROM ${secuencia}`)).rows[0];
     await client.query('BEGIN');

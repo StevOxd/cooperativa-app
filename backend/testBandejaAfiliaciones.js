@@ -6,7 +6,9 @@
 
 require('dotenv').config({ path: __dirname + '/.env' });
 const db = require('./src/config/db');
-const { makeRequest, createTestReporter, purgarEfectivoDePrueba } = require('./testHelper');
+const { makeRequest, createTestReporter, purgarEfectivoDePrueba, poolDueno } = require('./testHelper');
+// Limpieza con el rol dueño: el de la aplicación no borra filas (salvo en las pocas tablas que el código limpia)
+const comoDueno = (sql, params) => poolDueno(db.pool).query(sql, params);
 
 const BASE_URL = process.env.TEST_BASE_URL || 'http://localhost:5001';
 
@@ -193,18 +195,18 @@ async function runTests() {
     try {
       if (formalizedSocio) {
         // Eliminar las cuentas abiertas en la cooperativa para este asociado y sus movimientos
-        await db.query(`
+        await comoDueno(`
           DELETE FROM transacciones 
           WHERE id_cuenta IN (SELECT id_cuenta FROM cuentas WHERE id_asociado = $1)
         `, [formalizedSocio.id_asociado]);
-        await db.query(`DELETE FROM cuentas WHERE id_asociado = $1`, [formalizedSocio.id_asociado]);
+        await comoDueno(`DELETE FROM cuentas WHERE id_asociado = $1`, [formalizedSocio.id_asociado]);
 
         // Eliminar asociado
-        await db.query(`DELETE FROM asociados WHERE id_asociado = $1`, [formalizedSocio.id_asociado]);
+        await comoDueno(`DELETE FROM asociados WHERE id_asociado = $1`, [formalizedSocio.id_asociado]);
 
         // Eliminar usuario (si se creó)
         if (formalizedSocio.usuario) {
-          await db.query(`DELETE FROM usuarios WHERE codigo_corporativo = $1`, [formalizedSocio.usuario]);
+          await comoDueno(`DELETE FROM usuarios WHERE codigo_corporativo = $1`, [formalizedSocio.usuario]);
         }
 
         console.log(`  [CLEANUP] Asociado temporal (${formalizedSocio.usuario}) y cuenta eliminados.`);

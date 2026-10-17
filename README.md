@@ -62,6 +62,7 @@ La solucion esta orquestada mediante contenedores Docker comunicados a traves de
 - **cooperativa-backend (Puerto 5001):** API REST principal construida sobre Express.js. Gestiona autenticacion, logica financiera, despacho de correos SMTP transaccionales y notificaciones en tiempo real con Socket.io.
 - **banco-backend (Puerto 5002):** Microservicio desacoplado que simula el Core Banking corporativo, exponiendo endpoints seguros protegidos por API Key inter-servicio para la consulta de clientes, cuentas bancarias y ejecucion de debitos ACH.
 - **cooperativa-db (Puerto 5432):** Servidor de base de datos relacional PostgreSQL 16 con esquemas normalizados en Tercera Forma Normal (3FN), secuencias atomicas, triggers de auditoria y volumen persistente administrado.
+- **db-roles (sin puerto):** Se ejecuta una vez en cada arranque, con el superusuario, y termina: prepara el rol dueño de las tablas y el rol de la aplicacion antes de que arranquen el backend y el banco.
 
 ---
 
@@ -143,6 +144,7 @@ El sistema implementa una estricta jerarquia de cuatro roles independientes. Se 
 8. **Acceso RBAC a Documentos:** La descarga de comprobantes y contratos escaneados no se realiza por directorio estatico publico, sino a traves de la ruta protegida `/api/uploads/*` validando titularidad y roles autorizados.
 9. **Afiliacion en Linea Verificada:** Comprobante firmado de la Banca en Linea, debito solo desde una cuenta del propio titular y correo confirmado con un codigo de 6 digitos antes de debitar o crear el caso.
 10. **Respuestas que no Revelan Cuentas:** El inicio de sesion, la Banca en Linea y la consulta publica del DPI responden igual exista o no la cuenta y sin datos personales, con limites de intentos por conexion.
+11. **Minimo Privilegio en la Base de Datos:** El backend y el banco se conectan con un rol que lee, agrega y modifica datos, pero no es superusuario, no crea tablas, no desactiva triggers, no modifica la auditoria ni los movimientos y solo borra en las pocas tablas que el codigo limpia (lo demas se desvincula por estado). Las migraciones usan un rol dueño aparte y el superusuario solo prepara los roles al arrancar.
 
 ---
 
@@ -179,15 +181,23 @@ Copie la plantilla de variables de entorno. Docker Compose lee el archivo `.env`
 cp .env.example .env
 ```
 
-Complete las tres claves obligatorias (`DB_PASSWORD`, `JWT_SECRET` y `BANCO_INTERNAL_API_KEY`) con valores propios. Para generar cada una:
+Complete las claves obligatorias (`DB_ADMIN_PASSWORD`, `DB_OWNER_PASSWORD`, `DB_PASSWORD`, `JWT_SECRET` y `BANCO_INTERNAL_API_KEY`) con valores propios. Para generar cada una:
 ```bash
 openssl rand -hex 32
 ```
 
-Las claves no tienen valor por defecto: si falta alguna, `docker compose` se detiene e indica cuál. `DB_PASSWORD` se usa al crear la base por primera vez; si la cambia después, recree el volumen con `docker compose down -v` (borra los datos).
+Las claves no tienen valor por defecto: si falta alguna, `docker compose` se detiene e indica cuál. `DB_ADMIN_PASSWORD` se usa al crear la base por primera vez; si la cambia después, recree el volumen con `docker compose down -v` (borra los datos). Las otras dos contraseñas de la base se pueden cambiar en cualquier momento: el servicio `db-roles` las aplica en cada arranque.
+
+**Roles de la base de datos.** El backend y el banco no usan el superusuario de PostgreSQL. El servicio `db-roles` se ejecuta una vez en cada arranque, con el superusuario (`DB_ADMIN_USER`), y deja tres roles con lo mínimo que necesita cada uno:
+
+| Rol | Variable | Para qué se usa |
+|:---|:---|:---|
+| Superusuario | `DB_ADMIN_USER` | Crear el volumen y ejecutar `db-roles`. Nadie más lo usa. |
+| Dueño | `DB_OWNER_USER` | Dueño de las bases y las tablas. Solo lo usan las migraciones al arrancar. |
+| Aplicación | `DB_USER` | Con el que trabajan el backend y el banco: lee, agrega y modifica datos, pero no crea tablas, no desactiva triggers, no modifica la auditoría ni los movimientos y solo borra en las pocas tablas que el código limpia. Las migraciones fijan estos permisos en cada arranque. |
 
 ### 9.3 Despliegue de los Servicios
-Construya y ejecute los 4 contenedores en segundo plano:
+Construya y ejecute los 4 contenedores en segundo plano (antes corre `db-roles`, que prepara los roles de la base y termina):
 ```bash
 docker compose up --build -d
 ```
@@ -211,6 +221,14 @@ Para detener los contenedores preservando los datos:
 docker compose down
 ```
 
+### 9.6 Actualizacion de una Instalacion Anterior a los Roles de Base de Datos
+Si su `.env` es anterior a los tres roles (solo tiene `DB_USER` y `DB_PASSWORD`), no hace falta borrar los datos:
+
+1. En `.env`, renombre `DB_USER` a `DB_ADMIN_USER` y `DB_PASSWORD` a `DB_ADMIN_PASSWORD`, sin cambiar sus valores (son los del superusuario que creó el volumen).
+2. Agregue `DB_OWNER_USER=cooperativa_owner`, `DB_USER=cooperativa_app` y una contraseña nueva para cada uno en `DB_OWNER_PASSWORD` y `DB_PASSWORD` (`openssl rand -hex 32`).
+3. Ejecute `docker compose up -d --build`. El servicio `db-roles` crea los dos roles y les pasa las tablas existentes; los datos no cambian.
+4. Si ejecuta el backend, el banco o las pruebas fuera de Docker, copie los mismos valores en `backend/.env` y `banco-backend/.env`.
+
 ---
 
 ## 10. Configuracion de Variables de Entorno
@@ -220,8 +238,12 @@ El archivo `.env` de la raíz (copia de `.env.example`) centraliza los parametro
 | Variable | Descripcion | Valor Predeterminado / Ejemplo |
 |:---|:---|:---|
 | `DB_NAME` | Nombre de la base de datos principal | `cooperativa_db` |
-| `DB_USER` | Usuario de conexion PostgreSQL | `cooperativa_user` |
-| `DB_PASSWORD` | Contrasena de la base de datos (**obligatoria**) | *(Generar con `openssl rand -hex 32`)* |
+| `DB_ADMIN_USER` | Superusuario de PostgreSQL (solo `db` y `db-roles`) | `cooperativa_user` |
+| `DB_ADMIN_PASSWORD` | Contrasena del superusuario (**obligatoria**) | *(Generar con `openssl rand -hex 32`)* |
+| `DB_OWNER_USER` | Rol dueño de las tablas (solo migraciones) | `cooperativa_owner` |
+| `DB_OWNER_PASSWORD` | Contrasena del rol dueño (**obligatoria**) | *(Generar con `openssl rand -hex 32`)* |
+| `DB_USER` | Rol con el que trabajan el backend y el banco | `cooperativa_app` |
+| `DB_PASSWORD` | Contrasena del rol de la aplicacion (**obligatoria**) | *(Generar con `openssl rand -hex 32`)* |
 | `DB_PORT` | Puerto de PostgreSQL en esta máquina | `5432` |
 | `BACKEND_PORT` | Puerto del backend en esta máquina | `5001` |
 | `JWT_SECRET` | Clave secreta para firma de tokens JWT (**obligatoria**) | *(Generar con `openssl rand -hex 32`)* |

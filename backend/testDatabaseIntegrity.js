@@ -8,6 +8,9 @@
 require('dotenv').config({ path: __dirname + '/.env' });
 const { Pool } = require('pg');
 const db = require('./src/config/db');
+const { poolDueno } = require('./testHelper');
+// Limpieza con el rol dueño: el de la aplicación no borra filas (salvo en las pocas tablas que el código limpia)
+const comoDueno = (sql, params) => poolDueno(db.pool).query(sql, params);
 
 // Configuración para conectarse a banco_db
 const bancoPoolConfig = {
@@ -105,7 +108,7 @@ async function runTests() {
     assert(triggerOk, `Trigger generó automáticamente correlativo atómico: ${casoCreado.numero_caso}`);
 
     // Limpiar registro de prueba
-    await db.query(`DELETE FROM solicitudes_afiliacion_agencia WHERE id_solicitud = $1`, [casoCreado.id_solicitud]);
+    await comoDueno(`DELETE FROM solicitudes_afiliacion_agencia WHERE id_solicitud = $1`, [casoCreado.id_solicitud]);
     assert(true, 'Limpieza atómica de caso de prueba ejecutada');
 
     // -----------------------------------------------------------------
@@ -146,13 +149,8 @@ async function runTests() {
     // -----------------------------------------------------------------
     console.log('\n[TEST 6] Verificando saneamiento de índices en banco_db...');
     try {
-      // Aplicar migración de índices en banco_db
-      await bancoPool.query(`
-        DROP INDEX IF EXISTS idx_clientes_banco_cui;
-        DROP INDEX IF EXISTS idx_cuentas_banco_numero;
-        CREATE INDEX IF NOT EXISTS idx_usuarios_banca_cliente ON usuarios_banca_en_linea(id_cliente);
-      `);
-
+      // initBancoDb aplica los índices al arrancar el banco; aquí solo se verifican (el rol de la aplicación no
+      // puede crear ni borrar índices)
       const resBancoIndexes = await bancoPool.query(`
         SELECT indexname FROM pg_indexes WHERE schemaname = 'public';
       `);

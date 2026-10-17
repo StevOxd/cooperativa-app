@@ -30,25 +30,11 @@ const { server } = require('./src/server');
 const db = require('./src/config/db');
 const bancoApiService = require('./src/services/bancoApiService');
 const { errorDeNegocio, respuestaDeError } = require('./src/utils/errores');
-const { borrarPersonaDePrueba } = require('./testHelper');
+const { borrarPersonaDePrueba, purgarDepositosDePrueba, poolDueno } = require('./testHelper');
+// Limpieza con el rol dueño: el de la aplicación no borra filas (salvo en las pocas tablas que el código limpia)
+const comoDueno = (sql, params) => poolDueno(db.pool).query(sql, params);
 
 const PDF = `data:application/pdf;base64,${Buffer.from('%PDF-1.4 prueba').toString('base64')}`;
-
-// depositos_ventanilla_banco es un registro de auditoría: solo se limpia con la marca de purga de pruebas
-const purgarDepositosDePrueba = async (dpis) => {
-  const client = await db.pool.connect();
-  try {
-    await client.query('BEGIN');
-    await client.query("SET LOCAL cooperativa.purga_pruebas = 'on'");
-    await client.query('DELETE FROM depositos_ventanilla_banco WHERE titular_cui = ANY($1)', [dpis]);
-    await client.query('COMMIT');
-  } catch (error) {
-    await client.query('ROLLBACK').catch(() => {});
-    throw error;
-  } finally {
-    client.release();
-  }
-};
 
 const esperar = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -384,10 +370,13 @@ const testServer = server.listen(0, async () => {
         'El depósito queda registrado (ACREDITADO) a nombre del operador, con una referencia que pone el servidor'
       );
 
-      // El registro de auditoría no se cambia ni se borra
+      // El registro de auditoría no se cambia ni se borra: el trigger lo impide (también al dueño, sin la marca de
+      // purga) y el rol de la aplicación ni siquiera tiene permiso de borrar
       const cambio = await db.query("UPDATE depositos_ventanilla_banco SET monto = 1 WHERE referencia = $1", [registro?.referencia]).catch((e) => e);
       const borrado = await db.query('DELETE FROM depositos_ventanilla_banco WHERE referencia = $1', [registro?.referencia]).catch((e) => e);
-      assert(cambio?.code === '23001' && borrado?.code === '23001', 'Un depósito registrado no se puede modificar ni borrar');
+      const borradoDueno = await comoDueno('DELETE FROM depositos_ventanilla_banco WHERE referencia = $1', [registro?.referencia]).catch((e) => e);
+      assert(cambio?.code === '23001' && borrado?.code === '42501' && borradoDueno?.code === '23001',
+        'Un depósito registrado no se puede modificar ni borrar');
 
       // El banco rechaza o no responde: queda el intento con su estado, y ante la falta de respuesta, la referencia
       enviadosAlBanco.length = 0;
@@ -453,7 +442,7 @@ const testServer = server.listen(0, async () => {
     }
     try {
       if (fs.existsSync(rutaArchivo)) fs.unlinkSync(rutaArchivo);
-      await db.query('DELETE FROM solicitudes_afiliacion_agencia WHERE cui_dpi = $1', [dpiSolicitud]);
+      await comoDueno('DELETE FROM solicitudes_afiliacion_agencia WHERE cui_dpi = $1', [dpiSolicitud]);
       await db.query('DELETE FROM codigos_verificacion_correo WHERE email = $1', [`otra.${sufijo}@gmail.com`]);
       if (personaOriginalOp2) {
         const o = personaOriginalOp2;
@@ -463,13 +452,13 @@ const testServer = server.listen(0, async () => {
            WHERE id_persona = $8`,
           [o.primer_nombre, o.segundo_nombre, o.primer_apellido, o.segundo_apellido, o.telefono, o.direccion, o.fecha_nacimiento, o.id_persona]
         );
-        await db.query(
+        await comoDueno(
           "DELETE FROM historial_estados_usuario WHERE id_usuario_modificado = $1 AND id_historial_estado > $2 AND motivo LIKE 'Datos personales actualizados%'",
           [idUsuarioOp2, ultimoHistorialPrevio]
         );
       }
       if (idPersonaAsociado) await borrarPersonaDePrueba(db, idPersonaAsociado);
-      await purgarDepositosDePrueba([dpiColaborador, dpiAjenoBanco, dpiExterno, ...dpiOtrosColaboradores]);
+      await purgarDepositosDePrueba(db, { dpis: [dpiColaborador, dpiAjenoBanco, dpiExterno, ...dpiOtrosColaboradores] });
       const conClaveCreada = (await db.query('SELECT id_persona FROM personas WHERE cui_dpi = $1', [dpiConClave])).rows[0];
       if (conClaveCreada) await borrarPersonaDePrueba(db, conClaveCreada.id_persona);
       console.log('\n  [CLEANUP] Datos de prueba eliminados.');

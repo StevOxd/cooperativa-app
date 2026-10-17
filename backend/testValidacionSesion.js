@@ -21,6 +21,9 @@ const { io: Client } = require('socket.io-client');
 const { server } = require('./src/server');
 const socketService = require('./src/services/socketService');
 const db = require('./src/config/db');
+const { poolDueno } = require('./testHelper');
+// Limpieza con el rol dueño: el de la aplicación no borra filas (salvo en las pocas tablas que el código limpia)
+const comoDueno = (sql, params) => poolDueno(db.pool).query(sql, params);
 
 // Hash bcrypt de admin123 (el mismo de los datos semilla)
 const HASH_ADMIN123 = '$2a$10$vNPUEupr.jaRBJ/2vUE4CurM.mZqeEc1PTGrA8Pds020v2tm0T1Ey';
@@ -292,12 +295,12 @@ const testServer = server.listen(0, async () => {
     sockets.forEach((socket) => socket.connected && socket.disconnect());
     if (personas.length) {
       try {
-        await db.query(
+        await comoDueno(
           'DELETE FROM historial_estados_usuario WHERE id_usuario_modificado IN (SELECT id_usuario FROM usuarios WHERE id_persona = ANY($1))',
           [personas]
         );
-        await db.query('DELETE FROM usuarios WHERE id_persona = ANY($1)', [personas]);
-        await db.query('DELETE FROM personas WHERE id_persona = ANY($1)', [personas]);
+        await comoDueno('DELETE FROM usuarios WHERE id_persona = ANY($1)', [personas]);
+        await comoDueno('DELETE FROM personas WHERE id_persona = ANY($1)', [personas]);
         console.log('\n  [CLEANUP] Usuarios y personas de prueba eliminados.');
       } catch (limpiezaError) {
         console.error('[ERROR] No se pudieron borrar los datos de prueba:', limpiezaError.message);
