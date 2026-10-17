@@ -52,6 +52,10 @@ const server = app.listen(0, async () => {
     });
   };
 
+  // Cada [FAIL] cuenta: la suite termina con código 1 si alguna prueba falla (para el CI)
+  let fallos = 0;
+  const tokens = [];
+
   try {
     // 1. Obtener Token de OPERADOR
     console.log('1. Autenticando como OPERADOR (operador@cooperativa.com)...');
@@ -60,6 +64,7 @@ const server = app.listen(0, async () => {
       password: 'admin123',
     });
     const opToken = opLogin.body.token;
+    if (opToken) tokens.push(opToken);
     console.log('   Status:', opLogin.status, '| Rol:', opLogin.body.user?.rol);
 
     // 2. Probar GET /api/auth/me con OPERADOR (Debe permitir acceso 200 OK)
@@ -70,6 +75,7 @@ const server = app.listen(0, async () => {
     if (meRes.status === 200 && meRes.body.user?.rol === 'OPERADOR') {
       console.log('   [PASS] PRUEBA 2 SUPERADA: GET /api/auth/me accesible para OPERADOR');
     } else {
+      fallos++;
       console.error('   [FAIL] PRUEBA 2 FALLÓ', meRes.body);
     }
 
@@ -84,6 +90,7 @@ const server = app.listen(0, async () => {
     ) {
       console.log('   [PASS] PRUEBA 3 SUPERADA: GET /api/usuarios bloqueado con 403 y mensaje exacto');
     } else {
+      fallos++;
       console.error('   [FAIL] PRUEBA 3 FALLÓ', getRes.body);
     }
 
@@ -109,6 +116,7 @@ const server = app.listen(0, async () => {
     ) {
       console.log('   [PASS] PRUEBA 4 SUPERADA: POST /api/usuarios bloqueado con 403');
     } else {
+      fallos++;
       console.error('   [FAIL] PRUEBA 4 FALLÓ', postRes.body);
     }
 
@@ -128,6 +136,7 @@ const server = app.listen(0, async () => {
     ) {
       console.log('   [PASS] PRUEBA 5 SUPERADA: PUT /api/usuarios/1 bloqueado con 403');
     } else {
+      fallos++;
       console.error('   [FAIL] PRUEBA 5 FALLÓ', putRes.body);
     }
 
@@ -142,6 +151,7 @@ const server = app.listen(0, async () => {
     ) {
       console.log('   [PASS] PRUEBA 6 SUPERADA: DELETE /api/usuarios/1 bloqueado con 403');
     } else {
+      fallos++;
       console.error('   [FAIL] PRUEBA 6 FALLÓ', delRes.body);
     }
 
@@ -152,6 +162,7 @@ const server = app.listen(0, async () => {
       password: 'admin123',
     });
     const adminToken = adminLogin.body.token;
+    if (adminToken) tokens.push(adminToken);
 
     console.log('8. Probando GET /api/usuarios con rol ADMINISTRADOR...');
     const adminGet = await request('/api/usuarios', 'GET', null, adminToken);
@@ -160,16 +171,21 @@ const server = app.listen(0, async () => {
     if (adminGet.status === 200 && adminGet.body.success) {
       console.log('   [PASS] PRUEBA 8 SUPERADA: Acceso concedido al ADMINISTRADOR');
     } else {
+      fallos++;
       console.error('   [FAIL] PRUEBA 8 FALLÓ', adminGet.body);
     }
 
     console.log('\n=========================================');
-    console.log('[SUCCESS] TODAS LAS PRUEBAS RBAC SUPERADAS CON ÉXITO');
+    console.log(fallos === 0 ? '[SUCCESS] TODAS LAS PRUEBAS RBAC SUPERADAS CON ÉXITO' : `[FAIL] ${fallos} PRUEBA(S) RBAC FALLARON`);
     console.log('=========================================\n');
   } catch (error) {
+    fallos++;
     console.error('Error durante las pruebas RBAC:', error);
   } finally {
+    for (const token of tokens) {
+      await request('/api/auth/logout', 'POST', null, token).catch(() => {});
+    }
     server.close();
-    process.exit(0);
+    process.exit(fallos === 0 ? 0 : 1);
   }
 });

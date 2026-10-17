@@ -1,185 +1,146 @@
 // Las pruebas nunca envían correo real (ver mailerService): debe ir antes de cargar el servidor.
 process.env.MAIL_ENABLED = 'false';
 
-const http = require('http');
+/**
+ * testAsociado.js
+ *
+ * Portal del asociado: acceso solo con su rol, perfil, cuentas y movimientos propios (no los de otra
+ * persona), créditos, validación de la solicitud de crédito y cuota con amortización francesa (10 % anual).
+ *
+ * Usa el backend en proceso (puerto efímero) y la base de datos local, con asociados de prueba propios. El
+ * banco se simula para el DPI de prueba. Limpia lo que crea.
+ */
 const { app } = require('./src/server');
 const db = require('./src/config/db');
+const bancoApiService = require('./src/services/bancoApiService');
+const { makeRequest, createTestReporter, crearUsuarioDePrueba, borrarPersonaDePrueba } = require('./testHelper');
 
 const server = app.listen(0, async () => {
-  const testPort = server.address().port;
-  console.log('\n=========================================');
-  console.log('[SUITE] INICIANDO PRUEBAS DE PORTAL DE ASOCIADO (3FN)');
-  console.log(`[INFO] Puerto de prueba: ${testPort}`);
-  console.log('=========================================\n');
+  const port = server.address().port;
+  const request = (ruta, method = 'GET', data = null, token = null) => makeRequest(port, ruta, method, data, token);
+  const { assert, getStats } = createTestReporter();
 
-  const request = (path, method, data, token) => {
-    return new Promise((resolve, reject) => {
-      const payload = data ? JSON.stringify(data) : '';
-      const headers = {
-        'Content-Type': 'application/json',
-      };
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
-      }
-      if (data) {
-        headers['Content-Length'] = Buffer.byteLength(payload);
-      }
+  console.log('\n=============================================================');
+  console.log('[SUITE] PORTAL DEL ASOCIADO');
+  console.log('=============================================================\n');
 
-      const req = http.request(
-        {
-          hostname: 'localhost',
-          port: testPort,
-          path,
-          method,
-          headers,
-        },
-        (res) => {
-          let body = '';
-          res.on('data', (chunk) => (body += chunk));
-          res.on('end', () => {
-            try {
-              resolve({ status: res.statusCode, body: JSON.parse(body) });
-            } catch (e) {
-              resolve({ status: res.statusCode, body });
-            }
-          });
-        }
-      );
+  const sufijo = String(Date.now()).slice(-7);
+  const dpi = `943${sufijo}000`.slice(0, 13);
+  const codigo = `EX-T7${sufijo}`;
+  const tokens = [];
+  const personas = [];
+  let errorInesperado = false;
 
-      req.on('error', reject);
-      if (payload) req.write(payload);
-      req.end();
-    });
-  };
+  // Banco simulado para el DPI de prueba: una cuenta de ahorro suya con saldo para el scoring
+  const cuentaBanco = { id_cuenta_bancaria: 777777, numero_cuenta_bancaria: `CTA-BCO-TA-${sufijo}`, tipo_cuenta: 'AHORRO', estado: 'ACTIVA', saldo_disponible: 50000 };
+  const obtenerCuentasOriginal = bancoApiService.obtenerCuentasCliente;
+  bancoApiService.obtenerCuentasCliente = async (cui) =>
+    cui === dpi ? { success: true, status: 200, data: [cuentaBanco] } : obtenerCuentasOriginal(cui);
+  const tipoAhorro = `(SELECT id_tipo_cuenta FROM tipos_cuenta WHERE nombre ILIKE '%ahorro%' ORDER BY id_tipo_cuenta LIMIT 1)`;
 
   try {
-    // 1. Intentar acceder a /api/asociado/perfil sin token (debe retornar 401)
-    console.log('1. Probando GET /api/asociado/perfil sin token...');
-    const resNoToken = await request('/api/asociado/perfil', 'GET');
-    console.log('   Status:', resNoToken.status, '(Esperado: 401)');
-    if (resNoToken.status === 401) {
-      console.log('   [PASS] PRUEBA 1 SUPERADA');
-    } else {
-      console.error('   [FAIL] PRUEBA 1 FALLÓ');
-    }
-
-    // 2. Iniciar sesión como administrador (1001) para validar que no tiene acceso a rutas de asociados
-    console.log('\n2. Obteniendo JWT de Administrador (1001)...');
-    const adminLogin = await request('/api/auth/login', 'POST', {
-      email: '1001',
-      password: 'admin123',
+    // Asociado de prueba con una cuenta de ahorro y un movimiento
+    const asociado = await crearUsuarioDePrueba(db, {
+      dpi,
+      codigo,
+      email: `test.asociado.${sufijo}@gmail.com`,
+      rol: 'ASOCIADO',
+      asociado: true,
     });
-    const adminToken = adminLogin.body.token;
-    console.log('   Probando GET /api/asociado/perfil con token de Administrador...');
-    const resAdminForbidden = await request('/api/asociado/perfil', 'GET', null, adminToken);
-    console.log('   Status:', resAdminForbidden.status, '(Esperado: 403)');
-    if (resAdminForbidden.status === 403) {
-      console.log('   [PASS] PRUEBA 2 SUPERADA: Administrador bloqueado en portal de asociados');
-    } else {
-      console.error('   [FAIL] PRUEBA 2 FALLÓ');
-    }
-
-    // 3. Iniciar sesión como Asociado (3001)
-    console.log('\n3. Obteniendo JWT de Asociado (3001)...');
-    const assocLogin = await request('/api/auth/login', 'POST', {
-      email: '3001',
-      password: 'admin123',
+    personas.push(asociado.idPersona);
+    const idCuenta = (await db.query(
+      `INSERT INTO cuentas (numero_cuenta, id_asociado, id_tipo_cuenta, saldo_disponible)
+       VALUES ($1, $2, ${tipoAhorro}, 250) RETURNING id_cuenta`,
+      [`CTA-TA-${sufijo}`, asociado.idAsociado]
+    )).rows[0].id_cuenta;
+    await db.query(
+      `INSERT INTO transacciones (id_cuenta, id_usuario_registra, tipo_transaccion, monto, saldo_anterior, saldo_nuevo, referencia)
+       VALUES ($1, $2, 'DEPOSITO', 250, 0, 250, 'Depósito de prueba')`,
+      [idCuenta, asociado.idUsuario]
+    );
+    // Otra persona con su cuenta, para comprobar que no se pueden ver sus movimientos
+    const otra = await crearUsuarioDePrueba(db, {
+      dpi: `947${sufijo}000`.slice(0, 13),
+      codigo: `EX-T4${sufijo}`,
+      email: `test.asociado.otra.${sufijo}@gmail.com`,
+      rol: 'ASOCIADO',
+      asociado: true,
     });
-    const assocToken = assocLogin.body.token;
-    if (assocToken) {
-      console.log('   [PASS] Token obtenido exitosamente');
-    } else {
-      throw new Error('No se pudo obtener token para el asociado');
-    }
+    personas.push(otra.idPersona);
+    const idCuentaAjena = (await db.query(
+      `INSERT INTO cuentas (numero_cuenta, id_asociado, id_tipo_cuenta, saldo_disponible)
+       VALUES ($1, $2, ${tipoAhorro}, 100) RETURNING id_cuenta`,
+      [`CTA-TA-OTRA-${sufijo}`, otra.idAsociado]
+    )).rows[0].id_cuenta;
 
-    // 4. GET /api/asociado/perfil
-    console.log('\n4. Probando GET /api/asociado/perfil con token de Asociado...');
-    const resPerfil = await request('/api/asociado/perfil', 'GET', null, assocToken);
-    console.log('   Status:', resPerfil.status, '(Esperado: 200)');
-    console.log('   Nombre del asociado:', resPerfil.body.data?.primer_nombre + ' ' + resPerfil.body.data?.primer_apellido);
-    console.log('   Código Corporativo:', resPerfil.body.data?.codigo_corporativo);
-    if (resPerfil.status === 200 && resPerfil.body.data?.id_persona === 11) {
-      console.log('   [PASS] PRUEBA 4 SUPERADA');
-    } else {
-      console.error('   [FAIL] PRUEBA 4 FALLÓ', resPerfil.body);
-    }
+    console.log('--- Acceso por rol ---');
+    const sinToken = await request('/api/asociado/perfil');
+    assert(sinToken.status === 401, 'GET /api/asociado/perfil sin token responde 401');
 
-    // 5. GET /api/asociado/cuentas
-    console.log('\n5. Probando GET /api/asociado/cuentas...');
-    const resCuentas = await request('/api/asociado/cuentas', 'GET', null, assocToken);
-    console.log('   Status:', resCuentas.status, '(Esperado: 200)');
-    console.log('   Cuentas encontradas:', resCuentas.body.data?.length);
-    resCuentas.body.data?.forEach(c => {
-      console.log(`   - Cta: ${c.numero_cuenta} | Tipo: ${c.tipo_cuenta} | Saldo: Q${c.saldo_disponible}`);
-    });
-    if (resCuentas.status === 200 && resCuentas.body.data?.length > 0) {
-      console.log('   [PASS] PRUEBA 5 SUPERADA');
-    } else {
-      console.error('   [FAIL] PRUEBA 5 FALLÓ', resCuentas.body);
-    }
+    const loginAdmin = await request('/api/auth/login', 'POST', { identifier: 'AD-1', password: 'admin123' });
+    if (loginAdmin.body.token) tokens.push(loginAdmin.body.token);
+    const comoAdmin = await request('/api/asociado/perfil', 'GET', null, loginAdmin.body.token);
+    assert(comoAdmin.status === 403, 'Un administrador no entra al portal del asociado (403)');
 
-    // 6. GET /api/asociado/cuentas/:id_cuenta/transacciones
-    const idCuentaTest = resCuentas.body.data?.[0]?.id_cuenta;
-    if (idCuentaTest) {
-      console.log(`\n6. Probando GET /api/asociado/cuentas/${idCuentaTest}/transacciones...`);
-      const resTx = await request(`/api/asociado/cuentas/${idCuentaTest}/transacciones`, 'GET', null, assocToken);
-      console.log('   Status:', resTx.status, '(Esperado: 200)');
-      console.log('   Total transacciones encontradas:', resTx.body.data?.length);
-      if (resTx.status === 200) {
-        console.log('   [PASS] PRUEBA 6 SUPERADA');
-      } else {
-        console.error('   [FAIL] PRUEBA 6 FALLÓ', resTx.body);
-      }
-    }
+    const login = await request('/api/auth/login', 'POST', { identifier: codigo, password: 'admin123' });
+    const token = login.body.token;
+    assert(login.status === 200 && Boolean(token), 'El asociado de prueba inicia sesión');
+    if (!token) throw new Error('Sin token del asociado no se puede seguir.');
+    tokens.push(token);
 
-    // 7. POST /api/asociado/creditos (Crear solicitud de prueba)
-    console.log('\n7. Probando POST /api/asociado/creditos (Simular y crear crédito)...');
-    const creditPayload = {
+    console.log('\n--- Perfil, cuentas y movimientos ---');
+    const perfil = await request('/api/asociado/perfil', 'GET', null, token);
+    assert(perfil.status === 200 && perfil.body.data?.cui_dpi === dpi, 'El perfil es el del asociado');
+    const cuentas = await request('/api/asociado/cuentas', 'GET', null, token);
+    const lista = cuentas.body.data || [];
+    assert(
+      cuentas.status === 200 && lista.length === 1 && Number(lista[0].id_cuenta) === Number(idCuenta),
+      'Ve solo su cuenta'
+    );
+    const movimientos = await request(`/api/asociado/cuentas/${idCuenta}/transacciones`, 'GET', null, token);
+    assert(movimientos.status === 200 && Array.isArray(movimientos.body.data) && movimientos.body.data.length === 1, 'Ve los movimientos de su cuenta');
+    const ajenos = await request(`/api/asociado/cuentas/${idCuentaAjena}/transacciones`, 'GET', null, token);
+    assert(ajenos.status === 403 || ajenos.status === 404, 'No ve los movimientos de la cuenta de otra persona');
+
+    console.log('\n--- Créditos ---');
+    const creditos = await request('/api/asociado/creditos', 'GET', null, token);
+    assert(creditos.status === 200 && Array.isArray(creditos.body.data), 'Lista sus créditos');
+    const sinCuenta = await request('/api/asociado/creditos/iniciar', 'POST', { monto_solicitado: 5000, plazo_meses: 12 }, token);
+    assert(sinCuenta.status === 400, 'La solicitud de crédito sin cuenta de destino se rechaza (400)');
+    const fueraDeRango = await request('/api/asociado/creditos/iniciar', 'POST', { monto_solicitado: 1, plazo_meses: 12, id_cuenta_bancaria_destino: 1 }, token);
+    assert(fueraDeRango.status === 400, 'Un monto fuera de los límites se rechaza (400)');
+
+    // Q12,000 a 12 meses al 10 % anual: cuota nivelada de Q1,054.99
+    const credito = await request('/api/asociado/creditos/iniciar', 'POST', {
       monto_solicitado: 12000,
       plazo_meses: 12,
-      observaciones: 'Prueba de autogestión automatizada',
-    };
-    const resCreditPost = await request('/api/asociado/creditos', 'POST', creditPayload, assocToken);
-    console.log('   Status:', resCreditPost.status, '(Esperado: 201)');
-    console.log('   Cuota mensual estimada:', resCreditPost.body.data?.cuota_mensual_estimada);
-    console.log('   Tasa de interés aplicada:', resCreditPost.body.data?.tasa_interes);
-    console.log('   Estado de solicitud:', resCreditPost.body.data?.estado);
-    const idSolicitud = resCreditPost.body.data?.id_solicitud_credito;
-    
-    // Validar fórmula de amortización francesa:
-    // Monto = 12000, Plazo = 12 meses, Tasa = 10% anual.
-    // Tasa mensual = 10 / 100 / 12 = 0.0083333
-    // Cuota = 12000 * 0.0083333 * (1.0083333)^12 / ((1.0083333)^12 - 1) = 1054.99 (aproximado)
-    if (resCreditPost.status === 201 && Math.abs(parseFloat(resCreditPost.body.data?.cuota_mensual_estimada) - 1054.99) <= 0.1) {
-      console.log('   [PASS] PRUEBA 7 SUPERADA: Amortización nivelada francesa calculada correctamente.');
-    } else {
-      console.error('   [FAIL] PRUEBA 7 FALLÓ: Cuota mensual no coincide con amortización nivelada francesa.', resCreditPost.body);
-    }
-
-    // 8. GET /api/asociado/creditos
-    console.log('\n8. Probando GET /api/asociado/creditos...');
-    const resCreditosList = await request('/api/asociado/creditos', 'GET', null, assocToken);
-    console.log('   Status:', resCreditosList.status, '(Esperado: 200)');
-    console.log('   Total solicitudes en historial:', resCreditosList.body.data?.length);
-    if (resCreditosList.status === 200 && resCreditosList.body.data?.some(c => c.id_solicitud_credito === idSolicitud)) {
-      console.log('   [PASS] PRUEBA 8 SUPERADA');
-    } else {
-      console.error('   [FAIL] PRUEBA 8 FALLÓ');
-    }
-
-    // Limpieza de base de datos
-    if (idSolicitud) {
-      await db.query('DELETE FROM solicitudes_credito WHERE id_solicitud_credito = $1', [idSolicitud]);
-      console.log('\n[CLEANUP] Limpieza de datos de prueba completada.');
-    }
-
-    console.log('\n=========================================');
-    console.log('[SUCCESS] TODAS LAS PRUEBAS DE ASOCIADO COMPLETADAS CON ÉXITO');
-    console.log('=========================================\n');
+      id_cuenta_bancaria_destino: cuentaBanco.id_cuenta_bancaria,
+    }, token);
+    assert(
+      credito.status === 201 && Math.abs(Number(credito.body.data?.cuota_mensual_estimada) - 1054.99) <= 0.01,
+      `La cuota sigue la amortización francesa (${credito.body.data?.cuota_mensual_estimada ?? credito.body.message})`
+    );
   } catch (error) {
-    console.error('Error durante las pruebas de asociado:', error);
+    console.error('[ERROR] Error inesperado durante las pruebas:', error);
+    errorInesperado = true;
   } finally {
+    bancoApiService.obtenerCuentasCliente = obtenerCuentasOriginal;
+    for (const token of tokens) {
+      await request('/api/auth/logout', 'POST', null, token).catch(() => {});
+    }
+    try {
+      for (const idPersona of personas) await borrarPersonaDePrueba(db, idPersona);
+      console.log('\n  [CLEANUP] Datos de prueba eliminados.');
+    } catch (limpiezaError) {
+      console.error('[ERROR] No se pudieron borrar los datos de prueba:', limpiezaError.message);
+      errorInesperado = true;
+    }
+
+    const { total, passed } = getStats();
+    console.log('\n=============================================================');
+    console.log(`[RESULTADO] PRUEBAS SUPERADAS: ${passed} / ${total}`);
+    console.log('=============================================================\n');
     server.close();
-    process.exit(0);
+    process.exit(passed === total && !errorInesperado ? 0 : 1);
   }
 });

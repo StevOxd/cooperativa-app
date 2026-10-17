@@ -8,6 +8,7 @@ import BeneficiariesModal from '../components/associates/BeneficiariesModal';
 import AssociateExpedienteModal from '../components/associates/AssociateExpedienteModal';
 import ConfirmModal from '../components/common/ConfirmModal';
 import {
+  Alert,
   Badge,
   Button,
   Card,
@@ -53,6 +54,7 @@ export const AssociatesManagementPage = () => {
   const [search, setSearch] = useState('');
   const [estadoFilter, setEstadoFilter] = useState('');
   const [loading, setLoading] = useState(false);
+  const [errorCarga, setErrorCarga] = useState(false);
 
   // Estados para Modales
   const [isNewModalOpen, setIsNewModalOpen] = useState(false);
@@ -73,6 +75,7 @@ export const AssociatesManagementPage = () => {
 
   const fetchAsociados = async (page = 1) => {
     setLoading(true);
+    setErrorCarga(false);
     try {
       const res = await api.get('/admin/asociados', {
         params: {
@@ -89,6 +92,8 @@ export const AssociatesManagementPage = () => {
       }
     } catch (err) {
       console.error('Error al obtener padrón de asociados:', err);
+      // Sin aviso, la lista vacía parecería «no hay asociados»
+      setErrorCarga(true);
     } finally {
       setLoading(false);
     }
@@ -268,6 +273,15 @@ export const AssociatesManagementPage = () => {
 
           {loading ? (
             <LoadingState label="Cargando asociados…" />
+          ) : errorCarga ? (
+            <div className="p-4">
+              <Alert tone="danger" title="No se pudieron cargar los asociados">
+                <p>Revise su conexión e intente de nuevo.</p>
+                <Button className="mt-3" size="sm" variant="secondary" onClick={() => fetchAsociados(pagination.page || 1)}>
+                  Reintentar
+                </Button>
+              </Alert>
+            </div>
           ) : asociados.length === 0 ? (
             <EmptyState
               icon={Users}

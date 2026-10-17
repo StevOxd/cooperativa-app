@@ -1,7 +1,6 @@
 import React, { useCallback, useState, useEffect, useMemo } from 'react';
 import { RefreshCw } from 'lucide-react';
 import api from '../services/api';
-import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import OperatorCreditEvaluationModal from '../components/operator/modals/OperatorCreditEvaluationModal';
 import OperatorAffiliationModal from '../components/operator/modals/OperatorAffiliationModal';
@@ -18,7 +17,6 @@ import { CreditsPanel } from '../components/operator/dashboard/CreditsPanel';
 const TABS_ID = 'operador';
 
 export const OperatorDashboard = () => {
-  const { user } = useAuth();
   const { toast } = useToast();
 
   // Pestaña activa: 'afiliaciones' (por defecto) o 'traslados'
@@ -476,20 +474,31 @@ export const OperatorDashboard = () => {
     }
   };
 
+  // Reimpresión del comprobante de un caso ya atendido: solo con lo que quedó guardado en el caso, sin
+  // valores de relleno (es un documento que se entrega al asociado)
   const handleDownloadComprobanteExistente = async (caso) => {
+    if (!caso.numero_cuenta_bancaria) {
+      toast.error('No encontramos la cuenta abierta en este caso. Revise el expediente del asociado.');
+      return;
+    }
     try {
       await generateAccountOpeningReceiptPdf({
         data: {
+          es_afiliacion: true,
           numero_caso: caso.numero_caso,
-          nombre_completo: caso.nombre_completo || `${caso.primer_nombre} ${caso.primer_apellido}`,
-          usuario: caso.asociado_codigo || 'ASOCIADO',
-          numero_cuenta: caso.numero_cuenta || 'CTA-AHORR-ACTIVA',
-          saldo_inicial: caso.saldo_disponible || caso.monto_estimado || 100.0,
-          tipo_cuenta: 'Ahorro Corriente',
-          email: caso.email,
+          nombre_completo: caso.nombre_completo,
           cui_dpi: caso.cui_dpi,
+          email: caso.email,
           telefono: caso.telefono,
-          operador_nombre: caso.operador_resuelve_nombre || user?.nombre || user?.nombre_completo || 'Operador en Ventanilla',
+          usuario: caso.asociado_codigo || null,
+          // En una reimpresión no se sabe qué pasó con el correo de entonces: el PDF solo dice el usuario
+          reimpresion: true,
+          numero_cuenta: caso.numero_cuenta_bancaria,
+          tipo_cuenta: 'Cuenta de Ahorro Bancaria',
+          fecha_apertura: caso.fecha_resolucion,
+          saldo_inicial: caso.monto_estimado,
+          metodo_pago: 'EFECTIVO_VENTANILLA',
+          operador_nombre: caso.operador_resuelve_nombre || 'Operador en ventanilla',
         },
       });
       toast.success(`Se descargó el comprobante del caso ${caso.numero_caso}.`);
@@ -632,7 +641,8 @@ export const OperatorDashboard = () => {
     }
   };
 
-  const handleResolveCreditoSubmit = async (accionParam, archivoFirmado = null) => {
+  // El rechazo lleva solo el motivo: el PDF firmado es para elevar la solicitud al ejecutivo
+  const handleResolveCreditoSubmit = async (accionParam) => {
     if (!selectedCredito) return;
     const finalAction = typeof accionParam === 'string' && accionParam ? accionParam : actionCreditoType;
 
@@ -652,10 +662,6 @@ export const OperatorDashboard = () => {
         accion: 'RECHAZAR',
         observaciones: observacionesCredito.trim(),
       };
-      if (archivoFirmado?.base64) {
-        payload.documento_firmado = archivoFirmado.base64;
-        payload.nombre_archivo_firmado = archivoFirmado.name;
-      }
 
       const response = await api.post(`/operador/creditos/${selectedCredito.id_solicitud_credito}/resolver`, payload);
 

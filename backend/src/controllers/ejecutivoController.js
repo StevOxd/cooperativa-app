@@ -91,8 +91,19 @@ const getBandejaCreditos = async (req, res) => {
  * 1. ACEPTAR: Aprueba la solicitud y acredita/desembolsa los fondos inmediatamente.
  * 2. DEVOLVER: Devuelve el expediente al Operador solicitando subsanación o corrección.
  * 3. DENEGAR: Rechaza formal y definitivamente la solicitud de crédito.
- * 
+ *
+ * En ACEPTAR, el desembolso a una cuenta del banco es el último paso antes del COMMIT (issue #54): si el banco
+ * falla no se aprueba nada. Si falla el COMMIT, se confirma el estado con otra conexión y, si la solicitud no
+ * quedó aprobada, se retira el dinero del banco; si tampoco se puede, se pide no reintentar y conciliar.
+ *
  * POST /api/ejecutivo/creditos/:id/resolver
+ *
+ * @param {import('express').Request} req - `req.params.id`; `req.body`: `{ accion, observaciones,
+ *   documento_firmado, nombre_archivo_firmado }`. ACEPTAR exige el PDF firmado; DEVOLVER y DENEGAR, el motivo.
+ * @param {import('express').Response} res
+ * @returns {Promise<import('express').Response>} 200 al resolver; 400 por datos inválidos o si la solicitud ya
+ *   no espera al ejecutivo; 404 si no existe o la cuenta de destino no es del asociado; 409 si no tiene cuenta
+ *   activa o el banco rechaza la acreditación; 502 o 504 si el banco no responde; 500 si no se completa.
  */
 const resolverSolicitudCredito = async (req, res) => {
   const { id } = req.params;
@@ -116,6 +127,7 @@ const resolverSolicitudCredito = async (req, res) => {
   }
 
   const client = await db.pool.connect();
+  let conexionRota = false;
   try {
     await client.query('BEGIN');
 
@@ -127,7 +139,7 @@ const resolverSolicitudCredito = async (req, res) => {
       JOIN asociados a ON sc.id_asociado = a.id_asociado
       JOIN personas p ON a.id_persona = p.id_persona
       WHERE sc.id_solicitud_credito = $1
-      FOR UPDATE
+      FOR UPDATE OF sc
     `, [id]);
 
     if (solRes.rows.length === 0) {
@@ -307,49 +319,35 @@ const resolverSolicitudCredito = async (req, res) => {
       }
     }
 
-    // Acreditación según el destino
+    // Acreditación según el destino. La del banco se hace al final, justo antes del COMMIT (como el traslado,
+    // issue #31): si algo falla antes no salió dinero, y si falla el COMMIT se revierte.
+    let acreditacionBanco = null;
     if (cuentaBancariaId) {
-      let targetNumeroCuenta = null;
-      let bancoSinRespuesta = false;
-      if (sol.cui_dpi) {
-        const bcoRes = await bancoApiService.obtenerCuentasCliente(sol.cui_dpi);
-        if (bcoRes.success && Array.isArray(bcoRes.data)) {
-          const matched = bcoRes.data.find(c => String(c.id_cuenta_bancaria) === String(cuentaBancariaId));
-          if (matched) targetNumeroCuenta = matched.numero_cuenta_bancaria;
-        } else {
-          bancoSinRespuesta = true;
-        }
+      // El número sale de las cuentas que el banco devuelve para el DPI del titular: así el dinero solo va a
+      // una cuenta suya, y sin el número no se acredita (el banco identifica la cuenta solo por su número)
+      const bcoRes = sol.cui_dpi ? await bancoApiService.obtenerCuentasCliente(sol.cui_dpi) : null;
+      if (!bcoRes?.success || !Array.isArray(bcoRes.data)) {
+        throw errorDeNegocio(502, 'No pudimos comunicarnos con el banco. Intente de nuevo en unos minutos.');
       }
-      if (!targetNumeroCuenta && destinoInfo) {
-        const matchRegex = destinoInfo.match(/\((CTA-BCO-[^)]+)\)/i);
-        if (matchRegex) targetNumeroCuenta = matchRegex[1];
+      const cuentaDestino = bcoRes.data.find(c => String(c.id_cuenta_bancaria) === String(cuentaBancariaId));
+      if (!cuentaDestino?.numero_cuenta_bancaria) {
+        throw errorDeNegocio(404, 'No encontramos la cuenta del banco de destino entre las del asociado.');
       }
 
-      // Sin el número no se acredita: el banco identifica la cuenta solo por su número
-      if (!targetNumeroCuenta) {
-        throw bancoSinRespuesta
-          ? errorDeNegocio(502, 'No pudimos comunicarnos con el banco. Intente de nuevo en unos minutos.')
-          : errorDeNegocio(404, 'No encontramos la cuenta del banco de destino entre las del asociado.');
-      }
-
-      // Acreditar en Core Banking API (banco_db)
-      const acreRes = await bancoApiService.acreditarCuenta({
-        numero_cuenta: targetNumeroCuenta,
+      // La referencia usa el id de la solicitud tal como está guardado (no el texto de la URL, que puede traer ceros)
+      acreditacionBanco = {
+        numero_cuenta: cuentaDestino.numero_cuenta_bancaria,
         monto,
-        concepto: `Desembolso de Crédito Aprobado por Ejecutivo - Solicitud #${id}`,
-        referencia: `SOL-CRED-${id}`,
-      });
-
-      if (!acreRes.success) {
-        throw errorDeNegocio(502, acreRes.message || 'No se pudieron acreditar los fondos en la cuenta del banco.');
-      }
+        concepto: `Desembolso de Crédito Aprobado por Ejecutivo - Solicitud #${sol.id_solicitud_credito}`,
+        referencia: `SOL-CRED-${sol.id_solicitud_credito}`,
+      };
     } else if (cuentaCoopId) {
       const coopRes = await client.query(`
         SELECT id_cuenta, numero_cuenta, saldo_disponible
         FROM cuentas
-        WHERE id_cuenta = $1
+        WHERE id_cuenta = $1 AND id_asociado = $2 AND estado = 'ACTIVA'
         FOR UPDATE
-      `, [cuentaCoopId]);
+      `, [cuentaCoopId, sol.id_asociado]);
 
       if (coopRes.rows.length === 0) {
         throw errorDeNegocio(409, 'La cuenta cooperativa de acreditación no existe o fue cancelada.');
@@ -366,7 +364,7 @@ const resolverSolicitudCredito = async (req, res) => {
 
       await client.query(`
         INSERT INTO transacciones (
-          id_cuenta, id_usuario, tipo_transaccion, monto, saldo_anterior, saldo_nuevo, referencia
+          id_cuenta, id_usuario_registra, tipo_transaccion, monto, saldo_anterior, saldo_nuevo, referencia
         ) VALUES ($1, $2, 'DEPOSITO', $3, $4, $5, $6)
       `, [
         cuentaCoopId,
@@ -410,7 +408,51 @@ const resolverSolicitudCredito = async (req, res) => {
 
     const updateRes = await client.query(aceptarQuery, aceptarParams);
 
-    await client.query('COMMIT');
+    // Acreditación en el banco (último paso): si falla, el ROLLBACK deshace lo de la cooperativa
+    if (acreditacionBanco) {
+      const acreRes = await bancoApiService.acreditarCuenta(acreditacionBanco);
+      if (!acreRes.success) {
+        console.error(`[ERROR] El banco no acreditó ${acreditacionBanco.referencia} (${acreRes.status}):`, acreRes.message);
+        // Sin respuesta a tiempo no se sabe si el banco acreditó: no se invita a reintentar a ciegas
+        if (acreRes.status === 504) {
+          throw errorDeNegocio(504, `El banco no confirmó a tiempo. Antes de reintentar, verifique en el banco si entró el desembolso (referencia ${acreditacionBanco.referencia}).`);
+        }
+        throw acreRes.status >= 500 || !acreRes.status
+          ? errorDeNegocio(502, 'El banco no respondió. No se desembolsó nada: intente de nuevo en unos minutos.')
+          : errorDeNegocio(409, 'El banco rechazó la acreditación en la cuenta de destino. Revise la cuenta del asociado.');
+      }
+    }
+
+    try {
+      await client.query('COMMIT');
+    } catch (commitError) {
+      if (!acreditacionBanco) throw commitError;
+      // El dinero ya entró al banco. Si se cayó la conexión, el COMMIT pudo aplicarse: se confirma con otra
+      // conexión antes de revertir, para no retirar el dinero de un crédito que sí quedó aprobado.
+      const referencia = acreditacionBanco.referencia;
+      const estadoReal = await db
+        .query('SELECT estado FROM solicitudes_credito WHERE id_solicitud_credito = $1', [sol.id_solicitud_credito])
+        .then((r) => r.rows[0]?.estado || null)
+        .catch(() => null);
+      if (estadoReal !== 'APROBADA') {
+        const reversion = estadoReal
+          ? await bancoApiService.debitarCuenta({
+            numero_cuenta: acreditacionBanco.numero_cuenta,
+            cui_dpi: sol.cui_dpi,
+            monto,
+            concepto: `Reversión de desembolso no completado - Solicitud #${sol.id_solicitud_credito}`,
+            referencia: `REV-${referencia}`,
+          })
+          : null;
+        if (!reversion?.success) {
+          // El dinero quedó en el banco sin crédito aprobado: un reintento lo desembolsaría dos veces
+          console.error(`[ERROR] Desembolso ${referencia} sin conciliar (estado: ${estadoReal || 'desconocido'}):`, reversion?.message || 'no se pudo leer el estado');
+          throw errorDeNegocio(500, `La aprobación no se completó y el desembolso quedó en el banco. No la reintente: pida al administrador conciliar la solicitud #${sol.id_solicitud_credito} (referencia ${referencia}).`);
+        }
+        throw commitError;
+      }
+      console.warn(`[WARN] El COMMIT del desembolso ${referencia} informó un error, pero la solicitud quedó aprobada.`);
+    }
 
     // Notificaciones WebSocket
     try {
@@ -435,12 +477,13 @@ const resolverSolicitudCredito = async (req, res) => {
       data: updateRes.rows[0],
     });
   } catch (error) {
-    await client.query('ROLLBACK');
+    // Si ni el ROLLBACK responde, la conexión se descarta en lugar de volver al pool
+    await client.query('ROLLBACK').catch(() => { conexionRota = true; });
     console.error('Error en ejecutivoController.resolverSolicitudCredito:', error);
     const { status, message } = respuestaDeError(error, 'No se pudo resolver la solicitud de crédito. Intente de nuevo.');
     return res.status(status).json({ success: false, message });
   } finally {
-    client.release();
+    client.release(conexionRota);
   }
 };
 

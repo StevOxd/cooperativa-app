@@ -9,7 +9,7 @@ process.env.MAIL_ENABLED = 'false';
 
 const { server } = require('./src/server');
 const db = require('./src/config/db');
-const { makeRequest, createTestReporter } = require('./testHelper');
+const { makeRequest, createTestReporter, crearUsuarioDePrueba, borrarPersonaDePrueba } = require('./testHelper');
 
 const testServer = server.listen(0, async () => {
   const testPort = testServer.address().port;
@@ -31,50 +31,46 @@ const testServer = server.listen(0, async () => {
   let isTempPlanilla = false;
 
   let tempAssocPersonaId = null;
+  // Un error fuera de los asserts también hace fallar la suite (código de salida 1)
+  let errorInesperado = false;
+  const tokens = [];
 
   try {
-    // 0. Asegurar que exista un socio de prueba temporal si la base de datos está limpia
-    const checkEx1 = await db.query("SELECT id_persona FROM usuarios WHERE codigo_corporativo = 'EX-1'");
-    if (checkEx1.rows.length === 0) {
-      const pRes = await db.query(`
-        INSERT INTO personas (cui_dpi, primer_nombre, primer_apellido, telefono, direccion, fecha_nacimiento)
-        VALUES ('9999000011112', 'Asociado', 'Prueba', '55119999', 'Guatemala', '1995-01-01')
-        RETURNING id_persona
-      `);
-      tempAssocPersonaId = pRes.rows[0].id_persona;
-      await db.query(`
-        INSERT INTO usuarios (id_persona, id_rol, codigo_corporativo, email, password_hash, estado)
-        VALUES ($1, (SELECT id_rol FROM roles WHERE codigo = 'ASOCIADO'), 'EX-1', 'test.traslado@cooperativa.com', '$2a$10$vNPUEupr.jaRBJ/2vUE4CurM.mZqeEc1PTGrA8Pds020v2tm0T1Ey', 'ACTIVO')
-      `, [tempAssocPersonaId]);
-      await db.query(`
-        INSERT INTO asociados (id_persona, estado_asociado)
-        VALUES ($1, 'ACTIVO')
-      `, [tempAssocPersonaId]);
-    }
+    // 0. Asociado de prueba propio (no depende de que exista o no un EX-1 creado por otras suites)
+    const sufijo = String(Date.now()).slice(-7);
+    const codigoAsociado = `EX-T6${sufijo}`;
+    tempAssocPersonaId = (await crearUsuarioDePrueba(db, {
+      dpi: `945${sufijo}000`.slice(0, 13),
+      codigo: codigoAsociado,
+      email: `test.traslado.${sufijo}@cooperativa.com`,
+      rol: 'ASOCIADO',
+      asociado: true,
+    })).idPersona;
 
-    // 1. Autenticación de Operador (OP-1) y Asociado (EX-1)
+    // 1. Autenticación de Operador (OP-1) y del asociado de prueba
     console.log('1. Autenticando usuarios de prueba...');
-    const assocLogin = await request('/api/auth/login', 'POST', { identifier: 'EX-1', password: 'admin123' });
+    const assocLogin = await request('/api/auth/login', 'POST', { identifier: codigoAsociado, password: 'admin123' });
     const assocToken = assocLogin.body.token;
 
     const opLogin = await request('/api/auth/login', 'POST', { identifier: 'OP-1', password: 'admin123' });
     const opToken = opLogin.body.token;
+    tokens.push(assocToken, opToken);
 
-    reporter.assert(!!assocToken, 'Token JWT de Asociado (EX-1) obtenido exitosamente');
+    reporter.assert(!!assocToken, 'Token JWT del asociado de prueba obtenido exitosamente');
     reporter.assert(!!opToken, 'Token JWT de Operador (OP-1) obtenido exitosamente');
 
     if (!assocToken || !opToken) {
       throw new Error('Fallo de autenticación en suite de traslados.');
     }
 
-    // 2. Asegurar que EX-1 tenga una Cuenta de Planilla activa con saldo para la prueba
+    // 2. Asegurar que el asociado tenga una Cuenta de Planilla activa con saldo para la prueba
     console.log('\n2. Obteniendo cuenta de planilla para traslado...');
     const userRes = await db.query(`
       SELECT a.id_asociado, a.id_persona 
       FROM asociados a 
       JOIN usuarios u ON a.id_persona = u.id_persona 
-      WHERE u.codigo_corporativo = 'EX-1'
-    `);
+      WHERE u.codigo_corporativo = $1
+    `, [codigoAsociado]);
     const idAsociado = userRes.rows[0].id_asociado;
 
     // Buscar si ya tiene cuenta de planilla
@@ -173,8 +169,12 @@ const testServer = server.listen(0, async () => {
     reporter.assert(checkTxs.rows.length === 2, 'Se registraron exactamente 2 transacciones en el libro mayor (Débito y Crédito)');
 
   } catch (suiteError) {
+    errorInesperado = true;
     console.error('\n[ERROR] Fallo inesperado en testTraslados:', suiteError.stack || suiteError);
   } finally {
+    for (const token of tokens.filter(Boolean)) {
+      await request('/api/auth/logout', 'POST', null, token).catch(() => {});
+    }
     // 8. Limpieza defensiva e idempotente (RESTAURACIÓN OBLIGATORIA DE FONDOS)
     console.log('\n[CLEANUP] Ejecutando limpieza defensiva e idempotente de la prueba...');
     try {
@@ -199,21 +199,18 @@ const testServer = server.listen(0, async () => {
         }
       }
       if (tempAssocPersonaId) {
-        await db.query('DELETE FROM transacciones WHERE id_cuenta IN (SELECT id_cuenta FROM cuentas WHERE id_asociado IN (SELECT id_asociado FROM asociados WHERE id_persona = $1))', [tempAssocPersonaId]);
-        await db.query('DELETE FROM cuentas WHERE id_asociado IN (SELECT id_asociado FROM asociados WHERE id_persona = $1)', [tempAssocPersonaId]);
-        await db.query('DELETE FROM asociados WHERE id_persona = $1', [tempAssocPersonaId]);
-        await db.query('DELETE FROM usuarios WHERE id_persona = $1', [tempAssocPersonaId]);
-        await db.query('DELETE FROM personas WHERE id_persona = $1', [tempAssocPersonaId]);
-        console.log('  [CLEANUP] Asociado temporal EX-1 y registros vinculados eliminados.');
+        await borrarPersonaDePrueba(db, tempAssocPersonaId);
+        console.log('  [CLEANUP] Asociado de prueba y registros vinculados eliminados.');
       }
       console.log('  [CLEANUP] Todos los registros temporales eliminados con éxito.');
     } catch (cleanErr) {
+      errorInesperado = true;
       console.error('  [ERROR] Fallo durante cleanup:', cleanErr.message);
     } finally {
       const stats = reporter.getStats();
       console.log('\n=============================================================');
       console.log(`[RESULTADO] PRUEBAS SUPERADAS: ${stats.passed} / ${stats.total}`);
-      if (stats.failed === 0) {
+      if (stats.failed === 0 && !errorInesperado) {
         console.log('[SUCCESS] TODAS LAS PRUEBAS DE TRASLADO COMPLETADAS CON ÉXITO');
       } else {
         console.log('[FAIL] Algunas aserciones de la suite fallaron.');
@@ -221,7 +218,7 @@ const testServer = server.listen(0, async () => {
       console.log('=============================================================\n');
 
       testServer.close();
-      process.exit(stats.failed === 0 ? 0 : 1);
+      process.exit(stats.failed === 0 && !errorInesperado ? 0 : 1);
     }
   }
 });

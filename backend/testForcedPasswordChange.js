@@ -4,6 +4,8 @@
  */
 
 const http = require('http');
+const db = require('./src/config/db');
+const { borrarPersonaDePrueba } = require('./testHelper');
 
 function httpRequest(options, postData = null) {
   return new Promise((resolve, reject) => {
@@ -43,6 +45,10 @@ async function testForcedPasswordChange() {
     }
   };
 
+  // Lo que la prueba crea o abre, para dejarlo como estaba al terminar
+  let dpiPrueba = null;
+  const tokens = [];
+
   try {
     // 1. Iniciar sesión como Administrador (AD-1)
     const adminLogin = await httpRequest({
@@ -55,10 +61,12 @@ async function testForcedPasswordChange() {
 
     assert(adminLogin.status === 200 && adminLogin.data?.token, 'Login del Administrador (AD-1) exitoso');
     const adminToken = adminLogin.data.token;
+    tokens.push(adminToken);
 
     // 2. Crear un nuevo usuario Operador con una contraseña temporal indicada por la prueba.
     //    La API no devuelve la contraseña temporal (solo viaja por correo), así que la prueba la fija.
     const userTimestamp = Date.now().toString().slice(-4);
+    dpiPrueba = `9999${userTimestamp}00101`; // 13 dígitos
     const tempPassword = `Temporal${userTimestamp}A1`;
     const createRes = await httpRequest({
       hostname: 'localhost',
@@ -74,7 +82,7 @@ async function testForcedPasswordChange() {
       primer_apellido: 'Forzado',
       email: `test.forzado.${userTimestamp}@cooperativa.com`,
       rol: 'OPERADOR',
-      cui_dpi: `9999${userTimestamp}00101`, // 13 dígitos
+      cui_dpi: dpiPrueba,
       fecha_nacimiento: '1995-01-01',
       password: tempPassword,
     });
@@ -98,6 +106,7 @@ async function testForcedPasswordChange() {
     assert(newUserLogin.status === 200, 'Login inicial con contraseña temporal retorna 200');
     assert(newUserLogin.data?.user?.debe_cambiar_password === true, 'Payload de login indica debe_cambiar_password: true');
     const userToken = newUserLogin.data?.token;
+    if (userToken) tokens.push(userToken);
 
     // 4. Intentar acceder a un endpoint operativo (ej: GET /api/operador/afiliaciones)
     const blockedRes = await httpRequest({
@@ -157,21 +166,43 @@ async function testForcedPasswordChange() {
 
     assert(nextLogin.status === 200, 'Login con nueva contraseña personal exitoso');
     assert(nextLogin.data?.user?.debe_cambiar_password === false, 'debe_cambiar_password permanece en FALSE');
+    if (nextLogin.data?.token) tokens.push(nextLogin.data.token);
+  } catch (error) {
+    console.error('Error durante testForcedPasswordChange:', error);
+    process.exitCode = 1;
+  } finally {
+    for (const token of tokens) {
+      await httpRequest({
+        hostname: 'localhost',
+        port: 5001,
+        path: '/api/auth/logout',
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
+      }).catch(() => {});
+    }
+    try {
+      const persona = dpiPrueba
+        ? (await db.query('SELECT id_persona FROM personas WHERE cui_dpi = $1', [dpiPrueba])).rows[0]
+        : null;
+      if (persona) await borrarPersonaDePrueba(db, persona.id_persona);
+      console.log('  [CLEANUP] Usuario de prueba eliminado.');
+    } catch (limpiezaError) {
+      console.error('[ERROR] No se pudo borrar el usuario de prueba:', limpiezaError.message);
+      process.exitCode = 1;
+    }
+    await db.pool.end();
+  }
 
+  // El resultado va después de la limpieza: si esta falla, no se anuncia éxito
     console.log('\n===============================================================');
     console.log(` [RESULTADOS] PRUEBAS SUPERADAS: ${passed} / ${total}`);
-    if (passed === total) {
+    if (passed === total && !process.exitCode) {
       console.log(' [SUCCESS] CICLO DE CAMBIO OBLIGATORIO DE CONTRASEÑA VERIFICADO');
     } else {
       console.log(' [FALLO] Hay pruebas que no pasaron.');
       process.exitCode = 1;
     }
     console.log('===============================================================\n');
-
-  } catch (error) {
-    console.error('Error durante testForcedPasswordChange:', error);
-    process.exitCode = 1;
-  }
 }
 
 testForcedPasswordChange();

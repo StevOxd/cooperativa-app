@@ -39,6 +39,11 @@ const normalize = (data = {}) => {
 
 /** Lo que pasó con el acceso al portal en la afiliación; nunca afirma un envío que no ocurrió. */
 const textoAccesoPortal = (d) => {
+  if (d.reimpresion) {
+    return d.usuario
+      ? `Usuario del portal: ${d.usuario}. La contraseña solo se envía al correo del titular.`
+      : 'Afiliado sin acceso al portal. Cuando lo desee, puede solicitarlo en cualquier agencia con su DPI; se le enviará a su correo.';
+  }
   if (d.acceso_existente) {
     return 'El titular conserva su acceso al portal con su usuario y su contraseña de siempre.';
   }

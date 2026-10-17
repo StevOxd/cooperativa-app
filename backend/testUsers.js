@@ -1,220 +1,128 @@
 // Las pruebas nunca envían correo real (ver mailerService): debe ir antes de cargar el servidor.
 process.env.MAIL_ENABLED = 'false';
 
-const http = require('http');
+/**
+ * testUsers.js
+ *
+ * CRUD de usuarios del personal desde «Usuarios»: listado y filtros, alta con contraseña temporal que nunca
+ * viaja en la respuesta, edición, borrado lógico y acceso del usuario desactivado.
+ *
+ * Usa el backend en proceso (puerto efímero) y la base de datos local. Limpia lo que crea.
+ */
 const { app } = require('./src/server');
 const db = require('./src/config/db');
+const { makeRequest, createTestReporter, HASH_ADMIN123, borrarPersonaDePrueba } = require('./testHelper');
 
 const server = app.listen(0, async () => {
-  const testPort = server.address().port;
-  console.log('\n=========================================');
-  console.log('[SUITE] INICIANDO PRUEBAS DEL CRUD DE USUARIOS (3FN - id_persona)');
-  console.log(`[INFO] Puerto de prueba: ${testPort}`);
-  console.log('=========================================\n');
+  const port = server.address().port;
+  const request = (ruta, method = 'GET', data = null, token = null) => makeRequest(port, ruta, method, data, token);
+  const { assert, getStats } = createTestReporter();
 
-  // Limpieza inicial para idempotencia de pruebas
+  console.log('\n=============================================================');
+  console.log('[SUITE] CRUD DE USUARIOS');
+  console.log('=============================================================\n');
+
+  const sufijo = String(Date.now()).slice(-7);
+  const dpi = `942${sufijo}000`.slice(0, 13);
+  const tokens = [];
+  let idPersonaCreada = null;
+  let errorInesperado = false;
+
   try {
-    const existing = await db.query(
-      `SELECT p.id_persona 
-       FROM personas p 
-       LEFT JOIN usuarios u ON u.id_persona = p.id_persona 
-       WHERE p.cui_dpi = '9999000011112' 
-          OR u.email = 'test.crud@cooperativa.com' 
-          OR u.codigo_corporativo = '9999'`
+    console.log('--- Acceso ---');
+    const sinToken = await request('/api/usuarios');
+    assert(sinToken.status === 401, 'GET /api/usuarios sin token responde 401');
+
+    const login = await request('/api/auth/login', 'POST', { identifier: 'AD-1', password: 'admin123' });
+    const token = login.body.token;
+    assert(login.status === 200 && Boolean(token), 'El administrador AD-1 inicia sesión');
+    if (!token) throw new Error('Sin token de administrador no se puede seguir.');
+    tokens.push(token);
+
+    console.log('\n--- Listado ---');
+    const todos = await request('/api/usuarios', 'GET', null, token);
+    assert(todos.status === 200 && Array.isArray(todos.body.data) && todos.body.data.length > 0, 'Lista los usuarios');
+    const activos = await request('/api/usuarios?estado=ACTIVO', 'GET', null, token);
+    assert(
+      activos.status === 200 && activos.body.data.every((u) => u.estado === 'ACTIVO'),
+      'El filtro ?estado=ACTIVO solo devuelve usuarios activos'
     );
-    if (existing.rows.length > 0) {
-      for (const row of existing.rows) {
-        await db.query(
-          'DELETE FROM historial_estados_usuario WHERE id_usuario_modificado IN (SELECT id_usuario FROM usuarios WHERE id_persona = $1)',
-          [row.id_persona]
-        );
-        await db.query("DELETE FROM asociados WHERE id_persona = $1", [row.id_persona]);
-        await db.query("DELETE FROM usuarios WHERE id_persona = $1", [row.id_persona]);
-        await db.query("DELETE FROM personas WHERE id_persona = $1", [row.id_persona]);
-      }
-    }
-  } catch (e) {
-    console.error('Error en cleanup inicial:', e);
-  }
 
-  const request = (path, method, data, token) => {
-    return new Promise((resolve, reject) => {
-      const payload = data ? JSON.stringify(data) : '';
-      const headers = {
-        'Content-Type': 'application/json',
-      };
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
-      }
-      if (data) {
-        headers['Content-Length'] = Buffer.byteLength(payload);
-      }
-
-      const req = http.request(
-        {
-          hostname: 'localhost',
-          port: testPort,
-          path,
-          method,
-          headers,
-        },
-        (res) => {
-          let body = '';
-          res.on('data', (chunk) => (body += chunk));
-          res.on('end', () => {
-            try {
-              resolve({ status: res.statusCode, body: JSON.parse(body) });
-            } catch (e) {
-              resolve({ status: res.statusCode, body });
-            }
-          });
-        }
-      );
-
-      req.on('error', reject);
-      if (payload) req.write(payload);
-      req.end();
-    });
-  };
-
-  try {
-    // 1. Validar protección: GET /api/usuarios sin token
-    console.log('1. Probando GET /api/usuarios sin token (Debe retornar 401)...');
-    const resNoToken = await request('/api/usuarios', 'GET');
-    console.log('   Status:', resNoToken.status, '(Esperado: 401)');
-    if (resNoToken.status === 401) {
-      console.log('   [PASS] PRUEBA 1 SUPERADA: Rutas protegidas correctamente');
-    } else {
-      console.error('   [FAIL] PRUEBA 1 FALLÓ', resNoToken.body);
-    }
-
-    // 2. Login para obtener token JWT de Administrador
-    console.log('\n2. Obteniendo JWT de Administrador...');
-    const loginRes = await request('/api/auth/login', 'POST', {
-      email: '1001',
-      password: 'admin123',
-    });
-    const token = loginRes.body.token;
-    if (token) {
-      console.log('   [PASS] Token obtenido exitosamente con código corporativo 1001 (id_persona: ' + loginRes.body.user?.id_persona + ')');
-    } else {
-      throw new Error('No se pudo obtener token de autenticación');
-    }
-
-    // 3. GET /api/usuarios: Obtener todos los usuarios
-    console.log('\n3. Probando GET /api/usuarios con token...');
-    const resAllUsers = await request('/api/usuarios', 'GET', null, token);
-    console.log('   Status:', resAllUsers.status);
-    console.log('   Total usuarios encontrados:', resAllUsers.body.total);
-    if (resAllUsers.status === 200 && Array.isArray(resAllUsers.body.data)) {
-      console.log('   [PASS] PRUEBA 3 SUPERADA: Listado de usuarios obtenido');
-    } else {
-      console.error('   [FAIL] PRUEBA 3 FALLÓ', resAllUsers.body);
-    }
-
-    // 4. GET /api/usuarios con filtro ?estado=ACTIVO
-    console.log('\n4. Probando GET /api/usuarios?estado=ACTIVO...');
-    const resActiveUsers = await request('/api/usuarios?estado=ACTIVO', 'GET', null, token);
-    const allAreActive = resActiveUsers.body.data.every((u) => u.estado === 'ACTIVO');
-    console.log('   Total activos:', resActiveUsers.body.total, '| ¿Todos activos?:', allAreActive);
-    if (resActiveUsers.status === 200 && allAreActive) {
-      console.log('   [PASS] PRUEBA 4 SUPERADA: Filtro por estado activo funciona');
-    } else {
-      console.error('   [FAIL] PRUEBA 4 FALLÓ', resActiveUsers.body);
-    }
-
-    // 5. POST /api/usuarios: Crear nuevo usuario con código corporativo 9999
-    console.log('\n5. Probando POST /api/usuarios (Crear nuevo usuario con Cód. 9999)...');
-    const newUserPayload = {
-      codigo_corporativo: '9999',
-      nombre: 'Prueba Automatizada Test',
-      cui_dpi: '9999000011112',
-      email: 'test.crud@cooperativa.com',
-      password: 'mipassword123',
+    console.log('\n--- Alta ---');
+    const alta = await request('/api/usuarios', 'POST', {
+      primer_nombre: 'Prueba',
+      primer_apellido: 'Usuarios',
+      cui_dpi: dpi,
+      telefono: '55550001',
+      fecha_nacimiento: '1990-01-01',
+      email: `test.usuarios.${sufijo}@cooperativa.com`,
       rol: 'OPERADOR',
       estado: 'ACTIVO',
+    }, token);
+    const creado = alta.body.data || {};
+    idPersonaCreada = creado.id_persona || null;
+    assert(alta.status === 201 && /^OP-\d+$/.test(creado.codigo_corporativo || ''), 'Crea el operador con el siguiente código OP-N');
+    // Ninguna clave de la respuesta (a cualquier nivel) puede llevar el texto de una contraseña o un secreto;
+    // las banderas como debe_cambiar_password (booleanas) sí pueden viajar
+    const clavesSensibles = [];
+    const revisar = (valor) => {
+      if (!valor || typeof valor !== 'object') return;
+      for (const [clave, interno] of Object.entries(valor)) {
+        if (/pass|contrase|clave|secret/i.test(clave) && typeof interno === 'string') clavesSensibles.push(clave);
+        revisar(interno);
+      }
     };
-    const resCreate = await request('/api/usuarios', 'POST', newUserPayload, token);
-    console.log('   Status:', resCreate.status, '(Esperado: 201)');
-    console.log('   Usuario creado id_usuario:', resCreate.body.data?.id_usuario, '| Cód:', resCreate.body.data?.codigo_corporativo);
-    let createdUserId = resCreate.body.data?.id_usuario;
+    revisar(alta.body);
+    assert(
+      clavesSensibles.length === 0 && alta.body.correo_enviado === false,
+      `La contraseña temporal no viaja en la respuesta y se informa que el correo no salió${clavesSensibles.length ? ` (claves: ${clavesSensibles.join(', ')})` : ''}`
+    );
+    const enBase = (await db.query('SELECT debe_cambiar_password FROM usuarios WHERE id_usuario = $1', [creado.id_usuario])).rows[0];
+    assert(enBase?.debe_cambiar_password === true, 'El usuario nuevo debe cambiar su contraseña al entrar');
 
-    if (resCreate.status === 201 && createdUserId && resCreate.body.data?.codigo_corporativo === '9999') {
-      console.log('   [PASS] PRUEBA 5 SUPERADA: Usuario creado con su propio id_usuario');
-    } else {
-      console.error('   [FAIL] PRUEBA 5 FALLÓ', resCreate.body);
-    }
+    // La contraseña temporal solo va por correo: para entrar con él se le pone una conocida
+    await db.query('UPDATE usuarios SET password_hash = $1, debe_cambiar_password = false WHERE id_usuario = $2', [HASH_ADMIN123, creado.id_usuario]);
+    const loginNuevo = await request('/api/auth/login', 'POST', { identifier: creado.codigo_corporativo, password: 'admin123' });
+    assert(loginNuevo.status === 200 && Boolean(loginNuevo.body.token), 'El usuario nuevo entra con su código corporativo');
+    if (loginNuevo.body.token) tokens.push(loginNuevo.body.token);
 
-    // 6. Probar Login del usuario recién creado usando su Código Corporativo
-    console.log('\n6. Probando Login del nuevo usuario creado por Código Corporativo ("9999")...');
-    const resLoginNew = await request('/api/auth/login', 'POST', {
-      email: '9999',
-      password: 'mipassword123',
-    });
-    console.log('   Status:', resLoginNew.status, '(Esperado: 200)');
-    if (resLoginNew.status === 200 && resLoginNew.body.token) {
-      console.log('   [PASS] PRUEBA 6 SUPERADA: Login por Código Corporativo validado correctamente');
-    } else {
-      console.error('   [FAIL] PRUEBA 6 FALLÓ', resLoginNew.body);
-    }
+    console.log('\n--- Edición ---');
+    const edicion = await request(`/api/usuarios/${creado.id_usuario}`, 'PUT', { cui_dpi: dpi, telefono: '55550002' }, token);
+    const telefono = (await db.query('SELECT telefono FROM personas WHERE id_persona = $1', [idPersonaCreada])).rows[0]?.telefono;
+    assert(edicion.status === 200 && telefono === '55550002', 'Edita los datos de la persona');
 
-    // 7. PUT /api/usuarios/:id: Actualizar datos del usuario
-    console.log(`\n7. Probando PUT /api/usuarios/${createdUserId} (Actualizar datos)...`);
-    const updatePayload = {
-      nombre: 'Prueba Automatizada Actualizada',
-      rol: 'OPERADOR',
-    };
-    const resUpdate = await request(`/api/usuarios/${createdUserId}`, 'PUT', updatePayload, token);
-    console.log('   Status:', resUpdate.status, '(Esperado: 200)');
-    console.log('   Nombre actualizado:', resUpdate.body.data?.nombre);
-    console.log('   Rol actualizado:', resUpdate.body.data?.rol);
-    if (resUpdate.status === 200 && resUpdate.body.data?.rol === 'OPERADOR') {
-      console.log('   [PASS] PRUEBA 7 SUPERADA: Datos de usuario actualizados');
-    } else {
-      console.error('   [FAIL] PRUEBA 7 FALLÓ', resUpdate.body);
-    }
-
-    // 8. DELETE /api/usuarios/:id: Borrado lógico auditado
-    console.log(`\n8. Probando DELETE /api/usuarios/${createdUserId} (Borrado lógico)...`);
-    const resDelete = await request(`/api/usuarios/${createdUserId}`, 'DELETE', null, token);
-    console.log('   Status:', resDelete.status, '(Esperado: 200)');
-    console.log('   Estado retornado:', resDelete.body.data?.estado);
-    if (resDelete.status === 200 && resDelete.body.data?.estado === 'INACTIVO') {
-      console.log('   [PASS] PRUEBA 8 SUPERADA: Borrado lógico aplicado exitosamente');
-    } else {
-      console.error('   [FAIL] PRUEBA 8 FALLÓ', resDelete.body);
-    }
-
-    // 9. Verificar que el usuario no fue eliminado físicamente de la BD
-    console.log('\n9. Verificando persistencia y borrado lógico en PostgreSQL...');
-    const dbCheck = await db.query('SELECT id_usuario, estado FROM usuarios WHERE id_usuario = $1', [createdUserId]);
-    if (dbCheck.rows.length > 0 && dbCheck.rows[0].estado === 'INACTIVO') {
-      console.log('   [PASS] PRUEBA 9 SUPERADA: Registro preservado en BD con estado INACTIVO (No hubo DELETE físico)');
-    } else {
-      console.error('   [FAIL] PRUEBA 9 FALLÓ');
-    }
-
-    // 10. Intentar iniciar sesión con el usuario desactivado
-    console.log('\n10. Verificando que el usuario desactivado no puede iniciar sesión...');
-    const resInactiveLogin = await request('/api/auth/login', 'POST', {
-      email: '9999',
-      password: 'mipassword123',
-    });
-    console.log('   Status:', resInactiveLogin.status, '(Esperado: 403)');
-    console.log('   Mensaje:', resInactiveLogin.body.message);
-    if (resInactiveLogin.status === 403) {
-      console.log('   [PASS] PRUEBA 10 SUPERADA: Acceso bloqueado para usuario inactivo');
-    } else {
-      console.error('   [FAIL] PRUEBA 10 FALLÓ', resInactiveLogin.body);
-    }
-
-    console.log('\n=========================================');
-    console.log('[SUCCESS] TODAS LAS PRUEBAS CRUD SUPERADAS CON ÉXITO');
-    console.log('=========================================\n');
+    console.log('\n--- Borrado lógico ---');
+    const baja = await request(`/api/usuarios/${creado.id_usuario}`, 'DELETE', null, token);
+    assert(baja.status === 200 && baja.body.data?.estado === 'INACTIVO', 'DELETE /api/usuarios/:id lo deja INACTIVO');
+    const sigue = (await db.query('SELECT estado FROM usuarios WHERE id_usuario = $1', [creado.id_usuario])).rows[0];
+    assert(sigue?.estado === 'INACTIVO', 'El registro sigue en la base de datos (sin DELETE físico)');
+    const sesionDelNuevo = await request('/api/auth/me', 'GET', null, loginNuevo.body.token);
+    assert(sesionDelNuevo.status === 401 || sesionDelNuevo.status === 403, 'La sesión del usuario desactivado deja de servir');
+    const loginInactivo = await request('/api/auth/login', 'POST', { identifier: creado.codigo_corporativo, password: 'admin123' });
+    assert(loginInactivo.status === 403 && !loginInactivo.body.token, 'El usuario desactivado no puede entrar (403)');
   } catch (error) {
-    console.error('Error durante las pruebas CRUD:', error);
+    console.error('[ERROR] Error inesperado durante las pruebas:', error);
+    errorInesperado = true;
   } finally {
+    for (const token of tokens) {
+      await request('/api/auth/logout', 'POST', null, token).catch(() => {});
+    }
+    try {
+      if (!idPersonaCreada) {
+        idPersonaCreada = (await db.query('SELECT id_persona FROM personas WHERE cui_dpi = $1', [dpi])).rows[0]?.id_persona || null;
+      }
+      if (idPersonaCreada) await borrarPersonaDePrueba(db, idPersonaCreada);
+      console.log('\n  [CLEANUP] Datos de prueba eliminados.');
+    } catch (limpiezaError) {
+      console.error('[ERROR] No se pudieron borrar los datos de prueba:', limpiezaError.message);
+      errorInesperado = true;
+    }
+
+    const { total, passed } = getStats();
+    console.log('\n=============================================================');
+    console.log(`[RESULTADO] PRUEBAS SUPERADAS: ${passed} / ${total}`);
+    console.log('=============================================================\n');
     server.close();
-    process.exit(0);
+    process.exit(passed === total && !errorInesperado ? 0 : 1);
   }
 });

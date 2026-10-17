@@ -82,7 +82,7 @@ const testServer = server.listen(0, async () => {
   let idUsuarioOp2 = null;
   let ultimoHistorialPrevio = 0;
   let idPersonaAsociado = null;
-  const codigoAsociado = `EX-8${sufijo}`;
+  const codigoAsociado = `EX-T8${sufijo}`;
 
   try {
     // ------------------------------------------------------------------
