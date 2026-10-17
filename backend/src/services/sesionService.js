@@ -16,7 +16,7 @@ const MENSAJE_SESION_INVALIDA = 'Su sesión no es válida. Inicie sesión de nue
  * @async
  * @param {object} decoded - Carga del JWT, ya verificada con la firma.
  * @returns {Promise<
- *   {valida: true, idUsuario: number, usuario: {id_persona: number, estado: string, sesion_activa_id: string, debe_cambiar_password: boolean}}
+ *   {valida: true, idUsuario: number, usuario: {id_persona: number, estado: string, sesion_activa_id: string, debe_cambiar_password: boolean, rol: string}}
  *   | {valida: false, status: number, message: string, sesionRevocada?: boolean}
  * >}
  */
@@ -27,7 +27,9 @@ const validarSesion = async (decoded) => {
   if (!decoded || decoded.purpose || !idUsuario || !decoded.sesion_activa_id) return invalida;
 
   const resultado = await db.query(
-    'SELECT id_persona, estado, sesion_activa_id, debe_cambiar_password FROM usuarios WHERE id_usuario = $1',
+    `SELECT u.id_persona, u.estado, u.sesion_activa_id, u.debe_cambiar_password, r.codigo AS rol
+     FROM usuarios u JOIN roles r ON r.id_rol = u.id_rol
+     WHERE u.id_usuario = $1`,
     [idUsuario]
   );
   const usuario = resultado.rows[0];

@@ -789,7 +789,11 @@ export const UsersPage = () => {
             <legend className="sr-only">Datos personales</legend>
             <p className="!mt-0 text-sm font-semibold text-ink" aria-hidden="true">Datos personales</p>
 
-            <Field label="DPI" hint={`13 dígitos · ${formData.cui_dpi?.length || 0}/13`} required>
+            <Field
+              label="DPI"
+              hint={isEditing ? 'El DPI no se cambia: identifica a la persona en el banco y en sus cuentas.' : `13 dígitos · ${formData.cui_dpi?.length || 0}/13`}
+              required
+            >
               <Input
                 type="text"
                 inputMode="numeric"
@@ -799,6 +803,7 @@ export const UsersPage = () => {
                   const val = e.target.value.replace(/\D/g, '').slice(0, 13);
                   setFormData({ ...formData, cui_dpi: val });
                 }}
+                disabled={isEditing}
                 required
                 className="font-mono sm:max-w-xs"
               />

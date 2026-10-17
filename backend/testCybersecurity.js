@@ -143,7 +143,7 @@ async function runTests() {
     });
     assert(badTokenUpload.status === 401, 'Descarga con token JWT adulterado rechazada con 401');
 
-    // 2.3 Token con rol ASOCIADO intentando acceder a expediente ajeno -> Espera 403 Forbidden
+    // 2.3 Token firmado a mano, sin una sesión vigente (por ejemplo, de una sesión ya cerrada) -> 401
     const asociadoToken = jwt.sign(
       { id_persona: 99999, rol: 'ASOCIADO', email: 'intruso@asociado.com' },
       JWT_SECRET,
@@ -155,21 +155,36 @@ async function runTests() {
       path: `/api/uploads/creditos/test_expediente.pdf?token=${asociadoToken}`,
       method: 'GET',
     });
-    assert(forbiddenUpload.status === 403, 'Asociado intentando ver expediente ajeno bloqueado con 403 Forbidden (RBAC)');
+    assert(forbiddenUpload.status === 401, 'Descarga con un token que no es de una sesión vigente rechazada con 401');
 
-    // 2.4 Token de OPERADOR o ADMINISTRADOR -> Autorizado para revisión documental (200 OK)
-    const operadorToken = jwt.sign(
-      { id_persona: 2, rol: 'OPERADOR', email: 'operador@cooperativa.com' },
-      JWT_SECRET,
-      { expiresIn: '1h' }
+    // 2.4 Sesión vigente de OPERADOR -> Autorizado para revisión documental (200 OK); al cerrarla, ya no
+    const loginOperador = await httpRequest(
+      { hostname: 'localhost', port: 5001, path: '/api/auth/login', method: 'POST', headers: { 'Content-Type': 'application/json' } },
+      { identifier: 'OP-1', password: 'admin123' }
     );
+    const operadorToken = loginOperador.data?.token;
     const operadorUpload = await httpRequest({
       hostname: 'localhost',
       port: 5001,
       path: `/api/uploads/creditos/test_expediente.pdf?token=${operadorToken}`,
       method: 'GET',
     });
-    assert(operadorUpload.status === 200, 'Operador autorizado para consultar expedientes (pasa RBAC, retorna 200 OK con el contenido)');
+    assert(operadorUpload.status === 200, 'Operador con sesión vigente consulta expedientes (pasa RBAC, retorna 200 OK con el contenido)');
+
+    await httpRequest({
+      hostname: 'localhost',
+      port: 5001,
+      path: '/api/auth/logout',
+      method: 'POST',
+      headers: { Authorization: `Bearer ${operadorToken}` },
+    });
+    const uploadSesionCerrada = await httpRequest({
+      hostname: 'localhost',
+      port: 5001,
+      path: `/api/uploads/creditos/test_expediente.pdf?token=${operadorToken}`,
+      method: 'GET',
+    });
+    assert(uploadSesionCerrada.status === 401, 'Con la sesión cerrada, el mismo token ya no descarga documentos (401)');
 
     // Limpiar archivo temporal de prueba
     if (fs.existsSync(testPdfPath)) {

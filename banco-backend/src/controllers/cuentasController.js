@@ -69,12 +69,13 @@ const consultarCuenta = async (req, res) => {
 const debitar = async (req, res) => {
   const client = await pool.connect();
   try {
-    const { numero_cuenta, id_cuenta_bancaria, cui_dpi, monto, concepto, referencia } = req.body;
+    // La cuenta se identifica solo por su número (nunca por su id interno)
+    const { numero_cuenta, cui_dpi, monto, concepto, referencia } = req.body;
 
-    if ((!numero_cuenta && !id_cuenta_bancaria) || !monto) {
+    if (!numero_cuenta || !monto) {
       return res.status(400).json({
         success: false,
-        message: 'Número de cuenta (o ID de cuenta) y monto a debitar son obligatorios.',
+        message: 'Número de cuenta y monto a debitar son obligatorios.',
       });
     }
 
@@ -89,18 +90,15 @@ const debitar = async (req, res) => {
     await client.query('BEGIN');
 
     // Bloquear fila para actualización concurrente
-    const numStr = numero_cuenta ? String(numero_cuenta).trim() : '';
-    const idCta = id_cuenta_bancaria
-      ? parseInt(id_cuenta_bancaria, 10)
-      : (!isNaN(parseInt(numStr, 10)) && !numStr.startsWith('CTA-') ? parseInt(numStr, 10) : -1);
+    const numStr = String(numero_cuenta).trim();
 
     const ctaRes = await client.query(
       `SELECT cb.id_cuenta_bancaria, cb.numero_cuenta, cb.saldo_disponible, cb.estado, c.cui_dpi
        FROM cuentas_bancarias cb
        JOIN clientes_banco c ON c.id_cliente = cb.id_cliente
-       WHERE (LOWER(TRIM(cb.numero_cuenta)) = LOWER(TRIM($1)) OR cb.id_cuenta_bancaria = $2)
+       WHERE LOWER(TRIM(cb.numero_cuenta)) = LOWER(TRIM($1))
        FOR UPDATE OF cb`,
-      [numStr, idCta]
+      [numStr]
     );
 
     if (ctaRes.rows.length === 0) {
@@ -191,12 +189,13 @@ const debitar = async (req, res) => {
 const acreditar = async (req, res) => {
   const client = await pool.connect();
   try {
-    const { numero_cuenta, id_cuenta_bancaria, monto, concepto, referencia } = req.body;
+    // La cuenta se identifica solo por su número (nunca por su id interno)
+    const { numero_cuenta, monto, concepto, referencia } = req.body;
 
-    if ((!numero_cuenta && !id_cuenta_bancaria) || !monto) {
+    if (!numero_cuenta || !monto) {
       return res.status(400).json({
         success: false,
-        message: 'Número de cuenta (o ID de cuenta) y monto a acreditar son obligatorios.',
+        message: 'Número de cuenta y monto a acreditar son obligatorios.',
       });
     }
 
@@ -210,17 +209,14 @@ const acreditar = async (req, res) => {
 
     await client.query('BEGIN');
 
-    const numStr = numero_cuenta ? String(numero_cuenta).trim() : '';
-    const idCta = id_cuenta_bancaria
-      ? parseInt(id_cuenta_bancaria, 10)
-      : (!isNaN(parseInt(numStr, 10)) && !numStr.startsWith('CTA-') ? parseInt(numStr, 10) : -1);
+    const numStr = String(numero_cuenta).trim();
 
     const ctaRes = await client.query(
       `SELECT id_cuenta_bancaria, numero_cuenta, saldo_disponible, estado
        FROM cuentas_bancarias
-       WHERE (LOWER(TRIM(numero_cuenta)) = LOWER(TRIM($1)) OR id_cuenta_bancaria = $2)
+       WHERE LOWER(TRIM(numero_cuenta)) = LOWER(TRIM($1))
        FOR UPDATE`,
-      [numStr, idCta]
+      [numStr]
     );
 
     if (ctaRes.rows.length === 0) {

@@ -3,6 +3,7 @@ const mailerService = require('../services/mailerService');
 const bancoApiService = require('../services/bancoApiService');
 const operadorAfiliacionService = require('../services/operadorAfiliacionService');
 const operadorCreditoService = require('../services/operadorCreditoService');
+const { errorDeNegocio, respuestaDeError } = require('../utils/errores');
 
 /**
  * Obtener solicitudes en estado 'PENDIENTE' para traslados y aperturas
@@ -165,15 +166,21 @@ const resolverSolicitud = async (req, res) => {
           [solicitud.id_asociado]
         );
         let numCuentaBco = null;
+        let bancoSinRespuesta = false;
         if (assocCui.rows.length > 0 && assocCui.rows[0].cui_dpi) {
           const bcoRes = await bancoApiService.obtenerCuentasCliente(assocCui.rows[0].cui_dpi);
           if (bcoRes.success && Array.isArray(bcoRes.data)) {
             const foundCta = bcoRes.data.find(c => String(c.id_cuenta_bancaria) === String(solicitud.id_cuenta_bancaria_origen));
             if (foundCta) numCuentaBco = foundCta.numero_cuenta_bancaria;
+          } else {
+            bancoSinRespuesta = true;
           }
         }
+        // Si la cuenta no aparece entre las del asociado, no se debita nada (no se usa su id como número)
         if (!numCuentaBco) {
-          numCuentaBco = String(solicitud.id_cuenta_bancaria_origen);
+          throw bancoSinRespuesta
+            ? errorDeNegocio(502, 'No pudimos comunicarnos con el banco. Intente de nuevo en unos minutos.')
+            : errorDeNegocio(404, 'No encontramos la cuenta del banco de origen entre las del asociado.');
         }
 
         debitoBanco = {
@@ -189,12 +196,12 @@ const resolverSolicitud = async (req, res) => {
         const originRes = await client.query(originQuery, [solicitud.id_cuenta_origen]);
         
         if (originRes.rows.length === 0) {
-          throw new Error('Cuenta de origen no encontrada.');
+          throw errorDeNegocio(404, 'Cuenta de origen no encontrada.');
         }
 
         const saldoOrigen = parseFloat(originRes.rows[0].saldo_disponible);
         if (saldoOrigen < monto) {
-          throw new Error(`Saldo insuficiente en cuenta de origen para procesar el traslado (Saldo: Q${saldoOrigen.toFixed(2)}).`);
+          throw errorDeNegocio(400, `Saldo insuficiente en cuenta de origen para procesar el traslado (Saldo: Q${saldoOrigen.toFixed(2)}).`);
         }
 
         const nuevoSaldoOrigen = saldoOrigen - monto;
@@ -266,7 +273,7 @@ const resolverSolicitud = async (req, res) => {
         const destQuery = 'SELECT saldo_disponible FROM cuentas WHERE id_cuenta = $1 FOR UPDATE';
         const destRes = await client.query(destQuery, [idCuentaDestino]);
         if (destRes.rows.length === 0) {
-          throw new Error('Cuenta de destino no encontrada.');
+          throw errorDeNegocio(404, 'Cuenta de destino no encontrada.');
         }
 
         const saldoDestino = parseFloat(destRes.rows[0].saldo_disponible);
@@ -309,7 +316,9 @@ const resolverSolicitud = async (req, res) => {
       if (debitoBanco) {
         const debitRes = await bancoApiService.debitarCuenta(debitoBanco);
         if (!debitRes.success) {
-          throw new Error(debitRes.message || 'Error al debitar fondos en la cuenta bancaria de origen.');
+          // 403: la cuenta no es del asociado; 5xx: el banco no respondió
+          const status = debitRes.status === 403 ? 403 : debitRes.status >= 500 ? 502 : 400;
+          throw errorDeNegocio(status, debitRes.message || 'No se pudo debitar la cuenta bancaria de origen.');
         }
       }
 
@@ -346,10 +355,8 @@ const resolverSolicitud = async (req, res) => {
 
   } catch (error) {
     console.error('Error en operadorController.resolverSolicitud:', error);
-    return res.status(500).json({
-      success: false,
-      message: error.message || 'Error al procesar la resolución de la solicitud.',
-    });
+    const { status, message } = respuestaDeError(error, 'No se pudo resolver la solicitud. Intente de nuevo.');
+    return res.status(status).json({ success: false, message });
   }
 };
 
@@ -521,10 +528,8 @@ const formalizarAfiliacion = async (req, res) => {
     return res.status(result.status).json(result);
   } catch (error) {
     console.error('Error en operadorController.formalizarAfiliacion:', error);
-    return res.status(500).json({
-      success: false,
-      message: error.message || 'Error al formalizar la afiliación en agencia.',
-    });
+    const { status, message } = respuestaDeError(error, 'No se pudo formalizar la afiliación. Intente de nuevo.');
+    return res.status(status).json({ success: false, message });
   }
 };
 
@@ -649,10 +654,8 @@ const resolverSolicitudCredito = async (req, res) => {
     return res.status(result.status).json(result);
   } catch (error) {
     console.error('Error en operadorController.resolverSolicitudCredito:', error);
-    return res.status(500).json({
-      success: false,
-      message: error.message || 'Error al resolver la solicitud de crédito.',
-    });
+    const { status, message } = respuestaDeError(error, 'No se pudo resolver la solicitud de crédito. Intente de nuevo.');
+    return res.status(status).json({ success: false, message });
   }
 };
 
@@ -689,10 +692,8 @@ const elevarSolicitudCredito = async (req, res) => {
     return res.status(result.status).json(result);
   } catch (error) {
     console.error('Error en operadorController.elevarSolicitudCredito:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'No se pudo enviar la solicitud al ejecutivo. Intente de nuevo.',
-    });
+    const { status, message } = respuestaDeError(error, 'No se pudo enviar la solicitud al ejecutivo. Intente de nuevo.');
+    return res.status(status).json({ success: false, message });
   }
 };
 

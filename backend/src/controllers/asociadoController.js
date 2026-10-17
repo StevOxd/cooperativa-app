@@ -5,6 +5,7 @@ const { saveBase64File } = require('../utils/fileStorage');
 const socketService = require('../services/socketService');
 const { FINANCIERO } = require('../config/constants');
 const { normalizarParentesco } = require('../utils/parentesco');
+const { respuestaDeError } = require('../utils/errores');
 
 // Constantes institucionales para eliminación de números mágicos
 const CONSTANTS = {
@@ -582,10 +583,8 @@ const subirExpedienteFirmado = async (req, res) => {
     });
   } catch (error) {
     console.error('Error en asociadoController.subirExpedienteFirmado:', error);
-    return res.status(500).json({
-      success: false,
-      message: error.message || 'Error al procesar el archivo firmado.',
-    });
+    const { status, message } = respuestaDeError(error, 'No se pudo procesar el archivo firmado. Intente de nuevo.');
+    return res.status(status).json({ success: false, message });
   }
 };
 
@@ -1359,7 +1358,7 @@ const guardarMisBeneficiarios = async (req, res) => {
     console.error('Error en asociadoController.guardarMisBeneficiarios:', error);
     return res.status(500).json({
       success: false,
-      message: 'No se pudieron guardar sus beneficiarios: ' + error.message,
+      message: 'No se pudieron guardar sus beneficiarios. Intente de nuevo.',
     });
   } finally {
     client.release();

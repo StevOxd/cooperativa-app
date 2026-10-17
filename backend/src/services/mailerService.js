@@ -1,5 +1,6 @@
 const nodemailer = require('nodemailer');
 const { pool } = require('../config/db');
+const { errorDeNegocio } = require('../utils/errores');
 
 /**
  * Servicio Institucional de Despacho de Correo Electrónico
@@ -178,10 +179,10 @@ class MailerService {
       };
     }
     if (!user || !user.includes('@')) {
-      throw new Error('Debe proporcionar una cuenta de correo de Google válida.');
+      throw errorDeNegocio(400, 'Debe proporcionar una cuenta de correo de Google válida.');
     }
     if (!appPassword || appPassword.trim().length < 8) {
-      throw new Error('Debe proporcionar la Contraseña de Aplicación de 16 caracteres de Google.');
+      throw errorDeNegocio(400, 'Debe proporcionar la Contraseña de Aplicación de 16 caracteres de Google.');
     }
 
     const cleanPass = appPassword.replace(/\s+/g, '');

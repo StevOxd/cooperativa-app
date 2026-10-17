@@ -2,11 +2,23 @@ const fs = require('fs');
 const path = require('path');
 const jwt = require('jsonwebtoken');
 const db = require('../config/db');
+const { validarSesion } = require('../services/sesionService');
 
 /**
  * Manejador seguro para servir archivos y contratos PDF subidos (SEC-02).
  * Reemplaza express.static público verificando token JWT (cabecera o query param)
  * y aplicando reglas estrictas de autorización por rol y pertenencia (RBAC).
+ *
+ * El token tiene que ser el de la sesión vigente del usuario (`sesionService.validarSesion`), sin cambio de
+ * contraseña pendiente. El rol y la persona salen de la base de datos: el personal ve todos los documentos y
+ * un asociado solo los de sus solicitudes de crédito.
+ *
+ * @async
+ * @route GET /api/uploads/:subfolder/:filename
+ * @param {import('express').Request} req - Token en `Authorization: Bearer` o en `?token=`.
+ * @param {import('express').Response} res
+ * @returns {Promise<void>} El archivo; 401 sin sesión vigente; 403 si el usuario está inactivo, tiene un cambio
+ *   de contraseña pendiente o el documento no es suyo; 404 si no existe; 500.
  */
 const secureUploadsHandler = async (req, res) => {
   const subfolder = req.params.subfolder || '';
@@ -32,7 +44,7 @@ const secureUploadsHandler = async (req, res) => {
     });
   }
 
-  // 3. Validar token criptográficamente
+  // 3. Validar el token y que sea la sesión vigente de un usuario activo (las mismas reglas que verifyToken)
   let user;
   try {
     user = jwt.verify(token, process.env.JWT_SECRET);
@@ -40,6 +52,24 @@ const secureUploadsHandler = async (req, res) => {
     return res.status(401).json({
       success: false,
       message: 'Su sesión venció. Inicie sesión de nuevo.',
+    });
+  }
+  let sesion;
+  try {
+    sesion = await validarSesion(user);
+  } catch (err) {
+    console.error('[ERROR] No se pudo validar la sesión para la descarga:', err.message);
+    return res.status(500).json({ success: false, message: 'No se pudo abrir el documento. Intente de nuevo.' });
+  }
+  if (!sesion.valida) {
+    return res.status(sesion.status).json({ success: false, message: sesion.message });
+  }
+  // Con la contraseña temporal pendiente de cambio no se descarga nada (igual que en verifyToken)
+  if (sesion.usuario.debe_cambiar_password) {
+    return res.status(403).json({
+      success: false,
+      debe_cambiar_password: true,
+      message: 'Antes de continuar, cambie su contraseña temporal.',
     });
   }
 
@@ -56,8 +86,9 @@ const secureUploadsHandler = async (req, res) => {
   }
 
   // 5. Autorización basada en Roles (RBAC) y Pertenencia
-  const rol = user.rol;
-  const idPersona = user.id_persona;
+  // El rol y la persona se toman de la base de datos, no del token
+  const rol = sesion.usuario.rol;
+  const idPersona = sesion.usuario.id_persona;
 
   // Personal operativo, administrativo y de crédito tiene acceso general de revisión
   if (['ADMINISTRADOR', 'OPERADOR', 'EJECUTIVO'].includes(rol)) {

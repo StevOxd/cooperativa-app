@@ -4,6 +4,7 @@ const socketService = require('../services/socketService');
 const mailerService = require('../services/mailerService');
 const { getNextCorporateCode, resolvePrefix, generateSecureRandomPassword } = require('../utils/codeGenerator');
 const { filtroUsuario } = require('../utils/identificadores');
+const { respuestaDeError } = require('../utils/errores');
 
 const ROLES_PERMITIDOS = ['ADMINISTRADOR', 'OPERADOR', 'EJECUTIVO', 'ASOCIADO'];
 const ESTADOS_PERMITIDOS = ['ACTIVO', 'INACTIVO'];
@@ -593,8 +594,12 @@ const createUser = async (req, res) => {
  * Actualizar datos de un usuario (Actualiza personas + usuarios por id_usuario y registra auditoría)
  * PUT /api/usuarios/:id
  *
- * @returns {Promise<import('express').Response>} 200 con el usuario actualizado, 400 por datos inválidos,
- *   404 si no existe, 409 si el correo o el código ya los usa otro usuario o si el cambio de rol le daría a la
+ * El DPI no se cambia desde aquí. Los cambios de datos personales quedan en la auditoría con su valor anterior,
+ * y los campos que no vienen en la petición se quedan como están. Cambiar el rol o el estado cierra la sesión
+ * del usuario y sus conexiones en tiempo real.
+ *
+ * @returns {Promise<import('express').Response>} 200 con el usuario actualizado, 400 por datos inválidos o
+ *   si se intenta cambiar el DPI, 404 si no existe, 409 si el correo o el código ya los usa otro usuario o si el cambio de rol le daría a la
  *   persona un segundo usuario del mismo tipo, o 500.
  */
 const updateUser = async (req, res) => {
@@ -716,15 +721,31 @@ const updateUser = async (req, res) => {
       });
     }
 
+    // 5.1 El DPI no se cambia desde aquí: identifica a la persona en el banco y en sus cuentas
+    const personaActualRes = await client.query(
+      `SELECT cui_dpi, primer_nombre, segundo_nombre, primer_apellido, segundo_apellido, telefono, direccion,
+              TO_CHAR(fecha_nacimiento, 'YYYY-MM-DD') AS fecha_nacimiento
+       FROM personas WHERE id_persona = $1`,
+      [targetPersonaId]
+    );
+    const personaActual = personaActualRes.rows[0] || {};
+    if (cui_dpi && String(cui_dpi).replace(/\D/g, '') !== personaActual.cui_dpi) {
+      return res.status(400).json({
+        success: false,
+        message: 'El DPI no se cambia desde Usuarios: identifica a la persona en el banco y en sus cuentas.',
+      });
+    }
+
     // INICIAR TRANSACCIÓN SQL
     await client.query('BEGIN');
 
-    // 6. Actualizar datos en tabla personas
-    if (nombre || primer_nombre || cui_dpi || telefono || direccion || fecha_nacimiento) {
+    // 6. Actualizar datos en tabla personas (sin el DPI) y dejar constancia de lo que cambió
+    if (nombre || primer_nombre || telefono || direccion || fecha_nacimiento) {
+      // Un campo que no viene en la petición se queda como está; uno que viene vacío se borra
       let pNom = primer_nombre;
-      let sNom = segundo_nombre || null;
+      let sNom = segundo_nombre === undefined ? personaActual.segundo_nombre ?? null : segundo_nombre || null;
       let pApe = primer_apellido;
-      let sApe = segundo_apellido || null;
+      let sApe = segundo_apellido === undefined ? personaActual.segundo_apellido ?? null : segundo_apellido || null;
 
       if (!pNom && nombre) {
         const parts = nombre.trim().split(/\s+/);
@@ -751,19 +772,42 @@ const updateUser = async (req, res) => {
         }
       }
 
-      await client.query(
+      const personaNuevaRes = await client.query(
         `UPDATE personas 
          SET primer_nombre = COALESCE($1, primer_nombre),
              segundo_nombre = $2,
              primer_apellido = COALESCE($3, primer_apellido),
              segundo_apellido = $4,
-             cui_dpi = COALESCE($5, cui_dpi),
-             telefono = COALESCE($6, telefono),
-             direccion = COALESCE($7, direccion),
-             fecha_nacimiento = COALESCE($8, fecha_nacimiento)
-         WHERE id_persona = $9`,
-        [pNom, sNom, pApe, sApe, cui_dpi || null, telefono || null, direccion || null, fecha_nacimiento || null, targetPersonaId]
+             telefono = COALESCE($5, telefono),
+             direccion = COALESCE($6, direccion),
+             fecha_nacimiento = COALESCE($7, fecha_nacimiento)
+         WHERE id_persona = $8
+         RETURNING primer_nombre, segundo_nombre, primer_apellido, segundo_apellido, telefono, direccion,
+                   TO_CHAR(fecha_nacimiento, 'YYYY-MM-DD') AS fecha_nacimiento`,
+        [pNom, sNom, pApe, sApe, telefono || null, direccion || null, fecha_nacimiento || null, targetPersonaId]
       );
+
+      // Auditoría de los datos personales que cambiaron, con su valor anterior
+      const personaNueva = personaNuevaRes.rows[0] || {};
+      const cambios = ['primer_nombre', 'segundo_nombre', 'primer_apellido', 'segundo_apellido', 'telefono', 'direccion', 'fecha_nacimiento']
+        .filter((campo) => (personaActual[campo] || '') !== (personaNueva[campo] || ''))
+        .map((campo) => `${campo}: «${personaActual[campo] || ''}» → «${personaNueva[campo] || ''}»`);
+      if (cambios.length > 0) {
+        await client.query(
+          `INSERT INTO historial_estados_usuario
+            (id_usuario_modificado, estado_anterior, estado_nuevo, id_rol_anterior, id_rol_nuevo, id_modificado_por, motivo, ip_origen, user_agent)
+           VALUES ($1, $2, $2, $3, $3, $4, $5, $6, $7)`,
+          [
+            targetUserId,
+            currentUser.estado,
+            currentUser.id_rol,
+            req.user?.id_usuario || null,
+            `Datos personales actualizados. ${cambios.join('; ')}`,
+            getClientIp(req),
+            getUserAgent(req),
+          ]
+        );
+      }
     }
 
     // 7. Actualizar datos en tabla usuarios
@@ -779,9 +823,12 @@ const updateUser = async (req, res) => {
     );
 
     // 8. Registrar en historial de auditoría si cambió rol o estado
-    if (currentUser.estado !== estadoUpper || currentUser.id_rol !== rolId) {
+    const cambiaAcceso = currentUser.estado !== estadoUpper || currentUser.id_rol !== rolId;
+    if (cambiaAcceso) {
       const clientIp = getClientIp(req);
       const userAgent = getUserAgent(req);
+      // Con otro rol u otro estado, la sesión abierta ya no vale: tiene que volver a entrar
+      await client.query('UPDATE usuarios SET sesion_activa_id = NULL, ultimo_ping = NULL WHERE id_usuario = $1', [targetUserId]);
       await client.query(
         `INSERT INTO historial_estados_usuario 
           (id_usuario_modificado, estado_anterior, estado_nuevo, id_rol_anterior, id_rol_nuevo, id_modificado_por, motivo, ip_origen, user_agent)
@@ -801,6 +848,10 @@ const updateUser = async (req, res) => {
 
     // CONFIRMAR TRANSACCIÓN
     await client.query('COMMIT');
+    if (cambiaAcceso) {
+      socketService.disconnectUser(targetUserId);
+      socketService.broadcastPresence(targetUserId, false);
+    }
 
     // 9. Consultar datos consolidados
     const updatedUserRes = await db.query(
@@ -1213,7 +1264,7 @@ const cambiarEstadoUsuario = async (req, res) => {
 
     if (nuevoEstado === 'INACTIVO') {
       await client.query(
-        'UPDATE usuarios SET estado = $1, sesion_activa_id = NULL WHERE id_usuario = $2',
+        'UPDATE usuarios SET estado = $1, sesion_activa_id = NULL, ultimo_ping = NULL WHERE id_usuario = $2',
         [nuevoEstado, targetUserId]
       );
     } else {
@@ -1253,6 +1304,7 @@ const cambiarEstadoUsuario = async (req, res) => {
     if (nuevoEstado === 'INACTIVO') {
       // Sus conexiones en tiempo real se cierran junto con la sesión
       socketService.disconnectUser(targetUserId);
+      socketService.broadcastPresence(targetUserId, false);
     }
 
     return res.status(200).json({
@@ -1449,7 +1501,6 @@ const updateEmailServiceConfig = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: result.message || 'No se pudo conectar con el servicio de Google Mail.',
-        error: result.error,
       });
     }
 
@@ -1460,10 +1511,8 @@ const updateEmailServiceConfig = async (req, res) => {
     });
   } catch (error) {
     console.error('Error en updateEmailServiceConfig:', error);
-    return res.status(500).json({
-      success: false,
-      message: error.message || 'Error al configurar el servicio de Google Mail.',
-    });
+    const { status, message } = respuestaDeError(error, 'No se pudo configurar el servicio de Google Mail. Intente de nuevo.');
+    return res.status(status).json({ success: false, message });
   }
 };
 
@@ -1486,13 +1535,14 @@ const sendTestEmail = async (req, res) => {
       message: result.simulado
         ? 'Correo despachado en Modo Demostrativo (Servicio de Google no verificado aún).'
         : `Correo de prueba enviado exitosamente a ${to.trim()} a través del servicio de Google.`,
-      data: result,
+      // El detalle de un fallo del envío queda en la consola, no en la respuesta
+      data: { simulado: result.simulado, messageId: result.messageId, provider: result.provider },
     });
   } catch (error) {
     console.error('Error en sendTestEmail:', error);
     return res.status(500).json({
       success: false,
-      message: `Error al enviar correo de prueba: ${error.message}`,
+      message: 'No se pudo enviar el correo de prueba. Revise la cuenta de Google y la contraseña de aplicación.',
     });
   }
 };
