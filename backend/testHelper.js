@@ -5,6 +5,37 @@
  */
 
 const http = require('http');
+const { Pool } = require('pg');
+
+// Pools del rol dueño de las tablas, uno por base de datos (ver poolDueno)
+const poolsDueno = new Map();
+
+/**
+ * Pool del rol dueño de las tablas (DB_OWNER_USER) en el mismo servidor que `pool`. La limpieza de las pruebas lo
+ * necesita: el rol de la aplicación no borra filas (salvo en las pocas tablas que el código limpia), no cambia
+ * secuencias y los triggers de auditoría solo dejan purgar al dueño de la tabla. Se crea al primer uso y no
+ * retiene el proceso al terminar.
+ *
+ * Recibe el `Pool` (no el módulo `db` como los demás helpers) porque de él toma el servidor y la base.
+ *
+ * @param {import('pg').Pool} pool - Pool del rol de la aplicación.
+ * @param {string} [database] - Base que se va a limpiar; por defecto, la de `pool`.
+ * @returns {import('pg').Pool}
+ * @throws {Error} si faltan DB_OWNER_USER o DB_OWNER_PASSWORD.
+ */
+function poolDueno(pool, database = pool.options.database) {
+  const { host, port } = pool.options;
+  const clave = `${host}:${port}/${database}`;
+  if (!poolsDueno.has(clave)) {
+    const user = process.env.DB_OWNER_USER;
+    const password = process.env.DB_OWNER_PASSWORD;
+    if (!user || !password) {
+      throw new Error('Faltan DB_OWNER_USER o DB_OWNER_PASSWORD: las purgas de pruebas usan el rol dueño (vea backend/.env.example).');
+    }
+    poolsDueno.set(clave, new Pool({ host, port, database, user, password, max: 2, allowExitOnIdle: true }));
+  }
+  return poolsDueno.get(clave);
+}
 
 /**
  * Realiza una solicitud HTTP contra un servidor local especificado por puerto o URL base.
@@ -143,6 +174,7 @@ async function crearUsuarioDePrueba(db, { dpi, codigo, email, rol, estado = 'ACT
 /**
  * Borra una persona de prueba con todo lo suyo: usuarios, auditoría, cuentas, movimientos, solicitudes y el
  * efectivo de ventanilla registrado a su nombre. Todo en una transacción: si un paso falla, no queda a medias.
+ * Usa el rol dueño (poolDueno), el único que puede purgar los registros de auditoría.
  *
  * Pensada para asociados y para personal que no atendió trámites: no limpia lo que un usuario del personal
  * registró sobre otras personas (`transacciones.id_usuario_registra`, los revisores de `solicitudes_credito`
@@ -174,7 +206,7 @@ async function borrarPersonaDePrueba(db, idPersona) {
     'DELETE FROM asociados WHERE id_persona = $1',
     'DELETE FROM personas WHERE id_persona = $1',
   ];
-  const client = await db.pool.connect();
+  const client = await poolDueno(db.pool).connect();
   try {
     await client.query('BEGIN');
     for (const sql of pasos) {
@@ -191,7 +223,7 @@ async function borrarPersonaDePrueba(db, idPersona) {
 
 /**
  * Borra el efectivo de ventanilla (y los depósitos al banco) registrados a nombre de unos DPI de prueba. Son
- * registros de auditoría: solo se borran con la marca de purga de pruebas.
+ * registros de auditoría: solo se borran con la marca de purga de pruebas y el rol dueño (poolDueno).
  *
  * @param {{ pool: import('pg').Pool }} db - Módulo `src/config/db` (o un objeto con su `pool`).
  * @param {string[]} dpis
@@ -200,7 +232,7 @@ async function borrarPersonaDePrueba(db, idPersona) {
 async function purgarEfectivoDePrueba(db, dpis) {
   const lista = dpis.filter(Boolean);
   if (lista.length === 0) return;
-  const client = await db.pool.connect();
+  const client = await poolDueno(db.pool).connect();
   try {
     await client.query('BEGIN');
     await client.query("SET LOCAL cooperativa.purga_pruebas = 'on'");
@@ -217,7 +249,7 @@ async function purgarEfectivoDePrueba(db, dpis) {
 
 /**
  * Borra las reversiones pendientes de prueba por su referencia original. Son registro de auditoría: solo se
- * borran con la marca de purga de pruebas.
+ * borran con la marca de purga de pruebas y el rol dueño (poolDueno).
  *
  * @param {{ pool: import('pg').Pool }} db
  * @param {string[]} referencias - Referencias originales (`SOL-CRED-…`, `CASO-…`).
@@ -226,7 +258,7 @@ async function purgarEfectivoDePrueba(db, dpis) {
 async function purgarReversionesDePrueba(db, referencias) {
   const lista = referencias.filter(Boolean);
   if (lista.length === 0) return;
-  const client = await db.pool.connect();
+  const client = await poolDueno(db.pool).connect();
   try {
     await client.query('BEGIN');
     await client.query("SET LOCAL cooperativa.purga_pruebas = 'on'");
@@ -240,8 +272,71 @@ async function purgarReversionesDePrueba(db, referencias) {
   }
 }
 
+/**
+ * Borra de banco_db el cliente con ese DPI, sus usuarios de Banca en Línea, sus cuentas y sus movimientos. Solo
+ * para clientes que abrió la propia prueba (por ejemplo, la afiliación en ventanilla de un externo), nunca para
+ * los clientes semilla del banco.
+ *
+ * @param {import('pg').Pool} pool - Pool de cooperativa_db: se usan su servidor y sus credenciales.
+ * @param {string} dpi
+ * @returns {Promise<void>}
+ */
+async function borrarClienteBancoDePrueba(pool, dpi) {
+  const deCliente = 'SELECT id_cliente FROM clientes_banco WHERE cui_dpi = $1';
+  const client = await poolDueno(pool, 'banco_db').connect();
+  try {
+    await client.query('BEGIN');
+    await client.query(
+      `DELETE FROM movimientos_bancarios WHERE id_cuenta_bancaria IN (
+         SELECT id_cuenta_bancaria FROM cuentas_bancarias WHERE id_cliente IN (${deCliente}))`,
+      [dpi]
+    );
+    await client.query(`DELETE FROM cuentas_bancarias WHERE id_cliente IN (${deCliente})`, [dpi]);
+    await client.query(`DELETE FROM usuarios_banca_en_linea WHERE id_cliente IN (${deCliente})`, [dpi]);
+    await client.query('DELETE FROM clientes_banco WHERE cui_dpi = $1', [dpi]);
+    await client.query('COMMIT');
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => {});
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+/**
+ * Borra los depósitos en ventanilla al banco de prueba, por DPI del titular o por referencia. Son registro de
+ * auditoría: solo se borran con la marca de purga de pruebas y el rol dueño (poolDueno).
+ *
+ * @param {{ pool: import('pg').Pool }} db
+ * @param {{ dpis?: string[], referencias?: string[] }} filtro
+ * @returns {Promise<void>}
+ */
+async function purgarDepositosDePrueba(db, { dpis = [], referencias = [] }) {
+  const porDpi = dpis.filter(Boolean);
+  const porReferencia = referencias.filter(Boolean);
+  if (porDpi.length === 0 && porReferencia.length === 0) return;
+  const client = await poolDueno(db.pool).connect();
+  try {
+    await client.query('BEGIN');
+    await client.query("SET LOCAL cooperativa.purga_pruebas = 'on'");
+    await client.query(
+      'DELETE FROM depositos_ventanilla_banco WHERE titular_cui = ANY($1) OR referencia = ANY($2)',
+      [porDpi, porReferencia]
+    );
+    await client.query('COMMIT');
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => {});
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
 module.exports = {
   makeRequest,
+  poolDueno,
+  borrarClienteBancoDePrueba,
+  purgarDepositosDePrueba,
   purgarEfectivoDePrueba,
   purgarReversionesDePrueba,
   createTestReporter,

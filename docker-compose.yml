@@ -5,6 +5,11 @@
 #
 # Compose lee automáticamente el archivo .env de esta carpeta (cópielo de .env.example).
 # Las claves no tienen valor por defecto: si falta alguna, Compose se detiene y lo indica.
+#
+# Roles de PostgreSQL (mínimo privilegio): DB_ADMIN_USER es el superusuario del contenedor y solo lo usan
+# db y db-roles; DB_OWNER_USER es dueño de las tablas y solo lo usan las migraciones al arrancar (después, el
+# proceso borra esas credenciales de su entorno); DB_USER es el rol con que el backend y el banco atienden
+# peticiones (lee y escribe datos con los permisos que fijan las migraciones).
 # ==============================================================================
 
 services:
@@ -17,8 +22,8 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_DB: ${DB_NAME:-cooperativa_db}
-      POSTGRES_USER: ${DB_USER:-cooperativa_user}
-      POSTGRES_PASSWORD: ${DB_PASSWORD:?Falta DB_PASSWORD en .env (vea .env.example)}
+      POSTGRES_USER: ${DB_ADMIN_USER:-cooperativa_user}
+      POSTGRES_PASSWORD: ${DB_ADMIN_PASSWORD:?Falta DB_ADMIN_PASSWORD en .env (vea .env.example)}
       PGDATA: /var/lib/postgresql/data/pgdata
     volumes:
       - cooperativa_db_data:/var/lib/postgresql/data
@@ -26,12 +31,43 @@ services:
     # Solo en esta máquina (127.0.0.1): las pruebas locales se conectan a la base por este puerto.
     ports:
       - "127.0.0.1:${DB_PORT:-5432}:5432"
+    # Por TCP (127.0.0.1): mientras corre database.sql al crear el volumen, el servidor temporal solo escucha en el
+    # socket local, así que db no figura sano hasta que arranca el definitivo (el que alcanzan db-roles y el resto)
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-cooperativa_user} -d ${DB_NAME:-cooperativa_db}"]
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U ${DB_ADMIN_USER:-cooperativa_user} -d ${DB_NAME:-cooperativa_db}"]
       interval: 5s
       timeout: 5s
       retries: 5
       start_period: 10s
+    networks:
+      - cooperativa-net
+
+  # ----------------------------------------------------------------------------
+  # 1.1 Roles de la base de datos (paso único al arrancar)
+  # ----------------------------------------------------------------------------
+  # Con el superusuario crea o actualiza el rol dueño y el de la aplicación, crea banco_db si falta y deja
+  # los objetos y permisos como corresponde (backend/database-roles.sql). Termina y no queda corriendo.
+  db-roles:
+    image: postgres:16-alpine
+    container_name: cooperativa-db-roles
+    restart: "no"
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PGHOST: db
+      PGDATABASE: postgres
+      PGUSER: ${DB_ADMIN_USER:-cooperativa_user}
+      PGPASSWORD: ${DB_ADMIN_PASSWORD:?Falta DB_ADMIN_PASSWORD en .env (vea .env.example)}
+      DB_NAME: ${DB_NAME:-cooperativa_db}
+      DB_OWNER_USER: ${DB_OWNER_USER:-cooperativa_owner}
+      DB_OWNER_PASSWORD: ${DB_OWNER_PASSWORD:?Falta DB_OWNER_PASSWORD en .env (vea .env.example)}
+      DB_USER: ${DB_USER:-cooperativa_app}
+      DB_PASSWORD: ${DB_PASSWORD:?Falta DB_PASSWORD en .env (vea .env.example)}
+    volumes:
+      - ./backend/database-roles.sql:/roles/database-roles.sql:ro
+      - ./backend/database-roles-permisos.sql:/roles/database-roles-permisos.sql:ro
+    command: ["psql", "-v", "ON_ERROR_STOP=1", "-f", "/roles/database-roles.sql"]
     networks:
       - cooperativa-net
 
@@ -47,13 +83,17 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      db-roles:
+        condition: service_completed_successfully
     environment:
       NODE_ENV: production
       PORT: 5002
       DB_HOST: db
       DB_PORT: 5432
-      DB_USER: ${DB_USER:-cooperativa_user}
+      DB_USER: ${DB_USER:-cooperativa_app}
       DB_PASSWORD: ${DB_PASSWORD:?Falta DB_PASSWORD en .env (vea .env.example)}
+      DB_OWNER_USER: ${DB_OWNER_USER:-cooperativa_owner}
+      DB_OWNER_PASSWORD: ${DB_OWNER_PASSWORD:?Falta DB_OWNER_PASSWORD en .env (vea .env.example)}
       DB_NAME: banco_db
       BANCO_INTERNAL_API_KEY: ${BANCO_INTERNAL_API_KEY:?Falta BANCO_INTERNAL_API_KEY en .env (vea .env.example)}
     # El backend llega al banco por la red interna (http://banco-backend:5002). Se publica solo
@@ -81,6 +121,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      db-roles:
+        condition: service_completed_successfully
       banco-backend:
         condition: service_healthy
     environment:
@@ -88,8 +130,10 @@ services:
       PORT: 5000
       DB_HOST: db
       DB_PORT: 5432
-      DB_USER: ${DB_USER:-cooperativa_user}
+      DB_USER: ${DB_USER:-cooperativa_app}
       DB_PASSWORD: ${DB_PASSWORD:?Falta DB_PASSWORD en .env (vea .env.example)}
+      DB_OWNER_USER: ${DB_OWNER_USER:-cooperativa_owner}
+      DB_OWNER_PASSWORD: ${DB_OWNER_PASSWORD:?Falta DB_OWNER_PASSWORD en .env (vea .env.example)}
       DB_NAME: ${DB_NAME:-cooperativa_db}
       BANCO_API_URL: http://banco-backend:5002
       BANCO_INTERNAL_API_KEY: ${BANCO_INTERNAL_API_KEY:?Falta BANCO_INTERNAL_API_KEY en .env (vea .env.example)}

@@ -9,7 +9,9 @@ process.env.MAIL_ENABLED = 'false';
 
 const { server } = require('./src/server');
 const db = require('./src/config/db');
-const { makeRequest, createTestReporter, crearUsuarioDePrueba, borrarPersonaDePrueba } = require('./testHelper');
+const { makeRequest, createTestReporter, crearUsuarioDePrueba, borrarPersonaDePrueba, poolDueno } = require('./testHelper');
+// Limpieza con el rol dueño: el de la aplicación no borra filas (salvo en las pocas tablas que el código limpia)
+const comoDueno = (sql, params) => poolDueno(db.pool).query(sql, params);
 
 const testServer = server.listen(0, async () => {
   const testPort = testServer.address().port;
@@ -179,19 +181,19 @@ const testServer = server.listen(0, async () => {
     console.log('\n[CLEANUP] Ejecutando limpieza defensiva e idempotente de la prueba...');
     try {
       if (numeroCasoGenerado) {
-        await db.query('DELETE FROM transacciones WHERE referencia LIKE $1', [`%${numeroCasoGenerado}%`]);
+        await comoDueno('DELETE FROM transacciones WHERE referencia LIKE $1', [`%${numeroCasoGenerado}%`]);
       }
       if (idSolicitudGenerada) {
-        await db.query('DELETE FROM solicitudes_traslado_apertura WHERE id_solicitud = $1', [idSolicitudGenerada]);
+        await comoDueno('DELETE FROM solicitudes_traslado_apertura WHERE id_solicitud = $1', [idSolicitudGenerada]);
       }
       if (idCuentaDestinoCreada) {
-        await db.query('DELETE FROM transacciones WHERE id_cuenta = $1', [idCuentaDestinoCreada]);
-        await db.query('DELETE FROM cuentas WHERE id_cuenta = $1', [idCuentaDestinoCreada]);
+        await comoDueno('DELETE FROM transacciones WHERE id_cuenta = $1', [idCuentaDestinoCreada]);
+        await comoDueno('DELETE FROM cuentas WHERE id_cuenta = $1', [idCuentaDestinoCreada]);
       }
       if (idCuentaOrigen) {
         if (isTempPlanilla) {
-          await db.query('DELETE FROM transacciones WHERE id_cuenta = $1', [idCuentaOrigen]);
-          await db.query('DELETE FROM cuentas WHERE id_cuenta = $1', [idCuentaOrigen]);
+          await comoDueno('DELETE FROM transacciones WHERE id_cuenta = $1', [idCuentaOrigen]);
+          await comoDueno('DELETE FROM cuentas WHERE id_cuenta = $1', [idCuentaOrigen]);
           console.log('  [CLEANUP] Cuenta temporal de planilla eliminada.');
         } else if (saldoInicialOrigen !== null) {
           await db.query('UPDATE cuentas SET saldo_disponible = $1 WHERE id_cuenta = $2', [saldoInicialOrigen, idCuentaOrigen]);

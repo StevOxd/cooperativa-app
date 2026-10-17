@@ -1,4 +1,10 @@
-const { pool } = require('./db');
+const { escapeIdentifier } = require('pg');
+const { crearPoolDueno } = require('./db');
+
+// Registros que solo se agregan (auditoría y movimientos de dinero): el rol de la aplicación no los modifica
+const TABLAS_SOLO_INSERCION = ['historial_estados_usuario', 'historial_cambios_beneficiarios', 'transacciones', 'efectivo_ventanilla'];
+// Las únicas tablas en que el código borra filas; en el resto, la desvinculación es por estado (borrado lógico)
+const TABLAS_CON_BORRADO = ['beneficiarios', 'roles_permisos', 'codigos_verificacion_correo'];
 
 /**
  * Da a `usuarios` su propia llave primaria (`id_usuario`) para que una persona pueda tener un usuario
@@ -12,10 +18,11 @@ const { pool } = require('./db');
  * - Corre en una transacción y es idempotente: si `id_usuario` ya existe, solo asegura los índices.
  *
  * @async
+ * @param {import('pg').Pool} pool - Pool del rol dueño.
  * @returns {Promise<void>}
  * @throws {Error} si la migración falla (la transacción se revierte).
  */
-const migrarLlaveUsuario = async () => {
+const migrarLlaveUsuario = async (pool) => {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
@@ -97,6 +104,43 @@ const migrarLlaveUsuario = async () => {
 };
 
 /**
+ * Deja al rol de la aplicación (DB_USER) solo lo que usa: lee, agrega y modifica datos, pero no modifica los
+ * registros que solo se agregan (TABLAS_SOLO_INSERCION), borra solo en TABLAS_CON_BORRADO y no cambia secuencias
+ * (setval). Se vuelve a aplicar entero en cada arranque, en una transacción: quien se conecte ve los permisos
+ * anteriores o los nuevos, nunca una mezcla. db-roles no da permisos sobre tablas, porque las del banco y las
+ * que agregan las migraciones todavía no existen cuando corre.
+ *
+ * @async
+ * @param {import('pg').Pool} pool - Pool del rol dueño.
+ * @returns {Promise<void>}
+ * @throws {Error} si falta DB_USER o falla el cambio (la transacción se revierte).
+ */
+const aplicarPermisosDeLaAplicacion = async (pool) => {
+  if (!process.env.DB_USER) {
+    throw new Error('Falta DB_USER: no se pueden fijar los permisos del rol de la aplicación.');
+  }
+  const app = escapeIdentifier(process.env.DB_USER);
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query(`
+      REVOKE ALL ON ALL TABLES IN SCHEMA public FROM ${app};
+      REVOKE ALL ON ALL SEQUENCES IN SCHEMA public FROM ${app};
+      GRANT SELECT, INSERT, UPDATE ON ALL TABLES IN SCHEMA public TO ${app};
+      GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO ${app};
+      REVOKE UPDATE ON ${TABLAS_SOLO_INSERCION.join(', ')} FROM ${app};
+      GRANT DELETE ON ${TABLAS_CON_BORRADO.join(', ')} TO ${app};
+    `);
+    await client.query('COMMIT');
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => {});
+    throw error;
+  } finally {
+    client.release();
+  }
+};
+
+/**
  * Aplica migraciones automáticas e idempotentes para soportar protocolos de seguridad bancaria,
  * optimización de índices, prevención de condiciones de carrera, integridad referencial y columnas generadas.
  *
@@ -105,7 +149,10 @@ const migrarLlaveUsuario = async () => {
  * @returns {Promise<boolean>} true si las migraciones concluyeron exitosamente, false si ocurrió un error.
  */
 const runMigrations = async () => {
+  // Las migraciones usan el rol dueño de las tablas; su pool solo existe mientras corren
+  let pool = null;
   try {
+    pool = crearPoolDueno();
     console.log('[MIGRATION] Verificando esquema y optimizaciones de base de datos en PostgreSQL...');
     
     // 1. Columnas críticas de seguridad en usuarios y columna generada en personas
@@ -148,7 +195,7 @@ const runMigrations = async () => {
 
     // 1.1 Llave propia del usuario (issue #32). Debe correr antes que los pasos que vuelven a crear
     //     llaves foráneas hacia usuarios(id_usuario).
-    await migrarLlaveUsuario();
+    await migrarLlaveUsuario(pool);
 
     // 2. Optimización de Índices (Eliminar redundantes y crear índices de cobertura FK y compuestos)
     const indexesQuery = `
@@ -278,14 +325,15 @@ const runMigrations = async () => {
           FOR EACH ROW
           EXECUTE FUNCTION trg_generar_numero_caso();
 
-      -- Inmutabilidad en auditoría: Restringir eliminación en cascada
+      -- Inmutabilidad en auditoría: ni el borrado ni el cambio de id de un usuario se propagan al historial (una
+      -- cascada correría como dueño y reescribiría filas que el rol de la aplicación no puede modificar)
       ALTER TABLE historial_estados_usuario 
           DROP CONSTRAINT IF EXISTS historial_estados_usuario_id_usuario_modificado_fkey;
 
       ALTER TABLE historial_estados_usuario 
           ADD CONSTRAINT historial_estados_usuario_id_usuario_modificado_fkey 
           FOREIGN KEY (id_usuario_modificado) REFERENCES usuarios(id_usuario) 
-          ON DELETE RESTRICT ON UPDATE CASCADE;
+          ON DELETE RESTRICT ON UPDATE RESTRICT;
     `;
     await pool.query(constraintsAndTriggersQuery);
 
@@ -647,12 +695,18 @@ const runMigrations = async () => {
     `);
 
     // 10.2 Es un registro de auditoría: no se borra ni se cambia, salvo el estado de un depósito sin cerrar
-    //      (PENDIENTE o SIN_CONFIRMAR). Las pruebas lo limpian con SET LOCAL cooperativa.purga_pruebas = 'on'.
+    //      (PENDIENTE o SIN_CONFIRMAR). Las pruebas lo limpian con el rol dueño y SET LOCAL cooperativa.purga_pruebas = 'on'.
     await pool.query(`
       CREATE OR REPLACE FUNCTION trg_depositos_ventanilla_inmutable()
-      RETURNS TRIGGER AS $$
+      RETURNS TRIGGER
+      SET search_path = pg_catalog, pg_temp
+      AS $$
       BEGIN
-          IF current_setting('cooperativa.purga_pruebas', true) = 'on' THEN
+          -- La purga de pruebas solo la puede hacer el rol dueño de la tabla, no el de la aplicación
+          -- (todo con pg_catalog y search_path fijo: una tabla temporal no puede hacerse pasar por pg_class)
+          IF pg_catalog.current_setting('cooperativa.purga_pruebas', true) = 'on'
+             AND pg_catalog.pg_has_role(current_user,
+                   (SELECT c.relowner FROM pg_catalog.pg_class c WHERE c.oid = TG_RELID), 'MEMBER') THEN
               RETURN COALESCE(NEW, OLD);
           END IF;
           -- De un depósito sin cerrar solo cambian el estado y quién lo concilió y cuándo (10.3)
@@ -709,9 +763,15 @@ const runMigrations = async () => {
       CREATE INDEX IF NOT EXISTS idx_efectivo_ventanilla_operador ON efectivo_ventanilla (id_usuario_operador, fecha_registro DESC);
 
       CREATE OR REPLACE FUNCTION trg_registro_solo_insercion()
-      RETURNS TRIGGER AS $$
+      RETURNS TRIGGER
+      SET search_path = pg_catalog, pg_temp
+      AS $$
       BEGIN
-          IF current_setting('cooperativa.purga_pruebas', true) = 'on' THEN
+          -- La purga de pruebas solo la puede hacer el rol dueño de la tabla, no el de la aplicación
+          -- (todo con pg_catalog y search_path fijo: una tabla temporal no puede hacerse pasar por pg_class)
+          IF pg_catalog.current_setting('cooperativa.purga_pruebas', true) = 'on'
+             AND pg_catalog.pg_has_role(current_user,
+                   (SELECT c.relowner FROM pg_catalog.pg_class c WHERE c.oid = TG_RELID), 'MEMBER') THEN
               RETURN COALESCE(NEW, OLD);
           END IF;
           RAISE EXCEPTION '% es un registro de auditoría: no se modifica ni se borra', TG_TABLE_NAME
@@ -789,9 +849,15 @@ const runMigrations = async () => {
       -- Registro de auditoría: no se borra ni se cambia; una pendiente solo se cierra (resuelta o descartada) y, si se
       -- anotó sin la cuenta del banco, al cerrarla se guarda la cuenta en que se hizo
       CREATE OR REPLACE FUNCTION trg_reversiones_pendientes_inmutable()
-      RETURNS TRIGGER AS $$
+      RETURNS TRIGGER
+      SET search_path = pg_catalog, pg_temp
+      AS $$
       BEGIN
-          IF current_setting('cooperativa.purga_pruebas', true) = 'on' THEN
+          -- La purga de pruebas solo la puede hacer el rol dueño de la tabla, no el de la aplicación
+          -- (todo con pg_catalog y search_path fijo: una tabla temporal no puede hacerse pasar por pg_class)
+          IF pg_catalog.current_setting('cooperativa.purga_pruebas', true) = 'on'
+             AND pg_catalog.pg_has_role(current_user,
+                   (SELECT c.relowner FROM pg_catalog.pg_class c WHERE c.oid = TG_RELID), 'MEMBER') THEN
               RETURN COALESCE(NEW, OLD);
           END IF;
           IF TG_OP = 'UPDATE' AND OLD.estado = 'PENDIENTE' AND NEW.estado IN ('RESUELTA', 'DESCARTADA')
@@ -838,12 +904,17 @@ const runMigrations = async () => {
       ALTER TABLE solicitudes_afiliacion_agencia ALTER COLUMN fecha_solicitud SET NOT NULL;
     `);
 
+    // 13. Permisos del rol de la aplicación sobre lo que haya quedado en la base (al final, con todas las tablas)
+    await aplicarPermisosDeLaAplicacion(pool);
+
     console.log('[MIGRATION] Esquema, cuenta_bancaria corporativa, MFA TOTP, roles, beneficiarios y optimizaciones DBA aplicadas exitosamente.');
     return true;
   } catch (error) {
     console.error('[MIGRATION ERROR] Error al verificar/migrar esquema en PostgreSQL:', error.message);
     return false;
+  } finally {
+    await pool?.end().catch(() => {});
   }
 };
 
-module.exports = { runMigrations };
+module.exports = { runMigrations, TABLAS_SOLO_INSERCION, TABLAS_CON_BORRADO };

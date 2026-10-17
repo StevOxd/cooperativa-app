@@ -7,7 +7,9 @@ process.env.CODIGO_VERIFICACION_DEV = CODIGO_DEV;
 const http = require('http');
 const { app } = require('./src/server');
 const { pool } = require('./src/config/db');
-const { purgarEfectivoDePrueba } = require('./testHelper');
+const { purgarEfectivoDePrueba, borrarPersonaDePrueba, borrarClienteBancoDePrueba, poolDueno } = require('./testHelper');
+// Limpieza con el rol dueño: el de la aplicación no borra filas (salvo en las pocas tablas que el código limpia)
+const comoDueno = (sql, params) => poolDueno(pool).query(sql, params);
 const bancoApiService = require('./src/services/bancoApiService');
 const mailerService = require('./src/services/mailerService');
 
@@ -63,18 +65,29 @@ const server = app.listen(0, async () => {
     return CODIGO_DEV;
   };
 
+  // Externo que se afilia en ventanilla (sección 4): DPI al azar que la prueba crea en la cooperativa y en el banco
+  const dpiPresencial = '2' + Math.floor(100000000000 + Math.random() * 900000000000).toString();
+
   // DPI con efectivo de ventanilla registrado en la prueba (es registro de auditoría: se purga al final)
-  const dpisConEfectivo = ['7777666655551'];
+  const dpisConEfectivo = ['7777666655551', dpiPresencial];
+
+  // Borra lo que la prueba creó para el externo de ventanilla: persona, usuario, cuentas, beneficiarios y efectivo
+  // en la cooperativa, y su cliente con su cuenta en el banco
+  const borrarExternoPresencial = async () => {
+    const persona = await pool.query('SELECT id_persona FROM personas WHERE cui_dpi = $1', [dpiPresencial]);
+    if (persona.rows[0]) await borrarPersonaDePrueba({ pool }, persona.rows[0].id_persona);
+    await borrarClienteBancoDePrueba(pool, dpiPresencial);
+  };
 
   try {
     // Limpiar afiliación previa de prueba para Marcos Castillo (4000000000001) para idempotencia
     const pMarcos = await pool.query("SELECT id_persona FROM personas WHERE cui_dpi = '4000000000001'");
     if (pMarcos.rows.length > 0) {
       const idMarcos = pMarcos.rows[0].id_persona;
-      await pool.query("DELETE FROM transacciones WHERE id_cuenta IN (SELECT id_cuenta FROM cuentas WHERE id_asociado IN (SELECT id_asociado FROM asociados WHERE id_persona = $1))", [idMarcos]);
-      await pool.query("DELETE FROM cuentas WHERE id_asociado IN (SELECT id_asociado FROM asociados WHERE id_persona = $1)", [idMarcos]);
-      await pool.query("DELETE FROM asociados WHERE id_persona = $1", [idMarcos]);
-      await pool.query("DELETE FROM usuarios WHERE id_persona = $1", [idMarcos]);
+      await comoDueno("DELETE FROM transacciones WHERE id_cuenta IN (SELECT id_cuenta FROM cuentas WHERE id_asociado IN (SELECT id_asociado FROM asociados WHERE id_persona = $1))", [idMarcos]);
+      await comoDueno("DELETE FROM cuentas WHERE id_asociado IN (SELECT id_asociado FROM asociados WHERE id_persona = $1)", [idMarcos]);
+      await comoDueno("DELETE FROM asociados WHERE id_persona = $1", [idMarcos]);
+      await comoDueno("DELETE FROM usuarios WHERE id_persona = $1", [idMarcos]);
     }
 
     // Quitar una afiliación previa de María Gutiérrez (OP-2, 2000000000002) y su usuario de asociado,
@@ -82,29 +95,29 @@ const server = app.listen(0, async () => {
     const pOp2 = await pool.query("SELECT id_persona FROM personas WHERE cui_dpi = '2000000000002'");
     if (pOp2.rows.length > 0) {
       const idOp2 = pOp2.rows[0].id_persona;
-      await pool.query("DELETE FROM transacciones WHERE id_cuenta IN (SELECT id_cuenta FROM cuentas WHERE id_asociado IN (SELECT id_asociado FROM asociados WHERE id_persona = $1))", [idOp2]);
-      await pool.query("DELETE FROM cuentas WHERE id_asociado IN (SELECT id_asociado FROM asociados WHERE id_persona = $1)", [idOp2]);
-      await pool.query("DELETE FROM asociados WHERE id_persona = $1", [idOp2]);
-      await pool.query("DELETE FROM historial_estados_usuario WHERE id_usuario_modificado IN (SELECT id_usuario FROM usuarios WHERE id_persona = $1 AND id_rol = 3)", [idOp2]);
-      await pool.query("DELETE FROM usuarios WHERE id_persona = $1 AND id_rol = 3", [idOp2]);
+      await comoDueno("DELETE FROM transacciones WHERE id_cuenta IN (SELECT id_cuenta FROM cuentas WHERE id_asociado IN (SELECT id_asociado FROM asociados WHERE id_persona = $1))", [idOp2]);
+      await comoDueno("DELETE FROM cuentas WHERE id_asociado IN (SELECT id_asociado FROM asociados WHERE id_persona = $1)", [idOp2]);
+      await comoDueno("DELETE FROM asociados WHERE id_persona = $1", [idOp2]);
+      await comoDueno("DELETE FROM historial_estados_usuario WHERE id_usuario_modificado IN (SELECT id_usuario FROM usuarios WHERE id_persona = $1 AND id_rol = 3)", [idOp2]);
+      await comoDueno("DELETE FROM usuarios WHERE id_persona = $1 AND id_rol = 3", [idOp2]);
     }
 
     // Limpiar la afiliación de prueba de Valeria Méndez (EB, 1000000000004, sección 4.1.1)
     const pValeria = await pool.query("SELECT id_persona FROM personas WHERE cui_dpi = '1000000000004'");
     if (pValeria.rows.length > 0) {
       const idValeria = pValeria.rows[0].id_persona;
-      await pool.query("DELETE FROM transacciones WHERE id_cuenta IN (SELECT id_cuenta FROM cuentas WHERE id_asociado IN (SELECT id_asociado FROM asociados WHERE id_persona = $1))", [idValeria]);
-      await pool.query("DELETE FROM cuentas WHERE id_asociado IN (SELECT id_asociado FROM asociados WHERE id_persona = $1)", [idValeria]);
-      await pool.query("DELETE FROM asociados WHERE id_persona = $1", [idValeria]);
-      await pool.query("DELETE FROM personas WHERE id_persona = $1 AND NOT EXISTS (SELECT 1 FROM usuarios WHERE id_persona = $1)", [idValeria]);
+      await comoDueno("DELETE FROM transacciones WHERE id_cuenta IN (SELECT id_cuenta FROM cuentas WHERE id_asociado IN (SELECT id_asociado FROM asociados WHERE id_persona = $1))", [idValeria]);
+      await comoDueno("DELETE FROM cuentas WHERE id_asociado IN (SELECT id_asociado FROM asociados WHERE id_persona = $1)", [idValeria]);
+      await comoDueno("DELETE FROM asociados WHERE id_persona = $1", [idValeria]);
+      await comoDueno("DELETE FROM personas WHERE id_persona = $1 AND NOT EXISTS (SELECT 1 FROM usuarios WHERE id_persona = $1)", [idValeria]);
     }
 
     // Limpiar solicitudes de agencia de prueba con el DPI de Marcos (caso de suplantación, sección 4.3)
-    await pool.query("DELETE FROM solicitudes_afiliacion_agencia WHERE cui_dpi = '4000000000001'");
+    await comoDueno("DELETE FROM solicitudes_afiliacion_agencia WHERE cui_dpi = '4000000000001'");
 
     // Limpiar solicitud de agencia previa para Gabriela Alvarado (7777666655551) y el efectivo que una corrida
     // fallida le haya dejado (cuenta para su tope del día)
-    await pool.query("DELETE FROM solicitudes_afiliacion_agencia WHERE cui_dpi = '7777666655551'");
+    await comoDueno("DELETE FROM solicitudes_afiliacion_agencia WHERE cui_dpi = '7777666655551'");
     await purgarEfectivoDePrueba({ pool }, dpisConEfectivo);
 
     // =========================================================================
@@ -597,8 +610,6 @@ const server = app.listen(0, async () => {
 
     // 4. FORMULARIO 1: Afiliación presencial en ventanilla con efectivo (OPERADOR)
     console.log('\n--- 4. Formulario 1: Afiliación Presencial en Ventanilla ---');
-    const dpiPresencial = '2' + Math.floor(100000000000 + Math.random() * 900000000000).toString();
-    dpisConEfectivo.push(dpiPresencial);
     const datosPresencial = {
       cui_dpi: dpiPresencial,
       primer_nombre: 'Juan',
@@ -717,7 +728,7 @@ const server = app.listen(0, async () => {
       crear_acceso_portal: false,
     }, operatorToken);
     const accesoMarcosDespues = (await pool.query('SELECT email, password_hash FROM usuarios WHERE codigo_corporativo = $1', [usuarioMarcos])).rows[0];
-    await pool.query('DELETE FROM solicitudes_afiliacion_agencia WHERE id_solicitud = $1', [idSolicitudSuplantada]);
+    await comoDueno('DELETE FROM solicitudes_afiliacion_agencia WHERE id_solicitud = $1', [idSolicitudSuplantada]);
     if (!idSolicitudSuplantada || formalizarSuplantada.status !== 409 || JSON.stringify(accesoMarcosAntes) !== JSON.stringify(accesoMarcosDespues)) {
       throw new Error('Formalizar una solicitud con el DPI de un asociado debería rechazarse sin tocar su acceso: ' + JSON.stringify(formalizarSuplantada.body));
     }
@@ -997,6 +1008,7 @@ const server = app.listen(0, async () => {
 
     // El efectivo de las afiliaciones y aperturas de prueba queda en un registro de auditoría: se purga
     await purgarEfectivoDePrueba({ pool }, dpisConEfectivo);
+    await borrarExternoPresencial();
 
     console.log('\n===============================================================');
     console.log(' [RESULTADO] ¡TODAS LAS PRUEBAS DEL MÓDULO 1 PASARON CON ÉXITO!');
@@ -1008,6 +1020,7 @@ const server = app.listen(0, async () => {
   } catch (err) {
     console.error('\n[FALLO EN SUITE DE PRUEBAS]', err);
     await purgarEfectivoDePrueba({ pool }, dpisConEfectivo).catch((e) => console.error('[ERROR] No se pudo purgar el efectivo de prueba:', e.message));
+    await borrarExternoPresencial().catch((e) => console.error('[ERROR] No se pudo borrar el externo de ventanilla de prueba:', e.message));
     server.close();
     await pool.end();
     process.exit(1);

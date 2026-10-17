@@ -17,7 +17,9 @@ const http = require('http');
 const jwt = require('jsonwebtoken');
 const { server } = require('./src/server');
 const db = require('./src/config/db');
-const { purgarEfectivoDePrueba } = require('./testHelper');
+const { purgarEfectivoDePrueba, poolDueno } = require('./testHelper');
+// Limpieza con el rol dueño: el de la aplicación no borra filas (salvo en las pocas tablas que el código limpia)
+const comoDueno = (sql, params) => poolDueno(db.pool).query(sql, params);
 const mailerService = require('./src/services/mailerService');
 
 // Hash bcrypt de admin123 (el mismo de los datos semilla)
@@ -127,7 +129,7 @@ const testServer = server.listen(0, async () => {
       [dpi]
     )).rows[0].id_persona;
     // Se adelanta la secuencia para que los id_usuario no coincidan con el id_persona.
-    await db.query(
+    await comoDueno(
       "SELECT setval('usuarios_id_usuario_seq', GREATEST((SELECT last_value FROM usuarios_id_usuario_seq), $1 + 10))",
       [idPersona]
     );
@@ -590,25 +592,25 @@ const testServer = server.listen(0, async () => {
       await request('/api/auth/logout', 'POST', null, token).catch(() => {});
     }
     try {
-      if (idTraslado) await db.query('DELETE FROM solicitudes_traslado_apertura WHERE id_solicitud = $1', [idTraslado]);
-      if (idCredito) await db.query('DELETE FROM solicitudes_credito WHERE id_solicitud_credito = $1', [idCredito]);
-      await db.query('DELETE FROM solicitudes_afiliacion_agencia WHERE cui_dpi = ANY($1)', [[dpiSoloPersonal, dpiVentanilla, dpiAjeno]]);
+      if (idTraslado) await comoDueno('DELETE FROM solicitudes_traslado_apertura WHERE id_solicitud = $1', [idTraslado]);
+      if (idCredito) await comoDueno('DELETE FROM solicitudes_credito WHERE id_solicitud_credito = $1', [idCredito]);
+      await comoDueno('DELETE FROM solicitudes_afiliacion_agencia WHERE cui_dpi = ANY($1)', [[dpiSoloPersonal, dpiVentanilla, dpiAjeno]]);
       await purgarEfectivoDePrueba(db, [dpi, dpiSoloPersonal, dpiVentanilla, dpiAjeno]);
       for (const id of [idPersona, idPersonaSoloPersonal, idPersonaVentanilla].filter(Boolean)) {
-        await db.query(
+        await comoDueno(
           `DELETE FROM historial_estados_usuario
            WHERE id_usuario_modificado IN (SELECT id_usuario FROM usuarios WHERE id_persona = $1)`,
           [id]
         );
-        await db.query(
+        await comoDueno(
           `DELETE FROM transacciones WHERE id_cuenta IN (
              SELECT c.id_cuenta FROM cuentas c JOIN asociados a ON a.id_asociado = c.id_asociado WHERE a.id_persona = $1)`,
           [id]
         );
-        await db.query('DELETE FROM cuentas WHERE id_asociado IN (SELECT id_asociado FROM asociados WHERE id_persona = $1)', [id]);
-        await db.query('DELETE FROM usuarios WHERE id_persona = $1', [id]);
-        await db.query('DELETE FROM asociados WHERE id_persona = $1', [id]);
-        await db.query('DELETE FROM personas WHERE id_persona = $1', [id]);
+        await comoDueno('DELETE FROM cuentas WHERE id_asociado IN (SELECT id_asociado FROM asociados WHERE id_persona = $1)', [id]);
+        await comoDueno('DELETE FROM usuarios WHERE id_persona = $1', [id]);
+        await comoDueno('DELETE FROM asociados WHERE id_persona = $1', [id]);
+        await comoDueno('DELETE FROM personas WHERE id_persona = $1', [id]);
       }
     } catch (limpiezaError) {
       console.error('[ERROR] No se pudieron borrar los datos de prueba:', limpiezaError.message);

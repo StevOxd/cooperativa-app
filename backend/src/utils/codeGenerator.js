@@ -7,15 +7,19 @@
  * - EX-X: Asociado Ajeno / Externo (EX-1, EX-2...)
  */
 
+const { errorDeNegocio } = require('./errores');
+
+// Espacio de los candados de códigos de usuario (el efectivo por persona usa el 2: efectivoVentanillaService)
+const CANDADO_CODIGOS = 1;
+
 /**
- * Obtiene el siguiente código corporativo disponible para un prefijo dado
- * @param {import('pg').PoolClient | import('pg').Pool} client 
- * @param {'AD' | 'OP' | 'EB' | 'EX' | string} prefix 
+ * Calcula el siguiente código libre de un prefijo (el número más alto de `PREFIJO-número` más uno), sin bloquear.
+ *
+ * @param {{ query: Function }} client - Conexión, pool o el módulo `config/db`.
+ * @param {string} cleanPrefix - Prefijo ya normalizado.
  * @returns {Promise<string>}
  */
-const getNextCorporateCode = async (client, prefix = 'EX') => {
-  const cleanPrefix = (prefix || 'EX').trim().toUpperCase();
-
+const calcularSiguienteCodigo = async (client, cleanPrefix) => {
   const query = `
     SELECT codigo_corporativo 
     FROM usuarios 
@@ -37,6 +41,49 @@ const getNextCorporateCode = async (client, prefix = 'EX') => {
 
   return `${cleanPrefix}-${maxNum + 1}`;
 };
+
+const normalizarPrefijo = (prefix) => (prefix || 'EX').trim().toUpperCase();
+
+/**
+ * Obtiene el siguiente código corporativo para un alta, dentro de la transacción que inserta el usuario.
+ *
+ * Toma un candado por prefijo que dura hasta el COMMIT o el ROLLBACK, así dos altas simultáneas del mismo tipo
+ * no calculan el mismo código. Si otra alta del mismo tipo lo tiene más de 15 s (algunas llaman al banco o
+ * envían el correo antes de confirmar), responde 409 en lugar de esperar sin límite.
+ *
+ * @param {import('pg').PoolClient} client - Dentro de una transacción.
+ * @param {'AD' | 'OP' | 'EB' | 'EX' | string} prefix 
+ * @returns {Promise<string>}
+ * @throws {Error} `errorDeNegocio(409)` si no se obtiene el candado a tiempo.
+ */
+const getNextCorporateCode = async (client, prefix = 'EX') => {
+  const cleanPrefix = normalizarPrefijo(prefix);
+
+  // El candado va en su propia consulta: el cálculo toma su lectura después de obtenerlo y ve el código que
+  // guardó el alta que lo tenía
+  await client.query("SET LOCAL lock_timeout = '15s'");
+  try {
+    await client.query('SELECT pg_advisory_xact_lock($1, hashtext($2))', [CANDADO_CODIGOS, `codigo-corporativo:${cleanPrefix}`]);
+  } catch (error) {
+    if (error.code === '55P03') {
+      throw errorDeNegocio(409, 'Hay otra alta del mismo tipo de usuario en curso. Espere un momento y vuelva a intentarlo.');
+    }
+    throw error;
+  }
+  await client.query('SET LOCAL lock_timeout TO DEFAULT');
+
+  return calcularSiguienteCodigo(client, cleanPrefix);
+};
+
+/**
+ * Muestra el código que recibiría la próxima alta de un prefijo, sin bloquear ni reservarlo (el alta lo vuelve a
+ * calcular con el candado).
+ *
+ * @param {{ query: Function }} db - Pool o el módulo `config/db`.
+ * @param {string} prefix
+ * @returns {Promise<string>}
+ */
+const previewNextCorporateCode = (db, prefix = 'EX') => calcularSiguienteCodigo(db, normalizarPrefijo(prefix));
 
 const crypto = require('crypto');
 
@@ -102,6 +149,7 @@ const generateSecureRandomPassword = (length = 12) => {
 
 module.exports = {
   getNextCorporateCode,
+  previewNextCorporateCode,
   resolvePrefix,
   generateSecureRandomPassword,
 };

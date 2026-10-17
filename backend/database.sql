@@ -109,7 +109,7 @@ CREATE TABLE usuarios (
 
 CREATE TABLE historial_estados_usuario (
     id_historial_estado SERIAL PRIMARY KEY,
-    id_usuario_modificado INT NOT NULL REFERENCES usuarios(id_usuario) ON DELETE RESTRICT ON UPDATE CASCADE,
+    id_usuario_modificado INT NOT NULL REFERENCES usuarios(id_usuario) ON DELETE RESTRICT ON UPDATE RESTRICT,
     estado_anterior VARCHAR(20),
     estado_nuevo VARCHAR(20) NOT NULL,
     id_rol_anterior INT REFERENCES roles(id_rol),

@@ -16,6 +16,9 @@ const path = require('path');
 const http = require('http');
 const { server } = require('./src/server');
 const db = require('./src/config/db');
+const { poolDueno } = require('./testHelper');
+// Limpieza con el rol dueño: el de la aplicación no borra filas (salvo en las pocas tablas que el código limpia)
+const comoDueno = (sql, params) => poolDueno(db.pool).query(sql, params);
 const { runMigrations } = require('./src/config/migrations');
 
 // Hash bcrypt de admin123 (el mismo de los datos semilla)
@@ -215,25 +218,25 @@ const testServer = server.listen(0, async () => {
     try {
       if (fs.existsSync(rutaArchivo)) fs.unlinkSync(rutaArchivo);
       if (idPersona) {
-        await db.query(
+        await comoDueno(
           'DELETE FROM historial_estados_usuario WHERE id_usuario_modificado IN (SELECT id_usuario FROM usuarios WHERE id_persona = $1)',
           [idPersona]
         );
-        await db.query(
+        await comoDueno(
           `DELETE FROM beneficiarios WHERE id_cuenta IN (
              SELECT c.id_cuenta FROM cuentas c JOIN asociados a ON a.id_asociado = c.id_asociado WHERE a.id_persona = $1)`,
           [idPersona]
         );
-        await db.query(
+        await comoDueno(
           `DELETE FROM historial_cambios_beneficiarios WHERE id_cuenta IN (
              SELECT c.id_cuenta FROM cuentas c JOIN asociados a ON a.id_asociado = c.id_asociado WHERE a.id_persona = $1)`,
           [idPersona]
         );
-        await db.query('DELETE FROM solicitudes_credito WHERE id_asociado IN (SELECT id_asociado FROM asociados WHERE id_persona = $1)', [idPersona]);
-        await db.query('DELETE FROM cuentas WHERE id_asociado IN (SELECT id_asociado FROM asociados WHERE id_persona = $1)', [idPersona]);
-        await db.query('DELETE FROM usuarios WHERE id_persona = $1', [idPersona]);
-        await db.query('DELETE FROM asociados WHERE id_persona = $1', [idPersona]);
-        await db.query('DELETE FROM personas WHERE id_persona = $1', [idPersona]);
+        await comoDueno('DELETE FROM solicitudes_credito WHERE id_asociado IN (SELECT id_asociado FROM asociados WHERE id_persona = $1)', [idPersona]);
+        await comoDueno('DELETE FROM cuentas WHERE id_asociado IN (SELECT id_asociado FROM asociados WHERE id_persona = $1)', [idPersona]);
+        await comoDueno('DELETE FROM usuarios WHERE id_persona = $1', [idPersona]);
+        await comoDueno('DELETE FROM asociados WHERE id_persona = $1', [idPersona]);
+        await comoDueno('DELETE FROM personas WHERE id_persona = $1', [idPersona]);
         console.log('\n  [CLEANUP] Datos de prueba eliminados.');
       }
     } catch (limpiezaError) {

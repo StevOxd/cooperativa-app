@@ -1,9 +1,49 @@
 const bcrypt = require('bcryptjs');
-const { pool } = require('./db');
+const { escapeIdentifier } = require('pg');
+const { crearPoolDueno } = require('./db');
 
-const initBancoDb = async () => {
-  const client = await pool.connect();
+/**
+ * Deja al rol de la aplicación (DB_USER) solo lo que usa: lee, agrega y modifica datos, pero no borra filas, no
+ * modifica los movimientos (solo se agregan; una reversión es otro movimiento) y no cambia secuencias. Se vuelve a
+ * aplicar entero en cada arranque, en una transacción.
+ *
+ * @param {import('pg').PoolClient} client - Conexión del rol dueño.
+ * @returns {Promise<void>}
+ * @throws {Error} si falta DB_USER o falla el cambio (la transacción se revierte).
+ */
+const aplicarPermisosDeLaAplicacion = async (client) => {
+  if (!process.env.DB_USER) {
+    throw new Error('Falta DB_USER: no se pueden fijar los permisos del rol de la aplicación.');
+  }
+  const app = escapeIdentifier(process.env.DB_USER);
   try {
+    await client.query('BEGIN');
+    await client.query(`
+      REVOKE ALL ON ALL TABLES IN SCHEMA public FROM ${app};
+      REVOKE ALL ON ALL SEQUENCES IN SCHEMA public FROM ${app};
+      GRANT SELECT, INSERT, UPDATE ON ALL TABLES IN SCHEMA public TO ${app};
+      GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO ${app};
+      REVOKE UPDATE ON movimientos_bancarios FROM ${app};
+    `);
+    await client.query('COMMIT');
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => {});
+    throw error;
+  }
+};
+
+/**
+ * Crea el esquema y los datos semilla del banco con el rol dueño de las tablas, y fija los permisos del rol de la
+ * aplicación.
+ *
+ * @returns {Promise<boolean>} true si terminó bien; false si algo falló (el banco no debe arrancar).
+ */
+const initBancoDb = async () => {
+  let poolDueno = null;
+  let client = null;
+  try {
+    poolDueno = crearPoolDueno();
+    client = await poolDueno.connect();
     console.log('[BANCO CORE INIT] Inicializando tablas y datos de la Entidad Bancaria...');
 
     // 1. DDL de Tablas del Core Bancario
@@ -162,13 +202,17 @@ const initBancoDb = async () => {
       }
     }
 
+    // 4. Permisos del rol de la aplicación sobre las tablas que quedaron
+    await aplicarPermisosDeLaAplicacion(client);
+
     console.log('[BANCO CORE INIT] Esquema y datos semilla del Banco inicializados con éxito.');
     return true;
   } catch (error) {
     console.error('[BANCO CORE INIT ERROR] Error al inicializar banco_db:', error);
     return false;
   } finally {
-    client.release();
+    client?.release();
+    await poolDueno?.end().catch(() => {});
   }
 };
 

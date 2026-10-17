@@ -19,7 +19,6 @@ process.env.MAIL_ENABLED = 'false';
  * cuenta de un cliente de prueba que se borra); la conciliación se prueba con el banco simulado. Limpia lo que crea.
  */
 const crypto = require('crypto');
-const { Pool } = require('pg');
 const { server } = require('./src/server');
 const db = require('./src/config/db');
 const bancoApiService = require('./src/services/bancoApiService');
@@ -32,6 +31,8 @@ const {
   borrarPersonaDePrueba,
   purgarEfectivoDePrueba,
   purgarReversionesDePrueba,
+  borrarClienteBancoDePrueba,
+  purgarDepositosDePrueba,
 } = require('./testHelper');
 
 // Cuenta semilla del banco (EJ-1) para la idempotencia, con movimientos de Q0.01 que se compensan
@@ -369,29 +370,9 @@ const testServer = server.listen(0, async () => {
       await purgarEfectivoDePrueba(db, [dpiAsociado, dpiDeposito]);
       await purgarReversionesDePrueba(db, referenciasReversion);
       // El depósito «del administrador» se borra por su referencia (no todo lo de su DPI)
-      const purga = await db.pool.connect();
-      try {
-        await purga.query('BEGIN');
-        await purga.query("SET LOCAL cooperativa.purga_pruebas = 'on'");
-        await purga.query('DELETE FROM depositos_ventanilla_banco WHERE referencia = ANY($1)', [referenciasDeposito]);
-        await purga.query('COMMIT');
-      } finally {
-        purga.release();
-      }
+      await purgarDepositosDePrueba(db, { referencias: referenciasDeposito });
       // El cliente que se abrió en el banco para la prueba de apertura
-      // pg guarda la contraseña fuera de las propiedades enumerables: se pasa aparte
-      const banco = new Pool({ ...db.pool.options, password: db.pool.options.password, database: 'banco_db', max: 1 });
-      try {
-        await banco.query(
-          `DELETE FROM movimientos_bancarios WHERE id_cuenta_bancaria IN (
-             SELECT cb.id_cuenta_bancaria FROM cuentas_bancarias cb JOIN clientes_banco c ON c.id_cliente = cb.id_cliente WHERE c.cui_dpi = $1)`,
-          [dpiClienteBanco]
-        );
-        await banco.query('DELETE FROM cuentas_bancarias WHERE id_cliente IN (SELECT id_cliente FROM clientes_banco WHERE cui_dpi = $1)', [dpiClienteBanco]);
-        await banco.query('DELETE FROM clientes_banco WHERE cui_dpi = $1', [dpiClienteBanco]);
-      } finally {
-        await banco.end();
-      }
+      await borrarClienteBancoDePrueba(db.pool, dpiClienteBanco);
       for (const idPersona of personas) await borrarPersonaDePrueba(db, idPersona);
       console.log('\n  [CLEANUP] Datos de prueba eliminados.');
     } catch (limpiezaError) {

@@ -7,7 +7,6 @@ const mailerService = require('../services/mailerService');
 const bancoApiService = require('../services/bancoApiService');
 const socketService = require('../services/socketService');
 const asociadoAfiliacionService = require('../services/asociadoAfiliacionService');
-const { getNextCorporateCode, resolvePrefix } = require('../utils/codeGenerator');
 const { normalizarParentesco } = require('../utils/parentesco');
 const { respuestaDeError, estadoPorFalloDelBanco } = require('../utils/errores');
 const { ipDelCliente } = require('../utils/ipCliente');

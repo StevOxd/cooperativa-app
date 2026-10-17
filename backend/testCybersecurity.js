@@ -10,6 +10,9 @@ require('dotenv').config({ path: __dirname + '/.env' });
 const http = require('http');
 const jwt = require('jsonwebtoken');
 const db = require('./src/config/db');
+const { poolDueno } = require('./testHelper');
+// Limpieza con el rol dueño: el de la aplicación no borra filas (salvo en las pocas tablas que el código limpia)
+const comoDueno = (sql, params) => poolDueno(db.pool).query(sql, params);
 
 const BANCO_URL = process.env.BANCO_API_URL || 'http://localhost:5002';
 const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:5001';
@@ -289,7 +292,7 @@ async function runTests() {
     assert(insertRes.rows[0].user_agent === testAgent, 'user_agent registrado con fidelidad forense');
 
     // Limpiar registro de prueba
-    await db.query('DELETE FROM historial_estados_usuario WHERE id_historial_estado = $1', [
+    await comoDueno('DELETE FROM historial_estados_usuario WHERE id_historial_estado = $1', [
       insertRes.rows[0].id_historial_estado,
     ]);
     console.log('  [PASS] Limpieza de registro de prueba forense completada.');

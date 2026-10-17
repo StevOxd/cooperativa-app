@@ -112,7 +112,9 @@ El sistema está completamente contenedorizado y orquestado mediante **Docker Co
 | `cooperativa-frontend` | `frontend` | `nginx:1.27-alpine` | `3000` | `80` | `VITE_API_URL=/api`, `VITE_SOCKET_URL=/` | Servidor web Nginx que sirve la SPA compilada. Actúa como proxy inverso de `/api/` y WebSockets `/socket.io/`. |
 | `cooperativa-backend` | `backend` | `node:20-alpine` | `5001` | `5000` | `PORT=5000`, `DB_NAME=cooperativa_db`, `BANCO_API_URL=http://banco-backend:5002`, `BANCO_INTERNAL_API_KEY`, `JWT_SECRET`, `JWT_EXPIRES_IN=8h`, `GMAIL_USER`, `GMAIL_APP_PASSWORD`, `MAIL_ENABLED` | API REST principal en Express.js, servicio Socket.io y despachador de correo Google Mail. Usa `dumb-init` como PID 1. No arranca si falta `JWT_SECRET` o `BANCO_INTERNAL_API_KEY`. |
 | `banco-backend` | `banco-backend` | `node:20-alpine` | `127.0.0.1:5002` | `5002` | `PORT=5002`, `DB_NAME=banco_db`, `BANCO_INTERNAL_API_KEY` | Servidor simulador del Core Banking de la Corporación Bancaria. Expone endpoints bajo `/api/banco/v1/*` protegidos por API Key inter-servicio. Se publica solo en esta máquina; el backend llega por la red interna. No arranca sin `BANCO_INTERNAL_API_KEY`. |
-| `cooperativa-db` | `db` | `postgres:16-alpine` | `127.0.0.1:5432` | `5432` | `POSTGRES_USER`/`POSTGRES_PASSWORD`/`POSTGRES_DB` (tomados de `DB_USER`, `DB_PASSWORD`, `DB_NAME`) | Motor relacional PostgreSQL que aloja simultáneamente `cooperativa_db` y `banco_db`. Volumen persistente `cooperativa_db_data`. Se publica solo en esta máquina, para las pruebas locales. |
+| `cooperativa-db` | `db` | `postgres:16-alpine` | `127.0.0.1:5432` | `5432` | `POSTGRES_USER`/`POSTGRES_PASSWORD`/`POSTGRES_DB` (tomados de `DB_ADMIN_USER`, `DB_ADMIN_PASSWORD`, `DB_NAME`) | Motor relacional PostgreSQL que aloja simultáneamente `cooperativa_db` y `banco_db`. Volumen persistente `cooperativa_db_data`. Se publica solo en esta máquina, para las pruebas locales. |
+
+Además, el servicio `db-roles` (contenedor `cooperativa-db-roles`, misma imagen de PostgreSQL) se ejecuta una vez en cada arranque y termina: con el superusuario crea o actualiza el rol dueño (`DB_OWNER_USER`) y el de la aplicación (`DB_USER`), crea `banco_db` si falta, pasa las tablas al rol dueño y da al de la aplicación solo permisos de lectura y escritura de datos (`backend/database-roles.sql`). El backend y el banco esperan a que termine bien.
 
 ### Bind Mount y Almacenamiento Seguro de Archivos PDF (SEC-02):
 - El servicio `cooperativa-backend` monta el volumen tipo *bind mount*:
@@ -535,6 +537,7 @@ Gestionada por el microservicio `banco-backend` (:5002):
 19. **Operaciones con el Banco desde Ventanilla:** Requieren sesión de operador; las aperturas con fondos del banco solo aceptan cuentas del propio asociado y se cancelan si el débito falla.
 20. **El Personal También es Asociado (issue #32):** Quien trabaja en la cooperativa puede afiliarse por cualquier canal (ventanilla, solicitud en agencia, en línea o «Afiliarme a la cooperativa» desde su sesión). Recibe un usuario de asociado aparte, con su propio código (`EX-X`/`EB-X`), contraseña y un correo distinto al del personal. Se afilia con los datos que la cooperativa ya tiene: solo cambian el correo y el teléfono, y una solicitud pública nunca sobrescribe los datos de una persona registrada.
 21. **Nadie Atiende sus Propios Trámites (Segregación de Funciones):** El personal no afilia, no abre cuentas, no registra depósitos ni traslados, no resuelve créditos, no activa el acceso ni cambia el estado de su propia persona (`middlewares/segregacion.js`, `HTTP 403 AUTOATENCION_NO_PERMITIDA`). Un administrador no modifica sus propios usuarios. Se compara la persona, no el usuario.
+22. **Mínimo Privilegio en la Base de Datos:** El backend y el banco se conectan con `DB_USER`: no es superusuario, no crea bases, tablas (ni temporales) ni roles, no desactiva triggers y no cambia secuencias. Al terminar, las migraciones le dejan leer, agregar y modificar en todas las tablas, salvo los registros de solo agregar (historial de estados y de beneficiarios, transacciones, efectivo de ventanilla y, en el banco, los movimientos), y borrar solo en beneficiarios, permisos de roles y códigos de verificación; lo demás se desvincula por estado. Las migraciones usan el rol dueño (`DB_OWNER_USER`); los triggers de auditoría solo permiten la purga de las pruebas al dueño de la tabla (y al superusuario), y la buscan en `pg_catalog` con `search_path` fijo. El superusuario (`DB_ADMIN_USER`) solo prepara los roles al arrancar. Después de migrar, el backend y el banco borran de su entorno las credenciales del rol dueño.
 
 ---
 
@@ -585,7 +588,7 @@ El despliegue del ecosistema completo se efectúa mediante Docker Compose, garan
 0. **Crear el archivo de configuración:** Docker Compose lee `.env` de la raíz automáticamente (sin `--env-file`).
    ```bash
    cp .env.example .env
-   openssl rand -hex 32   # una vez por cada clave obligatoria: DB_PASSWORD, JWT_SECRET, BANCO_INTERNAL_API_KEY
+   openssl rand -hex 32   # una vez por cada clave obligatoria: DB_ADMIN_PASSWORD, DB_OWNER_PASSWORD, DB_PASSWORD, JWT_SECRET, BANCO_INTERNAL_API_KEY
    ```
 1. **Construir y Levantar los 4 Contenedores en Segundo Plano:**
    ```bash
@@ -595,7 +598,7 @@ El despliegue del ecosistema completo se efectúa mediante Docker Compose, garan
    ```bash
    docker compose ps
    ```
-   *Debe confirmar los 4 contenedores en estado `Up (healthy)`.*
+   *Debe confirmar los 4 contenedores en estado `Up (healthy)`. Con `docker compose ps -a` aparece además `cooperativa-db-roles` en `Exited (0)`: prepara los roles y termina.*
 3. **Inspeccionar Logs de los Servicios:**
    ```bash
    docker compose logs -f backend
@@ -616,8 +619,10 @@ Todas se definen en `.env` (copia de `.env.example`). Las marcadas como obligato
 
 | Variable | Servicio(s) | Propósito de Seguridad y Configuración |
 |:---|:---|:---|
-| `DB_NAME` / `DB_USER` | `db`, `backend`, `banco-backend` | Base principal (`cooperativa_db`) y usuario de PostgreSQL. |
-| `DB_PASSWORD` (**obligatoria**) | `db`, `backend`, `banco-backend` | Contraseña de PostgreSQL. Se usa al crear el volumen; cambiarla después exige recrearlo. |
+| `DB_NAME` | `db`, `db-roles`, `backend` | Base principal (`cooperativa_db`). |
+| `DB_ADMIN_USER` / `DB_ADMIN_PASSWORD` (**obligatoria**) | `db`, `db-roles` | Superusuario de PostgreSQL. Solo crea el volumen y prepara los roles; el backend y el banco no lo reciben. La contraseña se usa al crear el volumen; cambiarla después exige recrearlo. |
+| `DB_OWNER_USER` / `DB_OWNER_PASSWORD` (**obligatoria**) | `db-roles`, `backend`, `banco-backend` | Rol dueño de las bases y las tablas. Solo lo usan las migraciones al arrancar (`runMigrations`, `initBancoDb`). |
+| `DB_USER` / `DB_PASSWORD` (**obligatoria**) | `db-roles`, `backend`, `banco-backend` | Rol con el que trabajan el backend y el banco: lee, agrega y modifica datos, pero no crea tablas, no desactiva triggers, no modifica la auditoría ni los movimientos y solo borra en las pocas tablas que el código limpia. |
 | `JWT_SECRET` (**obligatoria**) | `backend` | Clave para firmar los tokens JWT (HS256) y, derivada, los comprobantes de la afiliación en línea y los códigos de verificación. |
 | `JWT_EXPIRES_IN` | `backend` | Ventana máxima de validez del token de acceso (`8h`). |
 | `BANCO_INTERNAL_API_KEY` (**obligatoria**) | `backend`, `banco-backend` | Clave secreta de la cabecera `x-banco-api-key` (Zero-Trust). |

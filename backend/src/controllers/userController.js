@@ -2,7 +2,7 @@ const bcrypt = require('bcryptjs');
 const db = require('../config/db');
 const socketService = require('../services/socketService');
 const mailerService = require('../services/mailerService');
-const { getNextCorporateCode, resolvePrefix, generateSecureRandomPassword } = require('../utils/codeGenerator');
+const { getNextCorporateCode, previewNextCorporateCode, resolvePrefix, generateSecureRandomPassword } = require('../utils/codeGenerator');
 const { filtroUsuario } = require('../utils/identificadores');
 const { respuestaDeError } = require('../utils/errores');
 const { ipDelCliente } = require('../utils/ipCliente');
@@ -194,15 +194,6 @@ const getUserById = async (req, res) => {
 };
 
 /**
- * Función auxiliar para generar un código de usuario / corporativo según estándar:
- * AD-X (Admin), OP-X (Operador), EB-X (Empleado Bancario), EX-X (Ajeno/Externo)
- */
-const generateNextCorporateCode = async (client, rolUpper, tipoAsociado = 'EX') => {
-  const prefix = resolvePrefix(rolUpper, tipoAsociado);
-  return await getNextCorporateCode(client, prefix);
-};
-
-/**
  * Obtener el siguiente código correlativo disponible para un rol específico (EJ-X, OP-X)
  * GET /api/usuarios/next-code?rol=EJECUTIVO
  */
@@ -211,7 +202,7 @@ const getNextCode = async (req, res) => {
     const { rol, tipo_asociado } = req.query;
     const rolUpper = (rol || 'EJECUTIVO').trim().toUpperCase();
     const prefix = resolvePrefix(rolUpper, tipo_asociado);
-    const nextCode = await getNextCorporateCode(db, prefix);
+    const nextCode = await previewNextCorporateCode(db, prefix);
 
     return res.status(200).json({
       success: true,
@@ -361,6 +352,8 @@ const createUser = async (req, res) => {
       });
     }
     const rawPassword = generateSecureRandomPassword(12);
+    // El hash se calcula antes de la transacción: no alarga el candado del código mientras otra alta espera
+    const password_hash = await bcrypt.hash(rawPassword, 10);
 
     // 2. Normalizar y validar rol
     const rolUpper = rol.toUpperCase();
@@ -399,6 +392,10 @@ const createUser = async (req, res) => {
     const roleData = roleResult.rows[0];
     const rolId = roleData.id_rol;
 
+    // INICIAR TRANSACCIÓN SQL antes del código: el candado por prefijo de getNextCorporateCode dura hasta el
+    // COMMIT, así dos altas simultáneas del mismo rol no reciben el mismo código
+    await client.query('BEGIN');
+
     // 4. Determinar código de usuario estrictamente según el correlativo del rol (EJ-X, OP-X)
     let finalCodigoCorp = '';
     if (rolUpper === 'EJECUTIVO' || rolUpper === 'OPERADOR' || rolUpper === 'ADMINISTRADOR') {
@@ -431,6 +428,7 @@ const createUser = async (req, res) => {
       else if (existing.codigo_corporativo === finalCodigoCorp) field = 'código corporativo';
       else if (existing.cui_dpi === cleanDpi) field = 'DPI / CUI';
 
+      await client.query('ROLLBACK');
       return res.status(409).json({
         success: false,
         message: `Ya hay un usuario con ese ${field}.`,
@@ -465,9 +463,6 @@ const createUser = async (req, res) => {
 
     const cui = cleanDpi;
 
-    // INICIAR TRANSACCIÓN SQL
-    await client.query('BEGIN');
-
     // 7. Insertar en tabla personas (genera id_persona)
     const personaInsert = `
       INSERT INTO personas (cui_dpi, primer_nombre, segundo_nombre, primer_apellido, segundo_apellido, telefono, direccion, fecha_nacimiento)
@@ -486,10 +481,7 @@ const createUser = async (req, res) => {
     ]);
     const personaId = personaResult.rows[0].id_persona;
 
-    // 8. Encriptar contraseña con bcryptjs
-    const password_hash = await bcrypt.hash(rawPassword, 10);
-
-    // 9. Insertar en tabla usuarios (id_usuario es su propia llave; id_persona la une con personas)
+    // 8. Insertar en tabla usuarios (id_usuario es su propia llave; id_persona la une con personas)
     const usuarioInsert = `
       INSERT INTO usuarios (id_persona, id_rol, codigo_corporativo, email, password_hash, estado, debe_cambiar_password)
       VALUES ($1, $2, $3, $4, $5, $6, TRUE)
@@ -505,7 +497,7 @@ const createUser = async (req, res) => {
     ]);
     const createdUser = userResult.rows[0];
 
-    // 10. Si es asociado, registrar en tabla asociados
+    // 9. Si es asociado, registrar en tabla asociados
     if (rolUpper === 'ASOCIADO') {
       await client.query(
         `INSERT INTO asociados (id_persona, estado_asociado) VALUES ($1, 'ACTIVO') ON CONFLICT DO NOTHING`,
@@ -513,7 +505,7 @@ const createUser = async (req, res) => {
       );
     }
 
-    // 11. Registrar en historial_estados_usuario para auditoría
+    // 10. Registrar en historial_estados_usuario para auditoría
     const clientIp = getClientIp(req);
     const userAgent = getUserAgent(req);
     const auditoriaInsert = `
@@ -585,12 +577,11 @@ const createUser = async (req, res) => {
       },
     });
   } catch (error) {
-    await client.query('ROLLBACK');
+    await client.query('ROLLBACK').catch(() => {});
     console.error('Error en userController.createUser:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'No se pudo crear el usuario. Intente de nuevo.',
-    });
+    // 409 si otra alta del mismo rol tiene el código por más de 15 s (getNextCorporateCode)
+    const { status, message } = respuestaDeError(error, 'No se pudo crear el usuario. Intente de nuevo.');
+    return res.status(status).json({ success: false, message });
   } finally {
     client.release();
   }

@@ -82,7 +82,12 @@ const startServer = async () => {
   try {
     console.log('[BANCO CORE] Verificando base de datos banco_db...');
     await ensureDatabaseExists();
-    await initBancoDb();
+    if (!(await initBancoDb())) {
+      throw new Error('No se pudo preparar banco_db (esquema, datos semilla o permisos).');
+    }
+    // Las credenciales del rol dueño solo hacían falta para preparar la base: el proceso sigue sin ellas
+    delete process.env.DB_OWNER_USER;
+    delete process.env.DB_OWNER_PASSWORD;
 
     app.listen(PORT, '0.0.0.0', () => {
       console.log(`[BANCO CORE] Servidor Core Banking ejecutándose en http://localhost:${PORT}`);

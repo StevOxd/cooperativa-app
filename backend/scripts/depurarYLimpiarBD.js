@@ -14,12 +14,28 @@
 require('dotenv').config({ path: require('path').join(__dirname, '../.env') });
 const { Pool } = require('pg');
 
+// Borra datos de las dos bases: nunca en producción y solo si se pide de forma explícita
+if (process.env.NODE_ENV === 'production') {
+  console.error('[ERROR] Este script borra datos: no se ejecuta con NODE_ENV=production.');
+  process.exit(1);
+}
+if (!process.argv.includes('--confirmar')) {
+  console.error('[ERROR] Este script borra asociados, cuentas y movimientos. Para ejecutarlo: node scripts/depurarYLimpiarBD.js --confirmar');
+  process.exit(1);
+}
+
+// Vacía tablas y reinicia secuencias: solo lo puede hacer el rol dueño (DB_OWNER_USER), no el de la aplicación
+if (!process.env.DB_OWNER_USER || !process.env.DB_OWNER_PASSWORD) {
+  console.error('[ERROR] Faltan DB_OWNER_USER o DB_OWNER_PASSWORD en backend/.env (vea .env.example).');
+  process.exit(1);
+}
+
 const dbConfigCoop = {
   host: process.env.DB_HOST || 'localhost',
   port: parseInt(process.env.DB_PORT || '5432', 10),
-  user: process.env.DB_USER || 'cooperativa_user',
-  password: process.env.DB_PASSWORD,
-  database: 'cooperativa_db',
+  user: process.env.DB_OWNER_USER,
+  password: process.env.DB_OWNER_PASSWORD,
+  database: process.env.DB_NAME || 'cooperativa_db',
 };
 
 const dbConfigBanco = {

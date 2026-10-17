@@ -126,6 +126,9 @@ if (require.main === module) {
       console.error('[ERROR] No se pudo preparar la base de datos. El servidor no se inicia.');
       process.exit(1);
     }
+    // Las credenciales del rol dueño solo hacían falta para las migraciones: el proceso sigue sin ellas
+    delete process.env.DB_OWNER_USER;
+    delete process.env.DB_OWNER_PASSWORD;
     server.listen(PORT, '0.0.0.0', () => {
       console.log(`[INFO] Servidor ejecutándose en http://localhost:${PORT}`);
       console.log(`[INFO] Rutas de autenticación disponibles en http://localhost:${PORT}/api/auth`);
