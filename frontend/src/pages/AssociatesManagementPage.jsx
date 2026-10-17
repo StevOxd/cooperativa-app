@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useLatest } from '../hooks/useLatest';
 import api from '../services/api';
 import { Ban, CreditCard, Eye, FileSpreadsheet, HeartHandshake, UserCheck, UserPlus, Users } from 'lucide-react';
 import NewAssociateModal from '../components/associates/NewAssociateModal';
@@ -93,9 +94,10 @@ export const AssociatesManagementPage = () => {
     }
   };
 
+  const fetchAsociadosRef = useLatest(fetchAsociados);
   useEffect(() => {
-    fetchAsociados(1);
-  }, [estadoFilter]);
+    fetchAsociadosRef.current(1);
+  }, [estadoFilter, fetchAsociadosRef]);
 
   const handleSearchSubmit = (e) => {
     e.preventDefault();

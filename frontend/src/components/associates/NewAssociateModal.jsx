@@ -3,7 +3,7 @@ import { Building2, FileDown, Landmark } from 'lucide-react';
 import api from '../../services/api';
 import { Alert, Badge, Button, Field, Input, LoadingState, Modal, Select, cn } from '../ui';
 import { formatQ } from '../../utils/format';
-import { generateAccountOpeningReceiptPdf } from '../../utils/accountOpeningReceiptPdf';
+import { generateAccountOpeningReceiptPdf } from '../../utils/pdfs';
 import { toast } from '../../context/ToastContext';
 import { PortalAccessOption } from '../common/PortalAccessOption';
 import { useCorreoDisponible } from '../../hooks/useCorreoDisponible';
@@ -747,9 +747,9 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess, onAbrirCuenta })
   const esEbExito = successData?.tipo_asociado === 'EB';
 
   // Comprobante de afiliación y apertura para que el asociado se lo lleve (issue #26)
-  const handleDownloadReceipt = () => {
+  const handleDownloadReceipt = async () => {
     try {
-      generateAccountOpeningReceiptPdf({
+      await generateAccountOpeningReceiptPdf({
         data: {
           es_afiliacion: true,
           nombre_completo: successData.nombre_completo,

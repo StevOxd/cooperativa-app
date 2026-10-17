@@ -1,10 +1,12 @@
-import React, { useEffect } from 'react';
+import React, { Suspense, useEffect } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import Navbar from './Navbar';
 import { StaffShell } from './layout/StaffShell';
 import { Wordmark } from './layout/Wordmark';
 import { STAFF_ROLES } from './layout/navigation';
+import { LoadingState } from './ui';
+import { ScreenErrorBoundary } from './common/ScreenErrorBoundary';
 
 export const Layout = () => {
   const location = useLocation();
@@ -46,7 +48,11 @@ export const Layout = () => {
   if (STAFF_ROLES.includes(user?.rol)) {
     return (
       <StaffShell>
-        <Outlet />
+        <ScreenErrorBoundary key={location.pathname}>
+          <Suspense fallback={<LoadingState />}>
+            <Outlet />
+          </Suspense>
+        </ScreenErrorBoundary>
       </StaffShell>
     );
   }
@@ -55,7 +61,11 @@ export const Layout = () => {
     <div className="min-h-screen flex flex-col bg-surface-muted">
       <Navbar />
       <main className="w-full max-w-7xl flex-1 mx-auto px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
-        <Outlet />
+        <ScreenErrorBoundary key={location.pathname}>
+          <Suspense fallback={<LoadingState />}>
+            <Outlet />
+          </Suspense>
+        </ScreenErrorBoundary>
       </main>
       <footer className="border-t border-line bg-white py-4 text-center text-xs text-ink-subtle print:hidden">
         © {new Date().getFullYear()} Cooperativa · Proyecto de graduación

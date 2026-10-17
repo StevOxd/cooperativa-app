@@ -7,9 +7,8 @@ import reactRefresh from 'eslint-plugin-react-refresh';
 /**
  * ESLint del frontend (formato "flat config" de ESLint 9).
  *
- * Criterio: son "error" solo los problemas que rompen la app o los hooks de React;
- * lo demás es "warn" para no bloquear el CI con el código que ya existía. Cuando las
- * advertencias bajen a cero, se pueden subir a "error".
+ * Todas las reglas son "error": el código llegó a cero advertencias (issue #18) y así el CI
+ * no deja entrar nuevas.
  */
 export default [
   { ignores: ['dist/**', 'node_modules/**'] },
@@ -36,21 +35,30 @@ export default [
 
       // Hooks: romper sus reglas causa errores en tiempo de ejecución.
       'react-hooks/rules-of-hooks': 'error',
-      'react-hooks/exhaustive-deps': 'warn',
+      'react-hooks/exhaustive-deps': 'error',
 
-      // Recarga en caliente de Vite: avisa si un archivo exporta algo más que componentes.
-      'react-refresh/only-export-components': ['warn', { allowConstantExport: true }],
+      // Recarga en caliente de Vite: avisa si un archivo exporta algo más que componentes. Los
+      // contextos exportan también su hook (y el aviso global `toast`), como es habitual.
+      'react-refresh/only-export-components': [
+        'error',
+        { allowConstantExport: true, allowExportNames: ['useAuth', 'useToast', 'toast'] },
+      ],
 
-      // Advertencias por ahora (código existente)
-      'no-unused-vars': ['warn', { argsIgnorePattern: '^_', varsIgnorePattern: '^(_|React$)', caughtErrors: 'none' }],
-      'react/no-unescaped-entities': 'warn',
-      'no-useless-escape': 'warn',
+      'no-unused-vars': ['error', { argsIgnorePattern: '^_', varsIgnorePattern: '^(_|React$)', caughtErrors: 'none' }],
+      'react/no-unescaped-entities': 'error',
+      'no-useless-escape': 'error',
       // Un `catch {}` vacío es válido cuando el error se ignora a propósito.
       'no-empty': ['error', { allowEmptyCatch: true }],
 
       // El proyecto no usa PropTypes: la documentación de props va en JSDoc.
       'react/prop-types': 'off',
     },
+  },
+
+  // Vista previa de la interfaz (ui-preview.html): es una entrada propia, no un módulo que se recargue
+  {
+    files: ['src/dev/**/*.{js,jsx}'],
+    rules: { 'react-refresh/only-export-components': 'off' },
   },
 
   // Archivos de configuración (se ejecutan en Node)

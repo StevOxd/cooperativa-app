@@ -9,7 +9,8 @@ import { creditStatus } from '../dashboard/status';
 import { SignedPdfPanel } from '../../credit/SignedPdfPanel';
 import { AccountBalances } from '../../credit/AccountBalances';
 import { CreditTransactionsTable } from '../../credit/CreditTransactionsTable';
-import { CreditTerms, creditDestination } from '../../credit/CreditTerms';
+import { CreditTerms } from '../../credit/CreditTerms';
+import { creditDestination } from '../../credit/creditDestination';
 
 const TABS_ID = 'evaluacion-operador';
 const PENDING_STATES = ['PENDIENTE', 'EN_REVISION_OPERADOR', 'DEVUELTA_OPERADOR'];
@@ -103,7 +104,7 @@ const OperatorCreditEvaluationModal = ({
       </Field>
       {!hasOperatorSignedPdf && (
         <p className="text-sm text-warning-800">
-          Para elevar la solicitud al ejecutivo, adjunte el PDF firmado en la pestaña "Documento firmado".
+          Para elevar la solicitud al ejecutivo, adjunte el PDF firmado en la pestaña «Documento firmado».
         </p>
       )}
       <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-between">

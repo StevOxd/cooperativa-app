@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
-import { generateCreditApplicationPdf } from '../utils/creditApplicationPdf';
+import { generateCreditApplicationPdf } from '../utils/pdfs';
 import { ConfirmModal } from '../components/common/ConfirmModal';
 import { getSecureDocumentUrl } from '../utils/documentUrl';
 import { Download, FileCheck, FileText, RefreshCw, Send, Trash2, UploadCloud } from 'lucide-react';
@@ -27,7 +27,7 @@ import {
   Textarea,
   cn,
 } from '../components/ui';
-import { creditDestination } from '../components/credit/CreditTerms';
+import { creditDestination } from '../components/credit/creditDestination';
 import { formatDate, formatQ, humanize } from '../utils/format';
 
 /** Marca que el backend agrega a las observaciones cuando el asociado desiste. */
@@ -240,10 +240,9 @@ export const CreditSimulatorPage = () => {
       const res = await api.post('/asociado/creditos/iniciar', payload);
       if (res.data?.success) {
         const nuevaSol = res.data.data;
-        toast.success(`Se registró la solicitud #${nuevaSol.id_solicitud_credito}. Descargamos el formulario para que lo firme.`);
-        
-        // Generar y descargar inmediatamente el PDF oficial vinculado al Folio persistido en BD
-        generateCreditApplicationPdf({
+        // Generar y descargar inmediatamente el PDF oficial vinculado al Folio persistido en BD.
+        // Si no se puede, la solicitud ya quedó registrada: el formulario se descarga desde la lista.
+        await generateCreditApplicationPdf({
           asociado: user,
           credito: {
             id_solicitud_credito: nuevaSol.id_solicitud_credito,
@@ -254,7 +253,12 @@ export const CreditSimulatorPage = () => {
             cuenta_destino_info: nuevaSol.cuenta_destino_info,
           },
           cuentaDestino: selectedCuenta,
-        });
+        })
+          .then(() => toast.success(`Se registró la solicitud #${nuevaSol.id_solicitud_credito}. Descargamos el formulario para que lo firme.`))
+          .catch((pdfErr) => {
+            console.error('Error al generar el formulario de crédito:', pdfErr);
+            toast.error(`Se registró la solicitud #${nuevaSol.id_solicitud_credito}, pero no se pudo descargar el formulario. Descárguelo desde sus solicitudes.`);
+          });
 
         setObservaciones('');
         await Promise.all([fetchCreditos(), fetchCapacidad()]);
@@ -298,9 +302,9 @@ export const CreditSimulatorPage = () => {
   };
 
   // Descarga bajo demanda del PDF para una solicitud específica
-  const handleDescargarPdfDeSolicitud = (sol) => {
+  const handleDescargarPdfDeSolicitud = async (sol) => {
     try {
-      generateCreditApplicationPdf({
+      await generateCreditApplicationPdf({
         asociado: user,
         credito: {
           id_solicitud_credito: sol.id_solicitud_credito,

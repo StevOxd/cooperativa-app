@@ -1,13 +1,14 @@
-import React, { useState } from 'react';
+import React, { Suspense, lazy, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { X } from 'lucide-react';
-import { Alert } from '../components/ui';
+import { Alert, LoadingState } from '../components/ui';
 
-import AssociateDashboard from './AssociateDashboard';
-import OperatorDashboard from './OperatorDashboard';
-import ExecutiveDashboard from './ExecutiveDashboard';
-import AdminDashboard from './AdminDashboard';
+// Cada rol descarga solo su panel (issue #21)
+const AssociateDashboard = lazy(() => import('./AssociateDashboard'));
+const OperatorDashboard = lazy(() => import('./OperatorDashboard'));
+const ExecutiveDashboard = lazy(() => import('./ExecutiveDashboard'));
+const AdminDashboard = lazy(() => import('./AdminDashboard'));
 
 export const DashboardPage = () => {
   const { user } = useAuth();
@@ -38,10 +39,12 @@ export const DashboardPage = () => {
       )}
 
       {/* Renderizado Condicional por Rol (RBAC) */}
-      {user?.rol === 'ASOCIADO' && <AssociateDashboard />}
-      {user?.rol === 'OPERADOR' && <OperatorDashboard />}
-      {user?.rol === 'EJECUTIVO' && <ExecutiveDashboard />}
-      {user?.rol === 'ADMINISTRADOR' && <AdminDashboard />}
+      <Suspense fallback={<LoadingState label="Cargando su panel…" />}>
+        {user?.rol === 'ASOCIADO' && <AssociateDashboard />}
+        {user?.rol === 'OPERADOR' && <OperatorDashboard />}
+        {user?.rol === 'EJECUTIVO' && <ExecutiveDashboard />}
+        {user?.rol === 'ADMINISTRADOR' && <AdminDashboard />}
+      </Suspense>
       {/* Un rol desconocido no ve ningún panel (issue #14) */}
       {!['ASOCIADO', 'OPERADOR', 'EJECUTIVO', 'ADMINISTRADOR'].includes(user?.rol) && (
         <Alert tone="warning" title="Su usuario no tiene un rol asignado">

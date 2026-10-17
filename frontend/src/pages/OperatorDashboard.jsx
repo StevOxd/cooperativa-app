@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useCallback, useState, useEffect, useMemo } from 'react';
 import { RefreshCw } from 'lucide-react';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -9,24 +9,13 @@ import { useCorreoDisponible } from '../hooks/useCorreoDisponible';
 import OpenAccountModal from '../components/associates/OpenAccountModal';
 import OperatorAffiliationSuccessModal from '../components/operator/modals/OperatorAffiliationSuccessModal';
 import OperatorTrasladoModal from '../components/operator/modals/OperatorTrasladoModal';
-import { generateAccountOpeningReceiptPdf } from '../utils/accountOpeningReceiptPdf';
+import { generateAccountOpeningReceiptPdf } from '../utils/pdfs';
 import { Button, Card, PageHeader, TabPanel, Tabs } from '../components/ui';
 import { AffiliationsPanel } from '../components/operator/dashboard/AffiliationsPanel';
 import { TransfersPanel } from '../components/operator/dashboard/TransfersPanel';
 import { CreditsPanel } from '../components/operator/dashboard/CreditsPanel';
 
 const TABS_ID = 'operador';
-
-const formatDateOnly = (dateStr) => {
-  if (!dateStr) return '-';
-  const clean = String(dateStr).split('T')[0];
-  const parts = clean.split('-');
-  if (parts.length === 3) {
-    const [year, month, day] = parts;
-    return `${day}/${month}/${year}`;
-  }
-  return dateStr;
-};
 
 export const OperatorDashboard = () => {
   const { user } = useAuth();
@@ -68,9 +57,7 @@ export const OperatorDashboard = () => {
   const [selectedAfiliacion, setSelectedAfiliacion] = useState(null);
   const [lockingCaso, setLockingCaso] = useState(false);
   const [montoAportacion, setMontoAportacion] = useState('');
-  const [metodoPago, setMetodoPago] = useState('EFECTIVO_VENTANILLA');
   const [tipoAsociado, setTipoAsociado] = useState('EX');
-  const [passwordInicial, setPasswordInicial] = useState('admin123');
   const [observacionesAfiliacion, setObservacionesAfiliacion] = useState('');
   const [formalizando, setFormalizando] = useState(false);
 
@@ -188,7 +175,7 @@ export const OperatorDashboard = () => {
   const [resolvingTraslado, setResolvingTraslado] = useState(false);
 
   // 1. Cargar Afiliaciones de Agencia
-  const fetchAfiliaciones = async (search = '') => {
+  const fetchAfiliaciones = useCallback(async (search = '') => {
     try {
       setLoadingAfiliaciones(true);
       const url = search.trim()
@@ -204,10 +191,10 @@ export const OperatorDashboard = () => {
     } finally {
       setLoadingAfiliaciones(false);
     }
-  };
+  }, [toast]);
 
   // 2. Cargar Traslados y Aperturas
-  const fetchTraslados = async () => {
+  const fetchTraslados = useCallback(async () => {
     try {
       setLoadingTraslados(true);
       const response = await api.get('/operador/bandeja-solicitudes');
@@ -220,10 +207,10 @@ export const OperatorDashboard = () => {
     } finally {
       setLoadingTraslados(false);
     }
-  };
+  }, [toast]);
 
   // 3. Cargar Solicitudes de Crédito
-  const fetchCreditos = async () => {
+  const fetchCreditos = useCallback(async () => {
     try {
       setLoadingCreditos(true);
       const response = await api.get('/operador/creditos');
@@ -236,7 +223,7 @@ export const OperatorDashboard = () => {
     } finally {
       setLoadingCreditos(false);
     }
-  };
+  }, [toast]);
 
   // 4. Cargar Historial de Traslados por Asociado (Req-4)
   const fetchHistorialTraslados = async (searchTerm = searchHistorialTraslados, estadoFilter = filterHistorialEstado) => {
@@ -270,7 +257,7 @@ export const OperatorDashboard = () => {
     fetchAfiliaciones();
     fetchTraslados();
     fetchCreditos();
-  }, []);
+  }, [fetchAfiliaciones, fetchTraslados, fetchCreditos]);
 
   // Bloquear scroll de la página de fondo cuando cualquier modal esté abierto
   useEffect(() => {
@@ -359,9 +346,7 @@ export const OperatorDashboard = () => {
         setEditDireccion(caso.direccion || '');
 
         setMontoAportacion(caso.monto_estimado ? String(caso.monto_estimado) : '100.00');
-        setMetodoPago('EFECTIVO_VENTANILLA');
         setTipoAsociado('EX');
-        setPasswordInicial('admin123');
         setObservacionesAfiliacion('');
         setShowRechazarAfiliacion(false);
         setMotivoRechazoAfiliacion('');
@@ -491,9 +476,9 @@ export const OperatorDashboard = () => {
     }
   };
 
-  const handleDownloadComprobanteExistente = (caso) => {
+  const handleDownloadComprobanteExistente = async (caso) => {
     try {
-      generateAccountOpeningReceiptPdf({
+      await generateAccountOpeningReceiptPdf({
         data: {
           numero_caso: caso.numero_caso,
           nombre_completo: caso.nombre_completo || `${caso.primer_nombre} ${caso.primer_apellido}`,
@@ -815,8 +800,6 @@ export const OperatorDashboard = () => {
         setCrearAccesoPortal={setCrearAccesoPortal}
         montoAportacion={montoAportacion}
         setMontoAportacion={setMontoAportacion}
-        passwordInicial={passwordInicial}
-        setPasswordInicial={setPasswordInicial}
         observacionesAfiliacion={observacionesAfiliacion}
         setObservacionesAfiliacion={setObservacionesAfiliacion}
         formalizando={formalizando}

@@ -1,12 +1,6 @@
 import React from 'react';
 import { formatQ } from '../../utils/format';
-
-/** Cuenta donde se acreditará el crédito, con el texto disponible más claro. */
-export const creditDestination = (c) =>
-  c.cuenta_destino_info ||
-  (c.cuenta_bancaria_destino_numero
-    ? `Cuenta bancaria${c.cuenta_bancaria_destino_tipo ? ` ${c.cuenta_bancaria_destino_tipo}` : ''} (${c.cuenta_bancaria_destino_numero})`
-    : 'Cuenta principal del asociado');
+import { creditDestination } from './creditDestination';
 
 /**
  * Condiciones de una solicitud de crédito: monto, plazo, cuota, tasa y destino.

@@ -5,7 +5,7 @@
  */
 export const PASSWORD_MIN_LENGTH = 8;
 
-const SPECIAL_CHARS = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?~`]/;
+const SPECIAL_CHARS = /[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?~`]/;
 
 /**
  * Evalúa cada requisito por separado (para la lista de comprobación en pantalla).

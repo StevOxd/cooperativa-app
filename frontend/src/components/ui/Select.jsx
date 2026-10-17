@@ -1,7 +1,7 @@
 import React, { forwardRef } from 'react';
 import { ChevronDown } from 'lucide-react';
 import { cn } from './cn';
-import { controlClasses } from './Input';
+import { controlClasses } from './controlClasses';
 
 /**
  * Lista desplegable nativa con el estilo de `Input`. Las opciones se pasan

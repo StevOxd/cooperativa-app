@@ -172,7 +172,6 @@ const formalizarAfiliacion = async ({ idSolicitud, idOperador, rolUsuario, datos
     monto_aportacion,
     metodo_pago = 'EFECTIVO_VENTANILLA',
     tipo_asociado = 'EX',
-    password_inicial = 'admin123',
     observaciones = '',
     primer_nombre,
     segundo_nombre,
