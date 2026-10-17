@@ -319,7 +319,7 @@ export const BeneficiariesModal = ({
             form={FORM_ID}
             loading={saving}
             loadingText="Guardando…"
-            disabled={!esValido100 || !hasChanges}
+            disabled={loading || !esValido100 || !hasChanges}
             title={!hasChanges ? 'Cambie algún dato o porcentaje para guardar' : undefined}
           >
             Guardar beneficiarios

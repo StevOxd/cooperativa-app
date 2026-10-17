@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { useLatest } from '../hooks/useLatest';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { getSocket } from '../services/socket';
 import { Ban, Mail, Pencil, KeyRound, Unlock, UserCheck, UserPlus, Users } from 'lucide-react';
 import { useToast } from '../context/ToastContext';
-import GoogleEmailConfigModal from '../components/admin/GoogleEmailConfigModal';
 import {
   Alert,
   Badge,
@@ -110,7 +110,6 @@ export const UsersPage = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
-  const [emailConfigModalOpen, setEmailConfigModalOpen] = useState(false);
 
   // Sincronizar mensajes hacia el estándar de Toasts flotantes tipo socket (4s)
   useEffect(() => {
@@ -267,16 +266,21 @@ export const UsersPage = () => {
     }
   };
 
+  const fetchUsersRef = useLatest(fetchUsers);
   useEffect(() => {
-    fetchUsers();
-  }, [filterEstado, filterRol]);
+    fetchUsersRef.current();
+  }, [filterEstado, filterRol, fetchUsersRef]);
 
+  // Al abrir la pantalla carga el efecto de los filtros; la búsqueda solo recarga cuando cambia
+  const busquedaInicial = useRef(searchTerm);
   useEffect(() => {
+    if (searchTerm === busquedaInicial.current) return undefined;
+    busquedaInicial.current = null;
     const timer = setTimeout(() => {
-      fetchUsers(false);
+      fetchUsersRef.current(false);
     }, 300);
     return () => clearTimeout(timer);
-  }, [searchTerm]);
+  }, [searchTerm, fetchUsersRef]);
 
   // Escuchar eventos de presencia en tiempo real vía Socket.io
   useEffect(() => {
@@ -293,7 +297,7 @@ export const UsersPage = () => {
             })
           );
         } else {
-          fetchUsers(false);
+          fetchUsersRef.current(false);
         }
       };
       socket.on('presence_update', handlePresence);
@@ -301,7 +305,7 @@ export const UsersPage = () => {
         socket.off('presence_update', handlePresence);
       };
     }
-  }, []);
+  }, [fetchUsersRef]);
 
   // Desbloqueo administrativo en 1 clic
   const handleDesbloquear = async (userId) => {
@@ -1001,11 +1005,6 @@ export const UsersPage = () => {
           </div>
         )}
       </Modal>
-
-      <GoogleEmailConfigModal
-        isOpen={emailConfigModalOpen}
-        onClose={() => setEmailConfigModalOpen(false)}
-      />
     </div>
   );
 };

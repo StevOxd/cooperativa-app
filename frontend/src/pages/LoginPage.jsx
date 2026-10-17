@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate, useLocation, Link } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Eye, EyeOff, ShieldAlert } from 'lucide-react';
 import { Alert, Button, Field, Input } from '../components/ui';
@@ -27,7 +27,6 @@ export const LoginPage = () => {
 
   const { login, verifyMfa, logout } = useAuth();
   const navigate = useNavigate();
-  const location = useLocation();
 
   // Control de sesión al entrar o retroceder a la pantalla de login
   useEffect(() => {
@@ -64,7 +63,7 @@ export const LoginPage = () => {
       window.removeEventListener('pageshow', handleBackForward);
       window.removeEventListener('popstate', handleBackForward);
     };
-  }, []);
+  }, [logout]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();

@@ -22,7 +22,6 @@ const DontShowAgain = ({ id, checked, onChange }) => (
  */
 export const AssociateOnboardingTour = ({
   user,
-  activeTab,
   setActiveTab,
   forceOpen = false,
   onCloseTour = () => {},

@@ -6,7 +6,7 @@ import { Button, LoadingState, PageHeader, TabPanel, Tabs } from '../components/
 import { formatDate } from '../utils/format';
 import AssociateOnboardingTour from '../components/associate/AssociateOnboardingTour';
 import { useToast } from '../context/ToastContext';
-import { generateAccountStatementPdf } from '../utils/accountStatementPdf';
+import { generateAccountStatementPdf } from '../utils/pdfs';
 import { AssociateSummaryTab } from '../components/associate/dashboard/AssociateSummaryTab';
 import { AssociateTransfersTab } from '../components/associate/dashboard/AssociateTransfersTab';
 import { AssociateCreditsTab } from '../components/associate/dashboard/AssociateCreditsTab';
@@ -144,13 +144,13 @@ export const AssociateDashboard = () => {
 
       // Cargar perfil, cuentas y créditos
       const [perfilRes, cuentasRes, creditosRes, planillaRes, destinoRes, solicitudesRes, catalogoRes] = await Promise.all([
-        api.get('/asociado/perfil').catch(e => ({ data: { success: false } })),
-        api.get('/asociado/cuentas').catch(e => ({ data: { success: false } })),
-        api.get('/asociado/creditos').catch(e => ({ data: { success: false } })),
-        api.get('/asociado/cuenta-planilla').catch(e => ({ data: { success: false } })),
-        api.get('/asociado/mis-cuentas-destino').catch(e => ({ data: { success: false } })),
-        api.get('/asociado/mis-solicitudes').catch(e => ({ data: { success: false } })),
-        api.get('/catalogo/tipos-cuenta').catch(e => ({ data: { success: false } })),
+        api.get('/asociado/perfil').catch(() => ({ data: { success: false } })),
+        api.get('/asociado/cuentas').catch(() => ({ data: { success: false } })),
+        api.get('/asociado/creditos').catch(() => ({ data: { success: false } })),
+        api.get('/asociado/cuenta-planilla').catch(() => ({ data: { success: false } })),
+        api.get('/asociado/mis-cuentas-destino').catch(() => ({ data: { success: false } })),
+        api.get('/asociado/mis-solicitudes').catch(() => ({ data: { success: false } })),
+        api.get('/catalogo/tipos-cuenta').catch(() => ({ data: { success: false } })),
       ]);
 
       if (perfilRes.data?.success) setProfile(perfilRes.data.data);
@@ -385,7 +385,7 @@ export const AssociateDashboard = () => {
           finalTxs = response.data.data;
         }
       }
-      generateAccountStatementPdf({
+      await generateAccountStatementPdf({
         asociado: profile || user,
         cuenta: cuentaTarget,
         transacciones: finalTxs || [],
@@ -765,7 +765,6 @@ export const AssociateDashboard = () => {
       {/* Recorrido Guiado Interactivo para Nuevos Asociados */}
       <AssociateOnboardingTour
         user={user}
-        activeTab={activeTab}
         setActiveTab={setActiveTab}
         forceOpen={showTour}
         onCloseTour={() => setShowTour(false)}

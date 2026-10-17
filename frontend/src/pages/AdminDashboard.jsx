@@ -3,8 +3,6 @@ import { Link } from 'react-router-dom';
 import { Users } from 'lucide-react';
 import api from '../services/api';
 import { getSocket } from '../services/socket';
-import GoogleEmailConfigModal from '../components/admin/GoogleEmailConfigModal';
-import { AccountSettingsModal } from '../components/profile/AccountSettingsModal';
 import { Alert, Button, PageHeader } from '../components/ui';
 import { AdminKpis } from '../components/admin/dashboard/AdminKpis';
 import { UsersByRoleCard } from '../components/admin/dashboard/UsersByRoleCard';
@@ -16,8 +14,6 @@ export const AdminDashboard = () => {
   const [securityEvents, setSecurityEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
-  const [emailConfigModalOpen, setEmailConfigModalOpen] = useState(false);
-  const [accountSettingsOpen, setAccountSettingsOpen] = useState(false);
 
   const fetchDashboardData = async () => {
     try {
@@ -132,19 +128,6 @@ export const AdminDashboard = () => {
       </div>
 
       <SecurityEventsCard events={securityEvents} />
-
-      {/* Modal de Configuración y Prueba de Google Mail */}
-      <GoogleEmailConfigModal
-        isOpen={emailConfigModalOpen}
-        onClose={() => setEmailConfigModalOpen(false)}
-      />
-
-      {/* Modal de Configuración de Seguridad y 2FA de la Cuenta del Administrador */}
-      <AccountSettingsModal
-        isOpen={accountSettingsOpen}
-        onClose={() => setAccountSettingsOpen(false)}
-        initialTab="2fa"
-      />
     </div>
   );
 };

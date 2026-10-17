@@ -6,7 +6,7 @@
  */
 const PASSWORD_MIN_LENGTH = 8;
 
-const SPECIAL_CHARS = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?~`]/;
+const SPECIAL_CHARS = /[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?~`]/;
 
 /**
  * @param {string} password

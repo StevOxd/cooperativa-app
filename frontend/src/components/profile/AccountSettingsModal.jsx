@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Check, Copy, QrCode } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
+import { useLatest } from '../../hooks/useLatest';
 import api from '../../services/api';
 import {
   Alert, Badge, Button, Field, Input, Modal, PasswordInput, TabPanel, Tabs,
@@ -21,6 +22,8 @@ const TABS_ID = 'cuenta';
 export const AccountSettingsModal = ({ isOpen, onClose, initialTab = '2fa' }) => {
   const { user, updateUserData } = useAuth();
   const { toast } = useToast();
+  // Al abrir se usan los datos del usuario de ese momento; si cambian con el modal abierto, no se reinicia
+  const userRef = useLatest(user);
 
   const [activeTab, setActiveTab] = useState(initialTab);
 
@@ -57,6 +60,7 @@ export const AccountSettingsModal = ({ isOpen, onClose, initialTab = '2fa' }) =>
 
   // Sincronizar tab inicial cuando se abre el modal
   useEffect(() => {
+    const usuarioAlAbrir = userRef.current;
     if (isOpen) {
       setActiveTab(initialTab || '2fa');
       setErrorMsg('');
@@ -71,9 +75,9 @@ export const AccountSettingsModal = ({ isOpen, onClose, initialTab = '2fa' }) =>
       setGeneratingQr(false);
       setVerifyingCode(false);
 
-      if (user) {
-        setTelefono(user.telefono || '');
-        setMfaEnabled(Boolean(user.mfa_enabled));
+      if (usuarioAlAbrir) {
+        setTelefono(usuarioAlAbrir.telefono || '');
+        setMfaEnabled(Boolean(usuarioAlAbrir.mfa_enabled));
       }
 
       // Verificación silenciosa del estado de 2FA en el servidor sin bloquear la UI
@@ -83,7 +87,7 @@ export const AccountSettingsModal = ({ isOpen, onClose, initialTab = '2fa' }) =>
           if (isMounted && response.data?.success) {
             const enabled = Boolean(response.data.mfa_enabled);
             setMfaEnabled(enabled);
-            if (user && Boolean(user.mfa_enabled) !== enabled) {
+            if (usuarioAlAbrir && Boolean(usuarioAlAbrir.mfa_enabled) !== enabled) {
               updateUserData({ mfa_enabled: enabled });
             }
           }
@@ -99,7 +103,7 @@ export const AccountSettingsModal = ({ isOpen, onClose, initialTab = '2fa' }) =>
         document.body.style.overflow = prevOverflow;
       };
     }
-  }, [isOpen, initialTab]);
+  }, [isOpen, initialTab, updateUserData, userRef]);
 
   // Cierre con Escape
   useEffect(() => {

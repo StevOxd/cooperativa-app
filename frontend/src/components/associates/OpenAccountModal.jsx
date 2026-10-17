@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Check, FileDown, FileText, Mail } from 'lucide-react';
 import api from '../../services/api';
-import { generateAccountOpeningReceiptPdf } from '../../utils/accountOpeningReceiptPdf';
-import { generateAccountStatementPdf } from '../../utils/accountStatementPdf';
+import { generateAccountOpeningReceiptPdf, generateAccountStatementPdf } from '../../utils/pdfs';
 import { Alert, Button, Field, Input, LoadingState, Modal, Select, cn } from '../ui';
 import { toast } from '../../context/ToastContext';
 import { formatDateTime, formatQ } from '../../utils/format';
@@ -219,11 +218,11 @@ export const OpenAccountModal = ({ isOpen, onClose, asociado, onSuccess, valores
     }
   };
 
-  const handleDownloadPdf = () => {
+  const handleDownloadPdf = async () => {
     if (!successData || !asociado) return;
     try {
       // El generador ya descarga el archivo; no volver a llamar a doc.save() aquí (se descargaba dos veces).
-      generateAccountOpeningReceiptPdf({
+      await generateAccountOpeningReceiptPdf({
         data: {
           asociado: {
             id_asociado: asociado.id_asociado,
@@ -252,10 +251,10 @@ export const OpenAccountModal = ({ isOpen, onClose, asociado, onSuccess, valores
   };
 
   // Si los fondos vinieron del banco hubo un traslado: el asociado se lleva el estado de cuenta (issue #26).
-  const handleDownloadStatement = () => {
+  const handleDownloadStatement = async () => {
     if (!successData) return;
     try {
-      generateAccountStatementPdf({
+      await generateAccountStatementPdf({
         asociado: {
           ...asociado,
           ...(datosTitular || {}),

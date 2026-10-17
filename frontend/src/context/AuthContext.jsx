@@ -1,6 +1,6 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useCallback, useContext, useState, useEffect } from 'react';
 import api from '../services/api';
-import { initSocket, disconnectSocket, getSocket } from '../services/socket';
+import { initSocket, disconnectSocket } from '../services/socket';
 import { SecurityAlertModal } from '../components/common/SecurityAlertModal';
 import ForcedPasswordChangeModal from '../components/auth/ForcedPasswordChangeModal';
 
@@ -11,6 +11,36 @@ export const AuthProvider = ({ children }) => {
   const [token, setToken] = useState(localStorage.getItem('coop_token') || null);
   const [isLoading, setIsLoading] = useState(true);
   const [securityAlert, setSecurityAlert] = useState(null);
+
+  /**
+   * Cierra formalmente la sesión activa del usuario.
+   * Emite `POST /api/auth/logout` al servidor, desconecta el socket singleton
+   * y purga de forma segura `localStorage` y `sessionStorage`.
+   *
+   * @async
+   * @function logout
+   * @returns {Promise<void>}
+   */
+  const logout = useCallback(async () => {
+    try {
+      const currentToken = localStorage.getItem('coop_token');
+      if (currentToken) {
+        // Notificar al backend para limpiar sesion_activa_id
+        await api.post('/auth/logout').catch(() => {});
+      }
+    } catch (e) {
+      // Ignorar fallos de red al cerrar sesión
+    } finally {
+      disconnectSocket();
+      localStorage.removeItem('coop_token');
+      localStorage.removeItem('coop_user');
+      localStorage.removeItem('coop_last_activity');
+      sessionStorage.clear();
+      setToken(null);
+      setUser(null);
+      setSecurityAlert(null);
+    }
+  }, []);
 
   // Inicializar o reconectar socket cuando haya token y usuario
   const setupSocketListeners = (userToken) => {
@@ -56,7 +86,7 @@ export const AuthProvider = ({ children }) => {
     };
 
     initializeAuth();
-  }, []);
+  }, [logout]);
 
   // Escuchar evento de cambio forzado de contraseña desde interceptores
   useEffect(() => {
@@ -123,7 +153,7 @@ export const AuthProvider = ({ children }) => {
       });
       window.removeEventListener('storage', onStorageSync);
     };
-  }, [token, user]);
+  }, [token, user, logout]);
 
   /**
    * Función para iniciar sesión con credenciales
@@ -217,35 +247,6 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  /**
-   * Cierra formalmente la sesión activa del usuario.
-   * Emite `POST /api/auth/logout` al servidor, desconecta el socket singleton
-   * y purga de forma segura `localStorage` y `sessionStorage`.
-   *
-   * @async
-   * @function logout
-   * @returns {Promise<void>}
-   */
-  const logout = async () => {
-    try {
-      const currentToken = localStorage.getItem('coop_token');
-      if (currentToken) {
-        // Notificar al backend para limpiar sesion_activa_id
-        await api.post('/auth/logout').catch(() => {});
-      }
-    } catch (e) {
-      // Ignorar fallos de red al cerrar sesión
-    } finally {
-      disconnectSocket();
-      localStorage.removeItem('coop_token');
-      localStorage.removeItem('coop_user');
-      localStorage.removeItem('coop_last_activity');
-      sessionStorage.clear();
-      setToken(null);
-      setUser(null);
-      setSecurityAlert(null);
-    }
-  };
 
   /**
    * Actualiza campos específicos del usuario autenticado en memoria y en `localStorage`.
@@ -253,13 +254,13 @@ export const AuthProvider = ({ children }) => {
    * @function updateUserData
    * @param {Object} updatedFields - Objeto con los atributos modificados (ej. `{ telefono: '...' }`).
    */
-  const updateUserData = (updatedFields) => {
+  const updateUserData = useCallback((updatedFields) => {
     setUser((prevUser) => {
       const newUser = { ...prevUser, ...updatedFields };
       localStorage.setItem('coop_user', JSON.stringify(newUser));
       return newUser;
     });
-  };
+  }, []);
 
   const value = {
     user,

@@ -7,7 +7,7 @@ import { SignedPdfPanel } from '../credit/SignedPdfPanel';
 import { AccountBalances } from '../credit/AccountBalances';
 import { CreditTransactionsTable } from '../credit/CreditTransactionsTable';
 import { CreditTerms } from '../credit/CreditTerms';
-import { executiveCreditStatus } from './ExecutiveCreditsTable';
+import { executiveCreditStatus } from './executiveCreditStatus';
 
 const TABS_ID = 'resolucion-ejecutivo';
 
@@ -50,7 +50,7 @@ export const ExecutiveResolutionModal = ({
       </Field>
       {!archivoFirmado && (
         <p className="text-sm text-warning-800">
-          Para aceptar y desembolsar, descargue el documento, fírmelo y súbalo en la pestaña "Documento firmado".
+          Para aceptar y desembolsar, descargue el documento, fírmelo y súbalo en la pestaña «Documento firmado».
         </p>
       )}
       <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-between">

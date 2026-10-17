@@ -432,7 +432,7 @@ const runMigrations = async () => {
       ALTER TABLE solicitudes_credito ADD CONSTRAINT solicitudes_credito_estado_check 
         CHECK (estado IN ('PENDIENTE_FIRMA', 'EN_REVISION_OPERADOR', 'EN_AUTORIZACION_EJECUTIVO', 'DEVUELTA_OPERADOR', 'APROBADA', 'APROBADO', 'DESEMBOLSADA', 'DENEGADA', 'RECHAZADA', 'RECHAZADO', 'PENDIENTE', 'CANCELADA'));
 
-      -- 6.4 Crear persona y usuario demo para rol EJECUTIVO (EJ-1 / admin123)
+      -- 6.4 Crear persona y usuario demo para rol EJECUTIVO (EJ-1)
       INSERT INTO personas (
         cui_dpi, primer_nombre, segundo_nombre, primer_apellido, segundo_apellido,
         telefono, direccion, fecha_nacimiento

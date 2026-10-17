@@ -1,7 +1,5 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { UpdateProfileModal } from '../profile/UpdateProfileModal';
-import { ChangePasswordModal } from '../profile/ChangePasswordModal';
 import { AccountSettingsModal } from '../profile/AccountSettingsModal';
 import { GoogleEmailConfigModal } from '../admin/GoogleEmailConfigModal';
 import { StaffAffiliationModal } from '../profile/StaffAffiliationModal';
@@ -16,8 +14,6 @@ import { StaffAffiliationModal } from '../profile/StaffAffiliationModal';
 export const useAccountActions = () => {
   const { user, logout } = useAuth();
 
-  const [isUpdateProfileOpen, setIsUpdateProfileOpen] = useState(false);
-  const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
   const [isAccountSettingsOpen, setIsAccountSettingsOpen] = useState(false);
   const [accountSettingsInitialTab, setAccountSettingsInitialTab] = useState('2fa');
   const [isEmailConfigOpen, setIsEmailConfigOpen] = useState(false);
@@ -54,16 +50,6 @@ export const useAccountActions = () => {
       <StaffAffiliationModal
         isOpen={isStaffAffiliationOpen}
         onClose={() => setIsStaffAffiliationOpen(false)}
-      />
-
-      {/* Modales de perfil y contraseña legados (por compatibilidad) */}
-      <UpdateProfileModal
-        isOpen={isUpdateProfileOpen}
-        onClose={() => setIsUpdateProfileOpen(false)}
-      />
-      <ChangePasswordModal
-        isOpen={isChangePasswordOpen}
-        onClose={() => setIsChangePasswordOpen(false)}
       />
     </>
   );

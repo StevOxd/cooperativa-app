@@ -1,8 +1,7 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useCallback, useState, useEffect, useMemo } from 'react';
 import { RefreshCw } from 'lucide-react';
 import api from '../services/api';
 import { useToast } from '../context/ToastContext';
-import { useAuth } from '../context/AuthContext';
 import { Button, Card, PageHeader, SearchInput, TabPanel, Tabs } from '../components/ui';
 import { ExecutiveCreditsTable } from '../components/executive/ExecutiveCreditsTable';
 import { ExecutiveResolutionModal } from '../components/executive/ExecutiveResolutionModal';
@@ -11,7 +10,6 @@ import { formatQ } from '../utils/format';
 const TABS_ID = 'ejecutivo';
 
 export const ExecutiveDashboard = () => {
-  const { user } = useAuth();
   const { toast } = useToast();
 
   const [creditos, setCreditos] = useState([]);
@@ -72,7 +70,7 @@ export const ExecutiveDashboard = () => {
     };
   }, [selectedCredito]);
 
-  const fetchCreditos = async () => {
+  const fetchCreditos = useCallback(async () => {
     try {
       setLoading(true);
       const res = await api.get('/ejecutivo/creditos');
@@ -85,11 +83,11 @@ export const ExecutiveDashboard = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [toast]);
 
   useEffect(() => {
     fetchCreditos();
-  }, []);
+  }, [fetchCreditos]);
 
   // Contadores de métricas
   const pendientesCount = useMemo(
@@ -201,51 +199,6 @@ export const ExecutiveDashboard = () => {
       toast.error(err.response?.data?.message || 'No se pudo guardar la resolución. Intente de nuevo.');
     } finally {
       setResolving(false);
-    }
-  };
-
-  const getStatusBadge = (estado) => {
-    switch (estado) {
-      case 'EN_AUTORIZACION_EJECUTIVO':
-        return (
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-brand-50 text-brand-700 border border-brand-200">
-            Pendiente Autorización
-          </span>
-        );
-      case 'DEVUELTA_OPERADOR':
-        return (
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-warning-50 text-warning-700 border border-warning-200">
-            Devuelta a Operador
-          </span>
-        );
-      case 'APROBADA':
-      case 'APROBADO':
-      case 'DESEMBOLSADA':
-        return (
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-brand-50 text-brand-700 border border-brand-200">
-            Aprobada y Desembolsada
-          </span>
-        );
-      case 'DENEGADA':
-      case 'RECHAZADA':
-        return (
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-danger-50 text-danger-700 border border-danger-200">
-            Denegada
-          </span>
-        );
-      case 'EN_REVISION_OPERADOR':
-      case 'PENDIENTE':
-        return (
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-slate-100 text-slate-700 border border-slate-200">
-            En Revisión Operador
-          </span>
-        );
-      default:
-        return (
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-slate-100 text-slate-700 border border-slate-200">
-            {estado}
-          </span>
-        );
     }
   };
 

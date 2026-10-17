@@ -2,8 +2,9 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { Download } from 'lucide-react';
 import { Badge, Button } from '../ui';
+import { useToast } from '../../context/ToastContext';
 import { formatDate, formatQ } from '../../utils/format';
-import { generateAffiliationCasePdf } from '../../utils/affiliationCasePdf';
+import { generateAffiliationCasePdf } from '../../utils/pdfs';
 
 /**
  * Constancia con el número de caso para terminar la afiliación en agencia.
@@ -14,6 +15,17 @@ import { generateAffiliationCasePdf } from '../../utils/affiliationCasePdf';
  * @param {Object} props.casoGenerado - Respuesta de `/afiliacion/solicitar-nuevo`.
  */
 export const AgencyReceiptStep = ({ casoGenerado }) => {
+  const { toast } = useToast();
+
+  const handleDownloadPdf = async () => {
+    try {
+      await generateAffiliationCasePdf({ caso: casoGenerado });
+    } catch (err) {
+      console.error('Error al generar la constancia de afiliación:', err);
+      toast.error('No se pudo generar la constancia. Intente de nuevo.');
+    }
+  };
+
   if (!casoGenerado) return null;
 
   const tieneMonto = casoGenerado.monto_estimado !== undefined && casoGenerado.monto_estimado !== null;
@@ -90,7 +102,7 @@ export const AgencyReceiptStep = ({ casoGenerado }) => {
           icon={Download}
           size="lg"
           fullWidth
-          onClick={() => generateAffiliationCasePdf({ caso: casoGenerado })}
+          onClick={handleDownloadPdf}
         >
           Descargar constancia en PDF
         </Button>

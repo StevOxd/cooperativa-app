@@ -1,6 +1,7 @@
 import React from 'react';
 import { FileDown, Landmark } from 'lucide-react';
-import { generateAccountOpeningReceiptPdf } from '../../../utils/accountOpeningReceiptPdf';
+import { generateAccountOpeningReceiptPdf } from '../../../utils/pdfs';
+import { toast } from '../../../context/ToastContext';
 import { Alert, Button, Modal } from '../../ui';
 import { formatQ } from '../../../utils/format';
 
@@ -11,11 +12,12 @@ import { formatQ } from '../../../utils/format';
 const OperatorAffiliationSuccessModal = ({ formalizadoResult, onClose, onAbrirCuenta }) => {
   if (!formalizadoResult) return null;
 
-  const handleDownloadPdf = () => {
+  const handleDownloadPdf = async () => {
     try {
-      generateAccountOpeningReceiptPdf({ data: formalizadoResult });
+      await generateAccountOpeningReceiptPdf({ data: formalizadoResult });
     } catch (err) {
       console.error('Error al generar comprobante de apertura:', err);
+      toast.error('No se pudo generar el comprobante. Intente de nuevo.');
     }
   };
 
