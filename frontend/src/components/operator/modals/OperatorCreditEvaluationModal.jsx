@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Send } from 'lucide-react';
 import { getSecureDocumentUrl } from '../../../utils/documentUrl';
 import {
-  Alert, Badge, Button, Field, LoadingState, Modal, StatCard, StatGroup, TabPanel, Tabs, Textarea, cn,
+  Alert, Badge, Button, Field, LoadingState, Modal, ProgressBar, StatCard, StatGroup, TabPanel, Tabs, Textarea,
 } from '../../ui';
 import { formatDate, formatQ } from '../../../utils/format';
 import { creditStatus } from '../dashboard/status';
@@ -217,22 +217,13 @@ const OperatorCreditEvaluationModal = ({
               label="Endeudamiento"
               value={`${analisis.porcentajeEndeudamiento}%`}
               hint={
-                <span className="block space-y-1.5">
+                <div className="space-y-1.5">
                   <span className="block">Cupo disponible {formatQ(analisis.cupoDisponible)}</span>
-                  <span className="block h-1.5 w-full rounded-sm bg-surface-sunken" aria-hidden="true">
-                    <span
-                      className={cn(
-                        'block h-1.5 rounded-sm',
-                        analisis.porcentajeEndeudamiento > 100
-                          ? 'bg-danger-600'
-                          : analisis.porcentajeEndeudamiento > 75
-                          ? 'bg-warning-500'
-                          : 'bg-brand-700'
-                      )}
-                      style={{ width: `${Math.min(100, analisis.porcentajeEndeudamiento)}%` }}
-                    />
-                  </span>
-                </span>
+                  <ProgressBar
+                    value={analisis.porcentajeEndeudamiento}
+                    tone={analisis.porcentajeEndeudamiento > 100 ? 'danger' : analisis.porcentajeEndeudamiento > 75 ? 'warning' : 'brand'}
+                  />
+                </div>
               }
             />
           </StatGroup>

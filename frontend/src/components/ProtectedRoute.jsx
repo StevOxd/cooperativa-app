@@ -1,7 +1,8 @@
 import React from 'react';
 import { Navigate, Outlet } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Loader2 } from 'lucide-react';
+import { LoadingState } from './ui';
+import { ROLE_LABELS } from './layout/navigation';
 
 /**
  * Componente para proteger rutas privadas
@@ -12,12 +13,7 @@ export const ProtectedRoute = ({ allowedRoles, children }) => {
   const hasToken = !!localStorage.getItem('coop_token');
 
   if (isLoading) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-slate-100 text-slate-700">
-        <Loader2 className="w-10 h-10 text-brand-700 animate-spin mb-4" />
-        <p className="font-medium text-sm">Verificando sesión segura...</p>
-      </div>
-    );
+    return <LoadingState label="Verificando su sesión…" className="min-h-screen bg-surface-muted" />;
   }
 
   // Si no está autenticado o no existe el token en storage, expulsar a /login con replace
@@ -25,21 +21,17 @@ export const ProtectedRoute = ({ allowedRoles, children }) => {
     return <Navigate to="/login" replace />;
   }
 
-  // Validación opcional por roles
+  // Validación opcional por roles: igual que RoleProtectedRoute, vuelve al inicio con el aviso
   if (allowedRoles && allowedRoles.length > 0 && !allowedRoles.includes(user?.rol)) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-slate-100 p-4">
-        <div className="bg-white p-8 rounded-lg shadow-lg max-w-md w-full text-center border border-slate-200">
-          <div className="w-16 h-16 bg-danger-50 text-danger-600 rounded-full flex items-center justify-center mx-auto mb-4 font-bold text-2xl">
-            !
-          </div>
-          <h2 className="text-2xl font-bold text-slate-800 mb-2">Acceso Restringido</h2>
-          <p className="text-slate-600 mb-6 text-sm">
-            Tu rol actual (<span className="font-semibold text-slate-800">{user?.rol}</span>) no cuenta con permisos para acceder a esta sección.
-          </p>
-          <Navigate to="/dashboard" replace />
-        </div>
-      </div>
+      <Navigate
+        to="/dashboard"
+        state={{
+          accessDenied: true,
+          message: `Esta sección es solo para el rol ${allowedRoles.map((r) => ROLE_LABELS[r] || r).join(' o ')}.`,
+        }}
+        replace
+      />
     );
   }
 

@@ -718,6 +718,7 @@ export const OperatorDashboard = () => {
           {activeTab === 'afiliaciones' && (
             <AffiliationsPanel
               afiliaciones={filteredAfiliaciones}
+              todas={afiliaciones}
               loading={loadingAfiliaciones}
               search={searchAfiliacion}
               onSearchChange={setSearchAfiliacion}
@@ -760,8 +761,7 @@ export const OperatorDashboard = () => {
           {activeTab === 'creditos' && (
             <CreditsPanel
               creditos={filteredCreditos}
-              total={creditos.length}
-              pendientes={creditosPendientesCount}
+              todos={creditos}
               loading={loadingCreditos}
               search={searchCredito}
               onSearchChange={setSearchCredito}

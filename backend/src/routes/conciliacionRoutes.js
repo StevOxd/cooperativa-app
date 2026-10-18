@@ -6,6 +6,7 @@ const { verifyToken, checkRole } = require('../middlewares/authMiddleware');
 // Conciliación con el banco: solo el administrador
 router.use(verifyToken, checkRole('ADMINISTRADOR'));
 
+router.get('/resumen', conciliacionController.resumen);
 router.get('/depositos', conciliacionController.listarDepositos);
 router.post('/depositos/:referencia/verificar', conciliacionController.verificarDeposito);
 router.get('/reversiones', conciliacionController.listarReversiones);

@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Card, CardBody, CardHeader } from '../../ui';
+import { Card, CardBody, CardHeader, ProgressBar } from '../../ui';
 import { ROLE_LABELS } from '../../layout/navigation';
 
 const ROLE_ORDER = ['ASOCIADO', 'OPERADOR', 'EJECUTIVO', 'ADMINISTRADOR'];
@@ -41,12 +41,7 @@ export const UsersByRoleCard = ({ users }) => {
                   <span className="ml-1.5 text-xs text-ink-subtle">{row.share}%</span>
                 </span>
               </div>
-              <div className="mt-1.5 h-2 rounded-sm bg-surface-sunken" aria-hidden="true">
-                <div
-                  className="h-2 rounded-sm bg-brand-700"
-                  style={{ width: `${row.width}%`, minWidth: row.count > 0 ? '4px' : 0 }}
-                />
-              </div>
+              <ProgressBar value={row.width} size="md" minVisible={row.count > 0} className="mt-1.5" />
             </li>
           ))}
         </ul>

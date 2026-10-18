@@ -1,6 +1,6 @@
 import React from 'react';
 import { Plus, Trash2 } from 'lucide-react';
-import { Alert, Button, Field, Input, Modal, Select, cn } from '../../ui';
+import { Alert, Button, Field, Input, Modal, ProgressBar, Select, cn } from '../../ui';
 import { PARENTESCOS, parentescoLabel } from '../../../utils/parentesco';
 
 /**
@@ -157,12 +157,7 @@ export const EditBeneficiariesModal = ({
               {totalPorcentajeAsociado.toFixed(2)} % de 100 %
             </span>
           </div>
-          <div className="h-1.5 w-full rounded-sm bg-surface-sunken" aria-hidden="true">
-            <div
-              className={cn('h-1.5 rounded-sm transition-all', isComplete ? 'bg-success-600' : isOver ? 'bg-danger-600' : 'bg-warning-500')}
-              style={{ width: `${Math.min(100, totalPorcentajeAsociado)}%` }}
-            />
-          </div>
+          <ProgressBar value={totalPorcentajeAsociado} tone={isComplete ? 'success' : isOver ? 'danger' : 'warning'} />
           <p className={cn('text-sm', isComplete ? 'text-success-700' : isOver ? 'text-danger-700' : 'text-warning-800')}>
             {isComplete
               ? 'La distribución está completa.'

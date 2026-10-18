@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { Users } from 'lucide-react';
+import { Scale, Users } from 'lucide-react';
 import api from '../services/api';
 import { getSocket } from '../services/socket';
 import { Alert, Button, PageHeader } from '../components/ui';
@@ -12,6 +12,7 @@ import { SecurityEventsCard } from '../components/admin/dashboard/SecurityEvents
 export const AdminDashboard = () => {
   const [users, setUsers] = useState([]);
   const [securityEvents, setSecurityEvents] = useState([]);
+  const [porConciliar, setPorConciliar] = useState(null);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
 
@@ -21,12 +22,14 @@ export const AdminDashboard = () => {
       setErrorMessage('');
 
       // Cargar lista de usuarios y últimos eventos de auditoría en paralelo
-      const [usersRes, eventsRes] = await Promise.all([
+      const [usersRes, eventsRes, conciliacionRes] = await Promise.all([
         api.get('/usuarios'),
         api.get('/usuarios/auditoria/eventos-recientes').catch((err) => {
           console.warn('No se pudieron obtener eventos de auditoría:', err.message);
           return { data: { success: false, data: [] } };
         }),
+        // Si el resumen falla, el panel sigue sin el aviso
+        api.get('/conciliacion/resumen').catch(() => ({ data: { success: false } })),
       ]);
 
       if (usersRes.data?.success) {
@@ -35,6 +38,7 @@ export const AdminDashboard = () => {
       if (eventsRes.data?.success) {
         setSecurityEvents(eventsRes.data.data || []);
       }
+      setPorConciliar(conciliacionRes.data?.success ? conciliacionRes.data.data : null);
     } catch (error) {
       console.error('Error al cargar datos del Centro de Monitoreo:', error);
       setErrorMessage('Algunos datos del panel no se pudieron cargar. Actualice la página para intentar de nuevo.');
@@ -115,6 +119,27 @@ export const AdminDashboard = () => {
       />
 
       {errorMessage && <Alert tone="danger">{errorMessage}</Alert>}
+
+      {porConciliar && porConciliar.depositos_por_conciliar + porConciliar.reversiones_pendientes > 0 && (
+        <Alert tone="warning" icon={Scale} title="Hay operaciones con el banco por conciliar">
+          <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            <span>
+              {[
+                porConciliar.depositos_por_conciliar > 0 &&
+                  `${porConciliar.depositos_por_conciliar} ${porConciliar.depositos_por_conciliar === 1 ? 'depósito en ventanilla' : 'depósitos en ventanilla'}`,
+                porConciliar.reversiones_pendientes > 0 &&
+                  `${porConciliar.reversiones_pendientes} ${porConciliar.reversiones_pendientes === 1 ? 'reversión pendiente' : 'reversiones pendientes'}`,
+              ]
+                .filter(Boolean)
+                .join(' y ')}
+              .
+            </span>
+            <Button as={Link} to="/conciliacion" size="sm" variant="link" className="px-0">
+              Ir a Conciliación
+            </Button>
+          </span>
+        </Alert>
+      )}
 
       <AdminKpis kpis={kpis} loading={loading} />
 

@@ -32,3 +32,30 @@ export const humanize = (value) => {
   const text = String(value).replace(/_/g, ' ').toLowerCase();
   return text.charAt(0).toUpperCase() + text.slice(1);
 };
+
+const RELATIVO = new Intl.RelativeTimeFormat('es-GT', { numeric: 'auto' });
+// [unidad, segundos por unidad], de la mayor a la menor
+const UNIDADES = [
+  ['year', 365 * 24 * 3600],
+  ['month', 30 * 24 * 3600],
+  ['day', 24 * 3600],
+  ['hour', 3600],
+  ['minute', 60],
+];
+
+/**
+ * Tiempo transcurrido desde una fecha: "hace 3 horas", "ayer", "hace 2 días". Cuenta unidades completas (59 minutos
+ * no son "hace 1 hora") y una fecha un poco adelantada (reloj del servidor) se toma como "hace un momento".
+ */
+export const formatRelative = (value, ahora = Date.now()) => {
+  if (!value) return '—';
+  const segundos = Math.min(0, Math.round((new Date(value).getTime() - ahora) / 1000));
+  for (const [unidad, segundosPorUnidad] of UNIDADES) {
+    if (-segundos >= segundosPorUnidad) return RELATIVO.format(Math.trunc(segundos / segundosPorUnidad), unidad);
+  }
+  return 'hace un momento';
+};
+
+/** Horas transcurridas desde una fecha (0 si no hay fecha), para avisar de lo que lleva mucho esperando. */
+export const horasDesde = (value, ahora = Date.now()) =>
+  value ? Math.max(0, (ahora - new Date(value).getTime()) / 3600000) : 0;

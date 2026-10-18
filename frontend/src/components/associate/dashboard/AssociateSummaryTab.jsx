@@ -1,7 +1,8 @@
 import React from 'react';
-import { FileDown, Wallet } from 'lucide-react';
-import { Badge, Button, Card, EmptyState } from '../../ui';
-import { formatQ, humanize } from '../../../utils/format';
+import { Link } from 'react-router-dom';
+import { FileDown, PenLine, Wallet } from 'lucide-react';
+import { Alert, Badge, Button, Card, EmptyState } from '../../ui';
+import { formatDate, formatQ, humanize } from '../../../utils/format';
 
 const ACCOUNT_STATES = {
   ACTIVA: { label: 'Activa', tone: 'success' },
@@ -12,36 +13,69 @@ const ACCOUNT_STATES = {
 const accountStatus = (estado) => ACCOUNT_STATES[estado] || { label: humanize(estado), tone: 'neutral' };
 
 /**
- * Pestaña "Resumen": total ahorrado y cuentas del asociado.
+ * Pestaña "Resumen": total ahorrado, créditos vigentes, trámites en curso, próxima cuota y cuentas del asociado.
+ *
+ * @param {Object} props
+ * @param {number} props.creditosVigentesCount - Créditos aprobados o desembolsados.
+ * @param {number} props.tramitesEnCursoCount - Solicitudes de crédito sin resolver más traslados en revisión.
+ * @param {{credito: Object, cuota: Object}|null} props.proximaCuota - La cuota más cercana de sus créditos.
+ * @param {boolean} props.creditoPorFirmar - Hay una solicitud de crédito que espera su firma.
  */
 export const AssociateSummaryTab = ({
-  activeCreditosCount,
   activeCuentasCount,
+  creditoPorFirmar,
+  creditosVigentesCount,
   cuentas,
   downloadingAccountId,
   generatingPdf,
   handleDownloadPdf,
   openMovimientosModal,
+  proximaCuota,
   setActiveTab,
   totalAhorrado,
+  tramitesEnCursoCount,
 }) => (
   <div className="space-y-8">
+    {creditoPorFirmar && (
+      <Alert tone="warning" icon={PenLine} title="Tiene una solicitud de crédito por firmar">
+        <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          Descargue el formulario, fírmelo y súbalo para que un operador lo revise.
+          <Button as={Link} to="/simulador-credito" size="sm" variant="link" className="px-0">
+            Ir al simulador
+          </Button>
+        </span>
+      </Alert>
+    )}
+
     {/* El total es la cifra principal del portal */}
     <Card aria-labelledby="total-ahorros" className="px-6 py-6 sm:px-8">
-      <div className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
+      <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <h2 id="total-ahorros" className="text-sm text-ink-muted">Total en sus cuentas</h2>
           <p className="mt-1 text-4xl font-semibold text-ink tabular-nums">{formatQ(totalAhorrado)}</p>
         </div>
-        <dl className="flex gap-10 text-sm">
+        <dl className="grid grid-cols-2 gap-x-10 gap-y-4 text-sm sm:grid-cols-4 lg:flex">
           <div>
             <dt className="text-ink-muted">Cuentas activas</dt>
             <dd className="mt-0.5 text-lg font-medium text-ink tabular-nums">{activeCuentasCount}</dd>
           </div>
           <div>
-            <dt className="text-ink-muted">Créditos en curso</dt>
-            <dd className="mt-0.5 text-lg font-medium text-ink tabular-nums">{activeCreditosCount}</dd>
+            <dt className="text-ink-muted">Créditos vigentes</dt>
+            <dd className="mt-0.5 text-lg font-medium text-ink tabular-nums">{creditosVigentesCount}</dd>
           </div>
+          <div>
+            <dt className="text-ink-muted">Trámites en curso</dt>
+            <dd className="mt-0.5 text-lg font-medium text-ink tabular-nums">{tramitesEnCursoCount}</dd>
+          </div>
+          {proximaCuota && (
+            <div>
+              <dt className="text-ink-muted">Próxima cuota</dt>
+              <dd className="mt-0.5 text-lg font-medium text-ink tabular-nums">{formatQ(proximaCuota.cuota.cuotaMes)}</dd>
+              <dd className="text-xs text-ink-muted">
+                {formatDate(proximaCuota.cuota.fechaPago)} · Crédito #{proximaCuota.credito.id_solicitud_credito}
+              </dd>
+            </div>
+          )}
         </dl>
       </div>
     </Card>

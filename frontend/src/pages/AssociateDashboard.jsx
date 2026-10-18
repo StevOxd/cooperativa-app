@@ -12,11 +12,79 @@ import { AssociateTransfersTab } from '../components/associate/dashboard/Associa
 import { AssociateCreditsTab } from '../components/associate/dashboard/AssociateCreditsTab';
 import { AssociateProductsTab } from '../components/associate/dashboard/AssociateProductsTab';
 import { AssociateBeneficiariesTab } from '../components/associate/dashboard/AssociateBeneficiariesTab';
+import { beneficiariosCompletos } from '../components/associate/dashboard/beneficiarios';
 import { AccountMovementsModal } from '../components/associate/dashboard/AccountMovementsModal';
 import { TransferRequestModal } from '../components/associate/dashboard/TransferRequestModal';
 import { EditBeneficiariesModal } from '../components/associate/dashboard/EditBeneficiariesModal';
+import { ESTADOS_CREDITO_EN_TRAMITE, ESTADOS_CREDITO_VIGENTES } from '../components/credit/creditProgress';
 
 const TABS_ID = 'portal';
+
+/**
+ * Calendario de un crédito aprobado (amortización francesa, cuota fija). Las fechas se cuentan desde la
+ * aprobación (`fecha_resolucion`) o, si falta, desde la solicitud.
+ *
+ * @param {Object} credito
+ * @returns {Array<{numero: number, fechaPago: Date, capital: number, interes: number, cuotaMes: number, saldoPendiente: number}>}
+ */
+const planDeAmortizacion = (credito) => {
+  const monto = parseFloat(credito.monto_solicitado);
+  const plazo = parseInt(credito.plazo_meses, 10);
+  const tasaAnual = parseFloat(credito.tasa_interes) || 10.0;
+  const tasaMensual = (tasaAnual / 100) / 12;
+
+  const cuotaNivelada =
+    tasaMensual > 0
+      ? (monto * tasaMensual * Math.pow(1 + tasaMensual, plazo)) /
+        (Math.pow(1 + tasaMensual, plazo) - 1)
+      : monto / plazo;
+
+  // Fecha según cuando se dio por aprobada la solicitud de crédito (fecha_resolucion)
+  const fechaAprobacion = credito.fecha_resolucion
+    ? new Date(credito.fecha_resolucion)
+    : (credito.fecha_solicitud
+    ? new Date(credito.fecha_solicitud)
+    : new Date());
+
+  let saldo = monto;
+  const cuotas = [];
+
+  for (let i = 1; i <= plazo; i++) {
+    const interes = Math.round(saldo * tasaMensual * 100) / 100;
+    let capital = Math.round((cuotaNivelada - interes) * 100) / 100;
+    let cuotaMes = Math.round((capital + interes) * 100) / 100;
+
+    if (i === plazo || capital > saldo) {
+      capital = Math.round(saldo * 100) / 100;
+      cuotaMes = Math.round((capital + interes) * 100) / 100;
+      saldo = 0;
+    } else {
+      saldo = Math.round((saldo - capital) * 100) / 100;
+    }
+
+    // Fecha de cobro programada sumando i meses a la fecha de aprobación
+    const fechaPago = new Date(fechaAprobacion);
+    fechaPago.setMonth(fechaPago.getMonth() + i);
+
+    cuotas.push({
+      numero: i,
+      fechaPago,
+      capital,
+      interes,
+      cuotaMes, // cuota capital + interes = cuota del mes
+      saldoPendiente: Math.max(0, saldo),
+    });
+  }
+
+  return cuotas;
+};
+
+/** Primera cuota del calendario que vence hoy o después; null si el calendario ya terminó. */
+const siguienteCuota = (cuotas) => {
+  const hoy = new Date();
+  hoy.setHours(0, 0, 0, 0);
+  return cuotas.find((c) => c.fechaPago >= hoy) || null;
+};
 
 export const AssociateDashboard = () => {
   const { user } = useAuth();
@@ -91,6 +159,12 @@ export const AssociateDashboard = () => {
     setIsTrasladoModalOpen(true);
   };
 
+  /** Abre el traslado con un destino ya elegido, p. ej. "APERTURA:<id>" desde Productos. */
+  const abrirTrasladoHacia = (destino) => {
+    openTrasladoModal();
+    handleDestinoChange(destino);
+  };
+
   const closeTrasladoModal = () => {
     setModalErrorMessage('');
     setIsTrasladoModalOpen(false);
@@ -143,7 +217,7 @@ export const AssociateDashboard = () => {
       setErrorMessage('');
 
       // Cargar perfil, cuentas y créditos
-      const [perfilRes, cuentasRes, creditosRes, planillaRes, destinoRes, solicitudesRes, catalogoRes] = await Promise.all([
+      const [perfilRes, cuentasRes, creditosRes, planillaRes, destinoRes, solicitudesRes, catalogoRes, beneficiariosRes] = await Promise.all([
         api.get('/asociado/perfil').catch(() => ({ data: { success: false } })),
         api.get('/asociado/cuentas').catch(() => ({ data: { success: false } })),
         api.get('/asociado/creditos').catch(() => ({ data: { success: false } })),
@@ -151,6 +225,7 @@ export const AssociateDashboard = () => {
         api.get('/asociado/mis-cuentas-destino').catch(() => ({ data: { success: false } })),
         api.get('/asociado/mis-solicitudes').catch(() => ({ data: { success: false } })),
         api.get('/catalogo/tipos-cuenta').catch(() => ({ data: { success: false } })),
+        api.get('/asociado/beneficiarios').catch(() => ({ data: { success: false } })),
       ]);
 
       if (perfilRes.data?.success) setProfile(perfilRes.data.data);
@@ -160,6 +235,7 @@ export const AssociateDashboard = () => {
       if (destinoRes.data?.success) setCuentasDestino(destinoRes.data.data);
       if (solicitudesRes.data?.success) setSolicitudesTraslado(solicitudesRes.data.data);
       if (catalogoRes.data?.success) setCatalogoProductos(catalogoRes.data.data);
+      if (beneficiariosRes.data?.success) setMisBeneficiariosData(beneficiariosRes.data.data);
 
     } catch (error) {
       console.error('Error al cargar datos del asociado:', error);
@@ -486,7 +562,11 @@ export const AssociateDashboard = () => {
   // Cálculos de totales
   const totalAhorrado = cuentas.reduce((sum, c) => sum + parseFloat(c.saldo_disponible), 0);
   const activeCuentasCount = cuentas.filter(c => c.estado === 'ACTIVA').length;
-  const activeCreditosCount = creditos.filter(c => ['PENDIENTE', 'EN_ANALISIS', 'APROBADA', 'APROBADO', 'DESEMBOLSADA'].includes(c.estado)).length;
+  // Solicitudes que aún no se resuelven (de firma a autorización) y traslados que espera el operador
+  const creditosEnTramite = creditos.filter((c) => ESTADOS_CREDITO_EN_TRAMITE.includes(c.estado));
+  const trasladosEnRevision = solicitudesTraslado.filter((s) => s.estado === 'PENDIENTE').length;
+  const creditoPorFirmar = creditosEnTramite.some((c) => c.estado === 'PENDIENTE_FIRMA');
+  const cuentasSinBeneficiarios = misBeneficiariosData.filter((c) => !beneficiariosCompletos(c)).length;
 
   // Cálculos de créditos y amortización nivelada francesa
   const [selectedCreditoPlanId, setSelectedCreditoPlanId] = useState(null);
@@ -498,10 +578,17 @@ export const AssociateDashboard = () => {
   }, [selectedCreditoPlanId]);
 
   const creditosAprobados = useMemo(() => {
-    return creditos.filter((c) =>
-      ['APROBADA', 'APROBADO', 'DESEMBOLSADA'].includes(c.estado)
-    );
+    return creditos.filter((c) => ESTADOS_CREDITO_VIGENTES.includes(c.estado));
   }, [creditos]);
+
+  // La cuota más cercana entre todos los créditos aprobados (para el resumen)
+  const proximaCuota = useMemo(() => {
+    const proximas = creditosAprobados
+      .map((credito) => ({ credito, cuota: siguienteCuota(planDeAmortizacion(credito)) }))
+      .filter((p) => p.cuota)
+      .sort((a, b) => a.cuota.fechaPago - b.cuota.fechaPago);
+    return proximas[0] || null;
+  }, [creditosAprobados]);
 
   const currentCreditoPlan = useMemo(() => {
     if (creditosAprobados.length === 0) return null;
@@ -512,58 +599,11 @@ export const AssociateDashboard = () => {
     return creditosAprobados[0];
   }, [creditosAprobados, selectedCreditoPlanId]);
 
-  const planAmortizacion = useMemo(() => {
-    if (!currentCreditoPlan) return [];
-    const monto = parseFloat(currentCreditoPlan.monto_solicitado);
-    const plazo = parseInt(currentCreditoPlan.plazo_meses, 10);
-    const tasaAnual = parseFloat(currentCreditoPlan.tasa_interes) || 10.0;
-    const tasaMensual = (tasaAnual / 100) / 12;
-
-    const cuotaNivelada =
-      tasaMensual > 0
-        ? (monto * tasaMensual * Math.pow(1 + tasaMensual, plazo)) /
-          (Math.pow(1 + tasaMensual, plazo) - 1)
-        : monto / plazo;
-
-    // Fecha según cuando se dio por aprobada la solicitud de crédito (fecha_resolucion)
-    const fechaAprobacion = currentCreditoPlan.fecha_resolucion
-      ? new Date(currentCreditoPlan.fecha_resolucion)
-      : (currentCreditoPlan.fecha_solicitud
-      ? new Date(currentCreditoPlan.fecha_solicitud)
-      : new Date());
-
-    let saldo = monto;
-    const cuotas = [];
-
-    for (let i = 1; i <= plazo; i++) {
-      const interes = Math.round(saldo * tasaMensual * 100) / 100;
-      let capital = Math.round((cuotaNivelada - interes) * 100) / 100;
-      let cuotaMes = Math.round((capital + interes) * 100) / 100;
-
-      if (i === plazo || capital > saldo) {
-        capital = Math.round(saldo * 100) / 100;
-        cuotaMes = Math.round((capital + interes) * 100) / 100;
-        saldo = 0;
-      } else {
-        saldo = Math.round((saldo - capital) * 100) / 100;
-      }
-
-      // Fecha de cobro programada sumando i meses a la fecha de aprobación
-      const fechaPago = new Date(fechaAprobacion);
-      fechaPago.setMonth(fechaPago.getMonth() + i);
-
-      cuotas.push({
-        numero: i,
-        fechaPago,
-        capital,
-        interes,
-        cuotaMes, // cuota capital + interes = cuota del mes
-        saldoPendiente: Math.max(0, saldo),
-      });
-    }
-
-    return cuotas;
-  }, [currentCreditoPlan]);
+  const planAmortizacion = useMemo(
+    () => (currentCreditoPlan ? planDeAmortizacion(currentCreditoPlan) : []),
+    [currentCreditoPlan]
+  );
+  const proximaCuotaDelPlan = useMemo(() => siguienteCuota(planAmortizacion), [planAmortizacion]);
 
   const totalCapitalAmortizado = useMemo(
     () => planAmortizacion.reduce((sum, c) => sum + c.capital, 0),
@@ -618,7 +658,12 @@ export const AssociateDashboard = () => {
             <Button variant="secondary" size="icon" onClick={fetchData} aria-label="Actualizar" title="Actualizar">
               <RefreshCw className="w-4 h-4" aria-hidden="true" />
             </Button>
-            <Button icon={Send} onClick={openTrasladoModal}>
+            <Button
+              icon={Send}
+              onClick={openTrasladoModal}
+              disabled={!cuentaPlanilla}
+              title={cuentaPlanilla ? undefined : 'Necesita una cuenta de planilla vinculada para solicitar traslados'}
+            >
               Solicitar traslado
             </Button>
           </>
@@ -632,14 +677,18 @@ export const AssociateDashboard = () => {
         onChange={setActiveTab}
         items={[
           { id: 'resumen', label: 'Resumen' },
-          { id: 'planilla', label: 'Traslados' },
+          { id: 'planilla', label: 'Traslados', ...(trasladosEnRevision > 0 && { count: trasladosEnRevision, countLabel: 'en revisión' }) },
           {
             id: 'creditos',
             label: 'Plan de pagos',
             ...(creditosAprobados.length > 0 && { count: creditosAprobados.length }),
           },
           { id: 'productos', label: 'Productos' },
-          { id: 'beneficiarios', label: 'Beneficiarios' },
+          {
+            id: 'beneficiarios',
+            label: 'Beneficiarios',
+            ...(cuentasSinBeneficiarios > 0 && { count: cuentasSinBeneficiarios, countLabel: 'cuentas por completar', attention: true }),
+          },
         ]}
       />
 
@@ -647,8 +696,11 @@ export const AssociateDashboard = () => {
       {/* ==================== TAB: RESUMEN FINANCIERO ==================== */}
       {activeTab === 'resumen' && (
         <AssociateSummaryTab
-          activeCreditosCount={activeCreditosCount}
           activeCuentasCount={activeCuentasCount}
+          creditoPorFirmar={creditoPorFirmar}
+          creditosVigentesCount={creditosAprobados.length}
+          proximaCuota={proximaCuota}
+          tramitesEnCursoCount={creditosEnTramite.length + trasladosEnRevision}
           cuentas={cuentas}
           downloadingAccountId={downloadingAccountId}
           generatingPdf={generatingPdf}
@@ -663,7 +715,6 @@ export const AssociateDashboard = () => {
       {activeTab === 'planilla' && (
         <AssociateTransfersTab
           cuentaPlanilla={cuentaPlanilla}
-          cuentas={cuentas}
           filterTrasladoEstado={filterTrasladoEstado}
           filterTrasladoTipo={filterTrasladoTipo}
           filteredSolicitudesTraslado={filteredSolicitudesTraslado}
@@ -680,6 +731,8 @@ export const AssociateDashboard = () => {
       {activeTab === 'creditos' && (
         <AssociateCreditsTab
           creditosAprobados={creditosAprobados}
+          creditosEnTramite={creditosEnTramite}
+          proximaCuotaDelPlan={proximaCuotaDelPlan}
           cuotaPage={cuotaPage}
           cuotasPerPage={cuotasPerPage}
           currentCreditoPlan={currentCreditoPlan}
@@ -700,7 +753,12 @@ export const AssociateDashboard = () => {
       {/* ==================== TAB: PRODUCTOS Y BENEFICIOS ==================== */}
       {activeTab === 'productos' && (
         <AssociateProductsTab
+          abrirTrasladoHacia={abrirTrasladoHacia}
           catalogoProductos={catalogoProductos}
+          cuentaPlanilla={cuentaPlanilla}
+          cuentas={cuentas}
+          fetchData={fetchData}
+          tiposParaAbrir={(cuentasDestino.tiposDisponibles || []).map((t) => t.id_tipo_cuenta)}
         />
       )}
 
@@ -711,6 +769,7 @@ export const AssociateDashboard = () => {
           loadingBeneficiarios={loadingBeneficiarios}
           misBeneficiariosData={misBeneficiariosData}
           openEditarBeneficiariosModal={openEditarBeneficiariosModal}
+          setActiveTab={setActiveTab}
         />
       )}
 

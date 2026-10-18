@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { History, Plus, Trash2 } from 'lucide-react';
 import api from '../../services/api';
 import {
-  Alert, Badge, Button, EmptyState, Field, Input, LoadingState, Modal, Select, TabPanel, Tabs, cn,
+  Alert, Badge, Button, EmptyState, Field, Input, LoadingState, Modal, ProgressBar, Select, TabPanel, Tabs, cn,
 } from '../ui';
 import { formatDateTime, formatQ, humanize } from '../../utils/format';
 import { ROLE_LABELS } from '../layout/navigation';
@@ -304,7 +304,6 @@ export const BeneficiariesModal = ({
   const isOver = sumaPorcentajes > 100;
   const tone = esValido100 ? 'success' : isOver ? 'danger' : 'warning';
   const toneText = { success: 'text-success-700', danger: 'text-danger-700', warning: 'text-warning-800' }[tone];
-  const toneBar = { success: 'bg-success-600', danger: 'bg-danger-600', warning: 'bg-warning-500' }[tone];
 
   const footer =
     activeModalTab === 'declaracion' ? (
@@ -371,9 +370,7 @@ export const BeneficiariesModal = ({
                   <span className="text-ink-muted">Total asignado</span>
                   <span className={cn('font-medium tabular-nums', toneText)}>{sumaPorcentajes.toFixed(2)} % de 100 %</span>
                 </div>
-                <div className="h-1.5 w-full rounded-sm bg-surface-sunken" aria-hidden="true">
-                  <div className={cn('h-1.5 rounded-sm transition-all', toneBar)} style={{ width: `${Math.min(sumaPorcentajes, 100)}%` }} />
-                </div>
+                <ProgressBar value={sumaPorcentajes} tone={tone} />
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <p className={cn('text-sm', toneText)}>
                     {esValido100

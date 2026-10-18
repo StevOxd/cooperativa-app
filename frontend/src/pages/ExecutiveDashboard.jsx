@@ -2,10 +2,21 @@ import React, { useCallback, useState, useEffect, useMemo } from 'react';
 import { RefreshCw } from 'lucide-react';
 import api from '../services/api';
 import { useToast } from '../context/ToastContext';
-import { Button, Card, PageHeader, SearchInput, TabPanel, Tabs } from '../components/ui';
+import { Button, Card, PageHeader, SearchInput, StatCard, StatGroup, TabPanel, Tabs } from '../components/ui';
 import { ExecutiveCreditsTable } from '../components/executive/ExecutiveCreditsTable';
 import { ExecutiveResolutionModal } from '../components/executive/ExecutiveResolutionModal';
-import { formatQ } from '../utils/format';
+import { formatQ, formatRelative, horasDesde } from '../utils/format';
+import { ESTADOS_CREDITO_VIGENTES } from '../components/credit/creditProgress';
+
+// La pestaña «Denegadas» muestra también las que rechazó el operador; en lo resuelto por el ejecutivo solo cuenta DENEGADA
+const DENEGADAS = ['DENEGADA', 'RECHAZADA'];
+
+const esDeEsteMes = (fecha) => {
+  if (!fecha) return false;
+  const f = new Date(fecha);
+  const hoy = new Date();
+  return f.getMonth() === hoy.getMonth() && f.getFullYear() === hoy.getFullYear();
+};
 
 const TABS_ID = 'ejecutivo';
 
@@ -95,7 +106,7 @@ export const ExecutiveDashboard = () => {
     [creditos]
   );
   const aprobadasCount = useMemo(
-    () => creditos.filter((c) => c.estado === 'APROBADA' || c.estado === 'APROBADO' || c.estado === 'DESEMBOLSADA').length,
+    () => creditos.filter((c) => ESTADOS_CREDITO_VIGENTES.includes(c.estado)).length,
     [creditos]
   );
   const devueltasCount = useMemo(
@@ -103,7 +114,7 @@ export const ExecutiveDashboard = () => {
     [creditos]
   );
   const denegadasCount = useMemo(
-    () => creditos.filter((c) => c.estado === 'DENEGADA' || c.estado === 'RECHAZADA').length,
+    () => creditos.filter((c) => DENEGADAS.includes(c.estado)).length,
     [creditos]
   );
 
@@ -112,9 +123,9 @@ export const ExecutiveDashboard = () => {
     return creditos.filter((c) => {
       // Filtro por pestaña
       if (activeFilterTab === 'PENDIENTES' && c.estado !== 'EN_AUTORIZACION_EJECUTIVO') return false;
-      if (activeFilterTab === 'APROBADAS' && !['APROBADA', 'APROBADO', 'DESEMBOLSADA'].includes(c.estado)) return false;
+      if (activeFilterTab === 'APROBADAS' && !ESTADOS_CREDITO_VIGENTES.includes(c.estado)) return false;
       if (activeFilterTab === 'DEVUELTAS' && c.estado !== 'DEVUELTA_OPERADOR') return false;
-      if (activeFilterTab === 'DENEGADAS' && !['DENEGADA', 'RECHAZADA'].includes(c.estado)) return false;
+      if (activeFilterTab === 'DENEGADAS' && !DENEGADAS.includes(c.estado)) return false;
 
       // Filtro por búsqueda
       if (!searchQuery.trim()) return true;
@@ -211,17 +222,33 @@ export const ExecutiveDashboard = () => {
     [creditos]
   );
 
-  const resumen = loading
-    ? 'Cargando solicitudes…'
-    : pendientesCount === 0
-    ? 'No hay solicitudes esperando su autorización.'
-    : `${pendientesCount} ${pendientesCount === 1 ? 'solicitud espera' : 'solicitudes esperan'} su autorización, por ${formatQ(montoPendiente)} en total.`;
+  // La elevada hace más tiempo y lo resuelto en el mes (por la fecha de resolución del ejecutivo)
+  const masAntigua = useMemo(
+    () =>
+      creditos
+        .filter((c) => c.estado === 'EN_AUTORIZACION_EJECUTIVO')
+        .reduce((min, c) => {
+          const fecha = c.fecha_revision_operador || c.fecha_solicitud;
+          return !min || new Date(fecha) < new Date(min.fecha) ? { fecha, id: c.id_solicitud_credito } : min;
+        }, null),
+    [creditos]
+  );
+  const resueltasMes = useMemo(() => {
+    const delMes = creditos.filter((c) => esDeEsteMes(c.fecha_resolucion_ejecutivo));
+    return {
+      total: delMes.filter((c) => [...ESTADOS_CREDITO_VIGENTES, 'DENEGADA', 'DEVUELTA_OPERADOR'].includes(c.estado)).length,
+      aprobadas: delMes.filter((c) => ESTADOS_CREDITO_VIGENTES.includes(c.estado)).length,
+      devueltas: delMes.filter((c) => c.estado === 'DEVUELTA_OPERADOR').length,
+      denegadas: delMes.filter((c) => c.estado === 'DENEGADA').length,
+    };
+  }, [creditos]);
+  const esperaLarga = masAntigua && horasDesde(masAntigua.fecha) > 48;
 
   return (
     <div className="space-y-6">
       <PageHeader
         title="Autorización de créditos"
-        description={resumen}
+        description="Solicitudes que los operadores elevaron, con su dictamen, para que usted las resuelva."
         actions={
           <Button
             variant="secondary"
@@ -234,6 +261,34 @@ export const ExecutiveDashboard = () => {
           </Button>
         }
       />
+
+      <StatGroup columns={3}>
+        <StatCard
+          label="Por autorizar"
+          value={loading ? '—' : pendientesCount}
+          hint={!loading && (pendientesCount > 0 ? `${formatQ(montoPendiente)} en total` : 'Nada pendiente')}
+        />
+        <StatCard
+          label="En espera desde"
+          value={loading || !masAntigua ? '—' : formatRelative(masAntigua.fecha)}
+          hint={!loading && (masAntigua ? `Solicitud #${masAntigua.id}${esperaLarga ? ' · más de dos días' : ''}` : 'No hay pendientes')}
+          hintTone={esperaLarga ? 'warning' : 'neutral'}
+        />
+        <StatCard
+          label="Resueltas este mes"
+          value={loading ? '—' : resueltasMes.total}
+          hint={
+            !loading &&
+            [
+              [resueltasMes.aprobadas, 'aprobada', 'aprobadas'],
+              [resueltasMes.devueltas, 'devuelta', 'devueltas'],
+              [resueltasMes.denegadas, 'denegada', 'denegadas'],
+            ]
+              .map(([n, una, varias]) => `${n} ${n === 1 ? una : varias}`)
+              .join(' · ')
+          }
+        />
+      </StatGroup>
 
       <Card>
         <div className="px-5 pt-4">
@@ -265,7 +320,9 @@ export const ExecutiveDashboard = () => {
           <ExecutiveCreditsTable
             creditos={filteredCreditos}
             loading={loading}
-            hasFilters={Boolean(searchQuery.trim()) || activeFilterTab !== 'PENDIENTES'}
+            tab={activeFilterTab}
+            search={searchQuery}
+            onClearSearch={() => setSearchQuery('')}
             onOpen={openResolverModal}
           />
         </TabPanel>
