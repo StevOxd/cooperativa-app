@@ -178,6 +178,32 @@ const verificarDeposito = async (req, res) => {
 };
 
 /**
+ * Cuántos depósitos y reversiones se pueden conciliar ahora, para el aviso del panel del administrador. Los
+ * depósitos cuentan con el mismo criterio que `verificarDeposito`: sin cerrar y con más de MINUTOS_PARA_CONCILIAR.
+ *
+ * @async
+ * @route GET /api/conciliacion/resumen
+ * @param {import('express').Request} req
+ * @param {import('express').Response} res
+ * @returns {Promise<import('express').Response>} 200 con `depositos_por_conciliar` (PENDIENTE o SIN_CONFIRMAR) y
+ *   `reversiones_pendientes`; 500.
+ */
+const resumen = async (req, res) => {
+  try {
+    const { rows } = await db.query(
+      `SELECT (SELECT COUNT(*)::int FROM depositos_ventanilla_banco
+                WHERE estado IN ('PENDIENTE', 'SIN_CONFIRMAR') AND fecha_deposito < now() - make_interval(mins => $1)) AS depositos_por_conciliar,
+              (SELECT COUNT(*)::int FROM reversiones_pendientes WHERE estado = 'PENDIENTE') AS reversiones_pendientes`,
+      [MINUTOS_PARA_CONCILIAR]
+    );
+    return res.status(200).json({ success: true, data: rows[0] });
+  } catch (error) {
+    console.error('[ERROR] conciliacionController.resumen:', error);
+    return res.status(500).json({ success: false, message: 'No se pudo cargar el resumen de conciliación. Intente de nuevo.' });
+  }
+};
+
+/**
  * Lista las reversiones con el banco: las pendientes, o las cerradas (resueltas o descartadas, por el sistema o
  * por un administrador).
  *
@@ -251,4 +277,4 @@ const reintentar = async (req, res) => {
   }
 };
 
-module.exports = { listarDepositos, verificarDeposito, listarReversiones, reintentar };
+module.exports = { resumen, listarDepositos, verificarDeposito, listarReversiones, reintentar };

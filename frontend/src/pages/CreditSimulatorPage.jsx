@@ -28,6 +28,7 @@ import {
   cn,
 } from '../components/ui';
 import { creditDestination } from '../components/credit/creditDestination';
+import { ESTADOS_CREDITO_EN_TRAMITE, estadoCreditoAsociado } from '../components/credit/creditProgress';
 import { formatDate, formatQ, humanize } from '../utils/format';
 
 /** Marca que el backend agrega a las observaciones cuando el asociado desiste. */
@@ -36,24 +37,8 @@ const MARCA_CANCELADA = '[Cancelada voluntariamente por el asociado]';
 const esCancelada = (c) => c.estado === 'CANCELADA' || (c.estado === 'RECHAZADA' && (c.observaciones || '').includes(MARCA_CANCELADA));
 const limpiarObservaciones = (texto) => (texto || '').replace(MARCA_CANCELADA, '').trim();
 
-/** Estados de la solicitud vistos por el asociado. */
-const ESTADOS = {
-  PENDIENTE_FIRMA: { label: 'Falta firmar', tone: 'warning' },
-  PENDIENTE: { label: 'En revisión', tone: 'brand' },
-  EN_REVISION_OPERADOR: { label: 'En revisión', tone: 'brand' },
-  EN_AUTORIZACION_EJECUTIVO: { label: 'En autorización', tone: 'brand' },
-  DEVUELTA_OPERADOR: { label: 'Devuelta para corregir', tone: 'warning' },
-  APROBADA: { label: 'Aprobada', tone: 'success' },
-  APROBADO: { label: 'Aprobada', tone: 'success' },
-  DESEMBOLSADA: { label: 'Desembolsada', tone: 'success' },
-  RECHAZADA: { label: 'Denegada', tone: 'danger' },
-  RECHAZADO: { label: 'Denegada', tone: 'danger' },
-  DENEGADA: { label: 'Denegada', tone: 'danger' },
-};
 const estadoSolicitud = (c) =>
-  esCancelada(c) ? { label: 'Cancelada por usted', tone: 'neutral' } : ESTADOS[c.estado] || { label: humanize(c.estado), tone: 'neutral' };
-
-const ESTADOS_EN_TRAMITE = ['PENDIENTE', 'PENDIENTE_FIRMA', 'EN_REVISION_OPERADOR', 'EN_AUTORIZACION_EJECUTIVO', 'DEVUELTA_OPERADOR'];
+  esCancelada(c) ? { label: 'Cancelada por usted', tone: 'neutral' } : estadoCreditoAsociado(c.estado);
 
 const kb = (bytes) => `${(bytes / 1024).toFixed(1)} KB`;
 
@@ -185,9 +170,7 @@ export const CreditSimulatorPage = () => {
 
   const solicitudesPendientesCount =
     capacidadInfo?.solicitudesPendientesCount ??
-    creditos.filter((c) =>
-      ['PENDIENTE', 'PENDIENTE_FIRMA', 'EN_REVISION_OPERADOR', 'EN_AUTORIZACION_EJECUTIVO', 'DEVUELTA_OPERADOR'].includes(c.estado)
-    ).length;
+    creditos.filter((c) => ESTADOS_CREDITO_EN_TRAMITE.includes(c.estado)).length;
   const limitePendientesAlcanzado = solicitudesPendientesCount >= 2;
 
   // Solicitud activa que se encuentra esperando la carga del formulario firmado
@@ -722,7 +705,7 @@ export const CreditSimulatorPage = () => {
               <TBody>
                 {creditos.map((c) => {
                   const st = estadoSolicitud(c);
-                  const enTramite = ESTADOS_EN_TRAMITE.includes(c.estado);
+                  const enTramite = ESTADOS_CREDITO_EN_TRAMITE.includes(c.estado);
                   const nota = limpiarObservaciones(c.observaciones);
                   return (
                     <TR key={c.id_solicitud_credito} highlight={c.estado === 'PENDIENTE_FIRMA' ? 'warning' : 'none'}>

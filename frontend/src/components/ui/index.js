@@ -7,6 +7,8 @@ export { Card, CardHeader, CardBody, CardFooter } from './Card';
 export { Alert } from './Alert';
 export { Badge } from './Badge';
 export { StatCard, StatGroup } from './StatCard';
+export { ProgressBar } from './ProgressBar';
+export { StepProgress } from './StepProgress';
 export { PageHeader } from './PageHeader';
 export { Modal } from './Modal';
 export { Table, THead, TBody, TR, TH, TD } from './Table';

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ArrowLeft, ArrowRight, Calculator, Percent, Send, ShieldCheck, Users2, Wallet } from 'lucide-react';
-import { Button, Modal } from '../ui';
+import { Button, Modal, ProgressBar } from '../ui';
 
 /** Casilla "no mostrar": se repite en cada vista del recorrido. */
 const DontShowAgain = ({ id, checked, onChange }) => (
@@ -263,19 +263,12 @@ export const AssociateOnboardingTour = ({
       }
     >
       <div className="space-y-4">
-        <div
-          className="h-1.5 w-full rounded-sm bg-surface-sunken"
-          role="progressbar"
-          aria-label="Avance del recorrido"
-          aria-valuemin={1}
-          aria-valuemax={TOUR_STEPS.length}
-          aria-valuenow={currentStep + 1}
-        >
-          <div
-            className="h-1.5 rounded-sm bg-brand-700 transition-all"
-            style={{ width: `${((currentStep + 1) / TOUR_STEPS.length) * 100}%` }}
-          />
-        </div>
+        <ProgressBar
+          value={currentStep + 1}
+          max={TOUR_STEPS.length}
+          label="Avance del recorrido"
+          valueText={`Paso ${currentStep + 1} de ${TOUR_STEPS.length}`}
+        />
         <p className="text-sm text-ink-soft">{currentStepData.description}</p>
         <p className="text-sm text-ink-muted">{currentStepData.tip}</p>
       </div>

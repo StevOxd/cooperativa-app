@@ -21,6 +21,7 @@ process.env.MAIL_ENABLED = 'false';
 const crypto = require('crypto');
 const { server } = require('./src/server');
 const db = require('./src/config/db');
+const { FINANCIERO } = require('./src/config/constants');
 const bancoApiService = require('./src/services/bancoApiService');
 const mailerService = require('./src/services/mailerService');
 const { revertirOAnotar, anotarSinConfirmar, hayAperturaPorRevertirDelDpi } = require('./src/services/reversionesService');
@@ -75,6 +76,13 @@ const testServer = server.listen(0, async () => {
       if (token) tokens.push(token);
       return token;
     };
+    // Lo que el resumen de conciliación debe contar, con el mismo criterio que el servidor
+    const resumenEsperado = async () => (await db.query(
+      `SELECT (SELECT COUNT(*)::int FROM depositos_ventanilla_banco
+                WHERE estado IN ('PENDIENTE', 'SIN_CONFIRMAR') AND fecha_deposito < now() - make_interval(mins => $1)) AS depositos,
+              (SELECT COUNT(*)::int FROM reversiones_pendientes WHERE estado = 'PENDIENTE') AS reversiones`,
+      [FINANCIERO.MINUTOS_PARA_CONCILIAR]
+    )).rows[0];
     const tokenAdmin = await login('AD-1');
     const tokenOperador = await login('OP-1');
     const idAdmin = (await db.query("SELECT id_usuario FROM usuarios WHERE codigo_corporativo = 'AD-1'")).rows[0].id_usuario;
@@ -186,6 +194,17 @@ const testServer = server.listen(0, async () => {
     const comoOperador = await request('/api/conciliacion/depositos', 'GET', null, tokenOperador);
     const lista = await request(`/api/conciliacion/depositos?texto=${dpiDeposito}`, 'GET', null, tokenAdmin);
     assert(comoOperador.status === 403 && lista.status === 200 && lista.body.data.length === 4, 'Solo el administrador ve la conciliación; los depósitos se buscan por DPI');
+    // Resumen para el aviso del panel del administrador: coincide con lo que se puede conciliar en la base (el
+    // depósito recién hecho todavía no cuenta)
+    const resumen = await request('/api/conciliacion/resumen', 'GET', null, tokenAdmin);
+    const resumenOperador = await request('/api/conciliacion/resumen', 'GET', null, tokenOperador);
+    const esperado = await resumenEsperado();
+    assert(
+      resumen.status === 200 && resumenOperador.status === 403 && esperado.depositos >= 1
+        && resumen.body.data.depositos_por_conciliar === esperado.depositos
+        && resumen.body.data.reversiones_pendientes === esperado.reversiones,
+      'El resumen de conciliación cuenta los depósitos y reversiones por conciliar, y solo lo ve el administrador'
+    );
     const reciente = await request(`/api/conciliacion/depositos/${referenciasDeposito[2]}/verificar`, 'POST', null, tokenAdmin);
     assert(reciente.status === 409, 'Un depósito recién hecho no se concilia todavía (409)');
     const confirmado = await request(`/api/conciliacion/depositos/${referenciasDeposito[0]}/verificar`, 'POST', null, tokenAdmin);
@@ -250,6 +269,12 @@ const testServer = server.listen(0, async () => {
     const pendientes = await request('/api/conciliacion/reversiones', 'GET', null, tokenAdmin);
     const fila = pendientes.body.data?.find((r) => r.referencia_reversion === `REV-${refOriginal}`);
     assert(anotada.anotada && fila?.estado === 'PENDIENTE' && pendientes.body.total_pendientes >= 1, 'Una reversión que el banco no acepta queda pendiente');
+    const resumenConReversion = await request('/api/conciliacion/resumen', 'GET', null, tokenAdmin);
+    const esperadoConReversion = await resumenEsperado();
+    assert(
+      esperadoConReversion.reversiones >= 1 && resumenConReversion.body.data?.reversiones_pendientes === esperadoConReversion.reversiones,
+      'El resumen de conciliación cuenta la reversión que quedó pendiente'
+    );
     const fallaOtraVez = await request(`/api/conciliacion/reversiones/${fila?.id_reversion}/reintentar`, 'POST', null, tokenAdmin);
     bancoApiService.acreditarCuenta = async (datos) => ({ success: true, status: 200, data: { referencia: datos.referencia } });
     const resuelta = await request(`/api/conciliacion/reversiones/${fila?.id_reversion}/reintentar`, 'POST', null, tokenAdmin);

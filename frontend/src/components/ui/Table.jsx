@@ -36,10 +36,11 @@ export const TBody = ({ className, children, ...props }) => (
   </tbody>
 );
 
+// Sobre un fondo teñido, `ink-subtle` baja de 4.5:1: en esas filas el texto secundario pasa a `ink-muted`
 const ROW_TONES = {
   none: { base: 'bg-white', hover: 'hover:bg-surface-muted' },
-  brand: { base: 'bg-brand-50', hover: 'hover:bg-brand-100' },
-  warning: { base: 'bg-warning-50', hover: 'hover:bg-warning-100' },
+  brand: { base: 'bg-brand-50 [&_.text-ink-subtle]:text-ink-muted', hover: 'hover:bg-brand-100' },
+  warning: { base: 'bg-warning-50 [&_.text-ink-subtle]:text-ink-muted', hover: 'hover:bg-warning-100' },
 };
 
 /**

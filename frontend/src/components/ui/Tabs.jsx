@@ -8,8 +8,9 @@ import { cn } from './cn';
  * El contenido va en `TabPanel` con el mismo `id` de la pestaña.
  *
  * @param {Object} props
- * @param {Array<{id: string, label: string, count?: number, attention?: boolean}>} props.items
- *   `attention` resalta el contador (p. ej. hay pendientes).
+ * @param {Array<{id: string, label: string, count?: number, countLabel?: string, attention?: boolean}>} props.items
+ *   `attention` resalta el contador (p. ej. hay pendientes); `countLabel` dice a los lectores de pantalla qué cuenta
+ *   («en revisión», «por completar»).
  * @param {string} props.value - Id de la pestaña activa.
  * @param {Function} props.onChange - Recibe el id elegido.
  * @param {string} props.label - Nombre del grupo para lectores de pantalla.
@@ -74,6 +75,7 @@ export const Tabs = ({ items, value, onChange, label, size = 'md', idPrefix, cla
                 )}
               >
                 {item.count}
+                {item.countLabel && <span className="sr-only"> {item.countLabel}</span>}
               </span>
             )}
           </button>

@@ -2,10 +2,25 @@ import React from 'react';
 import { FileCheck, FileText } from 'lucide-react';
 import { Badge, Button, EmptyState, LoadingState, Table, TBody, TD, TH, THead, TR } from '../ui';
 import { getSecureDocumentUrl } from '../../utils/documentUrl';
-import { formatDate, formatQ } from '../../utils/format';
+import { formatDate, formatQ, formatRelative } from '../../utils/format';
 import { executiveCreditStatus } from './executiveCreditStatus';
 
 const status = executiveCreditStatus;
+
+// Qué dice la tabla vacía en cada pestaña (sin búsqueda)
+const VACIO_POR_PESTANA = {
+  PENDIENTES: {
+    title: 'No hay créditos por autorizar',
+    description: 'Cuando un operador eleve una solicitud, aparecerá aquí para su resolución.',
+  },
+  APROBADAS: { title: 'Aún no hay solicitudes aprobadas', description: 'Las que apruebe con su desembolso quedarán aquí.' },
+  DEVUELTAS: {
+    title: 'No hay solicitudes devueltas al operador',
+    description: 'Si devuelve una con comentarios, aquí verá cuáles esperan que el operador la reevalúe.',
+  },
+  DENEGADAS: { title: 'No hay solicitudes denegadas', description: 'Las que deniegue quedarán aquí con su motivo.' },
+  TODAS: { title: 'Todavía no hay solicitudes', description: 'Aquí verá todas las solicitudes elevadas y su resolución.' },
+};
 
 /**
  * Tabla de solicitudes de crédito para el ejecutivo.
@@ -13,22 +28,24 @@ const status = executiveCreditStatus;
  * @param {Object} props
  * @param {Array} props.creditos - Lista ya filtrada.
  * @param {boolean} props.loading
- * @param {boolean} props.hasFilters - Hay búsqueda o una pestaña distinta de "Por autorizar".
+ * @param {'PENDIENTES'|'APROBADAS'|'DEVUELTAS'|'DENEGADAS'|'TODAS'} props.tab - Pestaña activa.
+ * @param {string} props.search - Búsqueda escrita.
+ * @param {Function} props.onClearSearch
  * @param {Function} props.onOpen - Abre el expediente / resolución.
  */
-export const ExecutiveCreditsTable = ({ creditos, loading, hasFilters, onOpen }) => {
+export const ExecutiveCreditsTable = ({ creditos, loading, tab, search, onClearSearch, onOpen }) => {
   if (loading) return <LoadingState label="Cargando solicitudes…" />;
 
   if (creditos.length === 0) {
+    const vacio = search.trim()
+      ? { title: 'Sin resultados', description: 'Ninguna solicitud de esta pestaña coincide con la búsqueda.' }
+      : VACIO_POR_PESTANA[tab] || VACIO_POR_PESTANA.TODAS;
     return (
       <EmptyState
         icon={FileText}
-        title={hasFilters ? 'No hay solicitudes con este criterio' : 'No hay créditos por autorizar'}
-        description={
-          hasFilters
-            ? 'Pruebe con otra pestaña o revise la búsqueda.'
-            : 'Cuando un operador eleve una solicitud, aparecerá aquí para su resolución.'
-        }
+        title={vacio.title}
+        description={vacio.description}
+        action={search.trim() && <Button variant="secondary" onClick={onClearSearch}>Limpiar búsqueda</Button>}
       />
     );
   }
@@ -56,7 +73,11 @@ export const ExecutiveCreditsTable = ({ creditos, loading, hasFilters, onOpen })
             <TR key={c.id_solicitud_credito} interactive>
               <TD className="whitespace-nowrap">
                 <div className="font-mono text-ink">#{c.id_solicitud_credito}</div>
-                <div className="text-xs text-ink-subtle">{formatDate(c.fecha_solicitud)}</div>
+                <div className="text-xs text-ink-subtle" title={`Solicitada el ${formatDate(c.fecha_solicitud)}`}>
+                  {isPendiente && c.fecha_revision_operador
+                    ? `Elevada ${formatRelative(c.fecha_revision_operador)}`
+                    : formatDate(c.fecha_solicitud)}
+                </div>
               </TD>
               <TD className="whitespace-nowrap">
                 <div className="font-medium text-ink">{nombre}</div>

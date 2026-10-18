@@ -1,7 +1,7 @@
 import React from 'react';
 import { Navigate, useLocation, Outlet } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Loader2 } from 'lucide-react';
+import { LoadingState } from './ui';
 import { ROLE_LABELS } from './layout/navigation';
 
 /**
@@ -13,12 +13,7 @@ export const RoleProtectedRoute = ({ allowedRoles = ['ADMINISTRADOR'], children 
   const location = useLocation();
 
   if (isLoading) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-slate-100 text-slate-700">
-        <Loader2 className="w-10 h-10 text-brand-700 animate-spin mb-4" />
-        <p className="font-medium text-sm">Verificando permisos de acceso...</p>
-      </div>
-    );
+    return <LoadingState label="Verificando sus permisos…" className="min-h-screen bg-surface-muted" />;
   }
 
   if (!isAuthenticated) {

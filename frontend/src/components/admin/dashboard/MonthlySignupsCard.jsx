@@ -1,7 +1,8 @@
 import React, { useMemo } from 'react';
 import { Chart as ChartJS, BarElement, CategoryScale, LinearScale, Tooltip } from 'chart.js';
 import { Bar } from 'react-chartjs-2';
-import { Card, CardBody, CardHeader } from '../../ui';
+import { BarChart3 } from 'lucide-react';
+import { Card, CardBody, CardHeader, EmptyState } from '../../ui';
 import { chartColors, chartFont, chartTooltip } from '../../charts/chartTheme';
 
 ChartJS.register(BarElement, CategoryScale, LinearScale, Tooltip);
@@ -92,20 +93,30 @@ export const MonthlySignupsCard = ({ users }) => {
     <Card className="h-full">
       <CardHeader title="Altas por mes" description="Últimos 6 meses" />
       <CardBody>
-        <div className="h-64" role="img" aria-label={`Altas por mes: ${labels.map((l, i) => `${l} ${values[i]}`).join(', ')}`}>
-          <Bar data={data} options={options} />
-        </div>
-        <table className="sr-only">
-          <caption>Altas de usuarios por mes, últimos 6 meses</caption>
-          <thead>
-            <tr><th scope="col">Mes</th><th scope="col">Altas</th></tr>
-          </thead>
-          <tbody>
-            {labels.map((label, i) => (
-              <tr key={label}><td>{label}</td><td>{values[i]}</td></tr>
-            ))}
-          </tbody>
-        </table>
+        {values.every((v) => v === 0) ? (
+          <EmptyState
+            icon={BarChart3}
+            title="No hubo altas en los últimos 6 meses"
+            description="Cuando se registren usuarios, aquí verá cuántos entraron cada mes."
+          />
+        ) : (
+          <>
+            <div className="h-64" role="img" aria-label={`Altas por mes: ${labels.map((l, i) => `${l} ${values[i]}`).join(', ')}`}>
+              <Bar data={data} options={options} />
+            </div>
+            <table className="sr-only">
+              <caption>Altas de usuarios por mes, últimos 6 meses</caption>
+              <thead>
+                <tr><th scope="col">Mes</th><th scope="col">Altas</th></tr>
+              </thead>
+              <tbody>
+                {labels.map((label, i) => (
+                  <tr key={label}><td>{label}</td><td>{values[i]}</td></tr>
+                ))}
+              </tbody>
+            </table>
+          </>
+        )}
       </CardBody>
     </Card>
   );

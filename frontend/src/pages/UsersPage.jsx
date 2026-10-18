@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useLatest } from '../hooks/useLatest';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -37,10 +38,12 @@ const ROLE_FILTERS = [
   { value: 'OPERADOR', label: 'Operadores' },
 ];
 
+// BLOQUEADO no es un estado guardado: son las cuentas congeladas por intentos fallidos (se filtran aquí)
 const STATUS_FILTERS = [
   { value: '', label: 'Todos' },
   { value: 'ACTIVO', label: 'Activos' },
   { value: 'INACTIVO', label: 'Inactivos' },
+  { value: 'BLOQUEADO', label: 'Bloqueados' },
 ];
 
 const roleLabel = (rol) => ROLE_LABELS[rol] || humanize(rol);
@@ -105,7 +108,11 @@ export const UsersPage = () => {
   const { toast } = useToast();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [filterEstado, setFilterEstado] = useState('');
+  // El panel enlaza aquí con ?estado=BLOQUEADO para ver y desbloquear las cuentas congeladas
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [filterEstado, setFilterEstado] = useState(() =>
+    STATUS_FILTERS.some((f) => f.value === searchParams.get('estado')) ? searchParams.get('estado') : ''
+  );
   const [filterRol, setFilterRol] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
@@ -250,7 +257,7 @@ export const UsersPage = () => {
     try {
       if (showLoading) setLoading(true);
       const params = {};
-      if (filterEstado) params.estado = filterEstado;
+      if (filterEstado && filterEstado !== 'BLOQUEADO') params.estado = filterEstado;
       if (filterRol) params.rol = filterRol;
       if (searchTerm) params.search = searchTerm;
 
@@ -561,7 +568,18 @@ export const UsersPage = () => {
 
   const canManageUsers = user?.rol === 'ADMINISTRADOR';
 
+  // La dirección solo sirve para llegar filtrado desde el panel: al elegir otro estado deja de aplicar
+  const cambiarFiltroEstado = (valor) => {
+    setFilterEstado(valor);
+    if (searchParams.has('estado')) {
+      const siguientes = new URLSearchParams(searchParams);
+      siguientes.delete('estado');
+      setSearchParams(siguientes, { replace: true });
+    }
+  };
+
   const hasFilters = Boolean(searchTerm || filterRol || filterEstado);
+  const visibles = filterEstado === 'BLOQUEADO' ? users.filter((u) => u.bloqueado_por_intentos) : users;
   const desactivando = statusNewValue === 'INACTIVO';
 
   return (
@@ -591,17 +609,25 @@ export const UsersPage = () => {
           </form>
           <div className="flex flex-wrap gap-x-8 gap-y-3">
             <FilterGroup label="Rol" options={ROLE_FILTERS} value={filterRol} onChange={setFilterRol} />
-            <FilterGroup label="Estado" options={STATUS_FILTERS} value={filterEstado} onChange={setFilterEstado} />
+            <FilterGroup label="Estado" options={STATUS_FILTERS} value={filterEstado} onChange={cambiarFiltroEstado} />
           </div>
         </div>
 
         {loading ? (
           <LoadingState label="Cargando usuarios…" />
-        ) : users.length === 0 ? (
+        ) : visibles.length === 0 ? (
           <EmptyState
             icon={Users}
-            title={hasFilters ? 'Sin resultados' : 'Aún no hay usuarios'}
-            description={hasFilters ? 'Revise el código de usuario o cambie los filtros.' : undefined}
+            title={
+              filterEstado === 'BLOQUEADO' && !searchTerm
+                ? 'No hay cuentas bloqueadas'
+                : hasFilters ? 'Sin resultados' : 'Aún no hay usuarios'
+            }
+            description={
+              filterEstado === 'BLOQUEADO' && !searchTerm
+                ? 'Una cuenta se congela 15 minutos tras 3 intentos fallidos. Aquí puede desbloquearla antes.'
+                : hasFilters ? 'Revise el código de usuario o cambie los filtros.' : undefined
+            }
           />
         ) : (
           <Table bordered={false} caption="Usuarios del sistema">
@@ -618,7 +644,7 @@ export const UsersPage = () => {
               </TR>
             </THead>
             <TBody>
-              {users.map((u) => {
+              {visibles.map((u) => {
                 const nombre = u.nombre_completo || u.nombre;
                 const activo = u.estado === 'ACTIVO';
                 // Los usuarios de su propia persona los gestiona otro administrador (issue #32)

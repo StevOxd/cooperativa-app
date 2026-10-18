@@ -2,19 +2,76 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { Calculator, ChevronLeft, ChevronRight } from 'lucide-react';
 import {
-  Badge, Button, Card, CardBody, CardHeader, EmptyState, Select, Table, TBody, TD, TH, THead, TR, cn,
+  Badge, Button, Card, CardBody, CardHeader, EmptyState, Select, StepProgress, Table, TBody, TD, TH, THead, TR, cn,
 } from '../../ui';
-import { formatDate, formatQ } from '../../../utils/format';
+import { formatDate, formatQ, formatRelative } from '../../../utils/format';
+import { PASOS_CREDITO, avanceCredito, estadoCreditoAsociado } from '../../credit/creditProgress';
 
 const longDate = (value) =>
   new Date(value).toLocaleDateString('es-GT', { day: '2-digit', month: 'long', year: 'numeric' });
 
+/** Solicitudes de crédito que aún no se resuelven, con el paso en que van. */
+const CreditsInProgress = ({ creditos }) => (
+  <section aria-labelledby="creditos-en-tramite" className="space-y-3">
+    <h2 id="creditos-en-tramite" className="text-base font-semibold text-ink">Solicitudes en trámite</h2>
+    <ul className="space-y-3">
+      {creditos.map((c) => {
+        const { paso, tono } = avanceCredito(c.estado);
+        const estado = estadoCreditoAsociado(c.estado);
+        const ultimoCambio = [c.fecha_resolucion_ejecutivo, c.fecha_revision_operador, c.fecha_carga_archivo, c.fecha_solicitud]
+          .filter(Boolean)
+          .reduce((max, f) => (!max || new Date(f) > new Date(max) ? f : max), null);
+        const leToca = c.estado === 'PENDIENTE_FIRMA' || c.estado === 'DEVUELTA_OPERADOR';
+        return (
+          <li key={c.id_solicitud_credito}>
+            <Card as="article" className="px-5 py-4">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <h3 className="text-sm font-medium text-ink">
+                    Solicitud #{c.id_solicitud_credito} · <span className="tabular-nums">{formatQ(c.monto_solicitado)}</span>
+                  </h3>
+                  <p className="text-xs text-ink-muted">
+                    {c.plazo_meses} meses · último cambio {formatRelative(ultimoCambio)}
+                  </p>
+                </div>
+                <Badge tone={estado.tone}>{estado.label}</Badge>
+              </div>
+              <StepProgress
+                steps={PASOS_CREDITO}
+                current={paso}
+                tone={tono}
+                label={`Avance de la solicitud #${c.id_solicitud_credito}`}
+                className="mt-4"
+              />
+              {leToca && (
+                <p className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-ink-muted">
+                  {c.estado === 'PENDIENTE_FIRMA'
+                    ? 'Falta subir el formulario firmado.'
+                    : 'El comité la devolvió al operador con un comentario. Si le piden un documento nuevo, súbalo desde el simulador.'}
+                  <Button as={Link} to="/simulador-credito" size="sm" variant="link" className="px-0">
+                    Ir al simulador
+                  </Button>
+                </p>
+              )}
+            </Card>
+          </li>
+        );
+      })}
+    </ul>
+  </section>
+);
+
 /**
- * Pestaña de créditos: datos del crédito aprobado y su calendario de pagos
- * (amortización francesa, cuota fija).
+ * Pestaña de créditos: solicitudes en trámite con su avance, y los datos del crédito aprobado con su calendario
+ * de pagos (amortización francesa, cuota fija).
+ *
+ * @param {Object} props
+ * @param {Object[]} props.creditosEnTramite - Solicitudes sin resolver (de la firma a la autorización).
+ * @param {Object|null} props.proximaCuotaDelPlan - Siguiente cuota del crédito elegido; null si el calendario terminó.
  */
 export const AssociateCreditsTab = ({
   creditosAprobados,
+  creditosEnTramite,
   cuotaPage,
   cuotasPerPage,
   currentCreditoPlan,
@@ -23,6 +80,7 @@ export const AssociateCreditsTab = ({
   pagePagadoAmortizado,
   paginatedCuotas,
   planAmortizacion,
+  proximaCuotaDelPlan,
   setCuotaPage,
   setSelectedCreditoPlanId,
   totalCapitalAmortizado,
@@ -30,20 +88,29 @@ export const AssociateCreditsTab = ({
   totalInteresAmortizado,
   totalPagadoAmortizado,
 }) => {
+  const enTramite = creditosEnTramite.length > 0 && <CreditsInProgress creditos={creditosEnTramite} />;
+
   if (creditosAprobados.length === 0) {
     return (
-      <Card>
-        <EmptyState
-          icon={Calculator}
-          title="No tiene créditos aprobados"
-          description="Use el simulador para calcular su cuota y enviar una solicitud de crédito."
-          action={
-            <Button as={Link} to="/simulador-credito" icon={Calculator}>
-              Ir al simulador
-            </Button>
-          }
-        />
-      </Card>
+      <div className="space-y-6">
+        {enTramite}
+        {creditosEnTramite.length === 0 ? (
+          <Card>
+            <EmptyState
+              icon={Calculator}
+              title="Aún no tiene créditos"
+              description="Calcule su cuota en el simulador. Si le conviene, envíe la solicitud desde ahí: aquí verá su avance y, cuando se apruebe, su calendario de pagos."
+              action={
+                <Button as={Link} to="/simulador-credito" icon={Calculator}>
+                  Ir al simulador
+                </Button>
+              }
+            />
+          </Card>
+        ) : (
+          <p className="text-sm text-ink-muted">Cuando se apruebe, aquí verá su calendario de pagos.</p>
+        )}
+      </div>
     );
   }
 
@@ -51,9 +118,13 @@ export const AssociateCreditsTab = ({
   const fechaAprobacion = currentCreditoPlan?.fecha_resolucion || currentCreditoPlan?.fecha_solicitud;
   const primeraCuota = (cuotaPage - 1) * cuotasPerPage + 1;
   const ultimaCuota = Math.min(cuotaPage * cuotasPerPage, planAmortizacion.length);
+  const estadoPlan = currentCreditoPlan ? estadoCreditoAsociado(currentCreditoPlan.estado) : null;
+  const finDelCalendario = planAmortizacion[planAmortizacion.length - 1]?.fechaPago;
 
   return (
     <div className="space-y-6">
+      {enTramite}
+
       {/* Selector cuando hay más de un crédito aprobado */}
       {creditosAprobados.length > 1 && (
         <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Elegir crédito">
@@ -87,10 +158,10 @@ export const AssociateCreditsTab = ({
             <CardHeader
               title={`Crédito #${currentCreditoPlan.id_solicitud_credito}`}
               description={`Aprobado el ${longDate(fechaAprobacion)}`}
-              actions={<Badge tone="success">Aprobado</Badge>}
+              actions={<Badge tone={estadoPlan.tone}>{estadoPlan.label}</Badge>}
             />
             <CardBody>
-              <dl className="grid grid-cols-2 gap-x-6 gap-y-4 lg:grid-cols-4">
+              <dl className="grid grid-cols-2 gap-x-6 gap-y-4 lg:grid-cols-5">
                 <div>
                   <dt className="text-xs text-ink-muted">Monto aprobado</dt>
                   <dd className="mt-0.5 text-xl font-semibold text-ink tabular-nums">
@@ -112,6 +183,19 @@ export const AssociateCreditsTab = ({
                   <dd className="mt-0.5 text-xl font-semibold text-ink tabular-nums">
                     {tasaAnual.toFixed(2)}% <span className="text-sm font-normal text-ink-muted">anual fija</span>
                   </dd>
+                </div>
+                <div>
+                  <dt className="text-xs text-ink-muted">Próxima cuota</dt>
+                  {proximaCuotaDelPlan ? (
+                    <>
+                      <dd className="mt-0.5 text-xl font-semibold text-ink tabular-nums">{formatQ(proximaCuotaDelPlan.cuotaMes)}</dd>
+                      <dd className="text-xs text-ink-muted">{longDate(proximaCuotaDelPlan.fechaPago)}</dd>
+                    </>
+                  ) : (
+                    <dd className="mt-0.5 text-sm text-ink-soft">
+                      El calendario terminó{finDelCalendario && <> el {formatDate(finDelCalendario)}</>}
+                    </dd>
+                  )}
                 </div>
               </dl>
 

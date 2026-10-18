@@ -1,72 +1,109 @@
 import React from 'react';
 import { ArrowLeftRight, History, Search } from 'lucide-react';
 import {
-  Badge, Button, EmptyState, LoadingState, SearchInput, Select, Table, TabPanel, Tabs, TBody, TD, TH, THead, TR,
+  Badge, Button, EmptyState, LoadingState, SearchInput, Select, StatCard, StatGroup, Table, TabPanel, Tabs, TBody, TD, TH,
+  THead, TR,
 } from '../../ui';
-import { formatDate, formatDateTime, formatQ } from '../../../utils/format';
+import { formatDate, formatDateTime, formatQ, formatRelative } from '../../../utils/format';
 import { transferOperation, transferStatus } from './status';
 
 const SUBTABS_ID = 'traslados';
 
+/** Resumen de los pendientes: cuánto dinero espera dictamen, cuántas son aperturas y desde cuándo esperan. */
+const PendingSummary = ({ solicitudes }) => {
+  const monto = solicitudes.reduce((sum, s) => sum + (parseFloat(s.monto) || 0), 0);
+  const aperturas = solicitudes.filter((s) => s.tipo_operacion === 'APERTURA_Y_TRASLADO').length;
+  const masAntigua = solicitudes.reduce(
+    (min, s) => (!min || new Date(s.fecha_solicitud) < new Date(min.fecha_solicitud) ? s : min),
+    null
+  );
+  const sinSaldo = solicitudes.filter((s) => parseFloat(s.monto) > parseFloat(s.cuenta_origen_saldo)).length;
+  return (
+    <StatGroup columns={3}>
+      <StatCard
+        label="Monto por resolver"
+        value={formatQ(monto)}
+        hint={sinSaldo > 0 ? `${sinSaldo} sin saldo suficiente en el origen` : 'El saldo se confirma con el banco al aprobar'}
+        hintTone={sinSaldo > 0 ? 'warning' : 'neutral'}
+      />
+      <StatCard label="Aperturas de cuenta" value={aperturas} hint={`${solicitudes.length - aperturas} traslados directos`} />
+      <StatCard
+        label="En espera desde"
+        value={masAntigua ? formatRelative(masAntigua.fecha_solicitud) : '—'}
+        hint={masAntigua?.numero_caso}
+      />
+    </StatGroup>
+  );
+};
+
 /** Bandeja de traslados y aperturas pendientes de dictamen. */
-const PendingTransfers = ({ solicitudes, loading, onResolve }) => {
+const PendingTransfers = ({ solicitudes, loading, onResolve, onVerHistorial }) => {
   if (loading) return <LoadingState label="Cargando traslados…" />;
   if (solicitudes.length === 0) {
     return (
       <EmptyState
         icon={ArrowLeftRight}
-        title="No hay traslados pendientes"
-        description="Cuando un asociado solicite un traslado o una apertura de cuenta, aparecerá aquí."
+        title="No hay traslados por resolver"
+        description="Los asociados los piden desde su portal. Para revisar uno ya resuelto, busque al asociado en el historial."
+        action={<Button variant="secondary" icon={History} onClick={onVerHistorial}>Ver historial</Button>}
       />
     );
   }
 
   return (
-    <Table caption="Traslados y aperturas pendientes">
-      <THead>
-        <TR>
-          <TH>Caso</TH>
-          <TH>Asociado</TH>
-          <TH>Operación</TH>
-          <TH>Cuenta de origen</TH>
-          <TH>Recibida</TH>
-          <TH numeric>Monto</TH>
-          <TH sticky><span className="sr-only">Acciones</span></TH>
-        </TR>
-      </THead>
-      <TBody>
-        {solicitudes.map((s) => (
-          <TR key={s.id_solicitud} interactive>
-            <TD className="whitespace-nowrap font-mono text-ink">{s.numero_caso}</TD>
-            <TD className="whitespace-nowrap">
-              <div className="font-medium text-ink">{s.primer_nombre} {s.primer_apellido}</div>
-              <div className="text-xs text-ink-subtle">Asociado {s.id_asociado}</div>
-            </TD>
-            <TD className="min-w-[12rem]">
-              <div className="text-ink">{transferOperation(s.tipo_operacion)}</div>
-              <div className="text-xs text-ink-subtle">
-                {s.tipo_cuenta_destino_nombre}
-                {s.cuenta_destino_numero && <> · <span className="font-mono">{s.cuenta_destino_numero}</span></>}
-              </div>
-            </TD>
-            <TD className="whitespace-nowrap">
-              <div className="font-mono">{s.cuenta_origen_numero}</div>
-              <div className="text-xs text-ink-subtle tabular-nums">Saldo {formatQ(s.cuenta_origen_saldo)}</div>
-            </TD>
-            <TD className="whitespace-nowrap text-xs">{formatDateTime(s.fecha_solicitud)}</TD>
-            <TD numeric className="font-medium text-ink">{formatQ(s.monto)}</TD>
-            <TD sticky className="whitespace-nowrap text-center">
-              <div className="flex justify-center gap-2">
-                <Button size="sm" onClick={() => onResolve(s, 'APROBAR')}>Aprobar</Button>
-                <Button size="sm" variant="secondaryDanger" onClick={() => onResolve(s, 'RECHAZAR')}>
-                  Rechazar
-                </Button>
-              </div>
-            </TD>
+    <div className="space-y-4">
+      <PendingSummary solicitudes={solicitudes} />
+      <Table caption="Traslados y aperturas pendientes">
+        <THead>
+          <TR>
+            <TH>Caso</TH>
+            <TH>Asociado</TH>
+            <TH>Operación</TH>
+            <TH>Cuenta de origen</TH>
+            <TH>Recibida</TH>
+            <TH numeric>Monto</TH>
+            <TH sticky><span className="sr-only">Acciones</span></TH>
           </TR>
-        ))}
-      </TBody>
-    </Table>
+        </THead>
+        <TBody>
+          {solicitudes.map((s) => (
+            <TR key={s.id_solicitud} interactive>
+              <TD className="whitespace-nowrap font-mono text-ink">{s.numero_caso}</TD>
+              <TD className="whitespace-nowrap">
+                <div className="font-medium text-ink">{s.primer_nombre} {s.primer_apellido}</div>
+                <div className="text-xs text-ink-subtle">Asociado {s.id_asociado}</div>
+              </TD>
+              <TD className="min-w-[12rem]">
+                <div className="text-ink">{transferOperation(s.tipo_operacion)}</div>
+                <div className="text-xs text-ink-subtle">
+                  {s.tipo_cuenta_destino_nombre}
+                  {s.cuenta_destino_numero && <> · <span className="font-mono">{s.cuenta_destino_numero}</span></>}
+                </div>
+              </TD>
+              <TD className="whitespace-nowrap">
+                <div className="font-mono">{s.cuenta_origen_numero}</div>
+                <div className="text-xs text-ink-subtle tabular-nums">Saldo {formatQ(s.cuenta_origen_saldo)}</div>
+                {parseFloat(s.monto) > parseFloat(s.cuenta_origen_saldo) && (
+                  <Badge tone="danger" className="mt-1">Saldo insuficiente</Badge>
+                )}
+              </TD>
+              <TD className="whitespace-nowrap text-xs">
+                <span title={formatDateTime(s.fecha_solicitud)}>{formatRelative(s.fecha_solicitud)}</span>
+              </TD>
+              <TD numeric className="font-medium text-ink">{formatQ(s.monto)}</TD>
+              <TD sticky className="whitespace-nowrap text-center">
+                <div className="flex justify-center gap-2">
+                  <Button size="sm" onClick={() => onResolve(s, 'APROBAR')}>Aprobar</Button>
+                  <Button size="sm" variant="secondaryDanger" onClick={() => onResolve(s, 'RECHAZAR')}>
+                    Rechazar
+                  </Button>
+                </div>
+              </TD>
+            </TR>
+          ))}
+        </TBody>
+      </Table>
+    </div>
   );
 };
 
@@ -114,11 +151,38 @@ const TransferHistory = ({ historial, loading, search, onSearchChange, estado, o
     ) : historial.length === 0 ? (
       <EmptyState
         icon={History}
-        title={search ? 'Sin resultados' : 'Busque a un asociado'}
+        title={search ? 'Sin resultados' : estado !== 'TODOS' ? 'No hay traslados en este estado' : 'Aún no hay traslados'}
         description={
           search
             ? 'No hay traslados que coincidan con la búsqueda.'
-            : 'Escriba un nombre, DPI, caso o número de cuenta para ver su historial.'
+            : estado !== 'TODOS'
+            ? 'Cambie el estado para ver los demás.'
+            : 'Cuando los asociados pidan traslados y se resuelvan, quedarán aquí.'
+        }
+        action={
+          search ? (
+            <Button
+              variant="secondary"
+              onClick={() => {
+                onSearchChange('');
+                onSearch('', estado);
+              }}
+            >
+              Limpiar búsqueda
+            </Button>
+          ) : (
+            estado !== 'TODOS' && (
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  onEstadoChange('TODOS');
+                  onSearch('', 'TODOS');
+                }}
+              >
+                Ver todos
+              </Button>
+            )
+          )
         }
       />
     ) : (
@@ -202,12 +266,18 @@ export const TransfersPanel = ({
       onChange={onSubTabChange}
       items={[
         { id: 'pendientes', label: 'Pendientes', count: solicitudes.length, attention: solicitudes.length > 0 },
-        { id: 'historial', label: 'Historial', count: historial.length },
+        // El historial se carga al abrir esta vista: hasta entonces no hay cifra que mostrar
+        { id: 'historial', label: 'Historial', ...(historial.length > 0 && { count: historial.length }) },
       ]}
     />
     <TabPanel id={subTab} idPrefix={SUBTABS_ID}>
       {subTab === 'pendientes' ? (
-        <PendingTransfers solicitudes={solicitudes} loading={loadingTraslados} onResolve={onResolve} />
+        <PendingTransfers
+          solicitudes={solicitudes}
+          loading={loadingTraslados}
+          onResolve={onResolve}
+          onVerHistorial={() => onSubTabChange('historial')}
+        />
       ) : (
         <TransferHistory
           historial={historial}
