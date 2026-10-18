@@ -9,8 +9,12 @@
 -- =============================================================================
 
 -- Limpieza previa en cascada para reejecución limpia
--- (depositos_ventanilla_banco, efectivo_ventanilla, reversiones_pendientes y codigos_verificacion_correo las
--- crea migrations.js al arrancar el backend)
+-- (depositos_ventanilla_banco, efectivo_ventanilla, reversiones_pendientes, codigos_verificacion_correo y las
+-- tablas de documentos de afiliación las crea migrations.js al arrancar el backend)
+DROP TABLE IF EXISTS accesos_documento CASCADE;
+DROP TABLE IF EXISTS revisiones_documento CASCADE;
+DROP TABLE IF EXISTS documentos_afiliacion CASCADE;
+DROP TABLE IF EXISTS expedientes_documentos CASCADE;
 DROP TABLE IF EXISTS reversiones_pendientes CASCADE;
 DROP TABLE IF EXISTS efectivo_ventanilla CASCADE;
 DROP TABLE IF EXISTS depositos_ventanilla_banco CASCADE;

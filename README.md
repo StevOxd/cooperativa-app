@@ -141,7 +141,7 @@ El sistema implementa una estricta jerarquia de cuatro roles independientes. Se 
 5. **Control de Sesion Unica Concurrente:** Bloqueo de sesiones simultaneas con advertencia en tiempo real en la sesion original mediante Socket.io.
 6. **Temporizador de Inactividad de 10 Minutos:** Desconexion automatica por inactividad fisica con cierre de sesion sincronizado en el navegador.
 7. **Arquitectura Zero-Trust Inter-Servicio:** Validacion obligatoria de cabecera secreta `x-banco-api-key` en todas las comunicaciones entre backend y Core Banking. La clave no tiene valor por defecto, y el Core Banking solo se publica en `127.0.0.1`. Las operaciones con el banco desde la ventanilla exigen sesion de operador.
-8. **Acceso RBAC a Documentos:** La descarga de comprobantes y contratos escaneados no se realiza por directorio estatico publico, sino a traves de la ruta protegida `/api/uploads/*` validando titularidad y roles autorizados.
+8. **Acceso RBAC a Documentos:** La descarga de comprobantes y contratos escaneados no se realiza por directorio estatico publico, sino a traves de la ruta protegida `/api/uploads/*` validando titularidad y roles autorizados. Los documentos de afiliacion (DPI, recibo, foto con el DPI) se validan por contenido, solo aceptan el token en la cabecera y cada apertura queda registrada.
 9. **Afiliacion en Linea Verificada:** Comprobante firmado de la Banca en Linea, debito solo desde una cuenta del propio titular y correo confirmado con un codigo de 6 digitos antes de debitar o crear el caso.
 10. **Respuestas que no Revelan Cuentas:** El inicio de sesion, la Banca en Linea y la consulta publica del DPI responden igual exista o no la cuenta y sin datos personales, con limites de intentos por conexion.
 11. **Minimo Privilegio en la Base de Datos:** El backend y el banco se conectan con un rol que lee, agrega y modifica datos, pero no es superusuario, no crea tablas, no desactiva triggers, no modifica la auditoria ni los movimientos y solo borra en las pocas tablas que el codigo limpia (lo demas se desvincula por estado). Las migraciones usan un rol dueño aparte y el superusuario solo prepara los roles al arrancar.
@@ -277,6 +277,7 @@ El proyecto incluye un conjunto completo de scripts de prueba automatizados en l
 | `testUsuarioDoble.js` | Persona con usuario del personal y de asociado: llave `id_usuario`, sesiones y estados separados, auditoria, tokens anteriores, nadie atiende sus propios tramites y afiliacion del personal por cada canal (issue #32). |
 | `testValidacionSesion.js` | Solo la sesion vigente abre rutas y WebSockets: el token del segundo paso del 2FA y los de sesiones cerradas se rechazan, y un socket solo cierra su propia sesion. |
 | `testErroresFase3.js` | Limites del credito, desistir como cancelada, parentesco unico, documentos propios del asociado, estado del asociado auditado, usuario sin fecha de nacimiento, correo unico sin mayusculas y secuencia de traslados. |
+| `testDocumentosAfiliacion.js` | Documentos de afiliacion: validacion por contenido, portal del asociado, versiones, revision del operador con cuatro ojos, segregacion, descarga protegida con registro de accesos y triggers que impiden cambiarlos o borrarlos. |
 
 ### Ejecucion de Pruebas
 

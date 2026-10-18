@@ -57,8 +57,10 @@ export const Tabs = ({ items, value, onChange, label, size = 'md', idPrefix, cla
             tabIndex={selected ? 0 : -1}
             onClick={() => onChange(item.id)}
             onKeyDown={(event) => handleKeyDown(event, index)}
+            // `relative`: el texto oculto del contador (sr-only, absoluto) queda dentro de la barra que se desplaza
+            // y no ensancha la página en el celular
             className={cn(
-              'flex shrink-0 items-center gap-2 border-b-2 whitespace-nowrap transition-colors cursor-pointer',
+              'relative flex shrink-0 items-center gap-2 border-b-2 whitespace-nowrap transition-colors cursor-pointer',
               'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-600 rounded-t-sm',
               size === 'sm' ? 'pb-2 text-sm' : 'pb-3 text-sm',
               selected

@@ -18,6 +18,11 @@ const CONSULTAS_POR_ID = {
                       JOIN asociados a ON a.id_asociado = s.id_asociado WHERE s.id_solicitud = $1`,
   solicitudCredito: `SELECT a.id_persona FROM solicitudes_credito s
                      JOIN asociados a ON a.id_asociado = s.id_asociado WHERE s.id_solicitud_credito = $1`,
+  // Un documento es de la persona de su expediente o, antes de afiliarla, de quien tiene el DPI del trámite
+  documento: `SELECT p.id_persona FROM documentos_afiliacion d
+              JOIN expedientes_documentos e ON e.id_expediente = d.id_expediente
+              JOIN personas p ON p.id_persona = e.id_persona OR p.cui_dpi = e.cui_dpi
+              WHERE d.id_documento = $1`,
 };
 
 /** Tipos de recurso que se pueden revisar. */
@@ -45,8 +50,8 @@ const consultaPersona = (tipo, texto) => {
  *
  * @async
  * @param {{id_persona: number}} usuario - `req.user` (verifyToken toma `id_persona` de la base de datos).
- * @param {string} tipo - `dpi`, `usuario`, `asociado`, `cuenta`, `solicitudAfiliacion`, `solicitudTraslado`
- *   o `solicitudCredito`.
+ * @param {string} tipo - `dpi`, `usuario`, `asociado`, `cuenta`, `solicitudAfiliacion`, `solicitudTraslado`,
+ *   `solicitudCredito` o `documento`.
  * @param {string|number|null|undefined} valor - Identificador del recurso. Para los tipos por id debe ser un
  *   id válido (`esId`); quien llama decide qué hacer si no lo es.
  * @returns {Promise<boolean>} false si no hay valor o el recurso no existe (de eso se ocupa el controlador).

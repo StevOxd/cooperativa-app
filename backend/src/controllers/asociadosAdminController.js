@@ -13,6 +13,7 @@ const { ipDelCliente } = require('../utils/ipCliente');
 const { leerMonto } = require('../utils/montos');
 const { registrarEfectivo } = require('../services/efectivoVentanillaService');
 const { revertirOAnotar, anotarSinConfirmar, errorTrasCommitFallido } = require('../services/reversionesService');
+const { expedienteDePersona, documentosConResumen } = require('../services/documentosAfiliacionService');
 
 /**
  * Consulta el padrón institucional de asociados con soporte para paginación, filtros de estado y métricas consolidadas.
@@ -236,11 +237,22 @@ const getExpedienteAsociado = async (req, res) => {
     const saldoTotal = cuentasFormateadas.reduce((acc, c) => acc + c.saldo_disponible, 0);
     const saldoAportaciones = 0;
 
+    // 4. Documentos de afiliación (DPI, recibo, foto con el DPI y constancia) y qué le falta
+    const idExpediente = await expedienteDePersona(pool, asociado.id_persona);
+    const { documentos, resumen } = await documentosConResumen(pool, idExpediente, {
+      conUrl: true,
+      idUsuarioActual: req.user.id_usuario,
+    });
+    // Si el expediente es del propio operador, la pantalla no ofrece escanear ni revisar (el backend lo impide)
+    asociado.es_propio = Number(asociado.id_persona) === Number(req.user.id_persona);
+
     return res.status(200).json({
       success: true,
       data: {
         asociado,
         cuentas: cuentasFormateadas,
+        documentos,
+        documentos_resumen: resumen,
         metricas: {
           total_cuentas: cuentasFormateadas.length,
           saldo_total_disponible: saldoTotal,

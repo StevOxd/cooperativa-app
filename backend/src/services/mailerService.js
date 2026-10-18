@@ -524,6 +524,35 @@ class MailerService {
   }
 
   /**
+   * Aviso de que la cooperativa rechazó uno de sus documentos de afiliación, con el motivo que escribió el operador.
+   * No lleva el documento ni datos personales; se vuelve a subir desde el portal o se lleva a la agencia.
+   *
+   * @param {Object} datos
+   * @param {string} datos.to
+   * @param {string} [datos.nombre] - Primer nombre.
+   * @param {string} datos.documento - Nombre del documento (por ejemplo «DPI (frente)»).
+   * @param {string} datos.motivo
+   * @returns {Promise<Object>} El resultado de `enviarCorreo` (ver `wasSent`).
+   */
+  async sendDocumentoRechazadoEmail({ to, nombre, documento, motivo }) {
+    const html = `
+      <!DOCTYPE html>
+      <html>
+      <head><meta charset="utf-8"></head>
+      <body style="font-family: 'Segoe UI', Helvetica, Arial, sans-serif; background-color: #f1f5f9; margin: 0; padding: 20px; color: #1e293b;">
+        <div style="max-width: 520px; margin: 0 auto; background: #ffffff; border-radius: 12px; padding: 28px;">
+          <h1 style="margin: 0 0 12px 0; font-size: 18px;">Necesitamos otra copia de un documento</h1>
+          <p style="font-size: 14px;">Estimado(a) <strong>${escaparHtml(nombre || 'asociado')}</strong>, revisamos su <strong>${escaparHtml(documento)}</strong> y no lo pudimos aceptar:</p>
+          <p style="font-size: 14px; background: #f8fafc; border-left: 3px solid #b45309; padding: 10px 12px;">${escaparHtml(motivo)}</p>
+          <p style="font-size: 14px;">Súbalo de nuevo desde la sección «Documentos» de su portal o llévelo a cualquier agencia.</p>
+        </div>
+      </body>
+      </html>
+    `;
+    return this.enviarCorreo({ to, subject: 'Necesitamos otra copia de un documento', html, etiqueta: 'documento rechazado' });
+  }
+
+  /**
    * Envía el correo con el Código QR y las instrucciones para vincular Google Authenticator
    */
   async sendMfaEnrollmentEmail({ to, nombre, codigoCorporativo, qrDataUrl, secretBase32 }) {

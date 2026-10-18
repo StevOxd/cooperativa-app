@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const operadorController = require('../controllers/operadorController');
+const documentosController = require('../controllers/documentosAfiliacionController');
 const { verifyToken, checkRole } = require('../middlewares/authMiddleware');
 const { prohibirAutoatencion } = require('../middlewares/segregacion');
 
@@ -103,5 +104,31 @@ router.post('/creditos/:id/elevar', prohibirAutoatencion('solicitudCredito', (re
  * @access  Privado (Operador)
  */
 router.get('/creditos/:id/evaluacion', operadorController.getEvaluacionCredito);
+
+/**
+ * @route   GET /api/operador/documentos
+ * @desc    Bandeja de documentos de afiliación para revisar (?estado, ?search, ?limit, ?offset)
+ * @access  Privado (solo OPERADOR: el operador acepta o rechaza los documentos)
+ */
+router.get('/documentos', checkRole('OPERADOR'), documentosController.bandeja);
+
+/**
+ * @route   GET /api/operador/documentos/:id/historial
+ * @desc    Versiones de un documento con sus revisiones
+ * @access  Privado (OPERADOR)
+ */
+router.get('/documentos/:id/historial', checkRole('OPERADOR'), documentosController.historial);
+
+/**
+ * @route   PATCH /api/operador/documentos/:id/revision
+ * @desc    Aceptar o rechazar (con motivo) un documento pendiente; nadie revisa los suyos
+ * @access  Privado (OPERADOR)
+ */
+router.patch(
+  '/documentos/:id/revision',
+  checkRole('OPERADOR'),
+  prohibirAutoatencion('documento', (req) => req.params.id),
+  documentosController.revisar
+);
 
 module.exports = router;

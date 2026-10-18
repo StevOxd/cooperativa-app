@@ -2,7 +2,10 @@ const { escapeIdentifier } = require('pg');
 const { crearPoolDueno } = require('./db');
 
 // Registros que solo se agregan (auditoría y movimientos de dinero): el rol de la aplicación no los modifica
-const TABLAS_SOLO_INSERCION = ['historial_estados_usuario', 'historial_cambios_beneficiarios', 'transacciones', 'efectivo_ventanilla'];
+const TABLAS_SOLO_INSERCION = [
+  'historial_estados_usuario', 'historial_cambios_beneficiarios', 'transacciones', 'efectivo_ventanilla',
+  'revisiones_documento', 'accesos_documento',
+];
 // Las únicas tablas en que el código borra filas; en el resto, la desvinculación es por estado (borrado lógico)
 const TABLAS_CON_BORRADO = ['beneficiarios', 'roles_permisos', 'codigos_verificacion_correo'];
 
@@ -912,7 +915,211 @@ const runMigrations = async () => {
       ALTER TABLE solicitudes_afiliacion_agencia ALTER COLUMN fecha_solicitud SET NOT NULL;
     `);
 
-    // 13. Permisos del rol de la aplicación sobre lo que haya quedado en la base (al final, con todas las tablas)
+    // 13. Documentos de afiliación (DPI, recibo de servicios, foto con el DPI y constancia de ingresos). El expediente
+    //     agrupa los documentos de un trámite: nace con una persona (asociado actual), con una solicitud de agencia o
+    //     como carga previa de una afiliación que todavía no existe (vence en `expira_en`), y pasa a la persona al
+    //     afiliarla. Un reemplazo es una versión nueva: la anterior queda REEMPLAZADO y su archivo se conserva.
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS expedientes_documentos (
+        id_expediente SERIAL PRIMARY KEY,
+        -- DPI del trámite: antes de afiliar no hay persona; al vincularla debe ser el suyo
+        cui_dpi VARCHAR(13) NOT NULL CHECK (cui_dpi ~ '^[0-9]{13}$'),
+        id_persona INT REFERENCES personas(id_persona) ON DELETE RESTRICT,
+        id_solicitud INT UNIQUE REFERENCES solicitudes_afiliacion_agencia(id_solicitud) ON DELETE RESTRICT,
+        canal_origen VARCHAR(16) NOT NULL CHECK (canal_origen IN ('EN_LINEA', 'VENTANILLA', 'PERSONAL', 'ASOCIADO_ACTUAL')),
+        -- Sin usuario solo en línea (el solicitante todavía no tiene uno)
+        id_usuario_crea INT REFERENCES usuarios(id_usuario) ON DELETE RESTRICT,
+        expira_en TIMESTAMP WITH TIME ZONE,
+        fecha_creacion TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        fecha_vinculacion TIMESTAMP WITH TIME ZONE,
+        CONSTRAINT chk_expediente_dueno CHECK (id_persona IS NOT NULL OR id_solicitud IS NOT NULL OR expira_en IS NOT NULL),
+        CONSTRAINT chk_expediente_vinculo CHECK ((id_persona IS NULL) = (fecha_vinculacion IS NULL)),
+        CONSTRAINT chk_expediente_quien_crea CHECK ((canal_origen = 'EN_LINEA') = (id_usuario_crea IS NULL))
+      );
+      CREATE UNIQUE INDEX IF NOT EXISTS uq_expedientes_persona ON expedientes_documentos (id_persona) WHERE id_persona IS NOT NULL;
+      CREATE INDEX IF NOT EXISTS idx_expedientes_usuario_crea ON expedientes_documentos (id_usuario_crea) WHERE id_usuario_crea IS NOT NULL;
+      CREATE INDEX IF NOT EXISTS idx_expedientes_carga_previa ON expedientes_documentos (cui_dpi, expira_en)
+        WHERE id_persona IS NULL AND id_solicitud IS NULL;
+
+      CREATE TABLE IF NOT EXISTS documentos_afiliacion (
+        id_documento SERIAL PRIMARY KEY,
+        id_expediente INT NOT NULL REFERENCES expedientes_documentos(id_expediente) ON DELETE RESTRICT,
+        tipo_documento VARCHAR(20) NOT NULL
+          CHECK (tipo_documento IN ('DPI_FRENTE', 'DPI_REVERSO', 'RECIBO_SERVICIOS', 'FOTO_CON_DPI', 'CONSTANCIA_INGRESOS')),
+        -- Nombre en disco: lo genera el servidor; el formato (PDF, JPG o PNG) sale del contenido, nunca del cliente
+        archivo VARCHAR(60) NOT NULL UNIQUE
+          CHECK (archivo ~ '^doc_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\\.(pdf|jpg|png)$'),
+        tamano_bytes INT NOT NULL CHECK (tamano_bytes BETWEEN 1 AND 5242880),
+        sha256 CHAR(64) NOT NULL CHECK (sha256 ~ '^[0-9a-f]{64}$'),
+        estado VARCHAR(12) NOT NULL DEFAULT 'PENDIENTE' CHECK (estado IN ('PENDIENTE', 'ACEPTADO', 'RECHAZADO', 'REEMPLAZADO')),
+        -- Versión que reemplaza: del mismo expediente y tipo (fk_documento_anterior_mismo_tipo, más abajo)
+        id_documento_anterior INT UNIQUE,
+        canal_carga VARCHAR(10) NOT NULL CHECK (canal_carga IN ('EN_LINEA', 'PERSONAL', 'PORTAL', 'VENTANILLA')),
+        id_usuario_carga INT REFERENCES usuarios(id_usuario) ON DELETE RESTRICT,
+        ip_origen VARCHAR(45),
+        user_agent TEXT,
+        fecha_carga TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT chk_documento_quien_carga CHECK ((canal_carga = 'EN_LINEA') = (id_usuario_carga IS NULL))
+      );
+      -- Una sola versión vigente por tipo en cada expediente
+      CREATE UNIQUE INDEX IF NOT EXISTS uq_documento_vigente ON documentos_afiliacion (id_expediente, tipo_documento)
+        WHERE estado <> 'REEMPLAZADO';
+      CREATE INDEX IF NOT EXISTS idx_documentos_expediente ON documentos_afiliacion (id_expediente, tipo_documento, fecha_carga DESC);
+      CREATE INDEX IF NOT EXISTS idx_documentos_usuario_carga ON documentos_afiliacion (id_usuario_carga) WHERE id_usuario_carga IS NOT NULL;
+      CREATE INDEX IF NOT EXISTS idx_documentos_por_revisar ON documentos_afiliacion (fecha_carga) WHERE estado = 'PENDIENTE';
+
+      -- Una revisión por versión: solo se revisa un documento PENDIENTE. El motivo es obligatorio al rechazar.
+      CREATE TABLE IF NOT EXISTS revisiones_documento (
+        id_revision SERIAL PRIMARY KEY,
+        id_documento INT NOT NULL UNIQUE REFERENCES documentos_afiliacion(id_documento) ON DELETE RESTRICT,
+        resultado VARCHAR(10) NOT NULL CHECK (resultado IN ('ACEPTADO', 'RECHAZADO')),
+        motivo VARCHAR(500),
+        id_usuario_revisa INT NOT NULL REFERENCES usuarios(id_usuario) ON DELETE RESTRICT,
+        ip_origen VARCHAR(45),
+        user_agent TEXT,
+        fecha_revision TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE INDEX IF NOT EXISTS idx_revisiones_documento_usuario ON revisiones_documento (id_usuario_revisa);
+
+      -- Quién abrió cada documento y desde dónde
+      CREATE TABLE IF NOT EXISTS accesos_documento (
+        id_acceso SERIAL PRIMARY KEY,
+        id_documento INT NOT NULL REFERENCES documentos_afiliacion(id_documento) ON DELETE RESTRICT,
+        id_usuario INT NOT NULL REFERENCES usuarios(id_usuario) ON DELETE RESTRICT,
+        ip_origen VARCHAR(45),
+        user_agent TEXT,
+        fecha_acceso TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE INDEX IF NOT EXISTS idx_accesos_documento_documento ON accesos_documento (id_documento, fecha_acceso DESC);
+      CREATE INDEX IF NOT EXISTS idx_accesos_documento_usuario ON accesos_documento (id_usuario, fecha_acceso DESC);
+
+      -- Un rechazo lleva motivo (COALESCE: sin él, un motivo NULL dejaría el CHECK en NULL, que se da por cumplido)
+      ALTER TABLE revisiones_documento DROP CONSTRAINT IF EXISTS chk_revision_motivo;
+      ALTER TABLE revisiones_documento ADD CONSTRAINT chk_revision_motivo
+        CHECK (resultado = 'ACEPTADO' OR COALESCE(char_length(btrim(motivo)), 0) >= 5);
+
+      -- Vinculado a una persona, el DPI del expediente es el suyo (MATCH SIMPLE: la carga previa, sin persona, no se revisa)
+      CREATE UNIQUE INDEX IF NOT EXISTS uq_personas_id_cui ON personas (id_persona, cui_dpi);
+      ALTER TABLE expedientes_documentos DROP CONSTRAINT IF EXISTS fk_expediente_persona_dpi;
+      ALTER TABLE expedientes_documentos ADD CONSTRAINT fk_expediente_persona_dpi
+        FOREIGN KEY (id_persona, cui_dpi) REFERENCES personas (id_persona, cui_dpi) ON DELETE RESTRICT;
+
+      -- La versión anterior es del mismo expediente y del mismo tipo de documento
+      CREATE UNIQUE INDEX IF NOT EXISTS uq_documentos_version ON documentos_afiliacion (id_documento, id_expediente, tipo_documento);
+      ALTER TABLE documentos_afiliacion DROP CONSTRAINT IF EXISTS documentos_afiliacion_id_documento_anterior_fkey;
+      ALTER TABLE documentos_afiliacion DROP CONSTRAINT IF EXISTS fk_documento_anterior_mismo_tipo;
+      ALTER TABLE documentos_afiliacion ADD CONSTRAINT fk_documento_anterior_mismo_tipo
+        FOREIGN KEY (id_documento_anterior, id_expediente, tipo_documento)
+        REFERENCES documentos_afiliacion (id_documento, id_expediente, tipo_documento) ON DELETE RESTRICT;
+
+      -- De un documento solo cambia el estado, en el orden de su revisión; nunca se borra
+      CREATE OR REPLACE FUNCTION trg_documentos_afiliacion_estado()
+      RETURNS TRIGGER
+      SET search_path = pg_catalog, pg_temp
+      AS $$
+      BEGIN
+          -- La purga de pruebas solo la puede hacer el rol dueño de la tabla, no el de la aplicación
+          -- (todo con pg_catalog y search_path fijo: una tabla temporal no puede hacerse pasar por pg_class)
+          IF pg_catalog.current_setting('cooperativa.purga_pruebas', true) = 'on'
+             AND pg_catalog.pg_has_role(current_user,
+                   (SELECT c.relowner FROM pg_catalog.pg_class c WHERE c.oid = TG_RELID), 'MEMBER') THEN
+              RETURN COALESCE(NEW, OLD);
+          END IF;
+          IF TG_OP = 'UPDATE'
+             AND (to_jsonb(NEW) - 'estado') = (to_jsonb(OLD) - 'estado')
+             AND ((OLD.estado = 'PENDIENTE' AND NEW.estado IN ('ACEPTADO', 'RECHAZADO', 'REEMPLAZADO'))
+                  OR (OLD.estado IN ('ACEPTADO', 'RECHAZADO') AND NEW.estado = 'REEMPLAZADO')) THEN
+              RETURN NEW;
+          END IF;
+          RAISE EXCEPTION 'documentos_afiliacion: de un documento solo cambia el estado, en el orden de su revisión'
+              USING ERRCODE = 'restrict_violation';
+      END;
+      $$ LANGUAGE plpgsql;
+
+      DROP TRIGGER IF EXISTS trg_documentos_afiliacion_estado ON documentos_afiliacion;
+      CREATE TRIGGER trg_documentos_afiliacion_estado
+          BEFORE UPDATE OR DELETE ON documentos_afiliacion
+          FOR EACH ROW EXECUTE FUNCTION trg_documentos_afiliacion_estado();
+      DROP TRIGGER IF EXISTS trg_documentos_afiliacion_sin_truncate ON documentos_afiliacion;
+      CREATE TRIGGER trg_documentos_afiliacion_sin_truncate
+          BEFORE TRUNCATE ON documentos_afiliacion
+          FOR EACH STATEMENT EXECUTE FUNCTION trg_documentos_afiliacion_estado();
+
+      -- Un expediente solo se vincula (a la solicitud y luego a la persona, sin cambiarlas después) y su carga previa
+      -- se extiende o se cierra; el DPI se corrige solo antes de vincularlo a la persona. Nunca se borra.
+      CREATE OR REPLACE FUNCTION trg_expedientes_documentos_vinculo()
+      RETURNS TRIGGER
+      SET search_path = pg_catalog, pg_temp
+      AS $$
+      BEGIN
+          IF pg_catalog.current_setting('cooperativa.purga_pruebas', true) = 'on'
+             AND pg_catalog.pg_has_role(current_user,
+                   (SELECT c.relowner FROM pg_catalog.pg_class c WHERE c.oid = TG_RELID), 'MEMBER') THEN
+              RETURN COALESCE(NEW, OLD);
+          END IF;
+          IF TG_OP = 'UPDATE'
+             AND (OLD.id_persona IS NULL
+                  OR (NEW.id_persona = OLD.id_persona AND NEW.fecha_vinculacion = OLD.fecha_vinculacion
+                      AND NEW.cui_dpi = OLD.cui_dpi))
+             AND (OLD.id_solicitud IS NULL OR NEW.id_solicitud = OLD.id_solicitud)
+             AND (to_jsonb(NEW) - 'id_persona' - 'id_solicitud' - 'cui_dpi' - 'expira_en' - 'fecha_vinculacion')
+               = (to_jsonb(OLD) - 'id_persona' - 'id_solicitud' - 'cui_dpi' - 'expira_en' - 'fecha_vinculacion') THEN
+              RETURN NEW;
+          END IF;
+          RAISE EXCEPTION 'expedientes_documentos: un expediente solo se vincula, no cambia de dueño ni se borra'
+              USING ERRCODE = 'restrict_violation';
+      END;
+      $$ LANGUAGE plpgsql;
+
+      DROP TRIGGER IF EXISTS trg_expedientes_documentos_vinculo ON expedientes_documentos;
+      CREATE TRIGGER trg_expedientes_documentos_vinculo
+          BEFORE UPDATE OR DELETE ON expedientes_documentos
+          FOR EACH ROW EXECUTE FUNCTION trg_expedientes_documentos_vinculo();
+      DROP TRIGGER IF EXISTS trg_expedientes_documentos_sin_truncate ON expedientes_documentos;
+      CREATE TRIGGER trg_expedientes_documentos_sin_truncate
+          BEFORE TRUNCATE ON expedientes_documentos
+          FOR EACH STATEMENT EXECUTE FUNCTION trg_expedientes_documentos_vinculo();
+
+      -- Una revisión registra el estado que se le acaba de dar al documento (el servicio lo cambia y luego la inserta)
+      CREATE OR REPLACE FUNCTION trg_revision_documento_coherente()
+      RETURNS TRIGGER
+      SET search_path = pg_catalog, pg_temp
+      AS $$
+      BEGIN
+          IF (SELECT d.estado FROM public.documentos_afiliacion d WHERE d.id_documento = NEW.id_documento)
+             IS DISTINCT FROM NEW.resultado THEN
+              RAISE EXCEPTION 'revisiones_documento: el resultado debe ser el estado que se le dio al documento'
+                  USING ERRCODE = 'check_violation';
+          END IF;
+          RETURN NEW;
+      END;
+      $$ LANGUAGE plpgsql;
+
+      DROP TRIGGER IF EXISTS trg_revision_documento_coherente ON revisiones_documento;
+      CREATE TRIGGER trg_revision_documento_coherente
+          BEFORE INSERT ON revisiones_documento
+          FOR EACH ROW EXECUTE FUNCTION trg_revision_documento_coherente();
+
+      -- Revisiones y accesos son registros de auditoría: solo se insertan (función del paso 11)
+      DROP TRIGGER IF EXISTS trg_revisiones_documento_inmutable ON revisiones_documento;
+      CREATE TRIGGER trg_revisiones_documento_inmutable
+          BEFORE UPDATE OR DELETE ON revisiones_documento
+          FOR EACH ROW EXECUTE FUNCTION trg_registro_solo_insercion();
+      DROP TRIGGER IF EXISTS trg_revisiones_documento_sin_truncate ON revisiones_documento;
+      CREATE TRIGGER trg_revisiones_documento_sin_truncate
+          BEFORE TRUNCATE ON revisiones_documento
+          FOR EACH STATEMENT EXECUTE FUNCTION trg_registro_solo_insercion();
+      DROP TRIGGER IF EXISTS trg_accesos_documento_inmutable ON accesos_documento;
+      CREATE TRIGGER trg_accesos_documento_inmutable
+          BEFORE UPDATE OR DELETE ON accesos_documento
+          FOR EACH ROW EXECUTE FUNCTION trg_registro_solo_insercion();
+      DROP TRIGGER IF EXISTS trg_accesos_documento_sin_truncate ON accesos_documento;
+      CREATE TRIGGER trg_accesos_documento_sin_truncate
+          BEFORE TRUNCATE ON accesos_documento
+          FOR EACH STATEMENT EXECUTE FUNCTION trg_registro_solo_insercion();
+    `);
+
+    // 14. Permisos del rol de la aplicación sobre lo que haya quedado en la base (al final, con todas las tablas)
     await aplicarPermisosDeLaAplicacion(pool);
 
     console.log('[MIGRATION] Esquema, cuenta_bancaria corporativa, MFA TOTP, roles, beneficiarios y optimizaciones DBA aplicadas exitosamente.');

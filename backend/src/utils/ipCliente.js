@@ -17,4 +17,18 @@ const ipDelCliente = (req) => {
   return conexion && conexion.length <= 45 ? conexion : null;
 };
 
-module.exports = { ipDelCliente };
+// Lo que se guarda del User-Agent en los registros de auditoría (columna TEXT; el cliente controla su largo)
+const LARGO_MAXIMO_USER_AGENT = 500;
+
+/**
+ * User-Agent de la petición, recortado para los registros de auditoría.
+ *
+ * @param {import('express').Request|string|undefined} reqOValor - La petición o el valor de la cabecera.
+ * @returns {string|null}
+ */
+const userAgentDe = (reqOValor) => {
+  const valor = typeof reqOValor === 'object' && reqOValor !== null ? reqOValor.headers?.['user-agent'] : reqOValor;
+  return valor ? String(valor).slice(0, LARGO_MAXIMO_USER_AGENT) : null;
+};
+
+module.exports = { ipDelCliente, userAgentDe };
