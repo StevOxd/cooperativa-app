@@ -229,6 +229,66 @@ Si su `.env` es anterior a los tres roles (solo tiene `DB_USER` y `DB_PASSWORD`)
 3. Ejecute `docker compose up -d --build`. El servicio `db-roles` crea los dos roles y les pasa las tablas existentes; los datos no cambian.
 4. Si ejecuta el backend, el banco o las pruebas fuera de Docker, copie los mismos valores en `backend/.env` y `banco-backend/.env`.
 
+### 9.7 Despliegue Continuo a Produccion
+Producción es un servidor propio en la red local. Nada queda expuesto a internet: el portal solo se abre desde esa red y el servidor solo abre conexiones de salida hacia GitHub.
+
+**Flujo.** Cada cambio entra por un Pull Request. Al fusionarlo en `main`, el workflow `CI` valida el código y, si termina en verde, el workflow `Despliegue` (`.github/workflows/deploy.yml`) espera la aprobación del ambiente `production` y corre en el runner del servidor:
+
+1. Comprueba la carpeta de producción, la versión de Docker Compose y que nadie haya cambiado ni agregado código a mano.
+2. Respalda `cooperativa_db`, `banco_db` y los archivos subidos en `/srv/cooperativa/respaldos`. Sin respaldo no se despliega: si la base tiene datos y no está corriendo, se detiene.
+3. Pasa al commit exacto que pasó el CI. Nunca hacia atrás: para deshacer un cambio se usa un PR de revert.
+4. Valida la configuración sin mostrarla, reconstruye los contenedores y comprueba que solo el portal quedó publicado, y solo en la IP local.
+5. Espera a que todo esté sano y prueba el portal y `/api/health` a través de Nginx.
+6. Si algo falla, vuelve al commit anterior. Si la versión nueva cambió el esquema o los permisos de la base, no vuelve atrás sola: detiene el portal y el backend y deja la decisión a una persona, con el respaldo a mano.
+7. Solo si todo salió bien, borra los respaldos más viejos (conserva 10) y las imágenes sin uso.
+
+En producción, `docker-compose.produccion.yml` se aplica encima del compose base. Publica el portal solo en la IP de la red local, deja la base, el banco y el backend sin puertos publicados (se hablan por la red interna de Docker y Nginx atiende `/api`) y guarda los archivos subidos fuera de la carpeta del código. Docker publica los puertos por encima del firewall del sistema, por eso la dirección se fija en el compose. Requiere Docker Compose 2.24.4 o superior.
+
+**Preparación del servidor (una sola vez).**
+
+1. **Runner de GitHub Actions.** Instálelo desde *Settings*, *Actions*, *Runners*, *New self-hosted runner*, con un usuario propio sin sudo (`github-runner`), solo con la etiqueta `produccion`, y como servicio:
+   ```bash
+   sudo -u github-runner -H ./config.sh --unattended --url https://github.com/<usuario>/cooperativa-app \
+     --token <token> --name <servidor>-produccion --no-default-labels --labels produccion --work _work
+   sudo ./svc.sh install github-runner && sudo ./svc.sh start
+   ```
+   El usuario del runner está en el grupo `docker`, y ese grupo equivale a ser administrador del servidor. Por eso el runner solo debe ejecutar el despliegue.
+2. **Gancho que rechaza todo lo demás.** El ambiente `production` solo protege a los trabajos que lo declaran: un PR que modifique cualquier workflow y pida `runs-on: produccion` correría en el servidor si alguien lo aprueba. Un script de root, `/usr/local/sbin/runner-solo-despliegue.sh` (permiso 755), rechaza antes del primer paso todo trabajo cuyo `GITHUB_WORKFLOW_REF` no sea `<usuario>/cooperativa-app/.github/workflows/deploy.yml@refs/heads/main` o cuyo evento no sea `workflow_run` ni `workflow_dispatch`. Se activa en el `.env` del runner y se reinicia el servicio:
+   ```bash
+   echo ACTIONS_RUNNER_HOOK_JOB_STARTED=/usr/local/sbin/runner-solo-despliegue.sh | sudo -u github-runner tee -a /opt/actions-runner/.env
+   sudo systemctl restart actions.runner.<usuario>-cooperativa-app.<servidor>-produccion.service
+   ```
+   Además, en *Settings*, *Actions*, *General*, elija *Require approval for all external contributors* y revise la carpeta `.github/workflows/` de un PR externo antes de aprobar su ejecución.
+3. **Ambiente `production`.** En *Settings*, *Environments*, cree `production` con *Required reviewers* y limite *Deployment branches and tags* a `main`.
+4. **Carpetas de datos**, fuera del código. Los archivos subidos pertenecen al uid 1000, que es el usuario `node` del backend, y no los lee ningún otro usuario del servidor:
+   ```bash
+   sudo install -d -m 755 /srv/cooperativa
+   sudo install -d -m 770 -o 1000 -g 1000 /srv/cooperativa/uploads
+   sudo install -d -m 700 -o github-runner -g github-runner /srv/cooperativa/respaldos
+   ```
+5. **Carpeta de producción y su `.env`.** La clona el usuario del runner, que es el único que la modifica:
+   ```bash
+   sudo install -d -m 750 -o github-runner -g github-runner /opt/cooperativa-app
+   sudo -u github-runner git clone https://github.com/<usuario>/cooperativa-app.git /opt/cooperativa-app
+   ```
+   Cree `/opt/cooperativa-app/.env` como en la sección 9.2, con dueño `github-runner` y permiso `600`, y agregue las variables de producción de `.env.example`: `COMPOSE_FILE`, `FRONTEND_BIND_IP`, `UPLOADS_DIR` y `FRONTEND_URL` con la dirección del portal. Genere las claves con `openssl rand -hex 32`: un valor con `$` o comillas haría que Compose muestre parte de él en sus advertencias, y el despliegue se detiene ante cualquier advertencia.
+6. **Reserva de IP.** Reserve en el router la IP del servidor. Si cambia, el portal no puede publicarse en `FRONTEND_BIND_IP`.
+
+**Reglas de operación.**
+- En `/opt/cooperativa-app` no se edita código: todo cambio llega por un PR.
+- Para volver a desplegar `main` sin un cambio nuevo, ejecute el workflow `Despliegue` desde la pestaña *Actions* (*Run workflow*).
+- Los registros de Actions de un repositorio público son públicos: el workflow no imprime el `.env`, ni la salida de `docker compose config`, ni registros de contenedores. Ante un fallo indica qué revisar en el servidor.
+- El portal se sirve por HTTP dentro de la red local. Quien comparta esa red podría leer el tráfico, incluidas contraseñas y sesiones. Es un riesgo aceptado en este ambiente de práctica; un uso real exige HTTPS con un certificado de una autoridad interna.
+
+**Restaurar un respaldo.** Detenga la aplicación, restaure como superusuario y vuelva a desplegar `main` para que las migraciones y los permisos queden al día. Las dos bases se respaldan en momentos cercanos pero distintos: después de restaurar, revise *Conciliación* por operaciones con el banco que hayan quedado a medias.
+```bash
+cd /srv/cooperativa/respaldos/<carpeta>
+docker stop cooperativa-frontend cooperativa-backend banco-backend
+docker exec -i cooperativa-db pg_restore -U <DB_ADMIN_USER> -d cooperativa_db --clean --if-exists < cooperativa_db.dump
+docker exec -i cooperativa-db pg_restore -U <DB_ADMIN_USER> -d banco_db --clean --if-exists < banco_db.dump
+docker run --rm -i --network none -v /srv/cooperativa/uploads:/u postgres:16-alpine tar xzf - -C /u < uploads.tar.gz
+```
+
 ---
 
 ## 10. Configuracion de Variables de Entorno
@@ -255,6 +315,9 @@ El archivo `.env` de la raíz (copia de `.env.example`) centraliza los parametro
 | `GMAIL_USER` | Cuenta de Gmail para las notificaciones | *(Opcional)* |
 | `GMAIL_APP_PASSWORD` | Contrasena de aplicacion de Google | *(16 caracteres, opcional)* |
 | `EMAIL_FROM` | Remitente de los correos | `Cooperativa Financiera <notificaciones@cooperativa.com>` |
+| `COMPOSE_FILE` | Solo en producción: aplica `docker-compose.produccion.yml` encima del compose base | `docker-compose.yml:docker-compose.produccion.yml` |
+| `FRONTEND_BIND_IP` | Solo en producción: IP de la red local en que se publica el portal | `192.168.0.2` |
+| `UPLOADS_DIR` | Solo en producción: carpeta de los archivos subidos, fuera del código (uid 1000) | `/srv/cooperativa/uploads` |
 
 Para ejecutar el backend o el banco fuera de Docker, `backend/.env` y `banco-backend/.env` (copias de sus `.env.example`) deben tener la misma `BANCO_INTERNAL_API_KEY`.
 
