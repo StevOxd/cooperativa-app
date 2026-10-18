@@ -19,8 +19,13 @@ if (process.env.NODE_ENV === 'production') {
   console.error('[ERROR] Este script borra datos: no se ejecuta con NODE_ENV=production.');
   process.exit(1);
 }
-if (!process.argv.includes('--confirmar')) {
-  console.error('[ERROR] Este script borra asociados, cuentas y movimientos. Para ejecutarlo: node scripts/depurarYLimpiarBD.js --confirmar');
+// Hay que escribir el nombre de la base que se vaciará: así no se borra otra por error (p. ej. la publicada en
+// 127.0.0.1:5432 desde backend/.env)
+const BASE_DESTINO = process.env.DB_NAME || 'cooperativa_db';
+const DESTINO = `${process.env.DB_HOST || 'localhost'}:${process.env.DB_PORT || '5432'}/${BASE_DESTINO}`;
+if (!process.argv.includes(`--confirmar=${BASE_DESTINO}`)) {
+  console.error(`[ERROR] Este script borra asociados, cuentas y movimientos de ${DESTINO} y de banco_db en el mismo servidor.`);
+  console.error(`        Para ejecutarlo: node scripts/depurarYLimpiarBD.js --confirmar=${BASE_DESTINO}`);
   process.exit(1);
 }
 
@@ -489,8 +494,7 @@ async function main() {
       }
     }
 
-    await clientBanco.query('COMMIT');
-    console.log(`✓ banco_db saneado: 20 clientes registrados (10 empleados, 10 externos) con cuentas bancarias.`);
+    // banco_db se confirma al final, después de cooperativa_db: si la cooperativa falla, el banco no queda vacío
 
 
     // =========================================================================
@@ -498,6 +502,16 @@ async function main() {
     // =========================================================================
     console.log('\n--- 2. Depurando y limpiando cooperativa_db ---');
     await clientCoop.query('BEGIN');
+
+    // El efectivo, los depósitos al banco y las reversiones son registros de auditoría (solo se agregan): sus
+    // operaciones se borran aquí, así que se purgan primero; si no, sus llaves foráneas detienen la limpieza
+    // (issue #71). La purga la permiten los triggers al rol dueño con la marca cooperativa.purga_pruebas.
+    console.log('  * Purgando efectivo de ventanilla, depósitos al banco y reversiones...');
+    await clientCoop.query("SET LOCAL cooperativa.purga_pruebas = 'on'");
+    await clientCoop.query('DELETE FROM efectivo_ventanilla;');
+    await clientCoop.query('DELETE FROM depositos_ventanilla_banco;');
+    await clientCoop.query('DELETE FROM reversiones_pendientes;');
+    await clientCoop.query('DELETE FROM codigos_verificacion_correo;');
 
     // Limpieza total de asociados, cuentas, movimientos y solicitudes
     console.log('  * Eliminando transacciones, beneficiarios y cuentas de asociados...');
@@ -580,14 +594,17 @@ async function main() {
 
     const cuisAutorizados = autorizados.map(a => `'${a.cui}'`).join(',');
 
-    // Eliminar historial de usuarios no autorizados (solo se conservan los usuarios del personal autorizados)
+    // Eliminar historial de usuarios no autorizados (solo se conservan los usuarios del personal autorizados):
+    // tanto los cambios que se les hicieron como los que ellos hicieron, porque esos usuarios se borran
     await clientCoop.query(`
-      DELETE FROM historial_estados_usuario 
-      WHERE id_usuario_modificado NOT IN (
+      WITH autorizados AS (
         SELECT u.id_usuario FROM usuarios u
         JOIN personas p ON u.id_persona = p.id_persona
         WHERE p.cui_dpi IN (${cuisAutorizados}) AND u.id_rol <> 3
       )
+      DELETE FROM historial_estados_usuario
+      WHERE id_usuario_modificado NOT IN (SELECT id_usuario FROM autorizados)
+         OR id_modificado_por NOT IN (SELECT id_usuario FROM autorizados)
     `);
 
     // Eliminar usuarios no autorizados, incluido el usuario de asociado de una persona autorizada (issue #32)
@@ -652,6 +669,9 @@ async function main() {
 
     await clientCoop.query('COMMIT');
     console.log('✓ cooperativa_db saneada: exactamente 2 administradores, 1 ejecutivo, 2 operadores y 0 asociados.');
+
+    await clientBanco.query('COMMIT');
+    console.log(`✓ banco_db saneado: 20 clientes registrados (10 empleados, 10 externos) con cuentas bancarias.`);
 
     console.log('\n================================================================');
     console.log(' ¡SANEAMIENTO Y LIMPIEZA COMPLETADOS EXITOSAMENTE AL 100%!');

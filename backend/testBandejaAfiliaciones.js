@@ -6,7 +6,9 @@
 
 require('dotenv').config({ path: __dirname + '/.env' });
 const db = require('./src/config/db');
-const { makeRequest, createTestReporter, purgarEfectivoDePrueba, poolDueno } = require('./testHelper');
+const {
+  makeRequest, createTestReporter, purgarEfectivoDePrueba, poolDueno, borrarPersonaDePrueba, borrarClienteBancoDePrueba,
+} = require('./testHelper');
 // Limpieza con el rol dueño: el de la aplicación no borra filas (salvo en las pocas tablas que el código limpia)
 const comoDueno = (sql, params) => poolDueno(db.pool).query(sql, params);
 
@@ -50,14 +52,9 @@ async function runTests() {
     reporter.assert(listRes.status === 200, 'Bandeja de afiliaciones consultada exitosamente (Status 200)');
     reporter.assert(Array.isArray(listRes.body.data), `Listado de casos recibido (${listRes.body.data?.length} casos)`);
 
-    // Buscar caso pendiente
-    casoMarvin = listRes.body.data.find(
-      (c) => c.estado === 'PENDIENTE_AGENCIA' && !c.esta_bloqueado
-    );
-
-    if (!casoMarvin) {
-      // Si no hay caso disponible, creamos uno de prueba en estado PENDIENTE_AGENCIA
-      console.log('  [INFO] No hay casos pendientes libres. Creando caso temporal de prueba...');
+    // Caso propio de la prueba, con un DPI nuevo: nunca se toma una solicitud de la bandeja, que puede ser real
+    // (la prueba la formaliza y abre una cuenta en el banco)
+    {
       const dummyCui = '9' + Math.floor(100000000000 + Math.random() * 900000000000).toString();
       const insertRes = await db.query(`
         INSERT INTO solicitudes_afiliacion_agencia (
@@ -190,39 +187,18 @@ async function runTests() {
     console.error('\n[ERROR] Fallo crítico durante la suite de bandeja:', err.message);
     errorInesperado = true;
   } finally {
-    // 8. Limpieza e idempotencia defensiva
-    console.log('\n[CLEANUP] Restaurando estado original para garantizar idempotencia...');
+    // 8. Limpieza: todo lo que creó la prueba (el caso es suyo, así que se borra en lugar de restablecerlo)
+    console.log('\n[CLEANUP] Borrando el caso de prueba y lo que creó la formalización...');
     try {
-      if (formalizedSocio) {
-        // Eliminar las cuentas abiertas en la cooperativa para este asociado y sus movimientos
-        await comoDueno(`
-          DELETE FROM transacciones 
-          WHERE id_cuenta IN (SELECT id_cuenta FROM cuentas WHERE id_asociado = $1)
-        `, [formalizedSocio.id_asociado]);
-        await comoDueno(`DELETE FROM cuentas WHERE id_asociado = $1`, [formalizedSocio.id_asociado]);
-
-        // Eliminar asociado
-        await comoDueno(`DELETE FROM asociados WHERE id_asociado = $1`, [formalizedSocio.id_asociado]);
-
-        // Eliminar usuario (si se creó)
-        if (formalizedSocio.usuario) {
-          await comoDueno(`DELETE FROM usuarios WHERE codigo_corporativo = $1`, [formalizedSocio.usuario]);
-        }
-
-        console.log(`  [CLEANUP] Asociado temporal (${formalizedSocio.usuario}) y cuenta eliminados.`);
-      }
-
       if (casoMarvin) {
-        // Restablecer caso a PENDIENTE_AGENCIA y desbloqueado
-        await db.query(`
-          UPDATE solicitudes_afiliacion_agencia 
-          SET estado = 'PENDIENTE_AGENCIA', id_operador_resuelve = NULL, fecha_resolucion = NULL,
-              id_operador_bloqueo = NULL, fecha_bloqueo = NULL
-          WHERE id_solicitud = $1
-        `, [casoMarvin.id_solicitud]);
-        console.log(`  [CLEANUP] Caso ${casoMarvin.numero_caso} restablecido a PENDIENTE_AGENCIA.`);
-        // El aporte de la formalización quedó en el registro de efectivo de ventanilla
+        // La persona que creó la formalización, con sus cuentas, movimientos, asociado y efectivo de ventanilla
+        const persona = await db.query('SELECT id_persona FROM personas WHERE cui_dpi = $1', [casoMarvin.cui_dpi]);
+        if (persona.rows[0]) await borrarPersonaDePrueba(db, persona.rows[0].id_persona);
         await purgarEfectivoDePrueba(db, [casoMarvin.cui_dpi]);
+        await comoDueno('DELETE FROM solicitudes_afiliacion_agencia WHERE id_solicitud = $1', [casoMarvin.id_solicitud]);
+        // La cuenta que la formalización abrió en el banco para el aporte
+        await borrarClienteBancoDePrueba(db.pool, casoMarvin.cui_dpi);
+        console.log(`  [CLEANUP] Caso ${casoMarvin.numero_caso}, su asociado y su cliente del banco eliminados.`);
       }
     } catch (cleanErr) {
       console.error('  [ERROR] Fallo en cleanup:', cleanErr.message);

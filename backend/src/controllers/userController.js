@@ -103,14 +103,16 @@ const getUsers = async (req, res) => {
     const now = new Date();
     const dosMinutosEnMs = 2 * 60 * 1000;
 
-    const mappedUsers = result.rows.map((u) => {
-      const tieneSesion = Boolean(u.sesion_activa_id);
-      const socketActivo = socketService.isUserConnected(u.id_usuario, u.sesion_activa_id);
-      const pingReciente = Boolean(u.ultimo_ping && (now - new Date(u.ultimo_ping)) < dosMinutosEnMs);
+    // La sesión, el último ping y el bloqueo solo sirven para calcular la presencia y si la cuenta está congelada:
+    // no viajan en la respuesta
+    const mappedUsers = result.rows.map(({ sesion_activa_id, ultimo_ping, bloqueado_hasta, intentos_fallidos, ...u }) => {
+      const tieneSesion = Boolean(sesion_activa_id);
+      const socketActivo = socketService.isUserConnected(u.id_usuario, sesion_activa_id);
+      const pingReciente = Boolean(ultimo_ping && (now - new Date(ultimo_ping)) < dosMinutosEnMs);
       const en_linea = Boolean(tieneSesion && (socketActivo || pingReciente));
 
-      const bloqueadoPorTiempo = u.bloqueado_hasta && new Date(u.bloqueado_hasta) > now;
-      const bloqueadoPorIntentos = Boolean(bloqueadoPorTiempo || (u.intentos_fallidos >= 3));
+      const bloqueadoPorTiempo = bloqueado_hasta && new Date(bloqueado_hasta) > now;
+      const bloqueadoPorIntentos = Boolean(bloqueadoPorTiempo || (intentos_fallidos >= 3));
 
       return {
         ...u,

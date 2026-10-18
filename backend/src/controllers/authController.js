@@ -233,7 +233,6 @@ const login = async (req, res) => {
       success: true,
       message: 'Sesión iniciada.',
       token,
-      sesion_activa_id: nuevaSesionId,
       user: {
         id: user.id_usuario,
         id_usuario: user.id_usuario,
@@ -669,7 +668,6 @@ const verifyMfa = async (req, res) => {
       success: true,
       message: 'Sesión iniciada.',
       token,
-      sesion_activa_id: nuevaSesionId,
       user: {
         id: user.id_usuario,
         id_usuario: user.id_usuario,
