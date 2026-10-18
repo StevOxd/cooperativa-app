@@ -4,8 +4,13 @@
  * Implementa el principio DRY eliminando duplicidad de clientes HTTP y formateo de aserciones.
  */
 
+const fs = require('fs');
 const http = require('http');
+const path = require('path');
 const { Pool } = require('pg');
+
+// Carpeta de los documentos de afiliación (la misma que monta el contenedor del backend)
+const CARPETA_DOCUMENTOS = path.join(__dirname, 'uploads', 'afiliaciones');
 
 // Pools del rol dueño de las tablas, uno por base de datos (ver poolDueno)
 const poolsDueno = new Map();
@@ -172,13 +177,47 @@ async function crearUsuarioDePrueba(db, { dpi, codigo, email, rol, estado = 'ACT
 }
 
 /**
- * Borra una persona de prueba con todo lo suyo: usuarios, auditoría, cuentas, movimientos, solicitudes y el
- * efectivo de ventanilla registrado a su nombre. Todo en una transacción: si un paso falla, no queda a medias.
- * Usa el rol dueño (poolDueno), el único que puede purgar los registros de auditoría.
+ * Pasos que borran los expedientes de documentos que cumplen `condicion` (sobre `expedientes_documentos`), con sus
+ * documentos, revisiones y accesos. Van dentro de una transacción con la marca de purga de pruebas.
+ *
+ * @param {string} condicion - Condición SQL; puede usar $1.
+ * @returns {string[]}
+ */
+const pasosPurgaDocumentos = (condicion) => {
+  const expedientes = `SELECT id_expediente FROM expedientes_documentos WHERE ${condicion}`;
+  const documentos = `SELECT id_documento FROM documentos_afiliacion WHERE id_expediente IN (${expedientes})`;
+  return [
+    `DELETE FROM accesos_documento WHERE id_documento IN (${documentos})`,
+    `DELETE FROM revisiones_documento WHERE id_documento IN (${documentos})`,
+    // Las versiones se encadenan entre sí: se sueltan antes de borrarlas
+    `UPDATE documentos_afiliacion SET id_documento_anterior = NULL WHERE id_expediente IN (${expedientes})`,
+    `DELETE FROM documentos_afiliacion WHERE id_expediente IN (${expedientes})`,
+    `DELETE FROM expedientes_documentos WHERE ${condicion}`,
+  ];
+};
+
+/**
+ * Borra de disco los archivos de documentos que ya no tienen registro.
+ *
+ * @param {string[]} archivos
+ * @returns {Promise<void>}
+ */
+async function borrarArchivosDeDocumentos(archivos) {
+  for (const archivo of archivos) {
+    await fs.promises.unlink(path.join(CARPETA_DOCUMENTOS, path.basename(archivo))).catch(() => {});
+  }
+}
+
+/**
+ * Borra una persona de prueba con todo lo suyo: usuarios, auditoría, cuentas, movimientos, solicitudes, sus
+ * documentos de afiliación (y sus archivos) y el efectivo de ventanilla registrado a su nombre. Todo en una
+ * transacción: si un paso falla, no queda a medias. Usa el rol dueño (poolDueno), el único que puede purgar los
+ * registros de auditoría.
  *
  * Pensada para asociados y para personal que no atendió trámites: no limpia lo que un usuario del personal
- * registró sobre otras personas (`transacciones.id_usuario_registra`, los revisores de `solicitudes_credito`
- * o `solicitudes_traslado_apertura.id_operador_resuelve`); con esas referencias, el borrado falla.
+ * registró sobre otras personas (`transacciones.id_usuario_registra`, los revisores de `solicitudes_credito`,
+ * `solicitudes_traslado_apertura.id_operador_resuelve` o los documentos que escaneó o revisó); con esas
+ * referencias, el borrado falla. Borre primero a los asociados y después al personal.
  *
  * @param {object} db - Módulo `src/config/db`.
  * @param {number} idPersona
@@ -188,9 +227,12 @@ async function borrarPersonaDePrueba(db, idPersona) {
   const usuarios = 'SELECT id_usuario FROM usuarios WHERE id_persona = $1';
   const asociados = 'SELECT id_asociado FROM asociados WHERE id_persona = $1';
   const cuentas = `SELECT id_cuenta FROM cuentas WHERE id_asociado IN (${asociados})`;
+  const deLaPersona = 'id_persona = $1 OR cui_dpi = (SELECT cui_dpi FROM personas WHERE id_persona = $1)';
   const pasos = [
     // depositos_ventanilla_banco es un registro de auditoría: solo se borra con la marca de purga de pruebas
     "SET LOCAL cooperativa.purga_pruebas = 'on'",
+    ...pasosPurgaDocumentos(deLaPersona),
+    `DELETE FROM accesos_documento WHERE id_usuario IN (${usuarios})`,
     `DELETE FROM depositos_ventanilla_banco WHERE id_usuario_operador IN (${usuarios})
        OR titular_cui = (SELECT cui_dpi FROM personas WHERE id_persona = $1)`,
     `DELETE FROM efectivo_ventanilla WHERE id_usuario_operador IN (${usuarios})
@@ -207,8 +249,14 @@ async function borrarPersonaDePrueba(db, idPersona) {
     'DELETE FROM personas WHERE id_persona = $1',
   ];
   const client = await poolDueno(db.pool).connect();
+  let archivos = [];
   try {
     await client.query('BEGIN');
+    archivos = (await client.query(
+      `SELECT archivo FROM documentos_afiliacion
+       WHERE id_expediente IN (SELECT id_expediente FROM expedientes_documentos WHERE ${deLaPersona})`,
+      [idPersona]
+    )).rows.map((fila) => fila.archivo);
     for (const sql of pasos) {
       await client.query(sql, sql.includes('$1') ? [idPersona] : []);
     }
@@ -219,6 +267,39 @@ async function borrarPersonaDePrueba(db, idPersona) {
   } finally {
     client.release();
   }
+  await borrarArchivosDeDocumentos(archivos);
+}
+
+/**
+ * Borra los expedientes de documentos de unos DPI de prueba (por ejemplo, de una afiliación que no se completó), con
+ * sus documentos, revisiones, accesos y archivos. Usa el rol dueño y la marca de purga de pruebas.
+ *
+ * @param {{ pool: import('pg').Pool }} db
+ * @param {string[]} dpis
+ * @returns {Promise<void>}
+ */
+async function purgarDocumentosDePrueba(db, dpis) {
+  const lista = dpis.filter(Boolean);
+  if (lista.length === 0) return;
+  const client = await poolDueno(db.pool).connect();
+  let archivos = [];
+  try {
+    await client.query('BEGIN');
+    await client.query("SET LOCAL cooperativa.purga_pruebas = 'on'");
+    archivos = (await client.query(
+      `SELECT d.archivo FROM documentos_afiliacion d JOIN expedientes_documentos e ON e.id_expediente = d.id_expediente
+       WHERE e.cui_dpi = ANY($1)`,
+      [lista]
+    )).rows.map((fila) => fila.archivo);
+    for (const sql of pasosPurgaDocumentos('cui_dpi = ANY($1)')) await client.query(sql, [lista]);
+    await client.query('COMMIT');
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => {});
+    throw error;
+  } finally {
+    client.release();
+  }
+  await borrarArchivosDeDocumentos(archivos);
 }
 
 /**
@@ -339,6 +420,7 @@ module.exports = {
   purgarDepositosDePrueba,
   purgarEfectivoDePrueba,
   purgarReversionesDePrueba,
+  purgarDocumentosDePrueba,
   createTestReporter,
   HASH_ADMIN123,
   crearUsuarioDePrueba,

@@ -5,6 +5,8 @@ import { Alert, Badge, Button, LoadingState, Modal, StatCard, StatGroup, cn } fr
 import { formatDate, formatQ, humanize } from '../../utils/format';
 import { parentescoLabel } from '../../utils/parentesco';
 import { toast } from '../../context/ToastContext';
+import { DocumentChecklist, DocumentViewerModal } from '../documents';
+import { etiquetaDocumento } from '../../utils/documentos';
 import { PortalAccessDialog } from './PortalAccessDialog';
 
 /** Cómo se muestra el acceso al portal en el expediente (issue #27). */
@@ -15,8 +17,14 @@ const ACCESO_PORTAL = {
   INACTIVO: { tone: 'danger', etiqueta: 'Desactivado', texto: 'Su usuario está desactivado. Lo reactiva el administrador.' },
 };
 
+// Estado de los documentos en la ficha impresa
+const DOCUMENTOS_IMPRESOS = {
+  COMPLETO: 'completos y aceptados',
+  EN_REVISION: 'entregados, en revisión',
+};
+
 /**
- * Expediente del asociado: datos generales, posición consolidada, cuentas y
+ * Expediente del asociado: datos generales, documentos de afiliación, posición consolidada, cuentas y
  * beneficiarios. Se puede imprimir como ficha, con espacio para firmas.
  */
 export const AssociateExpedienteModal = ({
@@ -31,6 +39,7 @@ export const AssociateExpedienteModal = ({
   const [expediente, setExpediente] = useState(null);
   const [dialogoAcceso, setDialogoAcceso] = useState(false);
   const [recargar, setRecargar] = useState(0);
+  const [documentoAbierto, setDocumentoAbierto] = useState(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -68,7 +77,26 @@ export const AssociateExpedienteModal = ({
     window.print();
   };
 
+  // Después de revisar, se vuelven a pedir los documentos sin ocultar el expediente
+  const actualizarDocumentos = () => {
+    api.get(`/admin/asociados/${idAsociado}/expediente`)
+      .then((res) => { if (res.data?.success) setExpediente(res.data.data); })
+      .catch(() => setRecargar((n) => n + 1));
+  };
+
+  // El operador escanea en ventanilla: reemplaza el documento vigente en cualquier estado (lo revisa un colega)
+  const subirDocumento = async (tipo, archivo) => {
+    const res = await api.post(`/admin/asociados/${idAsociado}/documentos`, { tipo_documento: tipo, archivo });
+    toast.success(res.data.message);
+    if (res.data.data) {
+      setExpediente((e) => ({ ...e, documentos: res.data.data.documentos, documentos_resumen: res.data.data.resumen }));
+    } else {
+      actualizarDocumentos();
+    }
+  };
+
   const a = expediente?.asociado;
+  const resumenDocumentos = expediente?.documentos_resumen;
 
   return (
     <Modal
@@ -78,7 +106,7 @@ export const AssociateExpedienteModal = ({
       printable
       size="xl"
       title="Expediente del asociado"
-      description="Datos generales, cuentas y beneficiarios."
+      description="Datos generales, documentos, cuentas y beneficiarios."
       footer={
         <>
           <Button variant="secondary" onClick={onClose}>Cerrar</Button>
@@ -150,6 +178,35 @@ export const AssociateExpedienteModal = ({
                 </Button>
               )}
             </section>
+          )}
+
+          {resumenDocumentos && (
+            <>
+              <div className="space-y-3 print:hidden">
+                {resumenDocumentos.estado === 'INCOMPLETO' && (
+                  <Alert tone="warning" title="Al asociado le faltan documentos de afiliación">
+                    {resumenDocumentos.faltantes.map(etiquetaDocumento).join(', ')}.
+                    {!a.es_propio && ' Si los trae a la agencia, escanéelos aquí.'}
+                  </Alert>
+                )}
+                {a.es_propio && (
+                  <Alert tone="info">Es su propio expediente: sus documentos los escanea y revisa un colega.</Alert>
+                )}
+                <DocumentChecklist
+                  documentos={expediente.documentos}
+                  onSubir={subirDocumento}
+                  puedeSubir={() => !a.es_propio}
+                  onVer={setDocumentoAbierto}
+                  textoVer={(d) => (d.estado === 'PENDIENTE' && !a.es_propio && !d.cargado_por_mi ? 'Revisar' : 'Ver')}
+                  conAyuda={false}
+                />
+              </div>
+              <p className="hidden text-sm text-ink print:block">
+                <span className="font-semibold">Documentos de afiliación: </span>
+                {DOCUMENTOS_IMPRESOS[resumenDocumentos.estado]
+                  || `faltan: ${resumenDocumentos.faltantes.map(etiquetaDocumento).join(', ')}`}
+              </p>
+            </>
           )}
 
           <StatGroup columns={3}>
@@ -228,6 +285,15 @@ export const AssociateExpedienteModal = ({
           </footer>
         </div>
       ) : null}
+      <DocumentViewerModal
+        documento={documentoAbierto}
+        titular={a?.nombre_completo}
+        puedeRevisar={Boolean(documentoAbierto && !a?.es_propio && !documentoAbierto.cargado_por_mi)}
+        porQueNoRevisa={a?.es_propio ? 'Es un documento suyo: lo revisa un colega.' : 'Usted lo subió: lo revisa un colega.'}
+        conHistorial
+        onClose={() => setDocumentoAbierto(null)}
+        onRevisado={actualizarDocumentos}
+      />
       <PortalAccessDialog
         isOpen={dialogoAcceso}
         asociado={a}

@@ -122,8 +122,8 @@ Además, el servicio `db-roles` (contenedor `cooperativa-db-roles`, misma imagen
   volumes:
     - ./backend/uploads:/app/uploads
   ```
-- **Almacenamiento Físico:** Almacena de forma persistente los comprobantes de afiliación (`uploads/afiliaciones/`), los comprobantes de apertura de cuenta y las solicitudes de crédito firmadas (`uploads/creditos/`).
-- **Entrega Segura de Archivos (RBAC):** Se erradicó la entrega estática pública (`express.static`). Las descargas se canalizan por el endpoint protegido `GET /api/uploads/:subfolder/:filename`, validando token JWT y control de acceso RBAC.
+- **Almacenamiento Físico:** Almacena de forma persistente los documentos de afiliación (`uploads/afiliaciones/`: DPI, recibo de servicios, foto con el DPI y constancia de ingresos), los comprobantes de apertura de cuenta y las solicitudes de crédito firmadas (`uploads/creditos/`).
+- **Entrega Segura de Archivos (RBAC):** Se erradicó la entrega estática pública (`express.static`). Las descargas se canalizan por el endpoint protegido `GET /api/uploads/:subfolder/:filename`, validando token JWT y control de acceso RBAC. Los documentos de afiliación se buscan primero en la base, solo aceptan el token en la cabecera (el frontend los pide como blob), los ve el personal o su dueño, se entregan sin caché y cada apertura queda en `accesos_documento`. Al subirlos se valida el contenido (firma de PDF, JPG o PNG, hasta 5 MB; nginx acepta 8 MB solo en esas rutas) y el servidor les pone el nombre (`doc_<uuid>`).
 
 ---
 
@@ -275,6 +275,10 @@ Disponible en `/registro-asociado` sin autenticación previa:
 - Traslados de nómina con generación correlativa `CASO-YYYY-XXXX` para autorización del operador.
 - Simulador de crédito con Amortización Francesa al 10% anual, tope estatutario de 2 créditos simultáneos y carga de solicitud firmada en PDF.
 
+#### 4. Documentos de Afiliación:
+- Pestaña «Documentos»: el asociado sube el DPI (frente y reverso), un recibo de servicios, una foto sosteniendo el DPI y, si quiere, su constancia de ingresos o laboral. Ve si cada uno está en revisión, aceptado o rechazado (con el motivo) y vuelve a subir los rechazados. Las fotos se reducen y pierden la ubicación antes de enviarse.
+- Si le falta alguno o se rechazó, el resumen del portal muestra un aviso; el portal sigue funcionando normal.
+
 ---
 
 ### 5.3 Flujo 2: Rol OPERADOR (Ventanilla, Padrón y Comprobantes Oficiales)
@@ -307,7 +311,11 @@ Disponible en `/registro-asociado` sin autenticación previa:
 #### 2. Gestión de Créditos en Ventanilla (Rol Operador):
 - **Obligatoriedad de PDF Firmado:** Para solicitudes de crédito evaluadas por ventanilla, el operador no puede aceptar ni elevar la solicitud al Comité de Crédito sin haber adjuntado obligatoriamente el documento PDF con la firma manuscrita del asociado.
 
-#### 3. Bandeja de Traslados y Padrón 360°:
+#### 3. Bandeja de Documentos:
+- Pestaña «Documentos» de la bandeja: los documentos de afiliación por revisar, rechazados y aceptados, con búsqueda. El operador abre cada uno, lo acepta o lo rechaza con motivo (al asociado se le avisa por correo) y ve sus versiones anteriores. No revisa los suyos ni los que él mismo subió (cuatro ojos).
+- En el expediente del asociado, el operador escanea los documentos que el asociado trae a la agencia; los revisa un colega.
+
+#### 4. Bandeja de Traslados y Padrón 360°:
 - Aprobación contable en doble partida de traslados de nómina.
 - Formulario 2 de cuentas adicionales y Formulario 3 de beneficiarios con estricta validación del **100.00%**. Al abrir una cuenta con fondos del banco, la cuenta bancaria debe ser del propio asociado y la apertura solo se completa si el débito se confirma.
 - Expediente Integral 360° (Reporte 1.1) con vista biográfica, financiera y crediticia del asociado.
@@ -481,6 +489,10 @@ PostgreSQL 16 gestiona dos bases de datos relacionales: `cooperativa_db` (entida
 14. **`transacciones`:** Libro mayor contable de doble partida (`tipo_transaccion`, `monto`, `saldo_anterior`, `saldo_nuevo`, `referencia`).
 15. **`codigos_verificacion_correo`:** Códigos de 6 dígitos de la afiliación en línea (`email` PK, `codigo_hash`, `expira_en`, `intentos`, `enviado_en`, `envios_hora`, `ventana_inicio`). Solo guarda el hash; la crea `migrations.js` al arrancar el backend.
 16. **`depositos_ventanilla_banco`:** Registro de los depósitos en ventanilla a la cuenta del banco de un colaborador que se afilia (`id_deposito` PK, `id_usuario_operador` FK usuarios, `numero_cuenta_bancaria`, `titular_cui`, `monto` NUMERIC(14,2), `referencia` UNIQUE generada por el servidor, `estado` PENDIENTE/ACREDITADO/RECHAZADO/SIN_CONFIRMAR/REVERTIDO, `ip_origen`, `user_agent`, `fecha_deposito`). Se registra antes de llamar al banco; un trigger impide modificar o borrar filas (solo cambia el estado de un depósito sin cerrar). La crea `migrations.js` al arrancar el backend.
+17. **`expedientes_documentos`:** Contenedor de los documentos de afiliación de un trámite (`id_expediente` PK, `cui_dpi`, `id_persona` FK personas UNIQUE parcial, `id_solicitud` FK solicitudes de agencia UNIQUE, `canal_origen`, `id_usuario_crea`, `expira_en` para una carga previa, `fecha_vinculacion`). Vinculado a una persona, su DPI es el de ella (FK compuesta `(id_persona, cui_dpi)`). Un trigger solo deja vincularlo (no cambia de dueño) y no deja borrarlo.
+18. **`documentos_afiliacion`:** Cada versión de un documento (`id_documento` PK, `id_expediente` FK, `tipo_documento` DPI_FRENTE/DPI_REVERSO/RECIBO_SERVICIOS/FOTO_CON_DPI/CONSTANCIA_INGRESOS, `archivo` UNIQUE generado por el servidor, `tamano_bytes`, `sha256`, `estado` PENDIENTE/ACEPTADO/RECHAZADO/REEMPLAZADO, `id_documento_anterior` del mismo expediente y tipo, `canal_carga`, `id_usuario_carga`, `ip_origen`, `user_agent`, `fecha_carga`). Una sola versión vigente por tipo (índice único parcial); un trigger solo deja cambiar el estado, en el orden de la revisión.
+19. **`revisiones_documento`:** Una revisión por versión (`id_documento` UNIQUE, `resultado` ACEPTADO/RECHAZADO, `motivo` obligatorio al rechazar, `id_usuario_revisa`, `ip_origen`, `user_agent`, `fecha_revision`). Registro de solo agregar; un trigger exige que el resultado sea el estado que se le dio al documento.
+20. **`accesos_documento`:** Quién abrió cada documento, desde dónde y cuándo (`id_documento`, `id_usuario`, `ip_origen`, `user_agent`, `fecha_acceso`). Registro de solo agregar.
 
 ---
 
@@ -537,7 +549,8 @@ Gestionada por el microservicio `banco-backend` (:5002):
 19. **Operaciones con el Banco desde Ventanilla:** Requieren sesión de operador; las aperturas con fondos del banco solo aceptan cuentas del propio asociado y se cancelan si el débito falla.
 20. **El Personal También es Asociado (issue #32):** Quien trabaja en la cooperativa puede afiliarse por cualquier canal (ventanilla, solicitud en agencia, en línea o «Afiliarme a la cooperativa» desde su sesión). Recibe un usuario de asociado aparte, con su propio código (`EX-X`/`EB-X`), contraseña y un correo distinto al del personal. Se afilia con los datos que la cooperativa ya tiene: solo cambian el correo y el teléfono, y una solicitud pública nunca sobrescribe los datos de una persona registrada.
 21. **Nadie Atiende sus Propios Trámites (Segregación de Funciones):** El personal no afilia, no abre cuentas, no registra depósitos ni traslados, no resuelve créditos, no activa el acceso ni cambia el estado de su propia persona (`middlewares/segregacion.js`, `HTTP 403 AUTOATENCION_NO_PERMITIDA`). Un administrador no modifica sus propios usuarios. Se compara la persona, no el usuario.
-22. **Mínimo Privilegio en la Base de Datos:** El backend y el banco se conectan con `DB_USER`: no es superusuario, no crea bases, tablas (ni temporales) ni roles, no desactiva triggers y no cambia secuencias. Al terminar, las migraciones le dejan leer, agregar y modificar en todas las tablas, salvo los registros de solo agregar (historial de estados y de beneficiarios, transacciones, efectivo de ventanilla y, en el banco, los movimientos), y borrar solo en beneficiarios, permisos de roles y códigos de verificación; lo demás se desvincula por estado. Las migraciones usan el rol dueño (`DB_OWNER_USER`); los triggers de auditoría solo permiten la purga de las pruebas al dueño de la tabla (y al superusuario), y la buscan en `pg_catalog` con `search_path` fijo. El superusuario (`DB_ADMIN_USER`) solo prepara los roles al arrancar. Después de migrar, el backend y el banco borran de su entorno las credenciales del rol dueño.
+22. **Mínimo Privilegio en la Base de Datos:** El backend y el banco se conectan con `DB_USER`: no es superusuario, no crea bases, tablas (ni temporales) ni roles, no desactiva triggers y no cambia secuencias. Al terminar, las migraciones le dejan leer, agregar y modificar en todas las tablas, salvo los registros de solo agregar (historial de estados y de beneficiarios, transacciones, efectivo de ventanilla, revisiones y accesos de documentos y, en el banco, los movimientos), y borrar solo en beneficiarios, permisos de roles y códigos de verificación; lo demás se desvincula por estado. Las migraciones usan el rol dueño (`DB_OWNER_USER`); los triggers de auditoría solo permiten la purga de las pruebas al dueño de la tabla (y al superusuario), y la buscan en `pg_catalog` con `search_path` fijo. El superusuario (`DB_ADMIN_USER`) solo prepara los roles al arrancar. Después de migrar, el backend y el banco borran de su entorno las credenciales del rol dueño.
+23. **Documentos de Afiliación con Cuatro Ojos:** Los obligatorios son el DPI (frente y reverso), un recibo de servicios y una foto sosteniendo el DPI; la constancia de ingresos o laboral es opcional. El operador acepta o rechaza cada uno con motivo, nunca uno suyo ni uno que él mismo subió (`HTTP 403 REVISION_POR_QUIEN_CARGO`). El asociado reemplaza desde su portal los pendientes o rechazados (hasta 8 versiones propias por tipo); uno aceptado solo se cambia en ventanilla. Un reemplazo es una versión nueva y la anterior se conserva con su archivo.
 
 ---
 

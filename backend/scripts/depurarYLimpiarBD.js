@@ -11,7 +11,9 @@
  * - 10 Clientes Bancarios Empleados (con cuentas y credenciales de banca en línea)
  */
 
-require('dotenv').config({ path: require('path').join(__dirname, '../.env') });
+const fs = require('fs');
+const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '../.env') });
 const { Pool } = require('pg');
 
 // Borra datos de las dos bases: nunca en producción y solo si se pide de forma explícita
@@ -63,6 +65,7 @@ async function main() {
 
   const clientCoop = await poolCoop.connect();
   const clientBanco = await poolBanco.connect();
+  let archivosDocumentos = [];
 
   try {
     // =========================================================================
@@ -503,15 +506,21 @@ async function main() {
     console.log('\n--- 2. Depurando y limpiando cooperativa_db ---');
     await clientCoop.query('BEGIN');
 
-    // El efectivo, los depósitos al banco y las reversiones son registros de auditoría (solo se agregan): sus
-    // operaciones se borran aquí, así que se purgan primero; si no, sus llaves foráneas detienen la limpieza
-    // (issue #71). La purga la permiten los triggers al rol dueño con la marca cooperativa.purga_pruebas.
-    console.log('  * Purgando efectivo de ventanilla, depósitos al banco y reversiones...');
+    // El efectivo, los depósitos al banco, las reversiones y los documentos de afiliación son registros de auditoría:
+    // sus operaciones y personas se borran aquí, así que se purgan primero; si no, sus llaves foráneas detienen la
+    // limpieza (issue #71). La purga la permiten los triggers al rol dueño con la marca cooperativa.purga_pruebas.
+    // Los archivos de los documentos (backend/uploads/afiliaciones) se borran después de confirmar.
+    console.log('  * Purgando efectivo de ventanilla, depósitos al banco, reversiones y documentos de afiliación...');
     await clientCoop.query("SET LOCAL cooperativa.purga_pruebas = 'on'");
+    archivosDocumentos = (await clientCoop.query('SELECT archivo FROM documentos_afiliacion')).rows.map((f) => f.archivo);
     await clientCoop.query('DELETE FROM efectivo_ventanilla;');
     await clientCoop.query('DELETE FROM depositos_ventanilla_banco;');
     await clientCoop.query('DELETE FROM reversiones_pendientes;');
     await clientCoop.query('DELETE FROM codigos_verificacion_correo;');
+    await clientCoop.query('DELETE FROM accesos_documento;');
+    await clientCoop.query('DELETE FROM revisiones_documento;');
+    await clientCoop.query('DELETE FROM documentos_afiliacion;');
+    await clientCoop.query('DELETE FROM expedientes_documentos;');
 
     // Limpieza total de asociados, cuentas, movimientos y solicitudes
     console.log('  * Eliminando transacciones, beneficiarios y cuentas de asociados...');
@@ -672,6 +681,13 @@ async function main() {
 
     await clientBanco.query('COMMIT');
     console.log(`✓ banco_db saneado: 20 clientes registrados (10 empleados, 10 externos) con cuentas bancarias.`);
+
+    // Las fotos del DPI y los recibos son datos personales: sin su registro no se dejan en disco
+    const carpetaDocumentos = path.join(__dirname, '../uploads/afiliaciones');
+    for (const archivo of archivosDocumentos) {
+      await fs.promises.unlink(path.join(carpetaDocumentos, path.basename(archivo))).catch(() => {});
+    }
+    console.log(`✓ ${archivosDocumentos.length} archivos de documentos de afiliación borrados.`);
 
     console.log('\n================================================================');
     console.log(' ¡SANEAMIENTO Y LIMPIEZA COMPLETADOS EXITOSAMENTE AL 100%!');

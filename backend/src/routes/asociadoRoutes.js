@@ -1,7 +1,24 @@
 const express = require('express');
 const router = express.Router();
+const rateLimit = require('express-rate-limit');
 const asociadoController = require('../controllers/asociadoController');
+const documentosController = require('../controllers/documentosAfiliacionController');
 const { verifyToken, checkRole } = require('../middlewares/authMiddleware');
+
+// Cargas de documentos por asociado (no por conexión: va después de verifyToken)
+const isTestOrDev = process.env.NODE_ENV === 'test' || process.env.NODE_ENV === 'development';
+const cargaDocumentosLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutos
+  max: isTestOrDev ? 200 : 20,
+  keyGenerator: (req) => `usuario:${req.user.id_usuario}`,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    message: 'Subió demasiados documentos seguidos. Espere 15 minutos e intente de nuevo.',
+    error: 'RATE_LIMIT_EXCEEDED',
+  },
+});
 
 // Proteger todas las rutas del portal de asociado con autenticación JWT y rol exclusivo de ASOCIADO
 router.use(verifyToken);
@@ -113,6 +130,20 @@ router.get('/beneficiarios', asociadoController.getMisBeneficiarios);
  * @access  Privado (ASOCIADO)
  */
 router.post('/cuentas/:id_cuenta/beneficiarios', asociadoController.guardarMisBeneficiarios);
+
+/**
+ * @route   GET /api/asociado/documentos
+ * @desc    Documentos de afiliación del asociado y qué le falta
+ * @access  Privado (ASOCIADO)
+ */
+router.get('/documentos', documentosController.misDocumentos);
+
+/**
+ * @route   POST /api/asociado/documentos
+ * @desc    Subir o volver a subir un documento de afiliación (queda pendiente de revisión)
+ * @access  Privado (ASOCIADO)
+ */
+router.post('/documentos', cargaDocumentosLimiter, documentosController.subirMiDocumento);
 
 module.exports = router;
 

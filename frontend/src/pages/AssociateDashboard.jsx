@@ -12,6 +12,7 @@ import { AssociateTransfersTab } from '../components/associate/dashboard/Associa
 import { AssociateCreditsTab } from '../components/associate/dashboard/AssociateCreditsTab';
 import { AssociateProductsTab } from '../components/associate/dashboard/AssociateProductsTab';
 import { AssociateBeneficiariesTab } from '../components/associate/dashboard/AssociateBeneficiariesTab';
+import { AssociateDocumentsTab } from '../components/associate/dashboard/AssociateDocumentsTab';
 import { beneficiariosCompletos } from '../components/associate/dashboard/beneficiarios';
 import { AccountMovementsModal } from '../components/associate/dashboard/AccountMovementsModal';
 import { TransferRequestModal } from '../components/associate/dashboard/TransferRequestModal';
@@ -135,6 +136,9 @@ export const AssociateDashboard = () => {
 
   // Estados de Mis Beneficiarios (Req-9)
   const [misBeneficiariosData, setMisBeneficiariosData] = useState([]);
+  // Documentos de afiliación: los vigentes y qué le falta (aviso en el resumen y en la pestaña)
+  const [misDocumentos, setMisDocumentos] = useState({ documentos: [], resumen: null });
+  const [errorDocumentos, setErrorDocumentos] = useState(false);
   const [loadingBeneficiarios, setLoadingBeneficiarios] = useState(false);
   const [selectedCuentaParaEditar, setSelectedCuentaParaEditar] = useState(null);
   const [editBeneficiariosList, setEditBeneficiariosList] = useState([]);
@@ -217,7 +221,7 @@ export const AssociateDashboard = () => {
       setErrorMessage('');
 
       // Cargar perfil, cuentas y créditos
-      const [perfilRes, cuentasRes, creditosRes, planillaRes, destinoRes, solicitudesRes, catalogoRes, beneficiariosRes] = await Promise.all([
+      const [perfilRes, cuentasRes, creditosRes, planillaRes, destinoRes, solicitudesRes, catalogoRes, beneficiariosRes, documentosRes] = await Promise.all([
         api.get('/asociado/perfil').catch(() => ({ data: { success: false } })),
         api.get('/asociado/cuentas').catch(() => ({ data: { success: false } })),
         api.get('/asociado/creditos').catch(() => ({ data: { success: false } })),
@@ -226,6 +230,7 @@ export const AssociateDashboard = () => {
         api.get('/asociado/mis-solicitudes').catch(() => ({ data: { success: false } })),
         api.get('/catalogo/tipos-cuenta').catch(() => ({ data: { success: false } })),
         api.get('/asociado/beneficiarios').catch(() => ({ data: { success: false } })),
+        api.get('/asociado/documentos').catch(() => ({ data: { success: false } })),
       ]);
 
       if (perfilRes.data?.success) setProfile(perfilRes.data.data);
@@ -236,6 +241,8 @@ export const AssociateDashboard = () => {
       if (solicitudesRes.data?.success) setSolicitudesTraslado(solicitudesRes.data.data);
       if (catalogoRes.data?.success) setCatalogoProductos(catalogoRes.data.data);
       if (beneficiariosRes.data?.success) setMisBeneficiariosData(beneficiariosRes.data.data);
+      if (documentosRes.data?.success) setMisDocumentos(documentosRes.data.data);
+      setErrorDocumentos(!documentosRes.data?.success);
 
     } catch (error) {
       console.error('Error al cargar datos del asociado:', error);
@@ -567,6 +574,26 @@ export const AssociateDashboard = () => {
   const trasladosEnRevision = solicitudesTraslado.filter((s) => s.estado === 'PENDIENTE').length;
   const creditoPorFirmar = creditosEnTramite.some((c) => c.estado === 'PENDIENTE_FIRMA');
   const cuentasSinBeneficiarios = misBeneficiariosData.filter((c) => !beneficiariosCompletos(c)).length;
+  // Obligatorios que faltan (un obligatorio rechazado cuenta como faltante), igual que el aviso del resumen
+  const documentosPorCompletar = misDocumentos.resumen?.faltantes.length ?? 0;
+
+  const cargarMisDocumentos = async () => {
+    try {
+      const res = await api.get('/asociado/documentos');
+      setMisDocumentos(res.data.data);
+      setErrorDocumentos(false);
+    } catch {
+      setErrorDocumentos(true);
+    }
+  };
+
+  // Sube o reemplaza uno de sus documentos; el error lo muestra la lista de documentos
+  const subirMiDocumento = async (tipo, archivo) => {
+    const res = await api.post('/asociado/documentos', { tipo_documento: tipo, archivo });
+    toast.success(res.data.message);
+    if (res.data.data) setMisDocumentos(res.data.data);
+    else cargarMisDocumentos();
+  };
 
   // Cálculos de créditos y amortización nivelada francesa
   const [selectedCreditoPlanId, setSelectedCreditoPlanId] = useState(null);
@@ -689,6 +716,11 @@ export const AssociateDashboard = () => {
             label: 'Beneficiarios',
             ...(cuentasSinBeneficiarios > 0 && { count: cuentasSinBeneficiarios, countLabel: 'cuentas por completar', attention: true }),
           },
+          {
+            id: 'documentos',
+            label: 'Documentos',
+            ...(documentosPorCompletar > 0 && { count: documentosPorCompletar, countLabel: 'por completar', attention: true }),
+          },
         ]}
       />
 
@@ -702,6 +734,7 @@ export const AssociateDashboard = () => {
           proximaCuota={proximaCuota}
           tramitesEnCursoCount={creditosEnTramite.length + trasladosEnRevision}
           cuentas={cuentas}
+          documentosResumen={misDocumentos.resumen}
           downloadingAccountId={downloadingAccountId}
           generatingPdf={generatingPdf}
           handleDownloadPdf={handleDownloadPdf}
@@ -770,6 +803,17 @@ export const AssociateDashboard = () => {
           misBeneficiariosData={misBeneficiariosData}
           openEditarBeneficiariosModal={openEditarBeneficiariosModal}
           setActiveTab={setActiveTab}
+        />
+      )}
+
+      {/* ==================== TAB: DOCUMENTOS DE AFILIACIÓN ==================== */}
+      {activeTab === 'documentos' && (
+        <AssociateDocumentsTab
+          documentos={misDocumentos.documentos}
+          resumen={misDocumentos.resumen}
+          error={errorDocumentos}
+          onReintentar={cargarMisDocumentos}
+          onSubir={subirMiDocumento}
         />
       )}
 

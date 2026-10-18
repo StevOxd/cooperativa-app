@@ -1,8 +1,9 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { FileDown, PenLine, Wallet } from 'lucide-react';
+import { FileDown, FileText, PenLine, Wallet } from 'lucide-react';
 import { Alert, Badge, Button, Card, EmptyState } from '../../ui';
 import { formatDate, formatQ, humanize } from '../../../utils/format';
+import { etiquetaDocumento } from '../../../utils/documentos';
 
 const ACCOUNT_STATES = {
   ACTIVA: { label: 'Activa', tone: 'success' },
@@ -13,6 +14,40 @@ const ACCOUNT_STATES = {
 const accountStatus = (estado) => ACCOUNT_STATES[estado] || { label: humanize(estado), tone: 'neutral' };
 
 /**
+ * Aviso de los documentos de afiliación: qué falta (o se rechazó) o que se están revisando. No bloquea el portal.
+ */
+const AvisoDocumentos = ({ resumen, onIr }) => {
+  if (!resumen || resumen.estado === 'COMPLETO') return null;
+  const irADocumentos = (
+    <Button size="sm" variant="link" className="px-0" onClick={onIr}>
+      Ir a Documentos
+    </Button>
+  );
+  if (resumen.estado === 'EN_REVISION' && resumen.rechazados.length === 0) {
+    return (
+      <Alert tone="info" icon={FileText} title="Estamos revisando sus documentos">
+        <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          Puede seguir usando el portal con normalidad; le avisaremos si necesitamos otra copia.
+          {irADocumentos}
+        </span>
+      </Alert>
+    );
+  }
+  const faltantes = resumen.faltantes.filter((t) => !resumen.rechazados.includes(t));
+  return (
+    <Alert tone="warning" icon={FileText} title="Complete sus documentos de afiliación">
+      <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
+        {faltantes.length > 0 && <>Faltan: {faltantes.map(etiquetaDocumento).join(', ')}. </>}
+        {resumen.rechazados.length > 0 && (
+          <>Necesitamos otra copia de: {resumen.rechazados.map(etiquetaDocumento).join(', ')}. </>
+        )}
+        {irADocumentos}
+      </span>
+    </Alert>
+  );
+};
+
+/**
  * Pestaña "Resumen": total ahorrado, créditos vigentes, trámites en curso, próxima cuota y cuentas del asociado.
  *
  * @param {Object} props
@@ -20,12 +55,15 @@ const accountStatus = (estado) => ACCOUNT_STATES[estado] || { label: humanize(es
  * @param {number} props.tramitesEnCursoCount - Solicitudes de crédito sin resolver más traslados en revisión.
  * @param {{credito: Object, cuota: Object}|null} props.proximaCuota - La cuota más cercana de sus créditos.
  * @param {boolean} props.creditoPorFirmar - Hay una solicitud de crédito que espera su firma.
+ * @param {{estado: string, faltantes: string[], rechazados: string[]}|null} props.documentosResumen - Documentos
+ *   de afiliación; si faltan o se rechazó alguno, se muestra un aviso.
  */
 export const AssociateSummaryTab = ({
   activeCuentasCount,
   creditoPorFirmar,
   creditosVigentesCount,
   cuentas,
+  documentosResumen,
   downloadingAccountId,
   generatingPdf,
   handleDownloadPdf,
@@ -36,6 +74,8 @@ export const AssociateSummaryTab = ({
   tramitesEnCursoCount,
 }) => (
   <div className="space-y-8">
+    <AvisoDocumentos resumen={documentosResumen} onIr={() => setActiveTab('documentos')} />
+
     {creditoPorFirmar && (
       <Alert tone="warning" icon={PenLine} title="Tiene una solicitud de crédito por firmar">
         <span className="flex flex-wrap items-center gap-x-3 gap-y-1">

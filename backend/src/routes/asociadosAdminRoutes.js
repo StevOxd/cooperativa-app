@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const asociadosAdminController = require('../controllers/asociadosAdminController');
+const documentosController = require('../controllers/documentosAfiliacionController');
 const { verifyToken, checkRole } = require('../middlewares/authMiddleware');
 const { prohibirAutoatencion } = require('../middlewares/segregacion');
 
@@ -25,6 +26,12 @@ router.get('/:id/expediente', asociadosAdminController.getExpedienteAsociado);
  * @desc    Activar el acceso al portal (o reenviarlo si nunca entró) desde el expediente (issue #27)
  */
 router.post('/:id/acceso-portal', prohibirAutoatencion('asociado', (req) => req.params.id), asociadosAdminController.activarAccesoPortalAsociado);
+
+/**
+ * @route   POST /api/admin/asociados/:id/documentos
+ * @desc    Escanear un documento de afiliación en el expediente del asociado (reemplaza el vigente)
+ */
+router.post('/:id/documentos', prohibirAutoatencion('asociado', (req) => req.params.id), documentosController.subirDocumentoDeAsociado);
 
 /**
  * @route   POST /api/admin/asociados/presencial

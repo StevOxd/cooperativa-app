@@ -11,20 +11,22 @@
  *
  * @param {number} statusCode - Estado HTTP de la respuesta.
  * @param {string} message - Mensaje para el usuario.
- * @returns {Error} con `statusCode`.
+ * @param {string} [codigo] - Código para el frontend (p. ej. `REVISION_POR_QUIEN_CARGO`); va en `error`.
+ * @returns {Error} con `statusCode` (y `codigo` si se indica).
  */
-const errorDeNegocio = (statusCode, message) => Object.assign(new Error(message), { statusCode });
+const errorDeNegocio = (statusCode, message, codigo) =>
+  Object.assign(new Error(message), { statusCode, ...(codigo && { codigo }) });
 
 /**
  * Estado y mensaje con que se responde un error.
  *
  * @param {Error & {statusCode?: number}} error - El error capturado.
  * @param {string} mensajeGenerico - Lo que ve el usuario si el error es inesperado.
- * @returns {{status: number, message: string}}
+ * @returns {{status: number, message: string, codigo?: string}}
  */
 const respuestaDeError = (error, mensajeGenerico) =>
   Number.isInteger(error?.statusCode)
-    ? { status: error.statusCode, message: error.message }
+    ? { status: error.statusCode, message: error.message, ...(error.codigo && { codigo: error.codigo }) }
     : { status: 500, message: mensajeGenerico };
 
 /**

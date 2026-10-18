@@ -78,4 +78,14 @@ module.exports = Object.freeze({
     BLOQUEADA: 'BLOQUEADA',
     CANCELADA: 'CANCELADA',
   },
+  // Documentos de afiliación: los obligatorios se piden en todos los canales; la constancia de ingresos es opcional
+  DOCUMENTOS: Object.freeze({
+    TIPOS: Object.freeze(['DPI_FRENTE', 'DPI_REVERSO', 'RECIBO_SERVICIOS', 'FOTO_CON_DPI', 'CONSTANCIA_INGRESOS']),
+    OBLIGATORIOS: Object.freeze(['DPI_FRENTE', 'DPI_REVERSO', 'RECIBO_SERVICIOS', 'FOTO_CON_DPI']),
+    TAMANO_MAXIMO_BYTES: 5 * 1024 * 1024,
+    // Versiones de un mismo tipo que puede subir el interesado; después, el documento se escanea en ventanilla
+    MAX_VERSIONES_POR_TIPO: 8,
+    MOTIVO_RECHAZO_MIN: 5,
+    MOTIVO_RECHAZO_MAX: 500,
+  }),
 });

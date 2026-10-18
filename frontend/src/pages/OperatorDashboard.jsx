@@ -13,14 +13,19 @@ import { Button, Card, PageHeader, TabPanel, Tabs } from '../components/ui';
 import { AffiliationsPanel } from '../components/operator/dashboard/AffiliationsPanel';
 import { TransfersPanel } from '../components/operator/dashboard/TransfersPanel';
 import { CreditsPanel } from '../components/operator/dashboard/CreditsPanel';
+import { DocumentsPanel } from '../components/operator/dashboard/DocumentsPanel';
 
 const TABS_ID = 'operador';
 
 export const OperatorDashboard = () => {
   const { toast } = useToast();
 
-  // Pestaña activa: 'afiliaciones' (por defecto) o 'traslados'
+  // Pestaña activa: 'afiliaciones' (por defecto), 'traslados', 'creditos' o 'documentos'
   const [activeTab, setActiveTab] = useState('afiliaciones');
+
+  // Documentos de afiliación por revisar (el panel carga su propia lista; aquí solo el contador de la pestaña)
+  const [documentosPendientes, setDocumentosPendientes] = useState(0);
+  const [recargaDocumentos, setRecargaDocumentos] = useState(0);
 
   // Estados para Afiliaciones en Agencia
   const [afiliaciones, setAfiliaciones] = useState([]);
@@ -242,10 +247,22 @@ export const OperatorDashboard = () => {
     }
   };
 
+  // 4. Contador de documentos por revisar (sin los suyos ni los que subió: esos los revisa un colega)
+  const fetchDocumentosPendientes = useCallback(async () => {
+    try {
+      const response = await api.get('/operador/documentos?estado=PENDIENTE&limit=1');
+      setDocumentosPendientes(response.data?.por_revisar ?? 0);
+    } catch (err) {
+      console.error('Error al contar documentos por revisar:', err);
+    }
+  }, []);
+
   const refreshAll = () => {
     fetchAfiliaciones(searchAfiliacion);
     fetchTraslados();
     fetchCreditos();
+    fetchDocumentosPendientes();
+    setRecargaDocumentos((n) => n + 1);
     if (subTabTraslados === 'historial') {
       fetchHistorialTraslados();
     }
@@ -255,7 +272,8 @@ export const OperatorDashboard = () => {
     fetchAfiliaciones();
     fetchTraslados();
     fetchCreditos();
-  }, [fetchAfiliaciones, fetchTraslados, fetchCreditos]);
+    fetchDocumentosPendientes();
+  }, [fetchAfiliaciones, fetchTraslados, fetchCreditos, fetchDocumentosPendientes]);
 
   // Bloquear scroll de la página de fondo cuando cualquier modal esté abierto
   useEffect(() => {
@@ -685,7 +703,7 @@ export const OperatorDashboard = () => {
     <div className="space-y-6">
       <PageHeader
         title="Bandeja de trabajo"
-        description="Afiliaciones, traslados y créditos que esperan su atención."
+        description="Afiliaciones, traslados, créditos y documentos que esperan su atención."
         actions={
           <Button
             variant="secondary"
@@ -710,6 +728,7 @@ export const OperatorDashboard = () => {
               { id: 'afiliaciones', label: 'Afiliaciones', count: afiliacionesPendientesCount, attention: afiliacionesPendientesCount > 0 },
               { id: 'traslados', label: 'Traslados', count: solicitudes.length, attention: solicitudes.length > 0 },
               { id: 'creditos', label: 'Créditos', count: creditosPendientesCount, attention: creditosPendientesCount > 0 },
+              { id: 'documentos', label: 'Documentos', count: documentosPendientes, countLabel: 'por revisar', attention: documentosPendientes > 0 },
             ]}
           />
         </div>
@@ -767,6 +786,10 @@ export const OperatorDashboard = () => {
               onSearchChange={setSearchCredito}
               onOpen={openResolverCreditoModal}
             />
+          )}
+
+          {activeTab === 'documentos' && (
+            <DocumentsPanel recarga={recargaDocumentos} onCambio={fetchDocumentosPendientes} />
           )}
         </TabPanel>
       </Card>
