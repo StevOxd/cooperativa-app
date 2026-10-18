@@ -450,7 +450,14 @@ const getBandejaAfiliaciones = async (req, res) => {
       LEFT JOIN personas p_asoc ON p_asoc.cui_dpi = s.cui_dpi
       LEFT JOIN usuarios u_asoc ON u_asoc.id_persona = p_asoc.id_persona AND u_asoc.id_rol = 3 /* ASOCIADO */
       LEFT JOIN asociados a_asoc ON a_asoc.id_persona = p_asoc.id_persona
-      LEFT JOIN cuentas c_asoc ON c_asoc.id_asociado = a_asoc.id_asociado AND c_asoc.estado = 'ACTIVA'
+      -- Una sola cuenta activa (la primera): con un JOIN simple, la solicitud salía una vez por cada cuenta
+      LEFT JOIN LATERAL (
+        SELECT c.numero_cuenta, c.saldo_disponible
+        FROM cuentas c
+        WHERE c.id_asociado = a_asoc.id_asociado AND c.estado = 'ACTIVA'
+        ORDER BY c.id_cuenta
+        LIMIT 1
+      ) c_asoc ON true
       WHERE 1=1
     `;
 

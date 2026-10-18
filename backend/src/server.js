@@ -107,8 +107,17 @@ app.use((req, res) => {
   });
 });
 
-// Manejador global de errores (500)
+// Manejador global de errores. Si el cuerpo no se pudo leer (JSON mal formado, demasiado grande, codificación no
+// admitida o petición cortada), es un error del cliente: se responde su estado y no se escribe el error, que trae el
+// cuerpo crudo (p. ej. la contraseña de un inicio de sesión mal formado). Lo demás es 500.
+const MENSAJES_CUERPO = {
+  400: 'La solicitud no tiene un formato válido.',
+  413: 'La solicitud es demasiado grande.',
+};
 app.use((err, req, res, next) => {
+  if (err.type && err.expose && err.status >= 400 && err.status < 500) {
+    return res.status(err.status).json({ success: false, message: MENSAJES_CUERPO[err.status] || 'No se pudo leer la solicitud.' });
+  }
   console.error('[ERROR NO CONTROLADO]', err);
   res.status(500).json({
     success: false,

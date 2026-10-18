@@ -658,6 +658,14 @@ const runMigrations = async () => {
       console.warn(`[MIGRATION] Hay ${correosRepetidos.rowCount} correo(s) repetidos sin distinguir mayúsculas: no se creó uq_usuarios_email_lower. Corríjalos y reinicie.`);
     } else {
       await pool.query('CREATE UNIQUE INDEX IF NOT EXISTS uq_usuarios_email_lower ON usuarios (LOWER(email))');
+      // Con el índice por LOWER(email), la restricción que distingue mayúsculas sobra (issue #72): solo se quita si
+      // el índice es único y válido, para que el correo nunca quede sin unicidad
+      const indiceCorreo = await pool.query(
+        "SELECT indisunique AND indisvalid AS listo FROM pg_index WHERE indexrelid = 'uq_usuarios_email_lower'::regclass"
+      );
+      if (indiceCorreo.rows[0]?.listo) {
+        await pool.query('ALTER TABLE usuarios DROP CONSTRAINT IF EXISTS usuarios_email_key');
+      }
     }
 
     // 10. Registro de los depósitos en ventanilla a cuentas del banco: quién, cuánto, a qué cuenta y desde dónde.

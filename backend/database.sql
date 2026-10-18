@@ -88,7 +88,7 @@ CREATE TABLE usuarios (
     id_persona INT NOT NULL REFERENCES personas(id_persona) ON DELETE CASCADE,
     id_rol INT NOT NULL REFERENCES roles(id_rol) ON DELETE RESTRICT,
     codigo_corporativo VARCHAR(30) UNIQUE NOT NULL CHECK (codigo_corporativo ~ '^[A-Za-z0-9_.-]{3,30}$'),
-    email VARCHAR(150) UNIQUE NOT NULL,
+    email VARCHAR(150) NOT NULL, -- único sin distinguir mayúsculas: uq_usuarios_email_lower
     password_hash VARCHAR(255) NOT NULL,
     estado VARCHAR(20) NOT NULL DEFAULT 'ACTIVO' CHECK (estado IN ('ACTIVO', 'INACTIVO', 'BLOQUEADO')),
     intentos_fallidos INT DEFAULT 0,
