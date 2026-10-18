@@ -1,0 +1,261 @@
+# ==============================================================================
+# Despliegue continuo a producción.
+#
+# Cuando el CI termina en verde sobre main (es decir, después de cada merge), este workflow actualiza el
+# servidor de producción. Corre en un runner propio instalado en ese servidor (etiqueta `produccion`), que solo
+# abre conexiones de salida hacia GitHub: el servidor no queda expuesto a internet. Un gancho del runner rechaza
+# cualquier trabajo que no sea este workflow en main (README, sección 9.7).
+#
+# Orden: comprobar la carpeta de producción, respaldar las bases y los archivos subidos, pasar al commit exacto
+# que pasó el CI, validar la configuración, reconstruir los contenedores, comprobar que solo el portal quedó
+# publicado y en la IP local, esperar a que todo esté sano y probar el portal. Si algo falla después de cambiar
+# el código, vuelve solo al commit anterior, salvo que la versión nueva haya cambiado el esquema o los permisos
+# de la base: entonces detiene el portal y el backend y deja la decisión a una persona.
+#
+# El ambiente `production` de GitHub pide aprobación manual.
+#
+# El repositorio es público y estos registros también. Nunca imprimir el .env, ni la salida de
+# `docker compose config` (muestra los secretos ya sustituidos), ni los registros de los contenedores (pueden
+# traer datos personales): ante un fallo se indica qué revisar en el servidor.
+# ==============================================================================
+name: Despliegue
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch: # volver a desplegar main a mano (por ejemplo, después de restaurar un respaldo)
+
+# Un despliegue a la vez. Si llega otro, espera a que termine el que está en curso en lugar de cortarlo a la mitad.
+concurrency:
+  group: despliegue-produccion
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  produccion:
+    name: Producción
+    # Solo tras un CI exitoso de un push a main de este mismo repositorio. Sin las dos últimas condiciones, un PR
+    # desde un fork con una rama llamada "main" también dispararía el despliegue.
+    if: >-
+      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push' &&
+       github.event.workflow_run.head_repository.full_name == github.repository)
+    runs-on: produccion
+    environment:
+      name: production
+      url: http://192.168.0.2:3000
+    timeout-minutes: 30
+    env:
+      APP_DIR: /opt/cooperativa-app
+      RESPALDOS_DIR: /srv/cooperativa/respaldos
+      RESPALDOS_A_CONSERVAR: 10
+      # El commit que pasó el CI, no "lo último de main": si entró otro merge mientras tanto, tendrá su propio
+      # despliegue
+      COMMIT: ${{ github.event.workflow_run.head_sha || github.sha }}
+      # Archivos que definen el esquema y los permisos de las bases. Si cambian, no se vuelve atrás a ciegas.
+      ARCHIVOS_ESQUEMA: >-
+        backend/src/config/migrations.js backend/database.sql backend/database-roles.sql
+        backend/database-roles-permisos.sql banco-backend/src/config/initBancoDb.js
+    defaults:
+      run:
+        shell: bash
+        working-directory: /opt/cooperativa-app
+
+    steps:
+      - name: Comprobar la carpeta de producción
+        id: preparar
+        run: |
+          [ -d .git ] || { echo "::error::$APP_DIR no es un clon del repositorio. Vea README, sección 9.7."; exit 1; }
+          [ -f .env ] || { echo "::error::Falta $APP_DIR/.env. Vea README, sección 9.7."; exit 1; }
+          # `!override` y `!reset` del archivo de producción existen desde Compose 2.24.4
+          version=$(docker compose version --short | sed 's/^v//; s/[^0-9.].*//')
+          if [ "$(printf '%s\n' 2.24.4 "$version" | sort -V | head -n 1)" != 2.24.4 ]; then
+            echo "::error::Docker Compose $version es muy viejo: se necesita 2.24.4 o superior."; exit 1
+          fi
+          # En producción el código solo lo cambia este workflow: si alguien editó o agregó algo a mano, no se
+          # sigue. El .env está en .gitignore, así que no aparece aquí.
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "::error::Hay cambios hechos a mano en $APP_DIR. Deshágalos o súbalos por un PR."
+            git status --short
+            exit 1
+          fi
+          echo "anterior=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+          # Funciones para los pasos siguientes. Leen del .env solo valores que no son secretos.
+          cat > "$RUNNER_TEMP/funciones.sh" <<'FUNCIONES'
+          # Siempre con los dos archivos: así no depende de COMPOSE_FILE, que podría faltar o estar repetido
+          compose() { docker compose -f docker-compose.yml -f docker-compose.produccion.yml "$@"; }
+          valor_env() { sed -n "s/^$1=//p" .env | tail -n 1 | tr -d '\r"'"'"; }
+
+          # Compose muestra en sus errores y advertencias trozos de los valores del .env (por ejemplo, ante un $
+          # o una comilla sin cerrar). Se valida sin mostrar nada y se falla también ante una advertencia.
+          validar_configuracion() {
+            local salida="$RUNNER_TEMP/compose-config.txt"
+            if ! compose config --quiet > "$salida" 2>&1 || [ -s "$salida" ]; then
+              rm -f "$salida"
+              echo "::error::La configuración de Compose tiene errores o advertencias (por ejemplo, un valor del .env con \$ o una comilla sin cerrar). No se muestran aquí porque podrían incluir secretos. En el servidor: docker compose config --quiet"
+              return 1
+            fi
+            rm -f "$salida"
+          }
+
+          # Solo el portal debe quedar publicado, y en una IP concreta. Si algo escucha en todas las direcciones,
+          # se detiene el portal y el backend antes de seguir. Solo se imprimen nombres y puertos.
+          comprobar_puertos() {
+            local publicados
+            publicados=$(docker ps --filter label=com.docker.compose.project=cooperativa-app --format '{{.Names}} {{.Ports}}')
+            if grep -E '0\.0\.0\.0:|\[::\]:|:::' <<< "$publicados"; then
+              echo "::error::Hay puertos publicados en todas las direcciones. Se detienen el portal y el backend."
+              compose stop frontend backend || true
+              return 1
+            fi
+            echo "[PASS] Puertos publicados: $(grep -oE '[0-9.]+:[0-9]+->' <<< "$publicados" | tr '\n' ' ')"
+          }
+
+          # Espera hasta 5 minutos a que los contenedores estén sanos y a que el paso de roles haya terminado bien.
+          esperar_salud() {
+            local limite=$((SECONDS + 300)) contenedor estado
+            for contenedor in cooperativa-db banco-backend cooperativa-backend cooperativa-frontend; do
+              while :; do
+                estado=$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$contenedor" 2>/dev/null || echo ausente)
+                if [ "$estado" = healthy ]; then echo "[PASS] $contenedor sano"; break; fi
+                if [ "$estado" = unhealthy ] || [ "$SECONDS" -ge "$limite" ]; then
+                  echo "::error::$contenedor no quedó sano (estado: $estado). En el servidor: docker logs --tail 50 $contenedor"
+                  return 1
+                fi
+                sleep 5
+              done
+            done
+            if [ "$(docker inspect -f '{{.State.ExitCode}}' cooperativa-db-roles 2>/dev/null)" != 0 ]; then
+              echo "::error::El paso de roles de la base falló. En el servidor: docker logs cooperativa-db-roles"
+              return 1
+            fi
+          }
+
+          # Prueba el portal como lo usaría una persona: la página y la API a través de Nginx.
+          probar_portal() {
+            local puerto url
+            puerto=$(valor_env FRONTEND_PORT); puerto=${puerto:-3000}
+            url="http://$(valor_env FRONTEND_BIND_IP):$puerto"
+            curl -fsS --max-time 10 -o /dev/null "$url/" && curl -fsS --max-time 10 -o /dev/null "$url/api/health" \
+              && echo "[PASS] El portal responde en $url" \
+              || { echo "::error::El portal no responde en $url"; return 1; }
+          }
+
+          # Levanta la versión que esté en la carpeta y comprueba que quedó bien. Encadenado con && porque dentro
+          # de un `if` bash no se detiene ante el primer error, y la reversión la llama así.
+          levantar_y_verificar() {
+            validar_configuracion \
+              && compose up -d --build --remove-orphans \
+              && comprobar_puertos \
+              && esperar_salud \
+              && probar_portal
+          }
+          FUNCIONES
+
+      - name: Respaldar las bases y los archivos subidos
+        id: respaldo
+        env:
+          ANTERIOR: ${{ steps.preparar.outputs.anterior }}
+        run: |
+          source "$RUNNER_TEMP/funciones.sh"
+          # Primer despliegue de verdad: la base todavía no existe
+          if ! docker volume inspect cooperativa_db_data > /dev/null 2>&1; then
+            echo "::warning::La base todavía no existe: no hay datos que respaldar (primer despliegue)."
+            exit 0
+          fi
+          # Sin respaldo no se despliega
+          if [ "$(docker inspect -f '{{.State.Running}}' cooperativa-db 2>/dev/null)" != true ]; then
+            echo "::error::La base tiene datos pero no está corriendo, así que no se puede respaldar. Levántela en el servidor y vuelva a ejecutar el despliegue."
+            exit 1
+          fi
+          umask 077
+          destino="$RESPALDOS_DIR/$(date -u +%Y%m%dT%H%M%SZ)-${ANTERIOR:0:7}"
+          mkdir -p "$destino"
+          admin=$(valor_env DB_ADMIN_USER); admin=${admin:-cooperativa_user}
+          base=$(valor_env DB_NAME); base=${base:-cooperativa_db}
+          for b in "$base" banco_db; do
+            docker exec cooperativa-db pg_dump -U "$admin" -d "$b" -Fc > "$destino/$b.dump"
+          done
+          # Los archivos se leen con un contenedor de un solo uso, sin red y en solo lectura: funciona aunque el
+          # backend no esté corriendo, y la carpeta sigue cerrada para los usuarios del servidor
+          uploads=$(valor_env UPLOADS_DIR)
+          [ -d "$uploads" ] || { echo "::error::UPLOADS_DIR no es una carpeta del servidor."; exit 1; }
+          docker run --rm --network none -v "$uploads":/u:ro postgres:16-alpine tar czf - -C /u . > "$destino/uploads.tar.gz"
+          echo "[INFO] Respaldo: $(basename "$destino") ($(du -sh "$destino" | cut -f1))"
+          echo "carpeta=$(basename "$destino")" >> "$GITHUB_OUTPUT"
+
+      - name: Pasar al commit que pasó el CI
+        id: codigo
+        env:
+          ANTERIOR: ${{ steps.preparar.outputs.anterior }}
+        run: |
+          git fetch --prune --quiet origin
+          # Nunca hacia atrás: volver a ejecutar un CI viejo no debe desplegar código sin correcciones posteriores.
+          # Para deshacer un cambio se usa un PR de revert.
+          git merge-base --is-ancestor "$COMMIT" origin/main \
+            || { echo "::error::${COMMIT:0:7} no está en main."; exit 1; }
+          git merge-base --is-ancestor "$ANTERIOR" "$COMMIT" \
+            || { echo "::error::${COMMIT:0:7} es anterior a lo que ya está en producción (${ANTERIOR:0:7}). Para deshacer un cambio, use un PR de revert."; exit 1; }
+          git checkout --quiet --detach "$COMMIT"
+          echo "[INFO] Código en $(git log -1 --format='%h %s')"
+
+      - name: Construir, levantar y verificar
+        run: |
+          source "$RUNNER_TEMP/funciones.sh"
+          levantar_y_verificar
+
+      - name: Volver a la versión anterior
+        if: (failure() || cancelled()) && steps.codigo.outcome == 'success'
+        env:
+          ANTERIOR: ${{ steps.preparar.outputs.anterior }}
+          RESPALDO: ${{ steps.respaldo.outputs.carpeta }}
+        run: |
+          source "$RUNNER_TEMP/funciones.sh"
+          # Si la versión nueva cambió el esquema o los permisos, sus migraciones ya corrieron: el código viejo
+          # sobre una base nueva podría dejar permisos de más. Mejor detener y que decida una persona.
+          if ! git diff --quiet "$ANTERIOR" "$COMMIT" -- $ARCHIVOS_ESQUEMA; then
+            compose stop frontend backend || true
+            echo "::error::La versión ${COMMIT:0:7} cambió el esquema o los permisos de la base, así que no se vuelve atrás sola. Se detuvieron el portal y el backend. Corrija hacia adelante con un PR o restaure el respaldo ${RESPALDO:-(no hubo)} (README, sección 9.7)."
+            exit 1
+          fi
+          echo "[WARN] El despliegue falló: se vuelve a ${ANTERIOR:0:7}."
+          git checkout --quiet --detach "$ANTERIOR"
+          if levantar_y_verificar; then
+            echo "::warning::Producción volvió a ${ANTERIOR:0:7}."
+          else
+            echo "::error::La versión anterior tampoco quedó sana. Revise el servidor. Respaldo: ${RESPALDO:-(no hubo)}."
+            exit 1
+          fi
+
+      - name: Borrar respaldos e imágenes viejas
+        if: success()
+        # Solo después de un despliegue exitoso: si falla varias veces seguidas, se conserva el respaldo de antes
+        # de esos intentos. Cada reconstrucción deja además la imagen anterior sin etiqueta ocupando disco.
+        run: |
+          { ls -1dt "$RESPALDOS_DIR"/*/ 2>/dev/null || true; } | tail -n +$((RESPALDOS_A_CONSERVAR + 1)) | xargs -r rm -rf
+          docker image prune -f > /dev/null
+
+      - name: Resumen
+        if: always()
+        env:
+          ANTERIOR: ${{ steps.preparar.outputs.anterior }}
+          RESPALDO: ${{ steps.respaldo.outputs.carpeta }}
+          RESULTADO: ${{ job.status }}
+        run: |
+          {
+            echo "### Despliegue a producción"
+            echo ""
+            echo "| | |"
+            echo "|---|---|"
+            echo "| Resultado | ${RESULTADO} |"
+            echo "| Commit desplegado | \`${COMMIT:0:7}\` |"
+            echo "| Commit anterior | \`${ANTERIOR:0:7}\` |"
+            echo "| Respaldo | ${RESPALDO:-ninguno} |"
+            echo "| En el servidor ahora | \`$(git rev-parse --short HEAD 2>/dev/null || echo desconocido)\` |"
+          } >> "$GITHUB_STEP_SUMMARY"

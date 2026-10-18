@@ -30,6 +30,7 @@ Documento maestro de arquitectura, flujos operativos de negocio, sistema de dise
    - 9.3 [Configuración de Secretos y Variables de Entorno](#93-configuración-de-secretos-y-variables-de-entorno)
    - 9.4 [Volúmenes Persistentes y Almacenamiento Seguro de Archivos](#94-volúmenes-persistentes-y-almacenamiento-seguro-de-archivos)
    - 9.5 [Verificación de Conectividad y Endpoints de Salud](#95-verificación-de-conectividad-y-endpoints-de-salud)
+   - 9.6 [Despliegue Continuo a Producción](#96-despliegue-continuo-a-producción)
 10. [Suites de Pruebas Automatizadas (100% Cobertura)](#10-suites-de-pruebas-automatizadas-100-cobertura)
 
 ---
@@ -643,6 +644,7 @@ Todas se definen en `.env` (copia de `.env.example`). Las marcadas como obligato
 | `GMAIL_USER` / `GMAIL_APP_PASSWORD` / `EMAIL_FROM` | `backend` | Cuenta de Google Mail emisora, su contraseña de aplicación y el remitente. |
 | `FRONTEND_URL` | `backend` | Origen de CORS permitido y enlace para WebSockets Socket.io. |
 | `DB_PORT` / `BACKEND_PORT` / `FRONTEND_PORT` | — | Puertos en esta máquina (5432, 5001, 3000). |
+| `COMPOSE_FILE` / `FRONTEND_BIND_IP` / `UPLOADS_DIR` | `backend`, `frontend` | Solo en producción: aplican `docker-compose.produccion.yml`, publican solo el portal y solo en la IP de la red local, y guardan los archivos subidos fuera del código (sección 9.6). |
 
 Fuera de Docker, `backend/.env` y `banco-backend/.env` deben tener la misma `BANCO_INTERNAL_API_KEY`. En `backend/.env` existe además `CODIGO_VERIFICACION_DEV`: un código fijo para pruebas sin Gmail que se ignora con `NODE_ENV=production`.
 
@@ -654,11 +656,24 @@ Fuera de Docker, `backend/.env` y `banco-backend/.env` deben tener la misma `BAN
 2. **`./backend/uploads` (Bind Mount del Sistema Anfitrión):**
    - Subcarpetas: `/app/uploads/afiliaciones/` y `/app/uploads/creditos/`.
    - Custodia RBAC: Entrega restringida mediante `GET /api/uploads/:subfolder/:filename`.
+   - En producción la carpeta del anfitrión es `UPLOADS_DIR` (`/srv/cooperativa/uploads`), fuera del código, para que actualizarlo nunca toque los archivos; pertenece al uid 1000 (`node`).
 
 ### 9.5 Verificación de Conectividad y Endpoints de Salud
 
 - **Core Banking Healthcheck:** `GET http://localhost:5002/api/banco/health` (status 200; solo desde esta máquina).
 - **Cooperativa Backend Healthcheck:** `GET http://localhost:5001/api/health` (Público, status 200).
+
+### 9.6 Despliegue Continuo a Producción
+
+Producción es un servidor propio en la red local, sin exposición a internet. El código llega a él solo por este camino:
+
+1. **Desarrollo y revisión:** cada cambio entra por un Pull Request; el workflow `CI` (lint, build, sintaxis y subagentes sincronizados) debe pasar antes de fusionar.
+2. **Disparo:** al terminar en verde el `CI` de `main`, el workflow `Despliegue` (`.github/workflows/deploy.yml`) se activa. Solo acepta un CI de un push a `main` del propio repositorio, nunca de un fork.
+3. **Aprobación:** el ambiente `production` de GitHub exige aprobación manual y solo admite la rama `main`.
+4. **Ejecución en el servidor:** un runner propio (usuario `github-runner`, etiqueta `produccion`) respalda las dos bases y los archivos subidos, pasa al commit exacto que pasó el CI (nunca a uno anterior), valida la configuración sin mostrarla, reconstruye los contenedores, comprueba que solo el portal quedó publicado, espera los *healthchecks* y prueba el portal a través de Nginx. Si algo falla, vuelve al commit anterior, salvo que la versión nueva haya cambiado el esquema o los permisos de la base: entonces detiene el portal y el backend y decide una persona. La base solo se restaura por decisión de una persona.
+5. **Aislamiento del runner:** el usuario del runner está en el grupo `docker`, que equivale a administrar el servidor. Un gancho de root (`ACTIONS_RUNNER_HOOK_JOB_STARTED`) rechaza antes del primer paso cualquier trabajo que no sea `deploy.yml` de `main`, así que un PR que modifique otro workflow no puede ejecutar código en el servidor.
+
+`docker-compose.produccion.yml` ajusta el compose base en el servidor: el portal se publica solo en la IP de la red local (no queda alcanzable por IPv6 ni por otras interfaces), la base, el banco y el backend no publican puertos, y los archivos subidos viven en `UPLOADS_DIR`. Como el repositorio es público, los registros del despliegue no imprimen el `.env`, ni la salida de `docker compose config`, ni registros de contenedores. El portal usa HTTP dentro de la red local: es un riesgo aceptado en este ambiente de práctica. La preparación del servidor, las reglas de operación y la restauración de respaldos están en el `README.md`, sección 9.7.
 
 ---
 

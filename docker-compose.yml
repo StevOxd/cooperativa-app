@@ -10,6 +10,10 @@
 # db y db-roles; DB_OWNER_USER es dueño de las tablas y solo lo usan las migraciones al arrancar (después, el
 # proceso borra esas credenciales de su entorno); DB_USER es el rol con que el backend y el banco atienden
 # peticiones (lee y escribe datos con los permisos que fijan las migraciones).
+#
+# Producción: docker-compose.produccion.yml se aplica encima de este archivo en el servidor (COMPOSE_FILE en su
+# .env). Publica solo el portal y solo en la IP de la red local (la base, el banco y el backend quedan sin puertos)
+# y guarda los archivos subidos fuera de la carpeta del código. Aquí, en desarrollo, nada de eso cambia.
 # ==============================================================================
 
 services:

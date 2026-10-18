@@ -1,0 +1,34 @@
+# ==============================================================================
+# Ajustes de producción: se aplican encima de docker-compose.yml, solo en el servidor.
+#
+# El workflow `Despliegue` lo usa siempre con `-f docker-compose.yml -f docker-compose.produccion.yml`. El .env
+# del servidor trae además COMPOSE_FILE=docker-compose.yml:docker-compose.produccion.yml para que un
+# `docker compose ...` escrito a mano en esa carpeta también lo use. En desarrollo no se usa.
+#
+# Por qué existe:
+# - Docker publica los puertos por encima del firewall del sistema. La única forma confiable de controlar qué
+#   queda abierto es decidirlo aquí. En producción solo se publica el portal, y solo en la IP de la red local:
+#   no queda alcanzable por IPv6 ni por otras interfaces. La base, el banco y el backend no publican nada, porque
+#   se hablan por la red interna de Docker, Nginx atiende /api y los respaldos se hacen con `docker exec`.
+# - Los archivos subidos viven fuera de la carpeta del código, para que actualizarla nunca los toque. La carpeta
+#   debe pertenecer al uid 1000, que es el usuario `node` con que corre el backend.
+#
+# `!override` reemplaza la lista del archivo base y `!reset` la vacía; los dos exigen Docker Compose 2.24.4 o
+# superior. Preparación del servidor: README, sección 9.7.
+# ==============================================================================
+
+services:
+  db:
+    ports: !reset []
+
+  banco-backend:
+    ports: !reset []
+
+  backend:
+    ports: !reset []
+    volumes: !override
+      - ${UPLOADS_DIR:?Falta UPLOADS_DIR en .env (carpeta de archivos subidos fuera del código)}:/app/uploads
+
+  frontend:
+    ports: !override
+      - "${FRONTEND_BIND_IP:?Falta FRONTEND_BIND_IP en .env (IP del servidor en la red local)}:${FRONTEND_PORT:-3000}:80"
