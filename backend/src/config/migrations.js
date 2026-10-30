@@ -4,7 +4,7 @@ const { crearPoolDueno } = require('./db');
 // Registros que solo se agregan (auditoría y movimientos de dinero): el rol de la aplicación no los modifica
 const TABLAS_SOLO_INSERCION = [
   'historial_estados_usuario', 'historial_cambios_beneficiarios', 'transacciones', 'efectivo_ventanilla',
-  'revisiones_documento', 'accesos_documento',
+  'revisiones_documento', 'accesos_documento', 'reportes_generados',
 ];
 // Las únicas tablas en que el código borra filas; en el resto, la desvinculación es por estado (borrado lógico)
 const TABLAS_CON_BORRADO = ['beneficiarios', 'roles_permisos', 'codigos_verificacion_correo'];
@@ -1119,7 +1119,58 @@ const runMigrations = async () => {
           FOR EACH STATEMENT EXECUTE FUNCTION trg_registro_solo_insercion();
     `);
 
-    // 14. Permisos del rol de la aplicación sobre lo que haya quedado en la base (al final, con todas las tablas)
+    // 14. Reportes de gestión (issue #85): cada reporte que saca el personal queda registrado (quién, con qué rol en ese
+    //     momento, cuál, con qué filtros y cuántas filas). Es un registro de auditoría: solo se inserta (función del
+    //     paso 11). Los índices por fecha sirven a los filtros de período de los reportes.
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS reportes_generados (
+        id_reporte SERIAL PRIMARY KEY,
+        id_usuario INT NOT NULL REFERENCES usuarios(id_usuario) ON DELETE RESTRICT,
+        id_rol INT NOT NULL REFERENCES roles(id_rol) ON DELETE RESTRICT,
+        tipo_reporte VARCHAR(30) NOT NULL,
+        formato VARCHAR(3) NOT NULL CHECK (formato IN ('PDF', 'CSV')),
+        parametros JSONB NOT NULL DEFAULT '{}'::jsonb CHECK (jsonb_typeof(parametros) = 'object'),
+        filas INT NOT NULL CHECK (filas >= 0),
+        ip_origen VARCHAR(45),
+        user_agent TEXT,
+        fecha_generacion TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+      -- Los tipos son los de services/reportesService.js (REPORTES); uno nuevo se agrega aquí también. Un tipo que se
+      -- retire se deja en la lista: el registro conserva sus filas y, sin él, este CHECK no arrancaría
+      ALTER TABLE reportes_generados DROP CONSTRAINT IF EXISTS chk_reportes_generados_tipo;
+      ALTER TABLE reportes_generados ADD CONSTRAINT chk_reportes_generados_tipo CHECK (tipo_reporte IN (
+        'CIERRE_CAJA', 'PADRON_ASOCIADOS', 'CARTERA_CREDITOS', 'RESOLUCIONES_COMITE', 'AFILIACIONES',
+        'AUDITORIA_USUARIOS', 'EFECTIVO_VENTANILLA', 'CONCILIACION', 'ACCESOS_DOCUMENTOS', 'REPORTES_GENERADOS'
+      ));
+      CREATE INDEX IF NOT EXISTS idx_reportes_generados_usuario ON reportes_generados (id_usuario, fecha_generacion DESC);
+      CREATE INDEX IF NOT EXISTS idx_reportes_generados_fecha ON reportes_generados (fecha_generacion);
+      CREATE INDEX IF NOT EXISTS idx_reportes_generados_rol ON reportes_generados (id_rol);
+
+      DROP TRIGGER IF EXISTS trg_reportes_generados_inmutable ON reportes_generados;
+      CREATE TRIGGER trg_reportes_generados_inmutable
+          BEFORE UPDATE OR DELETE ON reportes_generados
+          FOR EACH ROW EXECUTE FUNCTION trg_registro_solo_insercion();
+      DROP TRIGGER IF EXISTS trg_reportes_generados_sin_truncate ON reportes_generados;
+      CREATE TRIGGER trg_reportes_generados_sin_truncate
+          BEFORE TRUNCATE ON reportes_generados
+          FOR EACH STATEMENT EXECUTE FUNCTION trg_registro_solo_insercion();
+
+      CREATE INDEX IF NOT EXISTS idx_solicitudes_credito_fecha ON solicitudes_credito (fecha_solicitud);
+      CREATE INDEX IF NOT EXISTS idx_solicitudes_credito_resolucion_ejecutivo
+        ON solicitudes_credito (fecha_resolucion_ejecutivo) WHERE fecha_resolucion_ejecutivo IS NOT NULL;
+      CREATE INDEX IF NOT EXISTS idx_asociados_fecha_ingreso ON asociados (fecha_ingreso);
+      CREATE INDEX IF NOT EXISTS idx_historial_estados_fecha ON historial_estados_usuario (fecha_cambio);
+      CREATE INDEX IF NOT EXISTS idx_efectivo_ventanilla_fecha ON efectivo_ventanilla (fecha_registro);
+      CREATE INDEX IF NOT EXISTS idx_depositos_ventanilla_fecha ON depositos_ventanilla_banco (fecha_deposito);
+      CREATE INDEX IF NOT EXISTS idx_reversiones_pendientes_fecha ON reversiones_pendientes (fecha_registro);
+      CREATE INDEX IF NOT EXISTS idx_accesos_documento_fecha ON accesos_documento (fecha_acceso);
+
+      -- La fecha de ingreso es el día de Guatemala (la base corre en UTC): el reporte de afiliaciones cuenta los
+      -- mismos días que los demás. Las filas anteriores conservan la fecha que tenían (no hay hora para corregirlas).
+      ALTER TABLE asociados ALTER COLUMN fecha_ingreso SET DEFAULT ((CURRENT_TIMESTAMP AT TIME ZONE 'America/Guatemala')::date);
+    `);
+
+    // 15. Permisos del rol de la aplicación sobre lo que haya quedado en la base (al final, con todas las tablas)
     await aplicarPermisosDeLaAplicacion(pool);
 
     console.log('[MIGRATION] Esquema, cuenta_bancaria corporativa, MFA TOTP, roles, beneficiarios y optimizaciones DBA aplicadas exitosamente.');

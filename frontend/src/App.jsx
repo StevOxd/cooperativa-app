@@ -7,6 +7,7 @@ import RoleProtectedRoute from './components/RoleProtectedRoute';
 import Layout from './components/Layout';
 import { LoadingState } from './components/ui';
 import { ScreenErrorBoundary } from './components/common/ScreenErrorBoundary';
+import { STAFF_ROLES } from './components/layout/navigation';
 
 // Cada pantalla se descarga al abrirla, no al cargar la aplicación (issue #21)
 const LoginPage = lazy(() => import('./pages/LoginPage'));
@@ -16,6 +17,7 @@ const CreditSimulatorPage = lazy(() => import('./pages/CreditSimulatorPage'));
 const PublicAffiliationPage = lazy(() => import('./pages/PublicAffiliationPage'));
 const AssociatesManagementPage = lazy(() => import('./pages/AssociatesManagementPage'));
 const ConciliacionPage = lazy(() => import('./pages/ConciliacionPage'));
+const ReportesPage = lazy(() => import('./pages/ReportesPage'));
 
 function App() {
   return (
@@ -61,6 +63,14 @@ function App() {
                     element={
                       <RoleProtectedRoute allowedRoles={['ADMINISTRADOR']}>
                         <ConciliacionPage />
+                      </RoleProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/reportes"
+                    element={
+                      <RoleProtectedRoute allowedRoles={STAFF_ROLES}>
+                        <ReportesPage />
                       </RoleProtectedRoute>
                     }
                   />

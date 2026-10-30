@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Calculator, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Calculator, ChevronLeft, ChevronRight, FileDown } from 'lucide-react';
 import {
   Badge, Button, Card, CardBody, CardHeader, EmptyState, Select, StepProgress, Table, TBody, TD, TH, THead, TR, cn,
 } from '../../ui';
@@ -68,11 +68,15 @@ const CreditsInProgress = ({ creditos }) => (
  * @param {Object} props
  * @param {Object[]} props.creditosEnTramite - Solicitudes sin resolver (de la firma a la autorización).
  * @param {Object|null} props.proximaCuotaDelPlan - Siguiente cuota del crédito elegido; null si el calendario terminó.
+ * @param {Function} props.onDescargarPlan - Descarga el plan de pagos del crédito elegido en PDF.
+ * @param {boolean} [props.descargandoPlan=false]
  */
 export const AssociateCreditsTab = ({
   creditosAprobados,
   creditosEnTramite,
   cuotaPage,
+  descargandoPlan = false,
+  onDescargarPlan,
   cuotasPerPage,
   currentCreditoPlan,
   pageCapitalAmortizado,
@@ -158,7 +162,21 @@ export const AssociateCreditsTab = ({
             <CardHeader
               title={`Crédito #${currentCreditoPlan.id_solicitud_credito}`}
               description={`Aprobado el ${longDate(fechaAprobacion)}`}
-              actions={<Badge tone={estadoPlan.tone}>{estadoPlan.label}</Badge>}
+              actions={
+                <>
+                  <Badge tone={estadoPlan.tone}>{estadoPlan.label}</Badge>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    icon={FileDown}
+                    loading={descargandoPlan}
+                    onClick={onDescargarPlan}
+                    title="Descargar el plan de pagos completo en PDF"
+                  >
+                    Plan de pagos (PDF)<span className="sr-only"> del crédito #{currentCreditoPlan.id_solicitud_credito}</span>
+                  </Button>
+                </>
+              }
             />
             <CardBody>
               <dl className="grid grid-cols-2 gap-x-6 gap-y-4 lg:grid-cols-5">

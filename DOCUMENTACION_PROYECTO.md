@@ -17,8 +17,9 @@ Documento maestro de arquitectura, flujos operativos de negocio, sistema de dise
    - 5.5 [Flujo 4: Rol ADMINISTRADOR (Centro de Mando, Usuarios y Auditoría)](#55-flujo-4-rol-administrador-centro-de-mando-usuarios-y-auditoría)
    - 5.6 [Módulo Transversal: Servicio de Correo Google y Cero Exposición de Claves](#56-módulo-transversal-servicio-de-correo-google-y-cero-exposición-de-claves)
    - 5.7 [Módulo Transversal: Configuración de Cuenta y Factor 2FA Opcional](#57-módulo-transversal-configuración-de-cuenta-y-factor-2fa-opcional)
+   - 5.8 [Módulo Transversal: Reportes de Gestión](#58-módulo-transversal-reportes-de-gestión)
 6. [Estructura Completa de Base de Datos](#6-estructura-completa-de-base-de-datos)
-   - 6.1 [Base de Datos `cooperativa_db` (14 Tablas 3FN)](#61-base-de-datos-cooperativa_db-14-tablas-3fn)
+   - 6.1 [Base de Datos `cooperativa_db` (21 Tablas 3FN)](#61-base-de-datos-cooperativa_db-21-tablas-3fn)
    - 6.2 [Base de Datos `banco_db` (Core Banking de la Corporación)](#62-base-de-datos-banco_db-core-banking-de-la-corporación)
    - 6.3 [Triggers, Funciones y Secuencias Atómicas](#63-triggers-funciones-y-secuencias-atómicas)
    - 6.4 [Optimización de Índices DBA y Cobertura B-Tree](#64-optimización-de-índices-dba-y-cobertura-b-tree)
@@ -280,6 +281,11 @@ Disponible en `/registro-asociado` sin autenticación previa:
 - Pestaña «Documentos»: el asociado sube el DPI (frente y reverso), un recibo de servicios, una foto sosteniendo el DPI y, si quiere, su constancia de ingresos o laboral. Ve si cada uno está en revisión, aceptado o rechazado (con el motivo) y vuelve a subir los rechazados. Las fotos se reducen y pierden la ubicación antes de enviarse.
 - Si le falta alguno o se rechazó, el resumen del portal muestra un aviso; el portal sigue funcionando normal.
 
+#### 5. Constancias y Comprobantes en PDF:
+- **Constancia de afiliación** (botón «Constancia» del encabezado): nombre, DPI, código, fecha de ingreso y estado de la afiliación, sin cuentas ni saldos porque suele entregarse a terceros.
+- **Plan de pagos** de cada crédito aprobado (pestaña «Plan de pagos»): cuota, totales de capital e intereses y el calendario completo.
+- **Comprobante de traslado** de cada solicitud (pestaña «Traslados»), con su número de caso y su estado; si está en revisión, aclara que no confirma el traslado.
+
 ---
 
 ### 5.3 Flujo 2: Rol OPERADOR (Ventanilla, Padrón y Comprobantes Oficiales)
@@ -415,11 +421,34 @@ El sistema integra un servicio de mensajería electrónica corporativa en [`mail
 
 ---
 
+### 5.8 Módulo Transversal: Reportes de Gestión
+
+Pantalla «Reportes» del personal (issue #85): cada reporte se descarga en PDF para imprimirlo o en CSV para abrirlo en Excel, con el período (o el día o el estado) que se elija. El servidor arma los datos con los permisos de cada rol; el archivo se genera en el navegador.
+
+| Reporte | Quién lo saca | Contenido |
+|---|---|---|
+| Cierre de caja | Operador | El efectivo que recibió en un día (aportaciones, formalizaciones, aperturas y depósitos al banco), con lo confirmado, lo que falta conciliar y lo no cobrado; líneas de firma para el operador y la tesorería. Solo el suyo. |
+| Padrón de asociados | Operador | Código, nombre, DPI, tipo (EB o EX), fecha de ingreso, estado, cuentas activas y estado de los documentos obligatorios. |
+| Cartera de créditos | Ejecutivo y administrador | Solicitudes del período por estado, con monto, plazo, tasa, cuota, operador y ejecutivo, y la tasa de aprobación. |
+| Acta de resoluciones del comité | Ejecutivo y administrador | Créditos aprobados, devueltos y denegados en el período, con la observación del ejecutivo y líneas de firma del comité. |
+| Afiliaciones | Administrador | Ingresos del período por canal (en línea, solicitud en agencia o ventanilla) y tipo. |
+| Auditoría de usuarios | Administrador | Cambios de estado y de rol, con quién los hizo, motivo e IP. |
+| Efectivo de ventanilla | Administrador | El efectivo de todos los operadores, por operador y por concepto. |
+| Conciliación con el banco | Administrador | Depósitos en ventanilla y reversiones del período, con su estado y quién los cerró. |
+| Accesos a documentos de identidad | Administrador | Quién abrió qué documento de afiliación y cuándo, distinguiendo al titular del personal. |
+| Reportes generados | Administrador | Quién sacó qué reporte, cuándo, en qué formato y con qué filtros. |
+
+- **Registro y folio:** cada reporte queda en `reportes_generados` antes de entregarse; su folio `REP-XXXXXX` va en el PDF y en el nombre del archivo.
+- **Límites:** período de un año como máximo, 30 reportes por usuario cada 15 minutos y, si un reporte pasa de 10,000 filas, se pide acortar el período en lugar de entregarlo incompleto.
+- **CSV:** UTF-8 con BOM (Excel respeta las tildes), fechas `AAAA-MM-DD HH:MM` y montos sin formato; una celda que Excel tomaría como fórmula se antepone con un apóstrofo.
+
+---
+
 ## 6. Estructura Completa de Base de Datos
 
 PostgreSQL 16 gestiona dos bases de datos relacionales: `cooperativa_db` (entidad cooperativa) y `banco_db` (Core Banking de la corporación).
 
-### 6.1 Base de Datos `cooperativa_db` (15 Tablas 3FN)
+### 6.1 Base de Datos `cooperativa_db` (21 Tablas 3FN)
 
 ```
                                   +-------------------+
@@ -494,6 +523,7 @@ PostgreSQL 16 gestiona dos bases de datos relacionales: `cooperativa_db` (entida
 18. **`documentos_afiliacion`:** Cada versión de un documento (`id_documento` PK, `id_expediente` FK, `tipo_documento` DPI_FRENTE/DPI_REVERSO/RECIBO_SERVICIOS/FOTO_CON_DPI/CONSTANCIA_INGRESOS, `archivo` UNIQUE generado por el servidor, `tamano_bytes`, `sha256`, `estado` PENDIENTE/ACEPTADO/RECHAZADO/REEMPLAZADO, `id_documento_anterior` del mismo expediente y tipo, `canal_carga`, `id_usuario_carga`, `ip_origen`, `user_agent`, `fecha_carga`). Una sola versión vigente por tipo (índice único parcial); un trigger solo deja cambiar el estado, en el orden de la revisión.
 19. **`revisiones_documento`:** Una revisión por versión (`id_documento` UNIQUE, `resultado` ACEPTADO/RECHAZADO, `motivo` obligatorio al rechazar, `id_usuario_revisa`, `ip_origen`, `user_agent`, `fecha_revision`). Registro de solo agregar; un trigger exige que el resultado sea el estado que se le dio al documento.
 20. **`accesos_documento`:** Quién abrió cada documento, desde dónde y cuándo (`id_documento`, `id_usuario`, `ip_origen`, `user_agent`, `fecha_acceso`). Registro de solo agregar.
+21. **`reportes_generados`:** Cada reporte de gestión que sacó el personal (`id_reporte` PK, que forma el folio `REP-XXXXXX`, `id_usuario` FK, `tipo_reporte`, `formato` PDF/CSV, `parametros` JSONB con los filtros, `filas`, `ip_origen`, `user_agent`, `fecha_generacion`). Registro de solo agregar.
 
 ---
 

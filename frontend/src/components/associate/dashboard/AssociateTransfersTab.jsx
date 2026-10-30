@@ -1,5 +1,5 @@
 import React from 'react';
-import { ArrowLeftRight, Send } from 'lucide-react';
+import { ArrowLeftRight, FileDown, Send } from 'lucide-react';
 import {
   Alert, Badge, Button, Card, CardBody, CardHeader, EmptyState, SearchInput, Select, StatCard, StatGroup, Table, TBody, TD, TH,
   THead, TR,
@@ -21,10 +21,17 @@ const totalPorEstado = (solicitudes, estado) => {
 };
 
 /**
- * Pestaña de traslados: resumen de sus solicitudes, cuenta de planilla (origen) e historial.
+ * Pestaña de traslados: resumen de sus solicitudes, cuenta de planilla (origen) e historial con el comprobante de
+ * cada solicitud.
+ *
+ * @param {Object} props
+ * @param {(solicitud: Object) => void} props.onDescargarComprobante - Descarga el comprobante en PDF.
+ * @param {(numeroCaso: string) => boolean} props.descargandoComprobante - Si el comprobante de ese caso se está generando.
  */
 export const AssociateTransfersTab = ({
   cuentaPlanilla,
+  descargandoComprobante,
+  onDescargarComprobante,
   filterTrasladoEstado,
   filterTrasladoTipo,
   filteredSolicitudesTraslado,
@@ -177,6 +184,16 @@ export const AssociateTransfersTab = ({
                       <TD className="whitespace-nowrap">
                         <div className="font-mono text-ink">{s.numero_caso}</div>
                         {s.fecha_solicitud && <div className="text-xs text-ink-subtle">{formatDate(s.fecha_solicitud)}</div>}
+                        <Button
+                          size="sm"
+                          variant="link"
+                          icon={FileDown}
+                          className="px-0"
+                          loading={descargandoComprobante(s.numero_caso)}
+                          onClick={() => onDescargarComprobante(s)}
+                        >
+                          Comprobante (PDF)<span className="sr-only"> del caso {s.numero_caso}</span>
+                        </Button>
                       </TD>
                       <TD className="min-w-[10rem]">
                         <div className="text-ink">

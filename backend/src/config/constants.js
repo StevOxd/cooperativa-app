@@ -88,4 +88,10 @@ module.exports = Object.freeze({
     MOTIVO_RECHAZO_MIN: 5,
     MOTIVO_RECHAZO_MAX: 500,
   }),
+  // Reportes de gestión (issue #85): un reporte con más filas no se corta (sus totales serían falsos), se pide
+  // acortar el período
+  REPORTES: Object.freeze({
+    MAX_FILAS: 10000,
+    MAX_DIAS_PERIODO: 366,
+  }),
 });

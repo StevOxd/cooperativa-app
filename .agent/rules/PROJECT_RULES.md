@@ -47,9 +47,10 @@ Documento maestro de reglas técnicas, directrices de desarrollo, arquitectura d
 9. **Auditoría Forense Inmutable:** Todo cambio de estado de usuario se registra en `historial_estados_usuario` con dirección IP de origen, cabecera User-Agent y motivo justificado.
 10. **Política de Contraseñas:** Las contraseñas elegidas por el usuario tienen mínimo 8 caracteres, con letras, números y al menos un símbolo (`utils/passwordPolicy.js` en backend y frontend).
 11. **Respuestas que no Revelan Cuentas:** Login, Banca en Línea y consulta pública del DPI responden igual exista o no la cuenta, sin datos personales y con un tiempo equivalente. Las consultas de disponibilidad (`verificar-email`) son solo para el personal.
-12. **Límites por Conexión (`express-rate-limit`):** 15 inicios de sesión, 30 consultas de DPI o Banca en Línea, 10 códigos de verificación de correo y 20 depósitos o aperturas en el banco desde ventanilla cada 15 minutos. Por usuario: 20 cargas de documentos de afiliación del asociado cada 15 minutos.
+12. **Límites por Conexión (`express-rate-limit`):** 15 inicios de sesión, 30 consultas de DPI o Banca en Línea, 10 códigos de verificación de correo y 20 depósitos o aperturas en el banco desde ventanilla cada 15 minutos. Por usuario: 20 cargas de documentos de afiliación del asociado y 30 reportes del personal cada 15 minutos.
 13. **Titularidad y Resultados de Operaciones Bancarias:** Todo débito lleva el DPI del titular (el banco rechaza cuentas de otra persona) y se revisa el resultado de `bancoApiService` (devuelve `success: false`, no lanza errores) antes de registrar el movimiento.
 14. **Sin Secretos en Registros ni Respuestas:** Contraseñas, códigos de verificación y secretos 2FA no se escriben en consola ni viajan en respuestas JSON.
+15. **Reportes de Gestión Registrados:** Los datos de cada reporte del personal los arma el servidor (`/api/reportes/:tipo`) según el rol que declara el reporte (`services/reportesService.js`); el operador solo saca su propio cierre de caja. Antes de entregarlo queda en `reportes_generados` (de solo agregar) con quién, cuál, formato, filtros, filas e IP, y su folio `REP-XXXXXX` va en el archivo. El período es de un año como máximo y un reporte de más de 10,000 filas no se entrega cortado (HTTP 422). El CSV neutraliza las celdas que Excel tomaría como fórmula.
 
 ---
 

@@ -5,6 +5,7 @@ const { esAutoatencion } = require('../services/segregacionService');
 const { RESPUESTA_AUTOATENCION } = require('../middlewares/segregacion');
 const { FINANCIERO } = require('../config/constants');
 const { respuestaDeError } = require('../utils/errores');
+const { fechaValida } = require('../utils/fechas');
 
 /**
  * Conciliación con el banco (issues #64 y #66): el administrador revisa los depósitos en ventanilla y las
@@ -16,13 +17,6 @@ const LIMITE = 200;
 // Un depósito se concilia pasado este tiempo: antes, su llamada al banco puede seguir en curso (el banco no lo
 // tiene todavía y quedaría rechazado aunque luego entre)
 const { MINUTOS_PARA_CONCILIAR } = FINANCIERO;
-
-/** Fecha AAAA-MM-DD que existe en el calendario (no 2026-02-30). */
-const fechaValida = (texto) => {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(texto)) return false;
-  const fecha = new Date(`${texto}T00:00:00Z`);
-  return !Number.isNaN(fecha.getTime()) && fecha.toISOString().slice(0, 10) === texto;
-};
 const ETIQUETA_ESTADO = {
   PENDIENTE: 'pendiente',
   SIN_CONFIRMAR: 'sin confirmar',

@@ -63,7 +63,16 @@ export const fileSafe = (text) => String(text || '').replace(/[^a-zA-Z0-9-]+/g, 
 /** Valor para mostrar: nunca "undefined" ni un marcador inventado. */
 export const show = (value) => (value === undefined || value === null || value === '' ? '—' : String(value));
 
-export const createDoc = () => new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'letter' });
+/** Nombre completo de una persona: el calculado por la base o sus nombres y apellidos. */
+export const nombreCompleto = (persona) =>
+  persona?.nombre_completo ||
+  [persona?.primer_nombre, persona?.segundo_nombre, persona?.primer_apellido, persona?.segundo_apellido].filter(Boolean).join(' ');
+
+/** Fecha de hoy en Guatemala (AAAA-MM-DD) para el nombre del archivo; la de UTC sería mañana después de las 18:00. */
+export const fechaArchivo = () => new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Guatemala' });
+
+/** Hoja carta; horizontal para las tablas anchas de los reportes. */
+export const createDoc = (orientation = 'portrait') => new jsPDF({ orientation, unit: 'mm', format: 'letter' });
 
 const pageSize = (doc) => ({ w: doc.internal.pageSize.getWidth(), h: doc.internal.pageSize.getHeight() });
 const contentWidth = (doc) => pageSize(doc).w - MARGIN * 2;
@@ -226,15 +235,29 @@ export const noteBox = (doc, y, { title, text, tone = 'neutral' }) => {
   return y + height + 7;
 };
 
+// Una fila de una línea mide 6.4 mm; cada línea más de una celda con `wrap` suma LINEA (8 pt × 1.25)
+const ALTO_FILA = 6.4;
+const LINEA = 3.53;
+const MAX_LINEAS = 12;
+
+/** El texto, recortado con «…» si no cabe en `maxW` (con la fuente ya puesta). */
+const recortar = (doc, texto, maxW) => {
+  if (doc.getTextWidth(texto) <= maxW) return texto;
+  let corto = doc.splitTextToSize(texto, maxW)[0].trimEnd();
+  while (corto.length > 1 && doc.getTextWidth(`${corto}…`) > maxW) corto = corto.slice(0, -1);
+  return `${corto}…`;
+};
+
 /**
- * Tabla con encabezado repetido en cada página.
- * @param {Array<{header: string, width: number, align?: 'left'|'right', mono?: boolean}>} cols - `width` en fracción del ancho.
+ * Tabla con encabezado repetido en cada página. Una celda va en una línea (recortada con «…»), salvo en las columnas
+ * con `wrap`, que ocupan las líneas que necesiten (hasta 12). Los saltos de línea del texto se vuelven espacios.
+ * @param {Array<{header: string, width: number, align?: 'left'|'right', mono?: boolean, wrap?: boolean}>} cols -
+ *   `width` en fracción del ancho.
  * @param {Array<Array<string|{text: string, color?: number[], bold?: boolean}>>} rows
  */
 export const table = (doc, y, cols, rows, { onNewPage, emptyText = 'Sin registros.' } = {}) => {
   const width = contentWidth(doc);
   const widths = cols.map((c) => c.width * width);
-  const rowH = 6.4;
 
   const drawHead = (hy) => {
     doc.setFillColor(...C.surfaceSunken);
@@ -253,27 +276,38 @@ export const table = (doc, y, cols, rows, { onNewPage, emptyText = 'Sin registro
   if (rows.length === 0) {
     font(doc, { size: 8.5, color: C.inkSubtle });
     doc.text(emptyText, MARGIN + width / 2, cy + 7, { align: 'center' });
-    return cy + 12;
+    return cy + 16;
   }
 
   rows.forEach((row) => {
-    const next = ensureSpace(doc, cy, rowH, (ny) => drawHead(onNewPage ? onNewPage(ny) : ny));
-    cy = next;
-    let x = MARGIN;
-    row.forEach((cell, i) => {
+    // Primero las líneas de cada celda: el alto de la fila es el de la celda más alta
+    const celdas = row.map((cell, i) => {
       const c = cols[i];
       const cellObj = typeof cell === 'object' && cell !== null ? cell : { text: cell };
-      font(doc, {
+      const estilo = {
         size: 8,
         style: cellObj.bold ? 'bold' : 'normal',
         color: cellObj.color || C.inkSoft,
         family: c.mono ? 'courier' : 'helvetica',
-      });
+      };
+      font(doc, estilo);
       const maxW = widths[i] - 5;
-      let text = show(cellObj.text);
-      while (text.length > 1 && doc.getTextWidth(text) > maxW) text = `${text.slice(0, -2)}…`;
+      const texto = show(cellObj.text).replace(/\s+/g, ' ').trim() || '—';
+      let lineas = [recortar(doc, texto, maxW)];
+      if (c.wrap) {
+        lineas = doc.splitTextToSize(texto, maxW);
+        if (lineas.length > MAX_LINEAS) lineas = [...lineas.slice(0, MAX_LINEAS - 1), recortar(doc, `${lineas[MAX_LINEAS - 1]}…`, maxW)];
+      }
+      return { estilo, lineas };
+    });
+    const rowH = ALTO_FILA + (Math.max(...celdas.map((celda) => celda.lineas.length)) - 1) * LINEA;
+    cy = ensureSpace(doc, cy, rowH, (ny) => drawHead(onNewPage ? onNewPage(ny) : ny));
+    let x = MARGIN;
+    celdas.forEach(({ estilo, lineas }, i) => {
+      const c = cols[i];
+      font(doc, estilo);
       const tx = c.align === 'right' ? x + widths[i] - 2.5 : x + 2.5;
-      doc.text(text, tx, cy + 4.3, { align: c.align === 'right' ? 'right' : 'left' });
+      doc.text(lineas, tx, cy + 4.3, { align: c.align === 'right' ? 'right' : 'left', lineHeightFactor: 1.25 });
       x += widths[i];
     });
     doc.setDrawColor(...C.line);

@@ -1,12 +1,14 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
-import { RefreshCw, Send, Compass } from 'lucide-react';
+import { RefreshCw, Send, Compass, FileCheck2 } from 'lucide-react';
 import { Button, LoadingState, PageHeader, TabPanel, Tabs } from '../components/ui';
 import { formatDate } from '../utils/format';
 import AssociateOnboardingTour from '../components/associate/AssociateOnboardingTour';
 import { useToast } from '../context/ToastContext';
-import { generateAccountStatementPdf } from '../utils/pdfs';
+import {
+  generateAccountStatementPdf, generateAffiliationCertificatePdf, generatePaymentPlanPdf, generateTransferReceiptPdf,
+} from '../utils/pdfs';
 import { AssociateSummaryTab } from '../components/associate/dashboard/AssociateSummaryTab';
 import { AssociateTransfersTab } from '../components/associate/dashboard/AssociateTransfersTab';
 import { AssociateCreditsTab } from '../components/associate/dashboard/AssociateCreditsTab';
@@ -122,6 +124,8 @@ export const AssociateDashboard = () => {
   const [loadingTx, setLoadingTx] = useState(false);
   const [generatingPdf, setGeneratingPdf] = useState(false);
   const [downloadingAccountId, setDownloadingAccountId] = useState(null);
+  // Documentos del portal que se están generando: 'constancia', 'plan:<id>' o el número de caso de un traslado
+  const [descargando, setDescargando] = useState(() => new Set());
 
   // Estados del módulo de Traslado de Planilla
   const [cuentaPlanilla, setCuentaPlanilla] = useState(null);
@@ -483,6 +487,44 @@ export const AssociateDashboard = () => {
     }
   };
 
+  /**
+   * Genera un documento del portal (constancia, plan de pagos o comprobante de traslado) y avisa el resultado.
+   *
+   * @param {string} clave - Qué se genera, para mostrar el botón ocupado.
+   * @param {() => Promise<unknown>} generar
+   * @param {string} exito - Mensaje al descargarlo.
+   */
+  const descargarDocumento = async (clave, generar, exito) => {
+    setDescargando((enCurso) => new Set(enCurso).add(clave));
+    try {
+      await generar();
+      toast.success(exito);
+    } catch (err) {
+      console.error('Error al generar el documento en PDF:', err);
+      toast.error('No se pudo generar el documento. Intente de nuevo.');
+    } finally {
+      setDescargando((enCurso) => {
+        const siguen = new Set(enCurso);
+        siguen.delete(clave);
+        return siguen;
+      });
+    }
+  };
+
+  const descargarConstancia = () =>
+    descargarDocumento(
+      'constancia',
+      () => generateAffiliationCertificatePdf({ asociado: profile }),
+      'Se descargó su constancia de afiliación.'
+    );
+
+  const descargarComprobanteTraslado = (solicitud) =>
+    descargarDocumento(
+      solicitud.numero_caso,
+      () => generateTransferReceiptPdf({ asociado: profile || user, solicitud }),
+      `Se descargó el comprobante del caso ${solicitud.numero_caso}.`
+    );
+
   // Procesar envío del traslado
   const handleTrasladoSubmit = async (e) => {
     e.preventDefault();
@@ -663,6 +705,13 @@ export const AssociateDashboard = () => {
   );
   const pagePagadoAmortizado = pageCapitalAmortizado + pageInteresAmortizado;
 
+  const descargarPlanDePagos = () =>
+    descargarDocumento(
+      `plan:${currentCreditoPlan.id_solicitud_credito}`,
+      () => generatePaymentPlanPdf({ asociado: profile || user, credito: currentCreditoPlan, plan: planAmortizacion }),
+      `Se descargó el plan de pagos del crédito #${currentCreditoPlan.id_solicitud_credito}.`
+    );
+
   if (loading) {
     return <LoadingState label="Cargando su información…" className="py-24" />;
   }
@@ -682,6 +731,17 @@ export const AssociateDashboard = () => {
             <Button variant="ghost" icon={Compass} onClick={() => setShowTour(true)} title="Ver un recorrido por las funciones del portal">
               Recorrido
             </Button>
+            {profile && (
+              <Button
+                variant="secondary"
+                icon={FileCheck2}
+                loading={descargando.has('constancia')}
+                onClick={descargarConstancia}
+                title="Descargar la constancia de afiliación en PDF"
+              >
+                Constancia<span className="sr-only sm:not-sr-only"> de afiliación</span>
+              </Button>
+            )}
             <Button variant="secondary" size="icon" onClick={fetchData} aria-label="Actualizar" title="Actualizar">
               <RefreshCw className="w-4 h-4" aria-hidden="true" />
             </Button>
@@ -757,6 +817,8 @@ export const AssociateDashboard = () => {
           setFilterTrasladoTipo={setFilterTrasladoTipo}
           setSearchTrasladoQuery={setSearchTrasladoQuery}
           solicitudesTraslado={solicitudesTraslado}
+          descargandoComprobante={(numeroCaso) => descargando.has(numeroCaso)}
+          onDescargarComprobante={descargarComprobanteTraslado}
         />
       )}
 
@@ -780,6 +842,8 @@ export const AssociateDashboard = () => {
           totalCuotasPages={totalCuotasPages}
           totalInteresAmortizado={totalInteresAmortizado}
           totalPagadoAmortizado={totalPagadoAmortizado}
+          descargandoPlan={Boolean(currentCreditoPlan) && descargando.has(`plan:${currentCreditoPlan.id_solicitud_credito}`)}
+          onDescargarPlan={descargarPlanDePagos}
         />
       )}
 
