@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { Send } from 'lucide-react';
-import { getSecureDocumentUrl } from '../../../utils/documentUrl';
 import {
   Alert, Badge, Button, Field, LoadingState, Modal, ProgressBar, StatCard, StatGroup, TabPanel, Tabs, Textarea,
 } from '../../ui';
@@ -250,7 +249,7 @@ const OperatorCreditEvaluationModal = ({
           <TabPanel id={activeEvalTab} idPrefix={TABS_ID}>
             {activeEvalTab === 'documento' && (
               <SignedPdfPanel
-                existingUrl={selectedCredito.documento_firmado_url ? getSecureDocumentUrl(selectedCredito.documento_firmado_url) : undefined}
+                existingUrl={selectedCredito.documento_firmado_url || undefined}
                 existingName={selectedCredito.nombre_archivo_firmado}
                 existingSize={selectedCredito.peso_archivo_bytes}
                 downloadName={`Solicitud_Credito_${selectedCredito.id_solicitud_credito}.pdf`}

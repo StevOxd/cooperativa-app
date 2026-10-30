@@ -125,7 +125,7 @@ Además, el servicio `db-roles` (contenedor `cooperativa-db-roles`, misma imagen
     - ./backend/uploads:/app/uploads
   ```
 - **Almacenamiento Físico:** Almacena de forma persistente los documentos de afiliación (`uploads/afiliaciones/`: DPI, recibo de servicios, foto con el DPI y constancia de ingresos), los comprobantes de apertura de cuenta y las solicitudes de crédito firmadas (`uploads/creditos/`).
-- **Entrega Segura de Archivos (RBAC):** Se erradicó la entrega estática pública (`express.static`). Las descargas se canalizan por el endpoint protegido `GET /api/uploads/:subfolder/:filename`, validando token JWT y control de acceso RBAC. Los documentos de afiliación se buscan primero en la base, solo aceptan el token en la cabecera (el frontend los pide como blob), los ve el personal o su dueño, se entregan sin caché y cada apertura queda en `accesos_documento`. Al subirlos se valida el contenido (firma de PDF, JPG o PNG, hasta 5 MB; nginx acepta 8 MB solo en esas rutas) y el servidor les pone el nombre (`doc_<uuid>`).
+- **Entrega Segura de Archivos (RBAC):** Se erradicó la entrega estática pública (`express.static`). Las descargas se canalizan por el endpoint protegido `GET /api/uploads/:subfolder/:filename`, validando token JWT y control de acceso RBAC. Todos los documentos (de afiliación y PDF de crédito) solo aceptan el token en la cabecera (el frontend los pide como blob), se buscan primero en la base, los ve el personal o su dueño (a cualquier otro se le responde como si no existieran) y se entregan sin caché; cada apertura de un documento de afiliación queda en `accesos_documento`. Los PDF de crédito nuevos se nombran con un UUID. Al subirlos se valida el contenido (firma de PDF, JPG o PNG, hasta 5 MB; nginx acepta 8 MB solo en esas rutas) y el servidor les pone el nombre (`doc_<uuid>`).
 
 ---
 
@@ -346,7 +346,7 @@ Disponible en `/registro-asociado` sin autenticación previa:
 ```
 
 #### 1. Bandeja y Visor Documental Protegido:
-- Acceso al PDF escaneado con firma manuscrita mediante token seguro en `/api/uploads/creditos/:filename`.
+- Acceso al PDF escaneado con firma manuscrita en `/api/uploads/creditos/:filename`: se pide con el token en la cabecera y se muestra como blob (el token nunca va en la URL), solo si hay una solicitud con ese archivo.
 - Verificación estricta de presencia del documento firmado antes de autorizar la resolución final.
 
 #### 2. Motor de Scoring y Columna "TIPO" de Flujo Financiero:

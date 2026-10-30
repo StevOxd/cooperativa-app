@@ -51,9 +51,10 @@ const init = (httpServer) => {
   });
 
   // Autenticación opcional por handshake: el socket queda asociado al usuario solo si el token es de una
-  // sesión vigente (las mismas reglas que verifyToken). Si no, se conecta como anónimo.
+  // sesión vigente (las mismas reglas que verifyToken). Si no, se conecta como anónimo. El token va en `auth`,
+  // nunca en la URL (`?token=` quedaría en el registro de nginx).
   io.use(async (socket, next) => {
-    const token = socket.handshake.auth?.token || socket.handshake.query?.token;
+    const token = socket.handshake.auth?.token;
     if (token) {
       try {
         const sesion = await autenticarToken(token);

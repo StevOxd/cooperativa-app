@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { generateCreditApplicationPdf } from '../utils/pdfs';
 import { ConfirmModal } from '../components/common/ConfirmModal';
-import { getSecureDocumentUrl } from '../utils/documentUrl';
+import { ProtectedDocumentLink } from '../components/documents';
 import { Download, FileCheck, FileText, RefreshCw, Send, Trash2, UploadCloud } from 'lucide-react';
 import {
   Alert,
@@ -739,16 +739,15 @@ export const CreditSimulatorPage = () => {
                       </TD>
                       <TD className="whitespace-nowrap">
                         {c.documento_firmado_url ? (
-                          <a
-                            href={getSecureDocumentUrl(c.documento_firmado_url)}
-                            target="_blank"
-                            rel="noopener noreferrer"
+                          <ProtectedDocumentLink
+                            url={c.documento_firmado_url}
                             title="Abrir el documento firmado en una pestaña nueva"
-                            className="inline-flex items-center gap-1 rounded-sm text-sm font-medium text-brand-700 hover:text-brand-800 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600"
+                            etiquetaOculta={` de la solicitud #${c.id_solicitud_credito}`}
+                            className="text-sm"
                           >
                             <FileCheck className="w-4 h-4" aria-hidden="true" />
                             PDF firmado
-                          </a>
+                          </ProtectedDocumentLink>
                         ) : c.estado === 'PENDIENTE_FIRMA' ? (
                           <Button size="sm" variant="secondary" icon={Download} onClick={() => handleDescargarPdfDeSolicitud(c)}>
                             Formulario

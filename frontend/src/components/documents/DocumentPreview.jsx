@@ -11,7 +11,7 @@ import { useDocumentoBlob } from '../../hooks/useDocumentoBlob';
  * @param {string} props.titulo - Nombre accesible (p. ej. «DPI (frente) de Ana Pérez»).
  */
 export const DocumentPreview = ({ url, titulo, className }) => {
-  const { cargando, objectUrl, tipo, error, reintentar } = useDocumentoBlob(url);
+  const { cargando, objectUrl, tipo, error, noEncontrado, reintentar } = useDocumentoBlob(url);
 
   // El espacio de carga se parece al de la vista final para que la página no salte
   if (cargando) return <LoadingState label="Abriendo documento…" className="min-h-[40vh]" />;
@@ -20,7 +20,9 @@ export const DocumentPreview = ({ url, titulo, className }) => {
       <Alert tone="danger">
         <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
           {error}
-          <Button size="sm" variant="link" icon={RefreshCw} className="px-0" onClick={reintentar}>Intentar de nuevo</Button>
+          {!noEncontrado && (
+            <Button size="sm" variant="link" icon={RefreshCw} className="px-0" onClick={reintentar}>Intentar de nuevo</Button>
+          )}
         </span>
       </Alert>
     );

@@ -256,7 +256,7 @@ const testServer = server.listen(0, async () => {
     assert((await getArchivo(port, url, ana.token)).status === 200, 'La dueña abre su documento');
     assert((await getArchivo(port, url, ad.token)).status === 200 && (await getArchivo(port, url, ej.token)).status === 200,
       'El administrador y el ejecutivo también lo abren');
-    assert((await getArchivo(port, url, beto.token)).status === 403, 'Otro asociado no lo abre (403)');
+    assert((await getArchivo(port, url, beto.token)).status === 404, 'Otro asociado no lo abre: se le responde como si no existiera (404)');
     assert((await getArchivo(port, url)).status === 401, 'Sin sesión, 401');
     assert((await getArchivo(port, `${url}?token=${ana.token}`)).status === 401, 'Los documentos de afiliación no aceptan el token en la URL');
     assert((await getArchivo(port, '/api/uploads/afiliaciones/doc_00000000-0000-0000-0000-000000000000.pdf', op.token)).status === 404,
