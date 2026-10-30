@@ -210,7 +210,7 @@ async function borrarArchivosDeDocumentos(archivos) {
 
 /**
  * Borra una persona de prueba con todo lo suyo: usuarios, auditoría, cuentas, movimientos, solicitudes, sus
- * documentos de afiliación (y sus archivos) y el efectivo de ventanilla registrado a su nombre. Todo en una
+ * documentos de afiliación (y sus archivos), los reportes que sacó y el efectivo de ventanilla registrado a su nombre. Todo en una
  * transacción: si un paso falla, no queda a medias. Usa el rol dueño (poolDueno), el único que puede purgar los
  * registros de auditoría.
  *
@@ -233,6 +233,7 @@ async function borrarPersonaDePrueba(db, idPersona) {
     "SET LOCAL cooperativa.purga_pruebas = 'on'",
     ...pasosPurgaDocumentos(deLaPersona),
     `DELETE FROM accesos_documento WHERE id_usuario IN (${usuarios})`,
+    `DELETE FROM reportes_generados WHERE id_usuario IN (${usuarios})`,
     `DELETE FROM depositos_ventanilla_banco WHERE id_usuario_operador IN (${usuarios})
        OR titular_cui = (SELECT cui_dpi FROM personas WHERE id_persona = $1)`,
     `DELETE FROM efectivo_ventanilla WHERE id_usuario_operador IN (${usuarios})

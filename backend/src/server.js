@@ -27,6 +27,7 @@ const afiliacionOnlineRoutes = require('./routes/afiliacionOnlineRoutes');
 const asociadosAdminRoutes = require('./routes/asociadosAdminRoutes');
 const conciliacionRoutes = require('./routes/conciliacionRoutes');
 const ejecutivoRoutes = require('./routes/ejecutivoRoutes');
+const reportesRoutes = require('./routes/reportesRoutes');
 
 const app = express();
 const server = http.createServer(app);
@@ -98,6 +99,7 @@ app.use('/api/banco-externo', bancoExternoRoutes);
 app.use('/api/afiliacion', afiliacionOnlineRoutes);
 app.use('/api/admin/asociados', asociadosAdminRoutes);
 app.use('/api/conciliacion', conciliacionRoutes);
+app.use('/api/reportes', reportesRoutes);
 
 // Manejo de rutas no encontradas (404)
 app.use((req, res) => {

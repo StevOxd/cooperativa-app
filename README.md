@@ -130,6 +130,11 @@ El sistema implementa una estricta jerarquia de cuatro roles independientes. Se 
 - **Monitor de Presencia:** Deteccion de conexiones concurrentes y latidos en vivo mediante WebSockets.
 - **Registro Inmutable:** Tabla `historial_estados_usuario` que registra cada cambio de estado, motivo justificado, identificador del operador, direccion IP de origen y cabecera User-Agent.
 
+### 5.5 Modulo de Reportes de Gestion
+- **Pantalla «Reportes» del personal:** cierre de caja y padron (operador); cartera de creditos y acta del comite (ejecutivo y administrador); afiliaciones, auditoria de usuarios, efectivo de ventanilla, conciliacion, accesos a documentos y reportes generados (administrador). Cada uno en PDF o CSV para Excel, con el periodo que se elija.
+- **Registro con folio:** cada reporte queda en `reportes_generados` y su folio `REP-XXXXXX` va en el archivo.
+- **Portal del asociado:** constancia de afiliacion, plan de pagos de cada credito y comprobante de cada traslado en PDF.
+
 ---
 
 ## 6. Protocolos de Ciberseguridad Bancaria
@@ -340,6 +345,7 @@ El proyecto incluye un conjunto completo de scripts de prueba automatizados en l
 | `testUsuarioDoble.js` | Persona con usuario del personal y de asociado: llave `id_usuario`, sesiones y estados separados, auditoria, tokens anteriores, nadie atiende sus propios tramites y afiliacion del personal por cada canal (issue #32). |
 | `testValidacionSesion.js` | Solo la sesion vigente abre rutas y WebSockets: el token del segundo paso del 2FA y los de sesiones cerradas se rechazan, y un socket solo cierra su propia sesion. |
 | `testErroresFase3.js` | Limites del credito, desistir como cancelada, parentesco unico, documentos propios del asociado, estado del asociado auditado, usuario sin fecha de nacimiento, correo unico sin mayusculas y secuencia de traslados. |
+| `testReportes.js` | Reportes de gestion: permisos por rol, validacion de filtros, cierre de caja solo del operador que lo pide, totales que cuadran con la base, registro con folio de solo agregar y rechazo de un reporte que pasa del maximo de filas. |
 | `testDocumentosAfiliacion.js` | Documentos de afiliacion: validacion por contenido, portal del asociado, versiones, revision del operador con cuatro ojos, segregacion, descarga protegida con registro de accesos y triggers que impiden cambiarlos o borrarlos. |
 
 ### Ejecucion de Pruebas

@@ -429,7 +429,7 @@ const formalizarAfiliacion = async ({ idSolicitud, idOperador, rolUsuario, datos
     } else {
       const insSocio = await client.query(`
         INSERT INTO asociados (id_persona, fecha_ingreso, estado_asociado)
-        VALUES ($1, CURRENT_DATE, 'ACTIVO')
+        VALUES ($1, (CURRENT_TIMESTAMP AT TIME ZONE 'America/Guatemala')::date, 'ACTIVO')
         RETURNING id_asociado
       `, [idPersona]);
       idAsociado = insSocio.rows[0].id_asociado;

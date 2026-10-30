@@ -373,7 +373,7 @@ const procesarAfiliacionExistente = async (req, res) => {
     // 3. Registrar en asociados de la cooperativa
     const asocInsert = await client.query(
       `INSERT INTO asociados (id_persona, fecha_ingreso, estado_asociado)
-       VALUES ($1, CURRENT_DATE, 'ACTIVO')
+       VALUES ($1, (CURRENT_TIMESTAMP AT TIME ZONE 'America/Guatemala')::date, 'ACTIVO')
        RETURNING id_asociado`,
       [persona.id_persona]
     );

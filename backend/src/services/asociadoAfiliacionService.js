@@ -265,7 +265,7 @@ class AsociadoAfiliacionService {
       // 4.3 Inserción de Membresía de Asociado
       const asociadoRes = await client.query(
         `INSERT INTO asociados (id_persona, fecha_ingreso, estado_asociado)
-         VALUES ($1, CURRENT_DATE, 'ACTIVO')
+         VALUES ($1, (CURRENT_TIMESTAMP AT TIME ZONE 'America/Guatemala')::date, 'ACTIVO')
          RETURNING id_asociado`,
         [persona.id_persona]
       );

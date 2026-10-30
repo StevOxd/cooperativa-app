@@ -1,4 +1,4 @@
-import { Calculator, Home, Scale, UserCheck, Users } from 'lucide-react';
+import { Calculator, FileChartColumn, Home, Scale, UserCheck, Users } from 'lucide-react';
 
 export const ROLE_LABELS = {
   ADMINISTRADOR: 'Administrador',
@@ -23,6 +23,7 @@ export const getNavLinks = (rol) => [
       { to: '/conciliacion', label: 'Conciliación', icon: Scale },
     ]
     : []),
+  ...(STAFF_ROLES.includes(rol) ? [{ to: '/reportes', label: 'Reportes', icon: FileChartColumn }] : []),
   ...(rol === 'ASOCIADO' ? [{ to: '/simulador-credito', label: 'Simulador de crédito', icon: Calculator }] : []),
 ];
 

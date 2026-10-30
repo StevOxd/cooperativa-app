@@ -9,8 +9,9 @@
 -- =============================================================================
 
 -- Limpieza previa en cascada para reejecución limpia
--- (depositos_ventanilla_banco, efectivo_ventanilla, reversiones_pendientes, codigos_verificacion_correo y las
--- tablas de documentos de afiliación las crea migrations.js al arrancar el backend)
+-- (depositos_ventanilla_banco, efectivo_ventanilla, reversiones_pendientes, codigos_verificacion_correo, las
+-- tablas de documentos de afiliación y reportes_generados las crea migrations.js al arrancar el backend)
+DROP TABLE IF EXISTS reportes_generados CASCADE;
 DROP TABLE IF EXISTS accesos_documento CASCADE;
 DROP TABLE IF EXISTS revisiones_documento CASCADE;
 DROP TABLE IF EXISTS documentos_afiliacion CASCADE;
@@ -132,7 +133,8 @@ CREATE TABLE historial_estados_usuario (
 CREATE TABLE asociados (
     id_asociado SERIAL PRIMARY KEY,
     id_persona INT UNIQUE NOT NULL REFERENCES personas(id_persona) ON DELETE RESTRICT,
-    fecha_ingreso DATE DEFAULT CURRENT_DATE,
+    -- El día de Guatemala: la base corre en UTC y CURRENT_DATE daría el día siguiente después de las 18:00
+    fecha_ingreso DATE DEFAULT ((CURRENT_TIMESTAMP AT TIME ZONE 'America/Guatemala')::date),
     estado_asociado VARCHAR(20) NOT NULL DEFAULT 'ACTIVO' CHECK (estado_asociado IN ('ACTIVO', 'INACTIVO', 'SUSPENDIDO', 'BLOQUEADO'))
 );
 
