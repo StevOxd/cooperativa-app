@@ -141,8 +141,9 @@ async function runTests() {
     const badTokenUpload = await httpRequest({
       hostname: 'localhost',
       port: 5001,
-      path: '/api/uploads/creditos/test_expediente.pdf?token=jwt_falso_invalido',
+      path: '/api/uploads/creditos/test_expediente.pdf',
       method: 'GET',
+      headers: { Authorization: 'Bearer jwt_falso_invalido' },
     });
     assert(badTokenUpload.status === 401, 'Descarga con token JWT adulterado rechazada con 401');
 
@@ -155,24 +156,34 @@ async function runTests() {
     const forbiddenUpload = await httpRequest({
       hostname: 'localhost',
       port: 5001,
-      path: `/api/uploads/creditos/test_expediente.pdf?token=${asociadoToken}`,
+      path: '/api/uploads/creditos/test_expediente.pdf',
       method: 'GET',
+      headers: { Authorization: `Bearer ${asociadoToken}` },
     });
     assert(forbiddenUpload.status === 401, 'Descarga con un token que no es de una sesión vigente rechazada con 401');
 
-    // 2.4 Sesión vigente de OPERADOR -> Autorizado para revisión documental (200 OK); al cerrarla, ya no
+    // 2.4 Sesión vigente de OPERADOR: el token solo vale en la cabecera, y un archivo que ninguna solicitud usa no se
+    //     entrega (las descargas válidas las prueban testEndurecimiento y testErroresFase3)
     const loginOperador = await httpRequest(
       { hostname: 'localhost', port: 5001, path: '/api/auth/login', method: 'POST', headers: { 'Content-Type': 'application/json' } },
       { identifier: 'OP-1', password: 'admin123' }
     );
     const operadorToken = loginOperador.data?.token;
-    const operadorUpload = await httpRequest({
+    const tokenEnLaUrl = await httpRequest({
       hostname: 'localhost',
       port: 5001,
       path: `/api/uploads/creditos/test_expediente.pdf?token=${operadorToken}`,
       method: 'GET',
     });
-    assert(operadorUpload.status === 200, 'Operador con sesión vigente consulta expedientes (pasa RBAC, retorna 200 OK con el contenido)');
+    assert(tokenEnLaUrl.status === 401, 'El token de una sesión vigente en la URL (?token=) no sirve para descargar (401)');
+    const operadorUpload = await httpRequest({
+      hostname: 'localhost',
+      port: 5001,
+      path: '/api/uploads/creditos/test_expediente.pdf',
+      method: 'GET',
+      headers: { Authorization: `Bearer ${operadorToken}` },
+    });
+    assert(operadorUpload.status === 404, 'Un archivo de la carpeta que ninguna solicitud usa no se entrega, ni al personal (404)');
 
     await httpRequest({
       hostname: 'localhost',
@@ -184,8 +195,9 @@ async function runTests() {
     const uploadSesionCerrada = await httpRequest({
       hostname: 'localhost',
       port: 5001,
-      path: `/api/uploads/creditos/test_expediente.pdf?token=${operadorToken}`,
+      path: '/api/uploads/creditos/test_expediente.pdf',
       method: 'GET',
+      headers: { Authorization: `Bearer ${operadorToken}` },
     });
     assert(uploadSesionCerrada.status === 401, 'Con la sesión cerrada, el mismo token ya no descarga documentos (401)');
 
@@ -329,6 +341,8 @@ async function runTests() {
       console.log(' [CERTIFICACIÓN] SISTEMA HOMOLOGADO CON SEGURIDAD BANCARIA OWASP ASVS');
     }
     console.log('===============================================================\n');
+    // Una suite con fallas termina con código distinto de 0
+    process.exitCode = passed === total ? 0 : 1;
 
   } catch (error) {
     console.error('[ERROR CRÍTICO EN SUITE DE CIBERSEGURIDAD]:', error);

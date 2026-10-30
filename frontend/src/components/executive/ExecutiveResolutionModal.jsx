@@ -1,6 +1,5 @@
 import React from 'react';
 import { CheckCircle, RotateCcw, XCircle } from 'lucide-react';
-import { getSecureDocumentUrl } from '../../utils/documentUrl';
 import { useAuth } from '../../context/AuthContext';
 import { Alert, Badge, Button, Field, LoadingState, Modal, TabPanel, Tabs, Textarea } from '../ui';
 import { formatDate } from '../../utils/format';
@@ -165,7 +164,7 @@ export const ExecutiveResolutionModal = ({
         <TabPanel id={activeModalTab} idPrefix={TABS_ID}>
           {activeModalTab === 'documento' && (
             <SignedPdfPanel
-              existingUrl={selectedCredito.documento_firmado_url ? getSecureDocumentUrl(selectedCredito.documento_firmado_url) : undefined}
+              existingUrl={selectedCredito.documento_firmado_url || undefined}
               existingName={selectedCredito.nombre_archivo_firmado}
               existingSize={selectedCredito.peso_archivo_bytes}
               downloadName={`Solicitud_Credito_${selectedCredito.id_solicitud_credito}.pdf`}

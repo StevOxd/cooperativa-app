@@ -1,7 +1,7 @@
 import React from 'react';
 import { FileCheck, FileText } from 'lucide-react';
 import { Badge, Button, EmptyState, LoadingState, Table, TBody, TD, TH, THead, TR } from '../ui';
-import { getSecureDocumentUrl } from '../../utils/documentUrl';
+import { ProtectedDocumentLink } from '../documents';
 import { formatDate, formatQ, formatRelative } from '../../utils/format';
 import { executiveCreditStatus } from './executiveCreditStatus';
 
@@ -108,16 +108,15 @@ export const ExecutiveCreditsTable = ({ creditos, loading, tab, search, onClearS
               </TD>
               <TD className="whitespace-nowrap">
                 {c.documento_firmado_url ? (
-                  <a
-                    href={getSecureDocumentUrl(c.documento_firmado_url)}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                  <ProtectedDocumentLink
+                    url={c.documento_firmado_url}
                     title="Abrir el documento firmado en una pestaña nueva"
-                    className="inline-flex items-center gap-1 text-sm font-medium text-brand-700 hover:text-brand-800 hover:underline rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600"
+                    etiquetaOculta={` de la solicitud #${c.id_solicitud_credito}`}
+                    className="text-sm"
                   >
                     <FileCheck className="w-4 h-4" aria-hidden="true" />
                     PDF firmado
-                  </a>
+                  </ProtectedDocumentLink>
                 ) : (
                   <span className="text-ink-subtle">—</span>
                 )}

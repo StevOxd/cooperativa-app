@@ -1,3 +1,4 @@
+const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const db = require('../config/db');
@@ -50,10 +51,9 @@ const saveBase64File = async (base64Data, subfolder = 'creditos', originalName =
   const targetDir = path.join(UPLOADS_ROOT, subfolder);
   await fs.promises.mkdir(targetDir, { recursive: true });
 
-  const timestamp = Date.now();
-  const randomSuffix = Math.floor(1000 + Math.random() * 9000);
+  // Un nombre que no se puede adivinar (antes llevaba la hora y 4 dígitos al azar)
   const cleanPrefix = prefix.replace(/[^a-zA-Z0-9_-]/g, '_');
-  const filename = `${cleanPrefix}_${timestamp}_${randomSuffix}${extension}`;
+  const filename = `${cleanPrefix}_${crypto.randomUUID()}${extension}`;
   const fullPath = path.join(targetDir, filename);
 
   const buffer = Buffer.from(cleanBase64, 'base64');

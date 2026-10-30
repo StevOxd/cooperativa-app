@@ -3,7 +3,7 @@ import { Calculator, FileCheck } from 'lucide-react';
 import {
   Badge, Button, EmptyState, LoadingState, SearchInput, StatCard, StatGroup, StepProgress, Table, TBody, TD, TH, THead, TR,
 } from '../../ui';
-import { getSecureDocumentUrl } from '../../../utils/documentUrl';
+import { ProtectedDocumentLink } from '../../documents';
 import { formatDate, formatDateTime, formatQ } from '../../../utils/format';
 import { PASOS_CREDITO, avanceCredito } from '../../credit/creditProgress';
 import { creditStatus } from './status';
@@ -125,15 +125,17 @@ export const CreditsPanel = ({ creditos, todos, loading, search, onSearchChange,
                     />
                   )}
                   {c.documento_firmado_url && (
-                    <a
-                      href={getSecureDocumentUrl(c.documento_firmado_url)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="mt-1 flex items-center gap-1 text-xs font-medium text-brand-700 hover:text-brand-800 hover:underline"
-                    >
-                      <FileCheck className="w-3.5 h-3.5" aria-hidden="true" />
-                      PDF firmado
-                    </a>
+                    <div className="mt-1">
+                      <ProtectedDocumentLink
+                        url={c.documento_firmado_url}
+                        title="Abrir el documento firmado en una pestaña nueva"
+                        etiquetaOculta={` de la solicitud #${c.id_solicitud_credito}`}
+                        className="text-xs"
+                      >
+                        <FileCheck className="w-3.5 h-3.5" aria-hidden="true" />
+                        PDF firmado
+                      </ProtectedDocumentLink>
+                    </div>
                   )}
                 </TD>
                 <TD numeric className="font-medium text-ink">{formatQ(c.monto_solicitado)}</TD>

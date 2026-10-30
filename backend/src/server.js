@@ -73,8 +73,8 @@ app.use(express.urlencoded({ extended: true, limit: '15mb' }));
 
 // Servir archivos estáticos protegidos con autenticación y RBAC (SEC-02)
 const { secureUploadsHandler } = require('./middlewares/secureUploads');
+// Siempre con carpeta: los PDF de crédito están en uploads/creditos y los documentos en uploads/afiliaciones
 app.get('/api/uploads/:subfolder/:filename', secureUploadsHandler);
-app.get('/api/uploads/:filename', secureUploadsHandler);
 
 /**
  * Endpoint de verificación de salud (Health Check)

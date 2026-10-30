@@ -30,6 +30,7 @@ const { server } = require('./src/server');
 const db = require('./src/config/db');
 const bancoApiService = require('./src/services/bancoApiService');
 const { errorDeNegocio, respuestaDeError } = require('./src/utils/errores');
+const { saveBase64File, eliminarArchivoGuardado } = require('./src/utils/fileStorage');
 const { borrarPersonaDePrueba, purgarDepositosDePrueba, poolDueno } = require('./testHelper');
 // Limpieza con el rol dueño: el de la aplicación no borra filas (salvo en las pocas tablas que el código limpia)
 const comoDueno = (sql, params) => poolDueno(db.pool).query(sql, params);
@@ -87,6 +88,11 @@ const testServer = server.listen(0, async () => {
   const dpiSolicitud = `938${sufijo}000`.slice(0, 13);
   const archivo = `doc_endurecimiento_${sufijo}.pdf`;
   const rutaArchivo = path.join(__dirname, 'uploads', 'creditos', archivo);
+  // Un PDF en la carpeta que ninguna solicitud usa: no se entrega a nadie
+  const archivoSuelto = `doc_suelto_${sufijo}.pdf`;
+  const rutaSuelto = path.join(__dirname, 'uploads', 'creditos', archivoSuelto);
+  let idPersonaDuenoPdf = null;
+  let guardadoConUuid = null;
   const sockets = [];
   const tokens = [];
   let personaOriginalOp2 = null;
@@ -151,20 +157,48 @@ const testServer = server.listen(0, async () => {
     console.log('\n--- Descarga de documentos ---');
     fs.mkdirSync(path.dirname(rutaArchivo), { recursive: true });
     fs.writeFileSync(rutaArchivo, '%PDF-1.4 prueba');
-    const descargar = (token) =>
+    fs.writeFileSync(rutaSuelto, '%PDF-1.4 suelto');
+    // El PDF es de la solicitud de un asociado (el asociado que lo pide más abajo no es el dueño)
+    idPersonaDuenoPdf = (await db.query(
+      `INSERT INTO personas (cui_dpi, primer_nombre, primer_apellido, telefono, fecha_nacimiento)
+       VALUES ($1, 'Prueba', 'DuenoPdf', '55559038', '1990-01-01') RETURNING id_persona`,
+      [`931${sufijo}000`.slice(0, 13)]
+    )).rows[0].id_persona;
+    const idAsociadoDueno = (await db.query(
+      "INSERT INTO asociados (id_persona, estado_asociado) VALUES ($1, 'ACTIVO') RETURNING id_asociado",
+      [idPersonaDuenoPdf]
+    )).rows[0].id_asociado;
+    await db.query(
+      `INSERT INTO solicitudes_credito (id_asociado, monto_solicitado, plazo_meses, tasa_interes, cuota_mensual_estimada, estado, documento_firmado_url)
+       VALUES ($1, 1000, 12, 10, 90, 'EN_REVISION_OPERADOR', $2)`,
+      [idAsociadoDueno, `/api/uploads/creditos/${archivo}`]
+    );
+    const descargar = (token, ruta = `/api/uploads/creditos/${archivo}`) =>
       new Promise((resolve) => {
         http
-          .get({ hostname: 'localhost', port, path: `/api/uploads/creditos/${archivo}`, headers: { Authorization: `Bearer ${token}` } }, (res) => {
+          .get({ hostname: 'localhost', port, path: ruta, headers: token ? { Authorization: `Bearer ${token}` } : {} }, (res) => {
+            resolve({ status: res.statusCode, cache: res.headers['cache-control'] });
             res.resume();
-            resolve(res.statusCode);
           })
-          .on('error', () => resolve(0));
+          .on('error', () => resolve({ status: 0 }));
       });
     const tokenDescarga = (await login('OP-2')).body.token;
     const conSesion = await descargar(tokenDescarga);
+    const tokenEnLaUrl = await descargar(null, `/api/uploads/creditos/${archivo}?token=${tokenDescarga}`);
+    const suelto = await descargar(tokenDescarga, `/api/uploads/creditos/${archivoSuelto}`);
+    const sinCarpeta = await descargar(tokenDescarga, `/api/uploads/${archivo}`);
+    const subirCarpeta = await descargar(tokenDescarga, '/api/uploads/creditos/%2e%2e');
     await request('/api/auth/logout', 'POST', null, tokenDescarga);
     const sesionCerrada = await descargar(tokenDescarga);
-    assert(conSesion === 200 && sesionCerrada === 401, 'Con la sesión cerrada, el token ya no descarga documentos');
+    assert(conSesion.status === 200 && sesionCerrada.status === 401, 'Con la sesión cerrada, el token ya no descarga documentos');
+    assert(/no-store/.test(conSesion.cache || ''), 'El PDF de crédito se entrega sin caché');
+    assert(tokenEnLaUrl.status === 401, 'El token en la URL (?token=) no sirve para descargar: solo la cabecera');
+    assert(suelto.status === 404, 'Un archivo que ninguna solicitud usa no se entrega, ni al personal (404)');
+    assert(sinCarpeta.status === 404 && subirCarpeta.status === 404, 'Sin carpeta o con «..» como nombre no se entrega nada (404)');
+
+    guardadoConUuid = await saveBase64File(PDF, 'creditos', 'formulario.pdf', 'solicitud');
+    assert(/^solicitud_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.pdf$/.test(guardadoConUuid.filename),
+      'Los PDF nuevos se nombran con un UUID (no con la hora y 4 dígitos)');
 
     // Asociado de prueba, sin solicitudes de crédito: el documento no es suyo
     idPersonaAsociado = (await db.query(
@@ -180,7 +214,10 @@ const testServer = server.listen(0, async () => {
     )).rows[0].id_usuario;
     const tokenAsociado = (await login(codigoAsociado)).body.token;
     tokens.push(tokenAsociado);
-    assert(await descargar(tokenAsociado) === 403, 'Un asociado con sesión no descarga el documento de otra persona');
+    const ajeno = await descargar(tokenAsociado);
+    const inexistente = await descargar(tokenAsociado, `/api/uploads/creditos/no_existe_${sufijo}.pdf`);
+    assert(ajeno.status === 404 && inexistente.status === 404,
+      'Un asociado no descarga el documento de otra persona, y la respuesta es la misma que si no existiera (404)');
 
     // ------------------------------------------------------------------
     console.log('\n--- Presencia en tiempo real ---');
@@ -204,6 +241,23 @@ const testServer = server.listen(0, async () => {
     const operador = await abrir(tokenOperador);
     await esperar(400);
     assert(recibidos.admin > 0 && recibidos.anonimo === 0, 'La presencia llega al administrador y no a un socket anónimo');
+    // El token en la URL del socket no autentica: queda anónimo y no recibe la presencia
+    const conTokenEnUrl = await new Promise((resolve, reject) => {
+      const socket = Client(`http://localhost:${port}`, { query: { token: tokenAdmin }, transports: ['websocket'], reconnection: false });
+      sockets.push(socket);
+      socket.on('connect', () => resolve(socket));
+      socket.on('connect_error', reject);
+    });
+    let recibidosConTokenEnUrl = 0;
+    conTokenEnUrl.on('presence_update', () => recibidosConTokenEnUrl++);
+    await esperar(100);
+    // Otro inicio de sesión que genera presencia; se cierra enseguida (sesión única: OP-2 se usa más adelante)
+    const tokenOtroOperador = (await login('OP-2')).body.token;
+    const otroOperador = await abrir(tokenOtroOperador);
+    await esperar(400);
+    assert(recibidosConTokenEnUrl === 0, 'El token en la URL del socket (?token=) no autentica: queda anónimo');
+    otroOperador.disconnect();
+    await request('/api/auth/logout', 'POST', null, tokenOtroOperador);
     operador.disconnect();
 
     // ------------------------------------------------------------------
@@ -442,6 +496,8 @@ const testServer = server.listen(0, async () => {
     }
     try {
       if (fs.existsSync(rutaArchivo)) fs.unlinkSync(rutaArchivo);
+      if (fs.existsSync(rutaSuelto)) fs.unlinkSync(rutaSuelto);
+      await eliminarArchivoGuardado(guardadoConUuid);
       await comoDueno('DELETE FROM solicitudes_afiliacion_agencia WHERE cui_dpi = $1', [dpiSolicitud]);
       await db.query('DELETE FROM codigos_verificacion_correo WHERE email = $1', [`otra.${sufijo}@gmail.com`]);
       if (personaOriginalOp2) {
@@ -458,6 +514,7 @@ const testServer = server.listen(0, async () => {
         );
       }
       if (idPersonaAsociado) await borrarPersonaDePrueba(db, idPersonaAsociado);
+      if (idPersonaDuenoPdf) await borrarPersonaDePrueba(db, idPersonaDuenoPdf);
       await purgarDepositosDePrueba(db, { dpis: [dpiColaborador, dpiAjenoBanco, dpiExterno, ...dpiOtrosColaboradores] });
       const conClaveCreada = (await db.query('SELECT id_persona FROM personas WHERE cui_dpi = $1', [dpiConClave])).rows[0];
       if (conClaveCreada) await borrarPersonaDePrueba(db, conClaveCreada.id_persona);
