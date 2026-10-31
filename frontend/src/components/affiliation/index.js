@@ -1,5 +1,6 @@
 export { DpiLookupStep } from './DpiLookupStep';
 export { BankCredentialsStep } from './BankCredentialsStep';
+export { BankDocumentsStep } from './BankDocumentsStep';
 export { BankConfigStep } from './BankConfigStep';
 export { PortalPasswordStep } from './PortalPasswordStep';
 export { DirectAffiliationSuccess } from './DirectAffiliationSuccess';

@@ -2,7 +2,7 @@
 name: code-reviewer
 description: "Úsalo después de cualquier cambio en el backend (Node.js/Express) o el frontend (React/Vite) de la Cooperativa, antes de cerrar la tarea. Revisa Clean Code, manejo de errores HTTP, JSDoc, logs sin emojis, hooks de React, las suites backend/test*.js y los errores recurrentes de este proyecto (resultados de bancoApiService y mailerService, correos tras COMMIT, datos de más en respuestas). Solo lee y ejecuta pruebas; no edita. Reemplaza al revisor genérico en este repo."
 tools: Read, Grep, Glob, Bash
-model: inherit
+model: sonnet
 ---
 
 <!-- Archivo generado por scripts/sync-agents.mjs a partir de .agent/agents/code-reviewer.md. No lo edite: edite el original y vuelva a ejecutar el script. -->

@@ -17,7 +17,7 @@ const http = require('http');
 const jwt = require('jsonwebtoken');
 const { server } = require('./src/server');
 const db = require('./src/config/db');
-const { purgarEfectivoDePrueba, poolDueno } = require('./testHelper');
+const { purgarEfectivoDePrueba, purgarDocumentosDePrueba, poolDueno, escanearDocumentosObligatorios, pdfDePrueba } = require('./testHelper');
 // Limpieza con el rol dueño: el de la aplicación no borra filas (salvo en las pocas tablas que el código limpia)
 const comoDueno = (sql, params) => poolDueno(db.pool).query(sql, params);
 const mailerService = require('./src/services/mailerService');
@@ -469,8 +469,17 @@ const testServer = server.listen(0, async () => {
       'En la bandeja su solicitud aparece como suya y no la puede atender'
     );
 
+    const escanearPropia = await request(`/api/operador/afiliaciones/${idSolicitudB}/documentos`, 'POST', {
+      tipo_documento: 'DPI_FRENTE', archivo: pdfDePrueba(`propio-${sufijo}`),
+    }, tokenB);
+    assert(esAutoatencion(escanearPropia), 'No escanea los documentos de su propia solicitud');
+
     // ------------------------------------------------------------------
     console.log('\n--- 4.3 Otro compañero la formaliza en agencia ---');
+    assert(
+      await escanearDocumentosObligatorios(port, tokenOperador, { idSolicitud: idSolicitudB }),
+      'Otro operador escanea los documentos de su solicitud'
+    );
     const filaOperador = ((await request('/api/operador/afiliaciones', 'GET', null, tokenOperador)).body.data || [])
       .find((r) => r.id_solicitud === idSolicitudB);
     await request(`/api/operador/afiliaciones/${idSolicitudB}/bloquear`, 'POST', null, tokenOperador);
@@ -553,6 +562,10 @@ const testServer = server.listen(0, async () => {
       'En ventanilla su correo del personal no sirve para el usuario de asociado'
     );
 
+    assert(
+      await escanearDocumentosObligatorios(port, tokenOperador, { cui: dpiVentanilla }),
+      'Ventanilla escanea sus documentos antes de afiliarlo'
+    );
     const enVentanilla = await request('/api/admin/asociados/presencial', 'POST', { ...datosVentanilla, crear_acceso_portal: false }, tokenOperador);
     const personaC = (await db.query('SELECT primer_nombre, primer_apellido, telefono FROM personas WHERE id_persona = $1', [idPersonaVentanilla])).rows[0];
     const socioC = await db.query('SELECT 1 FROM asociados WHERE id_persona = $1', [idPersonaVentanilla]);
@@ -594,6 +607,7 @@ const testServer = server.listen(0, async () => {
     try {
       if (idTraslado) await comoDueno('DELETE FROM solicitudes_traslado_apertura WHERE id_solicitud = $1', [idTraslado]);
       if (idCredito) await comoDueno('DELETE FROM solicitudes_credito WHERE id_solicitud_credito = $1', [idCredito]);
+      await purgarDocumentosDePrueba(db, [dpiSoloPersonal, dpiVentanilla, dpiAjeno]);
       await comoDueno('DELETE FROM solicitudes_afiliacion_agencia WHERE cui_dpi = ANY($1)', [[dpiSoloPersonal, dpiVentanilla, dpiAjeno]]);
       await purgarEfectivoDePrueba(db, [dpi, dpiSoloPersonal, dpiVentanilla, dpiAjeno]);
       for (const id of [idPersona, idPersonaSoloPersonal, idPersonaVentanilla].filter(Boolean)) {

@@ -35,7 +35,7 @@ export const BankCredentialsStep = ({
 
       <StepHeader
         step={1}
-        total={3}
+        total={4}
         title="Confirme que es usted"
         description="Ingrese los datos con los que entra a la Banca en Línea del banco. Los usamos solo para ver sus cuentas; no se guardan en la cooperativa."
       />

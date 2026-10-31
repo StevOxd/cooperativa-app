@@ -7,7 +7,8 @@ const { revertirOAnotar, anotarSinConfirmar } = require('../services/reversiones
 const { errorDeNegocio, respuestaDeError } = require('../utils/errores');
 const { getNextCorporateCode, resolvePrefix } = require('../utils/codeGenerator');
 const { validatePassword } = require('../utils/passwordPolicy');
-const { firmarAfiliacionToken, verificarAfiliacionToken } = require('../utils/afiliacionToken');
+const { firmarAfiliacionToken, verificarAfiliacionToken, firmarCargaDocumentosToken } = require('../utils/afiliacionToken');
+const documentosAfiliacion = require('../services/documentosAfiliacionService');
 const codigoVerificacion = require('../services/codigoVerificacionService');
 const { verificarDominioCorreo } = require('../utils/correoDominio');
 
@@ -173,7 +174,11 @@ const validarCredencialesBanco = async (req, res) => {
       tiene_usuario_portal: Boolean(usuarioExistente),
       codigo_corporativo_portal: usuarioExistente ? usuarioExistente.codigo_corporativo : null,
       // Comprobante para /procesar-existente: solo sirve para este DPI y estas cuentas.
-      afiliacion_token: firmarAfiliacionToken({ cui_dpi: cuiLimpio, cuentas }),
+      afiliacion_token: firmarAfiliacionToken({
+        cui_dpi: cuiLimpio,
+        tipo_asociado: cliente.tipo_cliente === 'EMPLEADO_PLANILLA' ? 'EB' : 'EX',
+        cuentas,
+      }),
     });
   } catch (error) {
     console.error('[VALIDAR CREDENCIALES BANCO ERROR]:', error);
@@ -280,6 +285,15 @@ const procesarAfiliacionExistente = async (req, res) => {
       }
     }
 
+    // Para terminar en línea, los documentos obligatorios se suben antes del débito (Fase 6). Esta revisión es sin
+    // bloqueo; se repite con el expediente bloqueado dentro de la transacción (paso 3.1).
+    try {
+      await documentosAfiliacion.exigirDocumentosObligatorios(client, await documentosAfiliacion.expedienteDeAfiliacion(client, cuiLimpio));
+    } catch (faltan) {
+      if (!Number.isInteger(faltan.statusCode)) throw faltan;
+      return res.status(faltan.statusCode).json({ success: false, error: faltan.codigo, message: faltan.message });
+    }
+
     await client.query('BEGIN');
 
     // El código se consume en la misma transacción: si la afiliación se deshace, sigue vigente.
@@ -372,12 +386,17 @@ const procesarAfiliacionExistente = async (req, res) => {
 
     // 3. Registrar en asociados de la cooperativa
     const asocInsert = await client.query(
-      `INSERT INTO asociados (id_persona, fecha_ingreso, estado_asociado)
-       VALUES ($1, (CURRENT_TIMESTAMP AT TIME ZONE 'America/Guatemala')::date, 'ACTIVO')
+      `INSERT INTO asociados (id_persona, fecha_ingreso, estado_asociado, tipo_asociado, canal_afiliacion)
+       VALUES ($1, (CURRENT_TIMESTAMP AT TIME ZONE 'America/Guatemala')::date, 'ACTIVO', $2, 'EN_LINEA')
        RETURNING id_asociado`,
-      [persona.id_persona]
+      [persona.id_persona, comprobante.tipo_asociado]
     );
     const idAsociado = asocInsert.rows[0].id_asociado;
+
+    // 3.1 Los documentos que subió pasan a la persona; con el expediente bloqueado se confirma que siguen completos
+    const idExpedienteDocs = await documentosAfiliacion.expedienteDeAfiliacion(client, cuiLimpio);
+    await documentosAfiliacion.vincularExpedienteAPersona(client, idExpedienteDocs, persona.id_persona);
+    await documentosAfiliacion.exigirDocumentosObligatorios(client, idExpedienteDocs);
 
     // 4. Aperturar cuenta de Ahorro a la Vista cooperativa (id_tipo_cuenta = 2)
     const numeroCuentaCooperativa = 'CTA-AHORR-' + String(Math.floor(100000 + Math.random() * 900000));
@@ -410,8 +429,9 @@ const procesarAfiliacionExistente = async (req, res) => {
     } else {
       // La contraseña es la que eligió el solicitante, así que no se le obliga a cambiarla al entrar.
       const hash = await bcrypt.hash(password, 10);
-      // Cliente o colaborador que no tenía usuario: crear rol ASOCIADO (3) con código EB-X o EX-X
-      const prefix = resolvePrefix('ASOCIADO', req.body.tipo_asociado || (persona.cui_dpi?.startsWith('1000') ? 'EB' : 'EX'));
+      // Cliente o colaborador que no tenía usuario: crear rol ASOCIADO (3) con código EB-X o EX-X.
+      // El tipo lo decidió el banco al validar la Banca en Línea (issue #79)
+      const prefix = resolvePrefix('ASOCIADO', comprobante.tipo_asociado);
       const nextCod = await getNextCorporateCode(client, prefix);
       const userEmail = email.trim().toLowerCase();
 
@@ -532,8 +552,8 @@ const procesarAfiliacionExistente = async (req, res) => {
   } catch (error) {
     await client.query('ROLLBACK').catch(() => {});
     console.error('[AFILIACION EXISTENTE ERROR]:', error);
-    const { status, message } = respuestaDeError(error, 'No se pudo completar la afiliación. Intente de nuevo.');
-    return res.status(status).json({ success: false, message });
+    const { status, message, codigo } = respuestaDeError(error, 'No se pudo completar la afiliación. Intente de nuevo.');
+    return res.status(status).json({ success: false, message, ...(codigo && { error: codigo }) });
   } finally {
     client.release();
   }
@@ -798,6 +818,15 @@ const registrarSolicitudAgencia = async (req, res) => {
     );
 
     const solicitud = insertCaseRes.rows[0];
+    // Solo quien comprobó su DPI con la Banca en Línea (terminar en ventanilla): los documentos que subió en línea
+    // pasan a la solicitud y dejan de vencer. Una solicitud pública con el DPI de otro no se queda con ellos.
+    if (req.adoptarCargaPrevia === true) {
+      await client.query(
+        `UPDATE expedientes_documentos SET id_solicitud = $2, expira_en = NULL
+         WHERE cui_dpi = $1 AND id_persona IS NULL AND id_solicitud IS NULL AND expira_en > CURRENT_TIMESTAMP`,
+        [solicitud.cui_dpi, solicitud.id_solicitud]
+      );
+    }
     await client.query('COMMIT');
 
     // El número de caso también se envía por correo; si no sale, la solicitud igual queda registrada.
@@ -827,6 +856,8 @@ const registrarSolicitudAgencia = async (req, res) => {
         estado: solicitud.estado,
         instrucciones:
           'Debe avocarse a cualquier agencia de la Corporación Bancaria con su DPI original y su Número de Caso para depositar sus fondos iniciales y formalizar su cuenta de ahorro y membresía.',
+        // Permiso para subir sus documentos desde el comprobante durante 30 minutos (Fase 6); si no, los lleva
+        carga_token: firmarCargaDocumentosToken({ id_solicitud: solicitud.id_solicitud, cui_dpi: solicitud.cui_dpi }),
       },
     });
   } catch (error) {
@@ -847,6 +878,32 @@ const registrarSolicitudAgencia = async (req, res) => {
  finally {
     client.release();
   }
+};
+
+/**
+ * 3.1 Cliente o empleado del banco que prefiere terminar en ventanilla (Fase 6): no se debita nada en línea. Con el
+ * comprobante de la Banca en Línea de ese DPI se registra una solicitud de agencia, igual que la de un externo, y en
+ * ventanilla se cobra el aporte (débito o efectivo) y se revisan sus documentos. Los que ya subió pasan a la solicitud.
+ *
+ * @async
+ * @route POST /api/afiliacion/terminar-en-ventanilla
+ * @param {import('express').Request} req - Los datos de `solicitar-nuevo` más `afiliacion_token`.
+ * @param {import('express').Response} res
+ * @returns {Promise<import('express').Response>} Lo mismo que `registrarSolicitudAgencia`; 403 sin comprobante
+ *   vigente de ese DPI.
+ */
+const terminarEnVentanilla = async (req, res) => {
+  const cuiLimpio = String(req.body?.cui_dpi || '').trim().replace(/\s+/g, '');
+  const comprobante = verificarAfiliacionToken(req.body?.afiliacion_token);
+  if (!comprobante || comprobante.cui_dpi !== cuiLimpio) {
+    return res.status(403).json({
+      success: false,
+      message: 'Su validación con la Banca en Línea venció o no es válida. Vuelva a ingresar sus datos del banco.',
+    });
+  }
+  // Marca del servidor (no viene del cliente): el DPI quedó comprobado y su carga previa pasa a la solicitud
+  req.adoptarCargaPrevia = true;
+  return registrarSolicitudAgencia(req, res);
 };
 
 /**
@@ -954,5 +1011,6 @@ module.exports = {
   procesarAfiliacionExistente,
   solicitarCodigoCorreo,
   registrarSolicitudAgencia,
+  terminarEnVentanilla,
   verificarEmail,
 };

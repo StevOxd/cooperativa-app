@@ -46,7 +46,8 @@ const BotonSubir = ({ tipo, texto, subiendo, disabled, onArchivo }) => (
  * @param {Object[]} props.documentos - Vigentes (uno por tipo), como los devuelve la API.
  * @param {(tipo: string, dataUrl: string) => Promise<void>} props.onSubir - Lanza un error con `message` si falla.
  * @param {(documento: Object|undefined) => boolean} props.puedeSubir - Si ese tipo admite una carga nueva.
- * @param {(documento: Object) => void} props.onVer
+ * @param {(documento: Object) => void} props.onVer - Solo para documentos con `url` (los de una afiliación que todavía
+ *   no se completa no se abren).
  * @param {(documento: Object) => string} [props.textoVer] - Texto del botón para abrir (p. ej. «Revisar»).
  * @param {boolean} [props.conAyuda=true] - Muestra cómo debe ser cada documento (le habla al interesado; el
  *   expediente del operador la oculta).
@@ -133,7 +134,7 @@ export const DocumentChecklist = ({
                   <p className="mt-0.5 text-xs text-ink-muted">{detalle}</p>
                 </div>
                 <div className="flex shrink-0 flex-wrap items-center gap-2">
-                  {documento && (
+                  {documento?.url && (
                     <Button size="sm" variant="secondary" icon={Eye} onClick={() => onVer(documento)}>
                       {textoVer(documento)}
                       <span className="sr-only"> {tipo.label}</span>

@@ -11,6 +11,13 @@ import { formatQ } from '../../../utils/format';
  */
 const OperatorAffiliationSuccessModal = ({ formalizadoResult, onClose, onAbrirCuenta }) => {
   if (!formalizadoResult) return null;
+  // Con débito, el aporte quedó en una cuenta de la cooperativa; en efectivo, en una cuenta del banco (nueva o suya)
+  const conDebito = formalizadoResult.metodo_pago === 'DEBITO_CUENTA';
+  const descripcion = conDebito
+    ? 'El aporte se debitó de su cuenta del banco y quedó en su cuenta de ahorro de la cooperativa.'
+    : formalizadoResult.cuenta_bancaria_nueva === false
+      ? 'El depósito inicial quedó en su cuenta del banco.'
+      : 'El depósito inicial quedó en su cuenta de ahorro nueva del banco.';
 
   const handleDownloadPdf = async () => {
     try {
@@ -28,7 +35,7 @@ const OperatorAffiliationSuccessModal = ({ formalizadoResult, onClose, onAbrirCu
       lockScroll={false}
       size="lg"
       title="Afiliación formalizada"
-      description="El depósito inicial quedó en su cuenta de ahorro del banco."
+      description={descripcion}
       footer={
         <div className="flex w-full flex-col-reverse gap-2 sm:flex-row sm:justify-between">
           <Button variant="secondary" onClick={onClose}>Volver a la bandeja</Button>
@@ -36,7 +43,7 @@ const OperatorAffiliationSuccessModal = ({ formalizadoResult, onClose, onAbrirCu
             <Button variant="secondary" icon={FileDown} onClick={handleDownloadPdf}>
               Descargar comprobante
             </Button>
-            {onAbrirCuenta && (
+            {onAbrirCuenta && !conDebito && (
               <Button icon={Landmark} onClick={() => onAbrirCuenta(formalizadoResult)}>
                 Abrir cuenta en la cooperativa
               </Button>
@@ -56,11 +63,17 @@ const OperatorAffiliationSuccessModal = ({ formalizadoResult, onClose, onAbrirCu
             <dd className="font-mono text-ink">{formalizadoResult.usuario}</dd>
           </div>
           <div className="flex justify-between gap-4 px-4 py-2.5">
-            <dt className="text-ink-muted">Cuenta de ahorro en el banco</dt>
+            <dt className="text-ink-muted">{conDebito ? 'Cuenta en la cooperativa' : 'Cuenta de ahorro en el banco'}</dt>
             <dd className="font-mono text-ink">{formalizadoResult.numero_cuenta}</dd>
           </div>
+          {conDebito && (
+            <div className="flex justify-between gap-4 px-4 py-2.5">
+              <dt className="text-ink-muted">Debitado de su cuenta del banco</dt>
+              <dd className="font-mono text-ink">{formalizadoResult.cuenta_bancaria}</dd>
+            </div>
+          )}
           <div className="flex justify-between gap-4 px-4 py-2.5">
-            <dt className="text-ink-muted">Depósito inicial</dt>
+            <dt className="text-ink-muted">{conDebito ? 'Aporte inicial' : 'Depósito inicial'}</dt>
             <dd className="font-medium text-ink tabular-nums">{formatQ(formalizadoResult.saldo_inicial)}</dd>
           </div>
           <div className="flex justify-between gap-4 px-4 py-2.5">

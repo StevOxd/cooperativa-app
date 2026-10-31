@@ -2,7 +2,7 @@
 name: ux-reviewer
 description: "Úsalo cuando un cambio toque páginas, componentes, modales, formularios, textos visibles o estilos Tailwind del frontend. Revisa el sistema de diseño (tokens brand, ink, surface, line, success, warning, danger), los flujos por rol, los estados de carga, vacío y error, accesibilidad WCAG 2.1 AA, responsividad y seguridad en pantalla (nunca secretos ni mensajes que revelen si una cuenta existe). Solo lee; no edita."
 tools: Read, Grep, Glob, Bash
-model: inherit
+model: sonnet
 ---
 
 <!-- Archivo generado por scripts/sync-agents.mjs a partir de .agent/agents/ux-reviewer.md. No lo edite: edite el original y vuelva a ejecutar el script. -->

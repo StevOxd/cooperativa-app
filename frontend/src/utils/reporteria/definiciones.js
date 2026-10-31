@@ -56,8 +56,8 @@ const ESTADO_DEPOSITO = {
 const ESTADO_ASOCIADO = { ACTIVO: 'Activo', INACTIVO: 'Inactivo', SUSPENDIDO: 'Suspendido', BLOQUEADO: 'Bloqueado' };
 // En plural: las cifras de los totales y el filtro del padrón cuentan asociados
 export const ASOCIADOS_POR_ESTADO = { ACTIVO: 'Activos', INACTIVO: 'Inactivos', SUSPENDIDO: 'Suspendidos', BLOQUEADO: 'Bloqueados' };
-const TIPO_ASOCIADO = { EB: 'Empleado del banco', EX: 'Cliente externo', SIN_DATO: 'Sin usuario del portal' };
-const ASOCIADOS_POR_TIPO = { EB: 'Empleados del banco', EX: 'Clientes externos', SIN_DATO: 'Sin usuario del portal' };
+const TIPO_ASOCIADO = { EB: 'Empleado del banco', EX: 'Cliente externo', SIN_DATO: 'Sin registro' };
+const ASOCIADOS_POR_TIPO = { EB: 'Empleados del banco', EX: 'Clientes externos', SIN_DATO: 'Sin registro' };
 const ESTADO_DOCUMENTOS = { COMPLETO: 'Completos', EN_REVISION: 'En revisión', INCOMPLETO: 'Incompletos' };
 const GRUPO_CREDITO = {
   EN_TRAMITE: 'En trámite',
@@ -326,10 +326,10 @@ export const REPORTES = [
       { titulo: 'Por tipo', cifras: cifrasDe(r.por_tipo, ASOCIADOS_POR_TIPO) },
     ],
     nota:
-      'El canal sale de lo que dejó cada trámite: «Solicitud en agencia» si se formalizó una solicitud de agencia (incluye al ' +
-      'personal), «Ventanilla» si pagó la aportación en efectivo o su primera cuenta la abrió un operador, y «En línea» si ' +
-      'su primera cuenta se abrió con un débito sin operador. ' +
-      '«Sin registro» son asociados cargados antes de que existieran estos trámites.',
+      'El tipo y el canal se guardan al afiliar. Para los asociados anteriores se deducen: el canal es «Solicitud en ' +
+      'agencia» si se formalizó una solicitud de agencia (incluye al personal), «Ventanilla» si pagó la aportación en ' +
+      'efectivo o su primera cuenta la abrió un operador, y «En línea» si su primera cuenta se abrió con un débito sin ' +
+      'operador. «Sin registro» son asociados cargados antes de que existieran estos trámites.',
     vacio: 'No ingresaron asociados en el período.',
   },
   {

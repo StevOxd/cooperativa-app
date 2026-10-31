@@ -1,7 +1,10 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import { Lock } from 'lucide-react';
+import api from '../../../services/api';
 import { Alert, Button, Field, Input, Modal, Textarea } from '../../ui';
 import { PortalAccessOption } from '../../common/PortalAccessOption';
+import { AffiliationPaymentOptions } from '../../common/AffiliationPaymentOptions';
+import { AffiliationDocumentsPanel } from '../../documents';
 
 const FORM_ID = 'formalizar-afiliacion';
 const REJECT_FORM_ID = 'cancelar-afiliacion';
@@ -9,7 +12,8 @@ const soloLetras = (value) => value.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑü�
 
 /**
  * Atención y formalización de una afiliación en agencia (ARQ-04).
- * El operador revisa y corrige los datos, registra el depósito inicial o cancela la solicitud.
+ * El operador revisa y corrige los datos, escanea los documentos que falten (obligatorios para formalizar), cobra el
+ * aporte (efectivo a una cuenta nueva o a una que ya tiene, o débito de su cuenta del banco) o cancela la solicitud.
  *
  * No se cierra con Escape ni con clic fuera: al salir se libera el bloqueo del
  * caso, así que la salida es siempre explícita ("Liberar y salir").
@@ -50,8 +54,26 @@ const OperatorAffiliationModal = ({
   setMontoAportacion,
   observacionesAfiliacion,
   setObservacionesAfiliacion,
+  cobroAfiliacion,
+  setCobroAfiliacion,
+  documentosCompletos,
+  setDocumentosCompletos,
   formalizando,
 }) => {
+  const idSolicitud = selectedAfiliacion?.id_solicitud;
+  const cargarDocumentos = useCallback(
+    () => api.get(`/operador/afiliaciones/${idSolicitud}/documentos`).then((r) => r.data.data),
+    [idSolicitud]
+  );
+  const subirDocumento = useCallback(
+    (tipo, archivo) => api.post(`/operador/afiliaciones/${idSolicitud}/documentos`, { tipo_documento: tipo, archivo }).then((r) => r.data.data),
+    [idSolicitud]
+  );
+  const onCambioDocumentos = useCallback(
+    (resumen) => setDocumentosCompletos(Boolean(resumen) && resumen.faltantes.length === 0),
+    [setDocumentosCompletos]
+  );
+
   if (!selectedAfiliacion) return null;
 
   const emailHint = !crearAccesoPortal
@@ -82,15 +104,21 @@ const OperatorAffiliationModal = ({
           Cancelar solicitud
         </Button>
       </div>
-      <Button
-        type="submit"
-        form={FORM_ID}
-        loading={formalizando}
-        loadingText="Formalizando…"
-        disabled={correoEnUso || (crearAccesoPortal && operatorEmailStatus.checking)}
-      >
-        Formalizar afiliación
-      </Button>
+      <div className="flex flex-col items-stretch gap-1 sm:items-end">
+        <Button
+          type="submit"
+          form={FORM_ID}
+          loading={formalizando}
+          loadingText="Formalizando…"
+          disabled={!documentosCompletos || correoEnUso || (crearAccesoPortal && operatorEmailStatus.checking)}
+          aria-describedby={!documentosCompletos ? 'formalizar-falta' : undefined}
+        >
+          Formalizar afiliación
+        </Button>
+        {!documentosCompletos && (
+          <p id="formalizar-falta" className="text-xs text-ink-muted">Faltan documentos obligatorios.</p>
+        )}
+      </div>
     </div>
   );
 
@@ -214,8 +242,20 @@ const OperatorAffiliationModal = ({
             </div>
           </section>
 
+          <div className="space-y-2 border-t border-line pt-5">
+            <AffiliationDocumentsPanel
+              key={idSolicitud}
+              titulo="Documentos"
+              cargar={cargarDocumentos}
+              subir={subirDocumento}
+              onCambio={onCambioDocumentos}
+              conAyuda={false}
+              nota="Escanee los que falten: sin los obligatorios no se puede formalizar. Lo que usted escanea lo revisa otro operador."
+            />
+          </div>
+
           <section aria-labelledby="deposito-inicial" className="space-y-3 border-t border-line pt-5">
-            <h3 id="deposito-inicial" className="text-sm font-semibold text-ink">Depósito inicial</h3>
+            <h3 id="deposito-inicial" className="text-sm font-semibold text-ink">Aporte inicial</h3>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <Field label="Monto" hint="Mínimo Q100.00." required>
                 <Input
@@ -229,11 +269,14 @@ const OperatorAffiliationModal = ({
                   required
                 />
               </Field>
-              <div className="space-y-1.5">
-                <p className="text-sm font-medium text-ink-soft">Forma de pago</p>
-                <p className="flex h-10 items-center rounded-md border border-line bg-surface-muted px-3 text-sm text-ink">
-                  Efectivo en ventanilla
-                </p>
+              <div className="sm:col-span-2">
+                <AffiliationPaymentOptions
+                  cui={editCuiDpi}
+                  value={cobroAfiliacion}
+                  onChange={setCobroAfiliacion}
+                  permitirDebito
+                  disabled={formalizando}
+                />
               </div>
               <Field label="Observaciones" hint="Opcional." className="sm:col-span-2">
                 <Textarea

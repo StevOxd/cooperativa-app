@@ -4,6 +4,7 @@ const documentos = require('../services/documentosAfiliacionService');
 const { respuestaDeError } = require('../utils/errores');
 const { esId } = require('../utils/identificadores');
 const { ipDelCliente, userAgentDe } = require('../utils/ipCliente');
+const { verificarAfiliacionToken, verificarCargaDocumentosToken } = require('../utils/afiliacionToken');
 
 /**
  * Documentos de afiliación: portal del asociado, expediente del operador y bandeja de revisión.
@@ -154,6 +155,343 @@ const subirDocumentoDeAsociado = async (req, res) => {
 };
 
 /**
+ * Documentos de una afiliación en curso con su resumen. Los de una carga previa van sin URL: no se abren hasta que
+ * la afiliación se completa (`secureUploads`).
+ *
+ * @param {number|null} idExpediente
+ * @param {{ despuesDeGuardar?: boolean, idUsuarioActual?: number }} [opciones]
+ * @returns {Promise<{ documentos: Object[], resumen: Object }|null>}
+ */
+const documentosDeAfiliacion = async (idExpediente, { despuesDeGuardar = false, idUsuarioActual } = {}) => {
+  try {
+    const cargaPrevia = idExpediente
+      ? (await db.query(
+          'SELECT (id_persona IS NULL AND id_solicitud IS NULL) AS carga_previa FROM expedientes_documentos WHERE id_expediente = $1',
+          [idExpediente]
+        )).rows[0]?.carga_previa
+      : false;
+    return await documentos.documentosConResumen(db, idExpediente, { conUrl: !cargaPrevia, idUsuarioActual });
+  } catch (error) {
+    if (!despuesDeGuardar) throw error;
+    console.error('[ERROR] No se pudieron listar los documentos después de guardar uno:', error.message);
+    return null;
+  }
+};
+
+/** DPI de 13 dígitos (sin espacios), o null. @param {unknown} valor @returns {string|null} */
+const leerCui = (valor) => {
+  const cui = typeof valor === 'string' ? valor.replace(/\s+/g, '') : '';
+  return /^\d{13}$/.test(cui) ? cui : null;
+};
+
+/**
+ * Solicitud de agencia que todavía se puede formalizar, o null.
+ *
+ * @param {string} id
+ * @returns {Promise<{ id_solicitud: number, cui_dpi: string }|null>}
+ */
+const solicitudPendiente = async (id) => {
+  const { rows } = await db.query(
+    "SELECT id_solicitud, cui_dpi FROM solicitudes_afiliacion_agencia WHERE id_solicitud = $1 AND estado = 'PENDIENTE_AGENCIA'",
+    [Number(id)]
+  );
+  return rows[0] || null;
+};
+
+/**
+ * Documentos que ya se escanearon para afiliar en ventanilla a un DPI (Formulario 1).
+ *
+ * @async
+ * @route GET /api/admin/asociados/documentos-afiliacion
+ * @param {import('express').Request} req - `?cui_dpi`.
+ * @param {import('express').Response} res
+ * @returns {Promise<void>} 200 `{ documentos, resumen }`; 400 DPI inválido; 500.
+ */
+const documentosParaAfiliar = async (req, res) => {
+  try {
+    const cui = leerCui(req.query.cui_dpi);
+    if (!cui) return res.status(400).json({ success: false, message: 'Escriba un DPI de 13 dígitos.' });
+    const idExpediente = await documentos.expedienteDeAfiliacion(db, cui);
+    return res.status(200).json({
+      success: true,
+      data: await documentosDeAfiliacion(idExpediente, { idUsuarioActual: req.user.id_usuario }),
+    });
+  } catch (error) {
+    console.error('[ERROR] documentosAfiliacionController.documentosParaAfiliar:', error.message);
+    return res.status(500).json({ success: false, message: 'No se pudieron cargar los documentos. Intente de nuevo.' });
+  }
+};
+
+/**
+ * El operador escanea un documento para afiliar en ventanilla a un DPI, antes de enviar el Formulario 1. Si la
+ * afiliación no se completa, se borra a los 30 días.
+ *
+ * @async
+ * @route POST /api/admin/asociados/documentos-afiliacion
+ * @param {import('express').Request} req - `{ cui_dpi, tipo_documento, archivo }`.
+ * @param {import('express').Response} res
+ * @returns {Promise<void>} 201 `{ documentos, resumen }`; 400; 413; 500.
+ */
+const escanearParaAfiliar = async (req, res) => {
+  try {
+    const cui = leerCui(req.body?.cui_dpi);
+    if (!cui) return res.status(400).json({ success: false, message: 'Escriba un DPI de 13 dígitos.' });
+    const { idExpediente, reemplazo } = await documentos.subirDocumento({
+      afiliacion: { cui, crearPor: req.user.id_usuario, canalOrigen: 'VENTANILLA' },
+      tipo: req.body?.tipo_documento,
+      archivo: req.body?.archivo,
+      canal: 'VENTANILLA',
+      idUsuario: req.user.id_usuario,
+      ip: ipDelCliente(req),
+      userAgent: userAgentDe(req),
+    });
+    return res.status(201).json({
+      success: true,
+      message: reemplazo ? 'Documento reemplazado.' : 'Documento escaneado.',
+      data: await documentosDeAfiliacion(idExpediente, { despuesDeGuardar: true, idUsuarioActual: req.user.id_usuario }),
+    });
+  } catch (error) {
+    registrarSiEsInesperado('escanearParaAfiliar', error);
+    return responderError(res, error, 'No se pudo subir el documento. Intente de nuevo.');
+  }
+};
+
+/**
+ * Documentos de una solicitud de agencia (los que subió el solicitante y los que se escanearon).
+ *
+ * @async
+ * @route GET /api/operador/afiliaciones/:id/documentos
+ * @param {import('express').Request} req - `:id` de la solicitud.
+ * @param {import('express').Response} res
+ * @returns {Promise<void>} 200 `{ documentos, resumen }`; 400; 404; 500.
+ */
+const documentosDeSolicitud = async (req, res) => {
+  try {
+    if (!esId(req.params.id)) return res.status(400).json({ success: false, message: 'El identificador no es válido.' });
+    const { rows } = await db.query('SELECT id_solicitud, cui_dpi FROM solicitudes_afiliacion_agencia WHERE id_solicitud = $1', [
+      Number(req.params.id),
+    ]);
+    if (!rows[0]) return res.status(404).json({ success: false, message: 'Solicitud no encontrada.' });
+    const idExpediente = await documentos.expedienteDeAfiliacion(db, rows[0].cui_dpi, { idSolicitud: rows[0].id_solicitud });
+    return res.status(200).json({
+      success: true,
+      data: await documentosDeAfiliacion(idExpediente, { idUsuarioActual: req.user.id_usuario }),
+    });
+  } catch (error) {
+    console.error('[ERROR] documentosAfiliacionController.documentosDeSolicitud:', error.message);
+    return res.status(500).json({ success: false, message: 'No se pudieron cargar los documentos. Intente de nuevo.' });
+  }
+};
+
+/**
+ * El operador escanea un documento de una solicitud de agencia antes de formalizarla.
+ *
+ * @async
+ * @route POST /api/operador/afiliaciones/:id/documentos
+ * @param {import('express').Request} req - `:id` de la solicitud; `{ tipo_documento, archivo }`.
+ * @param {import('express').Response} res
+ * @returns {Promise<void>} 201 `{ documentos, resumen }`; 400; 404 si no existe o ya se cerró; 413; 500.
+ */
+const escanearDeSolicitud = async (req, res) => {
+  try {
+    if (!esId(req.params.id)) return res.status(400).json({ success: false, message: 'El identificador no es válido.' });
+    const solicitud = await solicitudPendiente(req.params.id);
+    if (!solicitud) return res.status(404).json({ success: false, message: 'La solicitud no existe o ya se cerró.' });
+    const { idExpediente, reemplazo } = await documentos.subirDocumento({
+      afiliacion: {
+        cui: solicitud.cui_dpi,
+        idSolicitud: solicitud.id_solicitud,
+        crearPor: req.user.id_usuario,
+        canalOrigen: 'VENTANILLA',
+      },
+      tipo: req.body?.tipo_documento,
+      archivo: req.body?.archivo,
+      canal: 'VENTANILLA',
+      idUsuario: req.user.id_usuario,
+      ip: ipDelCliente(req),
+      userAgent: userAgentDe(req),
+    });
+    return res.status(201).json({
+      success: true,
+      message: `${reemplazo ? 'Documento reemplazado' : 'Documento escaneado'}. Lo revisa un colega.`,
+      data: await documentosDeAfiliacion(idExpediente, { despuesDeGuardar: true, idUsuarioActual: req.user.id_usuario }),
+    });
+  } catch (error) {
+    registrarSiEsInesperado('escanearDeSolicitud', error);
+    return responderError(res, error, 'No se pudo subir el documento. Intente de nuevo.');
+  }
+};
+
+/**
+ * Afiliación en línea a la que pertenece una carga sin sesión, según el permiso que trae: el comprobante de la Banca
+ * en Línea (cliente o empleado del banco, antes de afiliarse) o el permiso de carga de una solicitud de agencia recién
+ * registrada. Nunca del cuerpo: el DPI y la solicitud salen del permiso firmado.
+ *
+ * @param {Object} cuerpo - `{ afiliacion_token }` o `{ carga_token }`.
+ * Con el permiso de una solicitud (cuyo DPI nadie comprobó todavía) solo se llega al expediente de esa solicitud.
+ *
+ * @returns {Promise<{ cui: string, idSolicitud: number|null, soloSolicitud: boolean }|{ yaAsociado: true }|null>}
+ *   null si no trae un permiso vigente o la solicitud ya se cerró; `yaAsociado` si con el comprobante del banco
+ *   resulta que ya es asociado (sus documentos se suben desde su portal). Con el permiso de una solicitud no se dice:
+ *   quien la registró eligió el DPI, y la respuesta revelaría si esa persona es asociada.
+ */
+const afiliacionEnLinea = async (cuerpo) => {
+  const comprobante = verificarAfiliacionToken(cuerpo?.afiliacion_token);
+  if (comprobante) {
+    const asociado = await db.query(
+      'SELECT 1 FROM asociados a JOIN personas p ON p.id_persona = a.id_persona WHERE p.cui_dpi = $1',
+      [comprobante.cui_dpi]
+    );
+    return asociado.rows[0] ? { yaAsociado: true } : { cui: comprobante.cui_dpi, idSolicitud: null, soloSolicitud: false };
+  }
+  const permiso = verificarCargaDocumentosToken(cuerpo?.carga_token);
+  if (!permiso) return null;
+  const cui = permiso.cui_dpi;
+  const { rows } = await db.query(
+    "SELECT id_solicitud FROM solicitudes_afiliacion_agencia WHERE id_solicitud = $1 AND cui_dpi = $2 AND estado = 'PENDIENTE_AGENCIA'",
+    [permiso.id_solicitud, permiso.cui_dpi]
+  );
+  return rows[0] ? { cui, idSolicitud: rows[0].id_solicitud, soloSolicitud: true } : null;
+};
+
+/** Respuesta cuando no hay permiso vigente o ya es asociado. @param {import('express').Response} res @param {Object|null} afiliacion */
+const responderSinPermiso = (res, afiliacion) =>
+  afiliacion?.yaAsociado
+    ? res.status(409).json({ success: false, message: 'Ya es asociado: suba sus documentos desde su portal.' })
+    : res.status(403).json(PERMISO_VENCIDO);
+
+const PERMISO_VENCIDO = {
+  success: false,
+  message: 'El tiempo para subir documentos en línea terminó. Vuelva a validar sus datos o lleve los documentos a la agencia.',
+};
+
+/**
+ * Documentos que ya subió el solicitante en línea (sin enlaces: no se abren sin sesión).
+ *
+ * @async
+ * @route POST /api/afiliacion/documentos/consultar
+ * @param {import('express').Request} req - `{ afiliacion_token }` o `{ carga_token }`.
+ * @param {import('express').Response} res
+ * @returns {Promise<void>} 200 `{ documentos, resumen }`; 403 sin permiso vigente; 500.
+ */
+const documentosEnLinea = async (req, res) => {
+  try {
+    const afiliacion = await afiliacionEnLinea(req.body);
+    if (!afiliacion?.cui) return responderSinPermiso(res, afiliacion);
+    const idExpediente = afiliacion.soloSolicitud
+      ? await documentos.expedienteDeSolicitud(db, afiliacion.idSolicitud)
+      : await documentos.expedienteDeAfiliacion(db, afiliacion.cui);
+    return res.status(200).json({ success: true, data: await documentos.documentosConResumen(db, idExpediente) });
+  } catch (error) {
+    console.error('[ERROR] documentosAfiliacionController.documentosEnLinea:', error.message);
+    return res.status(500).json({ success: false, message: 'No se pudieron cargar sus documentos. Intente de nuevo.' });
+  }
+};
+
+/**
+ * El solicitante sube uno de sus documentos en línea. Sin una solicitud, quedan como carga previa: si no completa la
+ * afiliación, se borran a los 30 días.
+ *
+ * @async
+ * @route POST /api/afiliacion/documentos
+ * @param {import('express').Request} req - `{ afiliacion_token | carga_token, tipo_documento, archivo }`.
+ * @param {import('express').Response} res
+ * @returns {Promise<void>} 201 `{ documentos, resumen }`; 400; 403 sin permiso vigente; 409; 413; 500.
+ */
+const subirDocumentoEnLinea = async (req, res) => {
+  try {
+    const afiliacion = await afiliacionEnLinea(req.body);
+    if (!afiliacion?.cui) return responderSinPermiso(res, afiliacion);
+    const { idExpediente, reemplazo } = await documentos.subirDocumento({
+      afiliacion: { cui: afiliacion.cui, idSolicitud: afiliacion.idSolicitud, canalOrigen: 'EN_LINEA', soloSolicitud: afiliacion.soloSolicitud },
+      tipo: req.body?.tipo_documento,
+      archivo: req.body?.archivo,
+      canal: 'EN_LINEA',
+      ip: ipDelCliente(req),
+      userAgent: userAgentDe(req),
+    });
+    let data = null;
+    try {
+      data = await documentos.documentosConResumen(db, idExpediente);
+    } catch (errorLista) {
+      console.error('[ERROR] No se pudieron listar los documentos después de guardar uno:', errorLista.message);
+    }
+    return res.status(201).json({ success: true, message: reemplazo ? 'Documento reemplazado.' : 'Documento recibido.', data });
+  } catch (error) {
+    registrarSiEsInesperado('subirDocumentoEnLinea', error);
+    return responderError(res, error, 'No se pudo subir el documento. Intente de nuevo.');
+  }
+};
+
+/**
+ * Persona del personal de la sesión que todavía no es asociada, o null.
+ *
+ * @param {{ id_persona: number }} usuario
+ * @returns {Promise<number|null>}
+ */
+const personalSinAfiliar = async (usuario) => {
+  const { rows } = await db.query(
+    'SELECT p.id_persona FROM personas p WHERE p.id_persona = $1 AND NOT EXISTS (SELECT 1 FROM asociados a WHERE a.id_persona = p.id_persona)',
+    [usuario.id_persona]
+  );
+  return rows[0]?.id_persona ?? null;
+};
+
+/**
+ * Documentos de afiliación de quien es del personal y se afilia («Afiliarme a la cooperativa»).
+ *
+ * @async
+ * @route GET /api/afiliacion/personal/documentos
+ * @param {import('express').Request} req - Sesión del personal.
+ * @param {import('express').Response} res
+ * @returns {Promise<void>} 200 `{ documentos, resumen }`; 409 si ya es asociado; 500.
+ */
+const misDocumentosDePersonal = async (req, res) => {
+  try {
+    const idPersona = await personalSinAfiliar(req.user);
+    if (!idPersona) return res.status(409).json({ success: false, message: 'Ya es asociado: sus documentos están en su portal de asociado.' });
+    const idExpediente = await documentos.expedienteDePersona(db, idPersona);
+    return res.status(200).json({ success: true, data: await documentosConResumen(idExpediente) });
+  } catch (error) {
+    console.error('[ERROR] documentosAfiliacionController.misDocumentosDePersonal:', error.message);
+    return res.status(500).json({ success: false, message: 'No se pudieron cargar sus documentos. Intente de nuevo.' });
+  }
+};
+
+/**
+ * Quien es del personal sube uno de sus documentos de afiliación. Lo revisa un colega.
+ *
+ * @async
+ * @route POST /api/afiliacion/personal/documentos
+ * @param {import('express').Request} req - `{ tipo_documento, archivo }`.
+ * @param {import('express').Response} res
+ * @returns {Promise<void>} 201 `{ documentos, resumen }`; 400; 409; 413; 500.
+ */
+const subirMiDocumentoDePersonal = async (req, res) => {
+  try {
+    const idPersona = await personalSinAfiliar(req.user);
+    if (!idPersona) return res.status(409).json({ success: false, message: 'Ya es asociado: suba sus documentos desde su portal de asociado.' });
+    const { idExpediente, reemplazo } = await documentos.subirDocumento({
+      persona: { idPersona, crearPor: req.user.id_usuario, canalOrigen: 'PERSONAL' },
+      tipo: req.body?.tipo_documento,
+      archivo: req.body?.archivo,
+      canal: 'PERSONAL',
+      idUsuario: req.user.id_usuario,
+      ip: ipDelCliente(req),
+      userAgent: userAgentDe(req),
+    });
+    return res.status(201).json({
+      success: true,
+      message: `${reemplazo ? 'Documento reemplazado' : 'Documento recibido'}. Lo revisa un colega.`,
+      data: await documentosConResumen(idExpediente, { despuesDeGuardar: true }),
+    });
+  } catch (error) {
+    registrarSiEsInesperado('subirMiDocumentoDePersonal', error);
+    return responderError(res, error, 'No se pudo subir el documento. Intente de nuevo.');
+  }
+};
+
+/**
  * Bandeja de documentos para revisar.
  *
  * @async
@@ -233,6 +571,7 @@ const revisar = async (req, res) => {
             nombre: contacto.nombre,
             documento: documentos.ETIQUETAS[documento.tipo_documento],
             motivo: documento.motivo_rechazo,
+            sinPortal: contacto.sinPortal,
           });
           correoEnviado = mailerService.wasSent(envio);
         } catch (errorCorreo) {
@@ -244,7 +583,9 @@ const revisar = async (req, res) => {
     let message = documento.estado === 'ACEPTADO' ? 'Documento aceptado.' : 'Documento rechazado.';
     if (correoEnviado === true) message += ' Se le avisó por correo.';
     if (correoEnviado === false) {
-      message += ' No se le pudo avisar por correo: verá el motivo al entrar a su portal; si es urgente, comuníquese con el asociado.';
+      message += contacto.sinPortal
+        ? ' No se le pudo avisar por correo: comuníquese con el solicitante para que lleve el documento a la agencia.'
+        : ' No se le pudo avisar por correo: verá el motivo al entrar a su portal; si es urgente, comuníquese con el asociado.';
     }
     return res.status(200).json({ success: true, message, documento, correo_enviado: correoEnviado });
   } catch (error) {
@@ -257,6 +598,14 @@ module.exports = {
   misDocumentos,
   subirMiDocumento,
   subirDocumentoDeAsociado,
+  documentosParaAfiliar,
+  escanearParaAfiliar,
+  documentosDeSolicitud,
+  escanearDeSolicitud,
+  documentosEnLinea,
+  subirDocumentoEnLinea,
+  misDocumentosDePersonal,
+  subirMiDocumentoDePersonal,
   bandeja,
   historial,
   revisar,

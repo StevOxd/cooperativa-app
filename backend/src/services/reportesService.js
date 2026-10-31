@@ -150,11 +150,15 @@ const estadoDocumentos = (entregados, pendientes) => {
   return pendientes > 0 ? 'EN_REVISION' : 'COMPLETO';
 };
 
-/** Asociados con su tipo, cuentas activas y estado de documentos. @type {ConsultaReporte} */
+/**
+ * Asociados con su tipo, cuentas activas y estado de documentos. El tipo se guarda al afiliar (issue #90); para los
+ * anteriores se deduce del prefijo del usuario del portal. @type {ConsultaReporte}
+ */
 const padronDeAsociados = async (cliente, { estado }) => {
   const { rows } = await cliente.query(
     `SELECT u.codigo_corporativo AS codigo, p.nombre_completo, p.cui_dpi,
-            CASE WHEN u.codigo_corporativo LIKE 'EB-%' THEN 'EB' WHEN u.codigo_corporativo LIKE 'EX-%' THEN 'EX' END AS tipo,
+            COALESCE(a.tipo_asociado,
+                     CASE WHEN u.codigo_corporativo LIKE 'EB-%' THEN 'EB' WHEN u.codigo_corporativo LIKE 'EX-%' THEN 'EX' END) AS tipo,
             to_char(a.fecha_ingreso, 'YYYY-MM-DD') AS fecha_ingreso, a.estado_asociado AS estado,
             (SELECT COUNT(*) FROM cuentas c WHERE c.id_asociado = a.id_asociado AND c.estado = 'ACTIVA')::int AS cuentas_activas,
             COALESCE(doc.entregados, 0) AS entregados, COALESCE(doc.pendientes, 0) AS pendientes
@@ -298,7 +302,8 @@ const resumirResoluciones = (filas) => ({
 // ---------------------------------------------------------------------------------------------------------------
 
 /**
- * Asociados que ingresaron en el período, con su tipo y el canal por el que se afiliaron. El canal sale de lo que
+ * Asociados que ingresaron en el período, con su tipo y el canal por el que se afiliaron. Ambos se guardan al afiliar
+ * (issue #90); para los asociados anteriores se deducen. El tipo, del prefijo del usuario del portal; el canal, de lo que
  * dejó cada trámite: una solicitud de agencia atendida (agencia, incluido el personal), la aportación en efectivo al
  * afiliar (ventanilla; un cliente externo no abre cuenta en la cooperativa), o el primer movimiento de sus cuentas sin
  * operador (en línea) o con operador (ventanilla). Sin ninguno (datos semilla), SIN_DATO.
@@ -309,8 +314,9 @@ const afiliaciones = async (cliente, { desde, hasta }) => {
   const { rows } = await cliente.query(
     `SELECT to_char(a.fecha_ingreso, 'YYYY-MM-DD') AS fecha_ingreso, u.codigo_corporativo AS codigo,
             p.nombre_completo, p.cui_dpi, a.estado_asociado AS estado,
-            CASE WHEN u.codigo_corporativo LIKE 'EB-%' THEN 'EB' WHEN u.codigo_corporativo LIKE 'EX-%' THEN 'EX' END AS tipo,
-            CASE
+            COALESCE(a.tipo_asociado,
+                     CASE WHEN u.codigo_corporativo LIKE 'EB-%' THEN 'EB' WHEN u.codigo_corporativo LIKE 'EX-%' THEN 'EX' END) AS tipo,
+            COALESCE(a.canal_afiliacion, CASE
               WHEN EXISTS (SELECT 1 FROM solicitudes_afiliacion_agencia s WHERE s.cui_dpi = p.cui_dpi AND s.estado = 'ATENDIDA')
                 THEN 'AGENCIA'
               WHEN EXISTS (SELECT 1 FROM efectivo_ventanilla e WHERE e.cui_dpi = p.cui_dpi AND e.origen = 'AFILIACION_PRESENCIAL')
@@ -318,7 +324,7 @@ const afiliaciones = async (cliente, { desde, hasta }) => {
               WHEN apertura.id_transaccion IS NOT NULL AND apertura.id_usuario_registra IS NULL THEN 'EN_LINEA'
               WHEN apertura.id_transaccion IS NOT NULL THEN 'VENTANILLA'
               ELSE 'SIN_DATO'
-            END AS canal
+            END) AS canal
      FROM asociados a
      JOIN personas p ON p.id_persona = a.id_persona
      LEFT JOIN usuarios u ON u.id_persona = a.id_persona AND u.id_rol = 3 /* ASOCIADO */

@@ -34,6 +34,14 @@ router.post('/:id/acceso-portal', prohibirAutoatencion('asociado', (req) => req.
 router.post('/:id/documentos', prohibirAutoatencion('asociado', (req) => req.params.id), documentosController.subirDocumentoDeAsociado);
 
 /**
+ * @route   GET  /api/admin/asociados/documentos-afiliacion?cui_dpi
+ * @route   POST /api/admin/asociados/documentos-afiliacion
+ * @desc    Documentos escaneados para afiliar a un DPI en ventanilla (obligatorios para enviar el Formulario 1)
+ */
+router.get('/documentos-afiliacion', prohibirAutoatencion('dpi', (req) => req.query.cui_dpi), documentosController.documentosParaAfiliar);
+router.post('/documentos-afiliacion', prohibirAutoatencion('dpi', (req) => req.body?.cui_dpi), documentosController.escanearParaAfiliar);
+
+/**
  * @route   POST /api/admin/asociados/presencial
  * @desc    Formulario 1: Registro presencial de afiliación en ventanilla (Exclusivo OPERADOR)
  */

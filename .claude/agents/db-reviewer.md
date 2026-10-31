@@ -2,7 +2,7 @@
 name: db-reviewer
 description: "Úsalo cuando un cambio toque database.sql, migrations.js, consultas SQL, índices, secuencias, triggers o transacciones de cooperativa_db o banco_db. Revisa 3FN, restricciones CHECK, NUMERIC(14,2), índices B-Tree en llaves foráneas, correlativos atómicos, borrado lógico, idempotencia de migraciones y las particularidades del modelo actual (correo en usuarios.email, usuarios.id_usuario como PK con hasta dos usuarios por persona, hash de códigos, secretos 2FA). Solo lee; no edita."
 tools: Read, Grep, Glob, Bash
-model: inherit
+model: sonnet
 ---
 
 <!-- Archivo generado por scripts/sync-agents.mjs a partir de .agent/agents/db-reviewer.md. No lo edite: edite el original y vuelva a ejecutar el script. -->

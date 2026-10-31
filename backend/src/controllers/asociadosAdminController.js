@@ -325,11 +325,12 @@ const crearAfiliacionPresencial = async (req, res) => {
     });
   } catch (error) {
     console.error('[ERROR] Fallo en asociadosAdminController.crearAfiliacionPresencial:', error.message);
-    const { status, message } = respuestaDeError(error, 'No se pudo registrar la afiliación. Intente de nuevo.');
+    const { status, message, codigo } = respuestaDeError(error, 'No se pudo registrar la afiliación. Intente de nuevo.');
     return res.status(status).json({
       success: false,
-      // Solo los códigos propios del acceso al portal (CORREO_*), nunca códigos internos de la base o del sistema.
-      error: typeof error.code === 'string' && error.code.startsWith('CORREO_') ? error.code : undefined,
+      // Solo los códigos propios del acceso al portal (CORREO_*) y los de negocio (`codigo`, como
+      // DOCUMENTOS_INCOMPLETOS), nunca códigos internos de la base o del sistema.
+      error: codigo || (typeof error.code === 'string' && error.code.startsWith('CORREO_') ? error.code : undefined),
       message,
     });
   }

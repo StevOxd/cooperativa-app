@@ -1,8 +1,9 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import api from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import { Alert, Button, Field, Input, LoadingState, Modal } from '../ui';
 import { formatDate } from '../../utils/format';
+import { AffiliationDocumentsPanel } from '../documents';
 
 const FORM_ID = 'afiliacion-personal';
 
@@ -25,6 +26,11 @@ export const StaffAffiliationModal = ({ isOpen, onClose }) => {
   const [errorCorreo, setErrorCorreo] = useState('');
   const [resultado, setResultado] = useState(null);
   const correoRef = useRef(null);
+  const cargarDocumentos = useCallback(() => api.get('/afiliacion/personal/documentos').then((r) => r.data.data), []);
+  const subirDocumento = useCallback(
+    (tipo, archivo) => api.post('/afiliacion/personal/documentos', { tipo_documento: tipo, archivo }).then((r) => r.data.data),
+    []
+  );
   const resultadoRef = useRef(null);
 
   useEffect(() => {
@@ -199,6 +205,18 @@ export const StaffAffiliationModal = ({ isOpen, onClose }) => {
             </Field>
           </div>
         </form>
+      )}
+
+      {/* Documentos (Fase 6): los puede subir ya; los que falten se escanean al formalizar. Los revisa un colega. */}
+      {datos && !datos.es_asociado && (
+        <div className="mt-6 border-t border-line pt-5">
+          <AffiliationDocumentsPanel
+            titulo="Sus documentos de afiliación"
+            cargar={cargarDocumentos}
+            subir={subirDocumento}
+            nota="Puede subirlos ahora o llevarlos cuando un colega formalice su solicitud. Los revisa otro operador."
+          />
+        </div>
       )}
     </Modal>
   );

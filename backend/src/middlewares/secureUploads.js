@@ -29,13 +29,16 @@ const NO_EXISTE = { success: false, message: 'El documento no existe.' };
 const servirDocumentoAfiliacion = async (req, res, usuario, archivo) => {
   try {
     const documento = (await db.query(
-      `SELECT d.id_documento, d.tipo_documento, e.id_persona
+      `SELECT d.id_documento, d.tipo_documento, e.id_persona,
+              (e.id_persona IS NULL AND e.id_solicitud IS NULL) AS carga_previa
        FROM documentos_afiliacion d JOIN expedientes_documentos e ON e.id_expediente = d.id_expediente
        WHERE d.archivo = $1`,
       [archivo]
     )).rows[0];
     const esDueno = usuario.rol === 'ASOCIADO' && Number(documento?.id_persona) === Number(usuario.id_persona);
-    if (!documento || (!ROLES_PERSONAL.includes(usuario.rol) && !esDueno)) {
+    // Una carga previa (afiliación que todavía no se completa) no se abre: se revisa al afiliar, y si no se completa se
+    // borra a los 30 días, lo que un registro de apertura impediría
+    if (!documento || documento.carga_previa || (!ROLES_PERSONAL.includes(usuario.rol) && !esDueno)) {
       return res.status(404).json(NO_EXISTE);
     }
     // Solo se registra una apertura que se puede entregar

@@ -71,6 +71,25 @@ router.post(
 );
 
 /**
+ * @route   GET  /api/operador/afiliaciones/:id/documentos
+ * @route   POST /api/operador/afiliaciones/:id/documentos
+ * @desc    Documentos de una solicitud de agencia: los obligatorios se exigen para formalizarla
+ * @access  Privado (solo OPERADOR)
+ */
+router.get(
+  '/afiliaciones/:id/documentos',
+  checkRole('OPERADOR'),
+  prohibirAutoatencion('solicitudAfiliacion', (req) => req.params.id),
+  documentosController.documentosDeSolicitud
+);
+router.post(
+  '/afiliaciones/:id/documentos',
+  checkRole('OPERADOR'),
+  prohibirAutoatencion('solicitudAfiliacion', (req) => req.params.id),
+  documentosController.escanearDeSolicitud
+);
+
+/**
  * @route   POST /api/operador/afiliaciones/:id/rechazar
  * @desc    Rechazar / Cancelar solicitud de afiliación en agencia
  * @access  Privado (Operador)

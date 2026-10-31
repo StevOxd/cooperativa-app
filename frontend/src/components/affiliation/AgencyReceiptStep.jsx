@@ -1,10 +1,12 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { Download } from 'lucide-react';
 import { Badge, Button } from '../ui';
 import { useToast } from '../../context/ToastContext';
 import { formatDate, formatQ } from '../../utils/format';
 import { generateAffiliationCasePdf } from '../../utils/pdfs';
+import api from '../../services/api';
+import { AffiliationDocumentsPanel } from '../documents';
 
 /**
  * Constancia con el número de caso para terminar la afiliación en agencia.
@@ -12,10 +14,20 @@ import { generateAffiliationCasePdf } from '../../utils/pdfs';
  *
  * @component
  * @param {Object} props
- * @param {Object} props.casoGenerado - Respuesta de `/afiliacion/solicitar-nuevo`.
+ * @param {Object} props.casoGenerado - Respuesta de `/afiliacion/solicitar-nuevo` (o de `terminar-en-ventanilla`), con
+ *   `carga_token` para subir los documentos desde aquí.
  */
 export const AgencyReceiptStep = ({ casoGenerado }) => {
   const { toast } = useToast();
+  const cargaToken = casoGenerado?.carga_token;
+  const cargarDocumentos = useCallback(
+    () => api.post('/afiliacion/documentos/consultar', { carga_token: cargaToken }).then((r) => r.data.data),
+    [cargaToken]
+  );
+  const subirDocumento = useCallback(
+    (tipo, archivo) => api.post('/afiliacion/documentos', { carga_token: cargaToken, tipo_documento: tipo, archivo }).then((r) => r.data.data),
+    [cargaToken]
+  );
 
   const handleDownloadPdf = async () => {
     try {
@@ -59,8 +71,8 @@ export const AgencyReceiptStep = ({ casoGenerado }) => {
         <h3 id="caso-pasos" className="text-sm font-medium text-ink">Para terminar su afiliación</h3>
         <ol className="mt-2 list-decimal space-y-1 pl-5 text-sm text-ink-soft">
           <li>Vaya a cualquier agencia del banco.</li>
-          <li>Lleve su DPI original y este número de caso.</li>
-          <li>Haga el depósito inicial para abrir su cuenta de ahorro.</li>
+          <li>Lleve su DPI original, este número de caso y los documentos que no haya subido.</li>
+          <li>Pague su aporte inicial para abrir su cuenta de ahorro.</li>
         </ol>
       </section>
 
@@ -84,6 +96,23 @@ export const AgencyReceiptStep = ({ casoGenerado }) => {
           <dd><Badge tone="warning">Pendiente en agencia</Badge></dd>
         </div>
       </dl>
+
+      {/* Documentos: opcionales aquí (Fase 6). Si no los sube ahora, los escanean en la agencia. */}
+      {cargaToken && (
+        <section aria-labelledby="caso-documentos" className="mt-6 space-y-2 print:hidden">
+          <h3 id="caso-documentos" className="text-sm font-medium text-ink">Adelante sus documentos (opcional)</h3>
+          <p className="text-sm text-ink-muted">
+            Puede subirlos ahora, durante los próximos 30 minutos, o llevarlos a la agencia. Así su trámite en la agencia
+            es más rápido.
+          </p>
+          <AffiliationDocumentsPanel
+            titulo="Documentos de afiliación"
+            cargar={cargarDocumentos}
+            subir={subirDocumento}
+            nota="PDF, JPG o PNG de hasta 5 MB. Las fotos se reducen y se les quita la ubicación antes de enviarlas."
+          />
+        </section>
+      )}
 
       {/* Firmas: solo al imprimir. Se usan <footer>/<span> porque la regla de impresión
           de index.css quita márgenes y rellenos a todos los <div>. */}

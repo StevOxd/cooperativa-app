@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useCallback, useState, useEffect, useMemo, useRef } from 'react';
 import { Building2, FileDown, Landmark } from 'lucide-react';
 import api from '../../services/api';
 import { Alert, Badge, Button, Field, Input, LoadingState, Modal, Select, cn } from '../ui';
@@ -7,6 +7,9 @@ import { generateAccountOpeningReceiptPdf } from '../../utils/pdfs';
 import { toast } from '../../context/ToastContext';
 import { PortalAccessOption } from '../common/PortalAccessOption';
 import { useCorreoDisponible } from '../../hooks/useCorreoDisponible';
+import { AffiliationPaymentOptions } from '../common/AffiliationPaymentOptions';
+import { AffiliationDocumentsPanel } from '../documents';
+import { COBRO } from '../../utils/cobroAfiliacion';
 
 // Tope del efectivo en ventanilla por persona al día mientras no llega el del servidor
 // (FINANCIERO.EFECTIVO_VENTANILLA_DIARIO_POR_PERSONA, viene en GET /banco-externo/cuentas-cliente)
@@ -70,6 +73,9 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess, onAbrirCuenta })
 
   const [fieldErrors, setFieldErrors] = useState({});
   const [emailStatus, setEmailStatus] = useState({ checking: false, available: null, message: '' });
+  // Externo con cuentas en el banco: el efectivo va a una de ellas o a una nueva (#81). Documentos obligatorios (Fase 6).
+  const [cobroEx, setCobroEx] = useState({ metodo: COBRO.EFECTIVO_NUEVA, cuenta: '' });
+  const [documentosCompletos, setDocumentosCompletos] = useState(false);
   const [dpiStatus, setDpiStatus] = useState({
     checking: false,
     verified: false,
@@ -558,6 +564,27 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess, onAbrirCuenta })
     }
   }, [isOpen]);
 
+  // Documentos de afiliación del DPI ya verificado (Fase 6)
+  const cuiCompleto = /^\d{13}$/.test(formData.cui_dpi || '') && dpiStatus.verified && !dpiStatus.error ? formData.cui_dpi : '';
+  const cargarDocumentos = useCallback(
+    () => api.get(`/admin/asociados/documentos-afiliacion?cui_dpi=${cuiCompleto}`).then((r) => r.data.data),
+    [cuiCompleto]
+  );
+  const subirDocumento = useCallback(
+    (tipo, archivo) => api.post('/admin/asociados/documentos-afiliacion', { cui_dpi: cuiCompleto, tipo_documento: tipo, archivo }).then((r) => r.data.data),
+    [cuiCompleto]
+  );
+  // Otro DPI (o ninguno): sus documentos y sus cuentas del banco se vuelven a consultar
+  useEffect(() => {
+    setDocumentosCompletos(false);
+    setCobroEx({ metodo: COBRO.EFECTIVO_NUEVA, cuenta: '' });
+  }, [cuiCompleto]);
+  // Por qué no se puede registrar todavía (se dice junto al botón)
+  let motivoSinRegistrar = '';
+  if (!cuiCompleto) motivoSinRegistrar = 'Verifique el DPI.';
+  else if (!documentosCompletos) motivoSinRegistrar = 'Faltan documentos obligatorios.';
+  const onCambioDocumentos = useCallback((resumen) => setDocumentosCompletos(Boolean(resumen) && resumen.faltantes.length === 0), []);
+
   if (!isOpen) return null;
 
   const handleChange = (e) => {
@@ -704,7 +731,9 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess, onAbrirCuenta })
         email: cleanEmail,
         monto_aportacion: monto,
         metodo_pago: 'EFECTIVO_VENTANILLA',
-        numero_cuenta_bancaria: formData.tipo_asociado === 'EB' ? cuentaBancoSeleccionada : undefined,
+        numero_cuenta_bancaria: formData.tipo_asociado === 'EB'
+          ? cuentaBancoSeleccionada
+          : cobroEx.metodo === COBRO.EFECTIVO_EXISTENTE ? cobroEx.cuenta : undefined,
         crear_acceso_portal: crearAcceso,
         tipo_asociado: formData.tipo_asociado || 'EX',
       };
@@ -756,6 +785,8 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess, onAbrirCuenta })
         : 'A este correo se enviará la contraseña temporal.';
 
   const esEbExito = successData?.tipo_asociado === 'EB';
+  // EX: la cuenta del banco donde quedó el efectivo (nueva o una que ya tenía)
+  const cuentaBancoEx = successData?.cuenta_bancaria_creada || successData?.numero_cuenta_bancaria_asociada || null;
 
   // Comprobante de afiliación y apertura para que el asociado se lo lleve (issue #26)
   const handleDownloadReceipt = async () => {
@@ -770,7 +801,7 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess, onAbrirCuenta })
           usuario: successData.acceso_portal ? successData.codigo_corporativo : null,
           acceso_portal: successData.acceso_portal,
           correo_enviado: successData.correo_enviado,
-          numero_cuenta: esEbExito ? successData.cuenta_ahorro : successData.cuenta_bancaria_creada,
+          numero_cuenta: esEbExito ? successData.cuenta_ahorro : cuentaBancoEx,
           tipo_cuenta: esEbExito ? 'Cuenta de ahorro en la cooperativa' : 'Cuenta de ahorro en el banco',
           fecha_apertura: new Date(),
           saldo_inicial: successData.saldo_inicial,
@@ -793,7 +824,9 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess, onAbrirCuenta })
         description={
           esEbExito
             ? 'Se creó su expediente y su cuenta en la cooperativa con el aporte debitado del banco.'
-            : 'Se creó su expediente y el depósito quedó en su cuenta nueva del banco.'
+            : successData.cuenta_bancaria_creada
+              ? 'Se creó su expediente y el depósito quedó en su cuenta nueva del banco.'
+              : 'Se creó su expediente y el depósito quedó en su cuenta del banco.'
         }
         footer={
           <div className="flex w-full flex-col-reverse gap-2 sm:flex-row sm:justify-between">
@@ -802,8 +835,8 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess, onAbrirCuenta })
               <Button variant={!esEbExito && onAbrirCuenta ? 'secondary' : 'primary'} icon={FileDown} onClick={handleDownloadReceipt}>
                 Descargar comprobante
               </Button>
-              {!esEbExito && onAbrirCuenta && successData.cuenta_bancaria_creada && (
-                <Button icon={Landmark} onClick={() => onAbrirCuenta(successData, formData)}>
+              {!esEbExito && onAbrirCuenta && cuentaBancoEx && (
+                <Button icon={Landmark} onClick={() => onAbrirCuenta({ ...successData, cuenta_bancaria_creada: cuentaBancoEx }, formData)}>
                   Abrir cuenta en la cooperativa
                 </Button>
               )}
@@ -818,7 +851,7 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess, onAbrirCuenta })
             ['Tipo de asociado', successData.tipo_asociado === 'EB' ? 'Empleado del banco (EB)' : 'Externo (EX)'],
             esEbExito && ['Cuenta en la cooperativa', successData.cuenta_ahorro, 'font-mono'],
             esEbExito && ['Debitado de su cuenta del banco', successData.numero_cuenta_bancaria_asociada, 'font-mono'],
-            !esEbExito && ['Cuenta de ahorro en el banco', successData.cuenta_bancaria_creada, 'font-mono'],
+            !esEbExito && [successData.cuenta_bancaria_creada ? 'Cuenta de ahorro nueva en el banco' : 'Depositado en su cuenta del banco', cuentaBancoEx, 'font-mono'],
             [esEbExito ? 'Aporte inicial' : 'Depósito inicial', formatQ(successData.saldo_inicial), 'font-medium tabular-nums'],
             ['Forma de pago', esEbExito ? 'Débito de su cuenta del banco' : 'Efectivo en ventanilla'],
           ]
@@ -872,10 +905,12 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess, onAbrirCuenta })
               form={FORM_ID}
               loading={loading}
               loadingText="Registrando…"
-              disabled={(crearAcceso && emailStatus.available === false) || dpiStatus.error || dpiStatus.checking}
+              disabled={!documentosCompletos || (crearAcceso && emailStatus.available === false) || dpiStatus.error || dpiStatus.checking}
+              aria-describedby={motivoSinRegistrar ? 'registrar-falta' : undefined}
             >
               Registrar asociado
             </Button>
+            {motivoSinRegistrar && <p id="registrar-falta" className="text-xs text-ink-muted sm:self-center">{motivoSinRegistrar}</p>}
           </div>
         </div>
       }
@@ -1101,19 +1136,26 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess, onAbrirCuenta })
                 required
               />
             </Field>
-            <div className="space-y-1.5">
-              <p className="text-sm font-medium text-ink-soft">Forma de pago</p>
-              <p className="flex h-10 items-center rounded-md border border-line bg-surface-muted px-3 text-sm text-ink">
-                {esEmpleado ? 'Débito de su cuenta del banco' : 'Efectivo en ventanilla'}
-              </p>
-            </div>
+            {esEmpleado && (
+              <div className="space-y-1.5">
+                <p className="text-sm font-medium text-ink-soft">Forma de pago</p>
+                <p className="flex h-10 items-center rounded-md border border-line bg-surface-muted px-3 text-sm text-ink">
+                  Débito de su cuenta del banco
+                </p>
+              </div>
+            )}
           </div>
 
           {!esEmpleado && (
-            <Alert tone="info" icon={Building2}>
-              El efectivo se deposita en una cuenta de ahorro nueva del banco a su nombre. La cuenta en la cooperativa se
-              abre después, desde el resumen o en ventanilla.
-            </Alert>
+            <>
+              <AffiliationPaymentOptions cui={cuiCompleto} value={cobroEx} onChange={setCobroEx} disabled={loading} />
+              <Alert tone="info" icon={Building2}>
+                {cobroEx.metodo === COBRO.EFECTIVO_EXISTENTE
+                  ? 'El efectivo se deposita en la cuenta del banco que eligió; no se le abre otra.'
+                  : 'El efectivo se deposita en una cuenta de ahorro nueva del banco a su nombre.'}{' '}
+                La cuenta en la cooperativa se abre después, desde el resumen o en ventanilla.
+              </Alert>
+            </>
           )}
 
           {esEmpleado && (
@@ -1230,6 +1272,24 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess, onAbrirCuenta })
                 </div>
               )}
             </div>
+          )}
+        </section>
+
+        {/* ============ 3. DOCUMENTOS (obligatorios para afiliar, Fase 6) ============ */}
+        <section aria-labelledby="na-documentos" className="space-y-2 border-t border-line pt-5">
+          <h3 id="na-documentos" className="text-sm font-semibold text-ink">Documentos</h3>
+          {cuiCompleto ? (
+            <AffiliationDocumentsPanel
+              key={cuiCompleto}
+              titulo="Documentos de afiliación"
+              cargar={cargarDocumentos}
+              subir={subirDocumento}
+              onCambio={onCambioDocumentos}
+              conAyuda={false}
+              nota="Escanee los obligatorios: sin ellos no se registra la afiliación. Lo que usted escanea lo revisa otro operador."
+            />
+          ) : (
+            <p className="text-sm text-ink-muted">Escriba y verifique el DPI para escanear sus documentos.</p>
           )}
         </section>
 

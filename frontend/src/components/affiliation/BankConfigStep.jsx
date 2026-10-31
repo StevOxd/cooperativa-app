@@ -5,7 +5,7 @@ import { formatQ, humanize } from '../../utils/format';
 import { IdentityBar, StepActions, StepHeader } from './StepHeader';
 
 /**
- * Paso 2 (clientes del banco): cuenta bancaria de origen y aporte inicial.
+ * Paso 3 (clientes del banco): cuenta bancaria de origen y aporte inicial.
  *
  * @component
  * @param {Object} props
@@ -54,8 +54,8 @@ export const BankConfigStep = ({
       />
 
       <StepHeader
-        step={2}
-        total={3}
+        step={3}
+        total={4}
         title="Su primer ahorro"
         description="Elija de qué cuenta del banco sale el dinero y cuánto quiere pasar a su nueva cuenta de ahorro en la cooperativa."
       />
@@ -118,8 +118,9 @@ export const BankConfigStep = ({
       </Field>
 
       <StepActions>
-        <Button variant="ghost" icon={ArrowLeft} onClick={handleReset}>
-          Empezar de nuevo
+        {/* Para cambiar de persona está «Cambiar DPI» arriba; aquí se vuelve a los documentos */}
+        <Button variant="ghost" icon={ArrowLeft} onClick={() => { setErrorMsg(''); setPhase('EXISTENTE_DOCUMENTOS'); }}>
+          Volver
         </Button>
         <Button onClick={handleProceed}>
           Continuar

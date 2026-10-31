@@ -85,6 +85,8 @@ module.exports = Object.freeze({
     TAMANO_MAXIMO_BYTES: 5 * 1024 * 1024,
     // Versiones de un mismo tipo que puede subir el interesado; después, el documento se escanea en ventanilla
     MAX_VERSIONES_POR_TIPO: 8,
+    // Días que se guardan los documentos de una afiliación que se empezó y no se completó; después se borran
+    DIAS_CARGA_PREVIA: 30,
     MOTIVO_RECHAZO_MIN: 5,
     MOTIVO_RECHAZO_MAX: 500,
   }),

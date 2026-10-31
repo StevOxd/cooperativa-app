@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const afiliacionOnlineController = require('../controllers/afiliacionOnlineController');
 const afiliacionPersonalController = require('../controllers/afiliacionPersonalController');
+const documentosController = require('../controllers/documentosAfiliacionController');
 const { validateCuiMiddleware } = require('../middlewares/validationMiddleware');
 const rateLimit = require('express-rate-limit');
 const { verifyToken, checkRole } = require('../middlewares/authMiddleware');
@@ -17,6 +18,20 @@ const consultaDpiLimiter = rateLimit({
   message: {
     success: false,
     message: 'Demasiadas consultas desde esta conexión. Espere 15 minutos e intente de nuevo.',
+    error: 'RATE_LIMIT_EXCEEDED',
+  },
+});
+
+// La afiliación en sí lleva su propio contador con el mismo tope (issue #80): ya exige el comprobante de la Banca en
+// Línea y el código del correo, y no debe gastar las consultas de DPI de quien se está afiliando.
+const afiliacionLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: isTestOrDev ? 200 : 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    message: 'Demasiadas solicitudes desde esta conexión. Espere 15 minutos e intente de nuevo.',
     error: 'RATE_LIMIT_EXCEEDED',
   },
 });
@@ -45,11 +60,30 @@ const codigoCorreoLimiter = rateLimit({
 router.post('/codigo-correo', codigoCorreoLimiter, afiliacionOnlineController.solicitarCodigoCorreo);
 
 // 2. Escenario 1: Procesa afiliación de persona que ya pertenece al banco (débito de cuenta_bancaria)
-router.post('/procesar-existente', afiliacionOnlineController.procesarAfiliacionExistente);
-router.post('/online', afiliacionOnlineController.procesarAfiliacionExistente);
+router.post('/procesar-existente', afiliacionLimiter, afiliacionOnlineController.procesarAfiliacionExistente);
+router.post('/online', afiliacionLimiter, afiliacionOnlineController.procesarAfiliacionExistente);
+
+// 2.1 Documentos de afiliación en línea (Fase 6): con el comprobante de la Banca en Línea o el permiso de carga de una
+//     solicitud recién registrada. Su propio contador: cinco documentos con algún reemplazo caben de sobra.
+const documentosLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: isTestOrDev ? 200 : 40,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    message: 'Demasiados documentos desde esta conexión. Espere 15 minutos o llévelos a la agencia.',
+    error: 'RATE_LIMIT_EXCEEDED',
+  },
+});
+router.post('/documentos/consultar', documentosLimiter, documentosController.documentosEnLinea);
+router.post('/documentos', documentosLimiter, documentosController.subirDocumentoEnLinea);
 
 // 3. Escenario 2: Registra solicitud para persona que no pertenece al banco (emite número de caso para agencia)
 router.post('/solicitar-nuevo', consultaDpiLimiter, afiliacionOnlineController.registrarSolicitudAgencia);
+
+// 3.1 Cliente o empleado del banco que termina en ventanilla: solicitud de agencia sin débito en línea (Fase 6)
+router.post('/terminar-en-ventanilla', afiliacionLimiter, afiliacionOnlineController.terminarEnVentanilla);
 
 // 4. Disponibilidad de un correo: solo para el personal (formularios de ventanilla). No es pública
 //    porque revelaría qué correos están registrados; en la afiliación en línea el correo repetido
@@ -63,5 +97,7 @@ router.get('/verificar-email', ...soloPersonal, afiliacionOnlineController.verif
 const soloSesionPersonal = [verifyToken, checkRole('ADMINISTRADOR', 'OPERADOR', 'EJECUTIVO')];
 router.get('/personal', ...soloSesionPersonal, afiliacionPersonalController.obtenerMiAfiliacion);
 router.post('/personal/solicitud', ...soloSesionPersonal, afiliacionPersonalController.solicitarMiAfiliacion);
+router.get('/personal/documentos', ...soloSesionPersonal, documentosController.misDocumentosDePersonal);
+router.post('/personal/documentos', ...soloSesionPersonal, documentosController.subirMiDocumentoDePersonal);
 
 module.exports = router;

@@ -7,6 +7,7 @@ import { Wordmark } from '../components/layout/Wordmark';
 import {
   DpiLookupStep,
   BankCredentialsStep,
+  BankDocumentsStep,
   BankConfigStep,
   PortalPasswordStep,
   DirectAffiliationSuccess,
@@ -285,7 +286,7 @@ export const PublicAffiliationPage = () => {
         if (response.data.persona?.email) {
           setCredenciales((prev) => ({ ...prev, email: response.data.persona.email }));
         }
-        setPhase('EXISTENTE_CONFIG');
+        setPhase('EXISTENTE_DOCUMENTOS');
       } else {
         setErrorMsg(response.data?.message || 'Los datos de la Banca en Línea no son correctos.');
       }
@@ -408,7 +409,44 @@ export const PublicAffiliationPage = () => {
   const confirmarCodigoCorreo = (codigo) => {
     setCodigoModal((prev) => ({ ...prev, error: '' }));
     if (codigoModal.camino === 'EXISTENTE') enviarAfiliacionExistente(codigo);
+    else if (codigoModal.camino === 'AGENCIA_BANCO') enviarTerminarEnAgencia(codigo);
     else enviarSolicitudNuevo(codigo);
+  };
+
+  // 2.1 Cliente del banco que prefiere terminar en una agencia (Fase 6): sin débito en línea, con número de caso
+  const handleTerminarEnAgencia = async (email) => {
+    setErrorMsg('');
+    if (!EMAIL_REGEX.test(email)) {
+      setErrorMsg('Revise el correo. Debe verse así: nombre@correo.com.');
+      return;
+    }
+    await abrirVerificacionCorreo(email, 'AGENCIA_BANCO');
+  };
+
+  const enviarTerminarEnAgencia = async (codigo) => {
+    const persona = bancoData.persona;
+    setLoading(true);
+    try {
+      const response = await api.post('/afiliacion/terminar-en-ventanilla', {
+        afiliacion_token: bancoData.afiliacion_token,
+        cui_dpi: persona.cui_dpi,
+        primer_nombre: persona.primer_nombre,
+        primer_apellido: persona.primer_apellido,
+        telefono: String(persona.telefono || '').replace(/\D/g, ''),
+        direccion: persona.direccion || '',
+        fecha_nacimiento: String(persona.fecha_nacimiento || '').slice(0, 10),
+        email: credenciales.email.trim(),
+        monto_estimado: parseFloat(montoAportacion) || 100.0,
+        codigo_verificacion: codigo,
+      });
+      cerrarVerificacionCorreo();
+      setCasoGenerado(response.data.data);
+      setPhase('NUEVO_CASO_EXITO');
+    } catch (err) {
+      manejarErrorConCodigo(err, 'No se pudo registrar su solicitud. Intente de nuevo.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   // 3. Registrar Solicitud para quien NO pertenece al banco (Escenario 2)
@@ -561,7 +599,8 @@ export const PublicAffiliationPage = () => {
           </div>
 
           <div className="rounded-lg border border-line bg-white px-5 py-6 sm:px-8 sm:py-8 print:border-none print:p-0">
-            {errorMsg && (
+            {/* En el paso de documentos, el error va junto a la opción de terminar en una agencia */}
+            {errorMsg && phase !== 'EXISTENTE_DOCUMENTOS' && (
               <Alert tone="danger" className="mb-6">
                 {errorMsg}
               </Alert>
@@ -590,7 +629,21 @@ export const PublicAffiliationPage = () => {
               />
             )}
 
-            {/* Cliente del banco · paso 2: cuenta de origen y aporte */}
+            {/* Cliente del banco · paso 2: documentos, o terminar en una agencia */}
+            {phase === 'EXISTENTE_DOCUMENTOS' && bancoData && (
+              <BankDocumentsStep
+                bancoData={bancoData}
+                email={credenciales.email}
+                setEmail={(email) => setCredenciales((prev) => ({ ...prev, email }))}
+                onContinuar={() => { setErrorMsg(''); setPhase('EXISTENTE_CONFIG'); }}
+                onTerminarEnAgencia={handleTerminarEnAgencia}
+                handleReset={handleReset}
+                loading={loading}
+                errorAgencia={errorMsg}
+              />
+            )}
+
+            {/* Cliente del banco · paso 3: cuenta de origen y aporte */}
             {phase === 'EXISTENTE_CONFIG' && bancoData && (
               <BankConfigStep
                 bancoData={bancoData}
@@ -605,7 +658,7 @@ export const PublicAffiliationPage = () => {
               />
             )}
 
-            {/* Cliente del banco · paso 3: acceso al portal */}
+            {/* Cliente del banco · paso 4: acceso al portal */}
             {phase === 'EXISTENTE_CREDENCIALES' && bancoData && (
               <PortalPasswordStep
                 credenciales={credenciales}

@@ -7,7 +7,10 @@ process.env.CODIGO_VERIFICACION_DEV = CODIGO_DEV;
 const http = require('http');
 const { app } = require('./src/server');
 const { pool } = require('./src/config/db');
-const { purgarEfectivoDePrueba, borrarPersonaDePrueba, borrarClienteBancoDePrueba, poolDueno } = require('./testHelper');
+const {
+  purgarEfectivoDePrueba, purgarDocumentosDePrueba, borrarPersonaDePrueba, borrarClienteBancoDePrueba, poolDueno,
+  escanearDocumentosObligatorios, pdfDePrueba,
+} = require('./testHelper');
 // Limpieza con el rol dueño: el de la aplicación no borra filas (salvo en las pocas tablas que el código limpia)
 const comoDueno = (sql, params) => poolDueno(pool).query(sql, params);
 const bancoApiService = require('./src/services/bancoApiService');
@@ -70,6 +73,8 @@ const server = app.listen(0, async () => {
 
   // DPI con efectivo de ventanilla registrado en la prueba (es registro de auditoría: se purga al final)
   const dpisConEfectivo = ['7777666655551', dpiPresencial];
+  // DPI a los que la prueba les escanea los documentos de afiliación
+  const dpisConDocumentos = ['1000000000004', dpiPresencial, '4000000000001', '2000000000002'];
 
   // Borra lo que la prueba creó para el externo de ventanilla: persona, usuario, cuentas, beneficiarios y efectivo
   // en la cooperativa, y su cliente con su cuenta en el banco
@@ -101,6 +106,9 @@ const server = app.listen(0, async () => {
       await comoDueno("DELETE FROM historial_estados_usuario WHERE id_usuario_modificado IN (SELECT id_usuario FROM usuarios WHERE id_persona = $1 AND id_rol = 3)", [idOp2]);
       await comoDueno("DELETE FROM usuarios WHERE id_persona = $1 AND id_rol = 3", [idOp2]);
     }
+
+    // Documentos escaneados en una corrida anterior (su expediente detiene el borrado de la persona)
+    await purgarDocumentosDePrueba({ pool }, dpisConDocumentos);
 
     // Limpiar la afiliación de prueba de Valeria Méndez (EB, 1000000000004, sección 4.1.1)
     const pValeria = await pool.query("SELECT id_persona FROM personas WHERE cui_dpi = '1000000000004'");
@@ -329,6 +337,30 @@ const server = app.listen(0, async () => {
     const codigoMarcos = await pedirCodigo(emailNuevoSocio);
 
     // 2.1 Rechazo por saldo insuficiente en cuenta bancaria corporativa (el código sigue vigente)
+    // 2.0.2 Para terminar en línea, los documentos obligatorios se suben antes del débito (Fase 6)
+    const sinDocumentosRes = await afiliarConCodigo(emailNuevoSocio, codigoMarcos);
+    if (sinDocumentosRes.status !== 400 || sinDocumentosRes.body.error !== 'DOCUMENTOS_INCOMPLETOS') {
+      throw new Error('Sin documentos no debería debitar ni afiliar: ' + JSON.stringify(sinDocumentosRes.body));
+    }
+    const subirEnLinea = (token, tipo, marca) => request('/api/afiliacion/documentos', 'POST', {
+      afiliacion_token: token, tipo_documento: tipo, archivo: pdfDePrueba(`${marca}-${tipo}-${Date.now()}`),
+    });
+    const sinPermiso = await request('/api/afiliacion/documentos', 'POST', { tipo_documento: 'DPI_FRENTE', archivo: pdfDePrueba('x') });
+    if (sinPermiso.status !== 403) throw new Error('Sin comprobante no se suben documentos: ' + JSON.stringify(sinPermiso.body));
+    for (const tipo of ['DPI_FRENTE', 'DPI_REVERSO', 'RECIBO_SERVICIOS', 'FOTO_CON_DPI']) {
+      const subido = await subirEnLinea(tokenMarcos, tipo, 'marcos');
+      if (subido.status !== 201 || subido.body.data?.documentos?.some((d) => d.url)) {
+        throw new Error(`No se pudo subir ${tipo} en línea (o la respuesta trae enlaces): ` + JSON.stringify(subido.body));
+      }
+    }
+    const cargaPrevia = (await pool.query(
+      "SELECT expira_en > now() + interval '29 days' AS vence_en_30, canal_origen FROM expedientes_documentos WHERE cui_dpi = '4000000000001' AND id_persona IS NULL"
+    )).rows[0];
+    if (!cargaPrevia?.vence_en_30 || cargaPrevia.canal_origen !== 'EN_LINEA') {
+      throw new Error('Los documentos en línea deberían quedar como carga previa que vence en 30 días: ' + JSON.stringify(cargaPrevia));
+    }
+    console.log('✓ Sin documentos no se debita; se suben en línea con el comprobante y quedan como carga previa por 30 días.');
+
     const saldoInsufRes = await afiliarConCodigo(emailNuevoSocio, codigoMarcos, { monto_aportacion: 9999999.00 });
     if (saldoInsufRes.status !== 400 || !saldoInsufRes.body.message.includes('Fondos insuficientes')) {
       throw new Error('Debería rechazar por saldo insuficiente en cuenta bancaria: ' + JSON.stringify(saldoInsufRes.body));
@@ -364,6 +396,13 @@ const server = app.listen(0, async () => {
     const afiliacionExitosa = await afiliarConCodigo(emailNuevoSocio, codigoMarcos);
     if (afiliacionExitosa.status !== 201 || !afiliacionExitosa.body.success) {
       throw new Error('Fallo al procesar afiliación de cliente existente: ' + JSON.stringify(afiliacionExitosa.body));
+    }
+    const vinculado = (await pool.query(
+      `SELECT e.expira_en, a.tipo_asociado, a.canal_afiliacion FROM expedientes_documentos e
+       JOIN asociados a ON a.id_persona = e.id_persona WHERE e.cui_dpi = '4000000000001'`
+    )).rows[0];
+    if (!vinculado || vinculado.expira_en !== null || vinculado.tipo_asociado !== 'EX' || vinculado.canal_afiliacion !== 'EN_LINEA') {
+      throw new Error('Al afiliar, la carga previa pasa al asociado y se guardan tipo y canal: ' + JSON.stringify(vinculado));
     }
     const codigoUsado = await pool.query('SELECT 1 FROM codigos_verificacion_correo WHERE email = $1', [emailNuevoSocio]);
     if (codigoUsado.rows.length !== 0) {
@@ -434,6 +473,10 @@ const server = app.listen(0, async () => {
     }
     console.log('✓ El personal (OP-2) valida su Banca en Línea para afiliarse.');
 
+    for (const tipo of ['DPI_FRENTE', 'DPI_REVERSO', 'RECIBO_SERVICIOS', 'FOTO_CON_DPI']) {
+      const subido = await subirEnLinea(op2AuthRes.body.afiliacion_token, tipo, 'op2');
+      if (subido.status !== 201) throw new Error(`OP-2 no pudo subir ${tipo}: ` + JSON.stringify(subido.body));
+    }
     const cuentaOp2 = cuentasOp2[0];
     const afiliarOp2 = (email, codigo) => request('/api/afiliacion/procesar-existente', 'POST', {
       cui_dpi: '2000000000002',
@@ -634,6 +677,19 @@ const server = app.listen(0, async () => {
     }
     console.log('✓ Sin correo, pedir el acceso al portal se rechaza y no se registra nada.');
 
+    // 4.0.1 Sin los documentos obligatorios escaneados no se afilia (Fase 6)
+    const sinDocumentos = await request('/api/admin/asociados/presencial', 'POST', {
+      ...datosPresencial, crear_acceso_portal: false,
+    }, operatorToken);
+    const personaSinDocumentos = await pool.query('SELECT 1 FROM personas WHERE cui_dpi = $1', [dpiPresencial]);
+    if (sinDocumentos.status !== 400 || sinDocumentos.body.error !== 'DOCUMENTOS_INCOMPLETOS' || personaSinDocumentos.rows.length !== 0) {
+      throw new Error('Sin documentos, la afiliación presencial debería rechazarse sin registrar nada: ' + JSON.stringify(sinDocumentos.body));
+    }
+    if (!(await escanearDocumentosObligatorios(testPort, operatorToken, { cui: dpiPresencial }))) {
+      throw new Error('No se pudieron escanear los documentos de la afiliación presencial.');
+    }
+    console.log('✓ Sin los documentos obligatorios no se afilia en ventanilla; con ellos escaneados, sí.');
+
     const presencialRes = await request('/api/admin/asociados/presencial', 'POST', {
       ...datosPresencial, crear_acceso_portal: false,
     }, operatorToken);
@@ -678,6 +734,9 @@ const server = app.listen(0, async () => {
       monto_aportacion: 150.00,
       crear_acceso_portal: false,
     };
+    if (!(await escanearDocumentosObligatorios(testPort, operatorToken, { cui: datosValeria.cui_dpi }))) {
+      throw new Error('No se pudieron escanear los documentos de Valeria.');
+    }
     const ebCuentaAjena = await request('/api/admin/asociados/presencial', 'POST', {
       ...datosValeria, numero_cuenta_bancaria: 'CTA-BCO-AHORRO-4002', // cuenta de Sofía
     }, operatorToken);
@@ -1008,6 +1067,7 @@ const server = app.listen(0, async () => {
 
     // El efectivo de las afiliaciones y aperturas de prueba queda en un registro de auditoría: se purga
     await purgarEfectivoDePrueba({ pool }, dpisConEfectivo);
+    await purgarDocumentosDePrueba({ pool }, dpisConDocumentos);
     await borrarExternoPresencial();
 
     console.log('\n===============================================================');
@@ -1020,6 +1080,7 @@ const server = app.listen(0, async () => {
   } catch (err) {
     console.error('\n[FALLO EN SUITE DE PRUEBAS]', err);
     await purgarEfectivoDePrueba({ pool }, dpisConEfectivo).catch((e) => console.error('[ERROR] No se pudo purgar el efectivo de prueba:', e.message));
+    await purgarDocumentosDePrueba({ pool }, dpisConDocumentos).catch((e) => console.error('[ERROR] No se pudieron purgar los documentos de prueba:', e.message));
     await borrarExternoPresencial().catch((e) => console.error('[ERROR] No se pudo borrar el externo de ventanilla de prueba:', e.message));
     server.close();
     await pool.end();

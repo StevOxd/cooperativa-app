@@ -8,6 +8,7 @@ require('dotenv').config({ path: __dirname + '/.env' });
 const db = require('./src/config/db');
 const {
   makeRequest, createTestReporter, purgarEfectivoDePrueba, poolDueno, borrarPersonaDePrueba, borrarClienteBancoDePrueba,
+  purgarDocumentosDePrueba, escanearDocumentosObligatorios,
 } = require('./testHelper');
 // Limpieza con el rol dueño: el de la aplicación no borra filas (salvo en las pocas tablas que el código limpia)
 const comoDueno = (sql, params) => poolDueno(db.pool).query(sql, params);
@@ -145,6 +146,25 @@ async function runTests() {
       );
     }
 
+    // Sin los documentos obligatorios no se formaliza (Fase 6); los escanea OP-2 y formaliza OP-1
+    const sinDocumentos = await request(`/api/operador/afiliaciones/${casoMarvin.id_solicitud}/formalizar`, 'POST', {
+      ...datosFormalizacion, crear_acceso_portal: false,
+    }, tokenOp1);
+    reporter.assert(
+      sinDocumentos.status === 400 && sinDocumentos.body.error === 'DOCUMENTOS_INCOMPLETOS',
+      'Sin los documentos obligatorios la solicitud no se formaliza'
+    );
+    reporter.assert(
+      await escanearDocumentosObligatorios(BASE_URL, tokenOp2, { idSolicitud: casoMarvin.id_solicitud }),
+      'Un operador escanea los documentos obligatorios de la solicitud'
+    );
+    const docsSolicitud = await request(`/api/operador/afiliaciones/${casoMarvin.id_solicitud}/documentos`, 'GET', null, tokenOp1);
+    reporter.assert(
+      docsSolicitud.status === 200 && docsSolicitud.body.data.resumen.faltantes.length === 0
+        && docsSolicitud.body.data.documentos.every((d) => d.estado === 'PENDIENTE' && d.url && d.cargado_por_mi === false),
+      'La solicitud muestra sus documentos pendientes de revisión, con su enlace protegido'
+    );
+
     const formalizarRes = await request(`/api/operador/afiliaciones/${casoMarvin.id_solicitud}/formalizar`, 'POST', {
       ...datosFormalizacion, crear_acceso_portal: false,
     }, tokenOp1);
@@ -162,6 +182,16 @@ async function runTests() {
     reporter.assert(
       formalizedSocio && formalizedSocio.acceso_portal === false && !formalizedSocio.usuario && usuarioCreado.rows.length === 0,
       'Sin acceso al portal se afilia sin crear usuario'
+    );
+    const guardado = await db.query(
+      `SELECT a.tipo_asociado, a.canal_afiliacion, e.id_persona = a.id_persona AS expediente_vinculado
+       FROM asociados a LEFT JOIN expedientes_documentos e ON e.id_solicitud = $2
+       WHERE a.id_asociado = $1`,
+      [formalizedSocio?.id_asociado, casoMarvin.id_solicitud]
+    );
+    reporter.assert(
+      guardado.rows[0]?.tipo_asociado === 'EX' && guardado.rows[0]?.canal_afiliacion === 'AGENCIA' && guardado.rows[0]?.expediente_vinculado === true,
+      'Se guardan el tipo (del banco) y el canal, y el expediente de la solicitud pasa al asociado (#79, #90)'
     );
 
     // 6.1 Desde el resumen: abrir la cuenta en la cooperativa con los fondos que quedaron en el banco (issue #26)
@@ -195,6 +225,7 @@ async function runTests() {
         const persona = await db.query('SELECT id_persona FROM personas WHERE cui_dpi = $1', [casoMarvin.cui_dpi]);
         if (persona.rows[0]) await borrarPersonaDePrueba(db, persona.rows[0].id_persona);
         await purgarEfectivoDePrueba(db, [casoMarvin.cui_dpi]);
+        await purgarDocumentosDePrueba(db, [casoMarvin.cui_dpi]);
         await comoDueno('DELETE FROM solicitudes_afiliacion_agencia WHERE id_solicitud = $1', [casoMarvin.id_solicitud]);
         // La cuenta que la formalización abrió en el banco para el aporte
         await borrarClienteBancoDePrueba(db.pool, casoMarvin.cui_dpi);
