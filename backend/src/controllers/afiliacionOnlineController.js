@@ -772,22 +772,17 @@ const registrarSolicitudAgencia = async (req, res) => {
       throw codigoError;
     }
 
-    // Generar correlativo atómico CASO-AFIL-YYYY-XXXX
-    const nextValRes = await client.query("SELECT nextval('seq_numero_caso_afiliacion') AS val");
-    const year = today.getFullYear();
-    const correlativo = String(nextValRes.rows[0].val).padStart(4, '0');
-    const numeroCaso = `CASO-AFIL-${year}-${correlativo}`;
-
+    // El número CASO-AFIL-AAAA-XXXX lo pone el trigger (correlativo atómico y año de Guatemala): el servidor corre en
+    // UTC y el año de JavaScript sería el siguiente el 31 de diciembre después de las 18:00
     const montoEst = parseFloat(monto_estimado) || 100.00;
 
     const insertCaseRes = await client.query(
       `INSERT INTO solicitudes_afiliacion_agencia (
-        numero_caso, cui_dpi, primer_nombre, segundo_nombre, primer_apellido, segundo_apellido,
+        cui_dpi, primer_nombre, segundo_nombre, primer_apellido, segundo_apellido,
         telefono, direccion, fecha_nacimiento, email, monto_estimado, estado, observaciones
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'PENDIENTE_AGENCIA', $12)
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'PENDIENTE_AGENCIA', $11)
       RETURNING *`,
       [
-        numeroCaso,
         cuiLimpio,
         primer_nombre.trim(),
         segundo_nombre ? segundo_nombre.trim() : null,

@@ -30,5 +30,9 @@ services:
       - ${UPLOADS_DIR:?Falta UPLOADS_DIR en .env (carpeta de archivos subidos fuera del código)}:/app/uploads
 
   frontend:
+    # La imagen de producción no muestra la etiqueta «Desarrollo» (frontend/src/utils/entorno.js)
+    build:
+      args:
+        VITE_ENTORNO: produccion
     ports: !override
       - "${FRONTEND_BIND_IP:?Falta FRONTEND_BIND_IP en .env (IP del servidor en la red local)}:${FRONTEND_PORT:-3000}:80"

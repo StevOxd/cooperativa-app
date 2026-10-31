@@ -27,6 +27,14 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   (error) => {
+    // nginx rechaza un envío demasiado grande con una página HTML: se cambia por un mensaje para el usuario
+    if (error.response && error.response.status === 413) {
+      error.response.data = {
+        success: false,
+        message: 'El archivo es demasiado grande para enviarlo. Redúzcalo e intente de nuevo.',
+      };
+    }
+
     // Si el backend responde 403 por cambio obligatorio de contraseña
     if (error.response && error.response.status === 403 && error.response.data?.debe_cambiar_password) {
       const storedUser = localStorage.getItem('coop_user');

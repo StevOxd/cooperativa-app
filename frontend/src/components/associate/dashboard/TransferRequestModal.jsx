@@ -2,16 +2,24 @@ import React from 'react';
 import { Send } from 'lucide-react';
 import { Alert, Button, Field, Input, Modal, Select, Textarea } from '../../ui';
 import { formatQ } from '../../../utils/format';
+import { claveDeCuenta } from './cuentasOrigen';
 
 const FORM_ID = 'solicitud-traslado';
 
 /**
- * Solicitud de traslado desde la cuenta de planilla: a una cuenta existente o
+ * Solicitud de traslado desde una de sus cuentas (la de planilla o una del banco): a una cuenta existente o
  * abriendo una cuenta nueva. Un operador la revisa antes de mover los fondos.
+ *
+ * @param {Object} props
+ * @param {Object} props.cuentaPlanilla - Cuenta de origen elegida.
+ * @param {Object[]} props.cuentasOrigen - Todas las cuentas de origen; con más de una se puede elegir (issue #82).
+ * @param {(clave: string) => void} props.elegirCuentaOrigen
  */
 export const TransferRequestModal = ({
   closeTrasladoModal,
   cuentaPlanilla,
+  cuentasOrigen = [],
+  elegirCuentaOrigen,
   cuentasDestino,
   cuentasDestinoFiltradas,
   destinoSeleccionado,
@@ -36,7 +44,7 @@ export const TransferRequestModal = ({
       closeOnOverlay={false}
       lockScroll={false}
       title="Solicitar traslado"
-      description="Mueva fondos de su cuenta de planilla a una cuenta de la cooperativa."
+      description="Mueva fondos de una de sus cuentas a una cuenta de la cooperativa."
       footer={
         <>
           <Button variant="secondary" onClick={closeTrasladoModal} disabled={enviandoTraslado}>
@@ -56,6 +64,18 @@ export const TransferRequestModal = ({
       }
     >
       <form id={FORM_ID} onSubmit={handleTrasladoSubmit} className="space-y-5">
+        {cuentasOrigen.length > 1 && (
+          <Field label="Desde" required>
+            <Select value={claveDeCuenta(cuentaPlanilla)} onChange={(e) => elegirCuentaOrigen(e.target.value)} required>
+              {cuentasOrigen.map((c) => (
+                <option key={claveDeCuenta(c)} value={claveDeCuenta(c)}>
+                  {c.numero_cuenta} · {formatQ(c.saldo_disponible)}
+                </option>
+              ))}
+            </Select>
+          </Field>
+        )}
+        {/* La cuenta elegida, completa: en el celular el selector corta el texto */}
         <dl className="divide-y divide-line rounded-md border border-line text-sm">
           <div className="flex justify-between gap-4 px-4 py-2.5">
             <dt className="text-ink-muted">Desde</dt>

@@ -254,21 +254,29 @@ const resumirCartera = (filas) => {
 };
 
 /**
- * Créditos que resolvió el comité en el período. La resolución es la última acción del ejecutivo, no el estado actual:
- * devolver llena `id_ejecutivo_resuelve` y nadie lo limpia después, así que un crédito devuelto que luego se volvió a
- * elevar, rechazó el operador o canceló el asociado sigue contando como devuelto. Solo el ejecutivo aprueba y deniega.
+ * Resoluciones del comité en el período, del historial `resoluciones_credito` (issue #89): un crédito devuelto y luego
+ * aprobado aparece dos veces, cada una con su fecha, su ejecutivo y su observación.
  *
  * @type {ConsultaReporte}
  */
 const resolucionesDelComite = async (cliente, { desde, hasta }) => {
   const { rows } = await cliente.query(
-    `SELECT ${COLUMNAS_CREDITO}, sc.observaciones_ejecutivo,
-            CASE WHEN sc.estado IN ('APROBADA', 'APROBADO', 'DESEMBOLSADA') THEN 'APROBADA'
-                 WHEN sc.estado = 'DENEGADA' THEN 'DENEGADA'
-                 ELSE 'DEVUELTA' END AS resolucion
-     ${UNIONES_CREDITO}
-     WHERE sc.id_ejecutivo_resuelve IS NOT NULL AND ${entreDiasGuatemala('sc.fecha_resolucion_ejecutivo', 1)}
-     ORDER BY sc.fecha_resolucion_ejecutivo, sc.id_solicitud_credito
+    `SELECT sc.id_solicitud_credito, sc.fecha_solicitud, sc.estado, sc.monto_solicitado AS monto, sc.plazo_meses,
+            sc.tasa_interes, sc.cuota_mensual_estimada AS cuota,
+            ua.codigo_corporativo AS asociado_codigo, p.nombre_completo AS asociado_nombre,
+            uo.codigo_corporativo AS operador_codigo, ue.codigo_corporativo AS ejecutivo_codigo,
+            pe.nombre_completo AS ejecutivo_nombre, r.fecha_resolucion AS fecha_resolucion_ejecutivo,
+            r.resolucion, r.observaciones AS observaciones_ejecutivo
+     FROM resoluciones_credito r
+     JOIN solicitudes_credito sc ON sc.id_solicitud_credito = r.id_solicitud_credito
+     JOIN asociados a ON a.id_asociado = sc.id_asociado
+     JOIN personas p ON p.id_persona = a.id_persona
+     LEFT JOIN usuarios ua ON ua.id_persona = a.id_persona AND ua.id_rol = 3 /* ASOCIADO */
+     LEFT JOIN usuarios uo ON uo.id_usuario = sc.id_operador_revisa
+     JOIN usuarios ue ON ue.id_usuario = r.id_usuario_resuelve
+     JOIN personas pe ON pe.id_persona = ue.id_persona
+     WHERE ${entreDiasGuatemala('r.fecha_resolucion', 1)}
+     ORDER BY r.fecha_resolucion, r.id_resolucion
      ${LIMITE_SQL}`,
     [desde, hasta]
   );
@@ -278,6 +286,9 @@ const resolucionesDelComite = async (cliente, { desde, hasta }) => {
 /** Totales del acta por resolución y por ejecutivo. @param {Object[]} filas @returns {Object} */
 const resumirResoluciones = (filas) => ({
   total: total(filas),
+  // Un crédito devuelto y luego aprobado cuenta dos resoluciones pero un solo crédito
+  creditos: new Set(filas.map((fila) => fila.id_solicitud_credito)).size,
+  aprobado: total(filas.filter((fila) => fila.resolucion === 'APROBADA')),
   por_resolucion: agrupar(filas, 'resolucion', { conMonto: true }),
   por_ejecutivo: agrupar(filas, (fila) => `${fila.ejecutivo_codigo} · ${fila.ejecutivo_nombre}`),
 });
@@ -435,7 +446,7 @@ const resumirAccesos = (filas) => ({
 const reportesGenerados = async (cliente, { desde, hasta }) => {
   const { rows } = await cliente.query(
     `SELECT rg.fecha_generacion AS fecha, u.codigo_corporativo AS usuario_codigo, r.codigo AS rol, rg.tipo_reporte,
-            rg.formato, rg.parametros, rg.filas, rg.ip_origen
+            rg.formato, rg.parametros, rg.filas, rg.resumen, rg.ip_origen
      FROM reportes_generados rg
      JOIN usuarios u ON u.id_usuario = rg.id_usuario
      JOIN roles r ON r.id_rol = rg.id_rol

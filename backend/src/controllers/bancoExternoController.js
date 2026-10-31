@@ -9,7 +9,7 @@ const {
   excesoDelDia,
 } = require('../services/efectivoVentanillaService');
 const { formatoQ } = require('../utils/montos');
-const { ipDelCliente } = require('../utils/ipCliente');
+const { ipDelCliente, userAgentDe } = require('../utils/ipCliente');
 const { respuestaDeError } = require('../utils/errores');
 const { esAutoatencion } = require('../services/segregacionService');
 const { RESPUESTA_AUTOATENCION } = require('../middlewares/segregacion');
@@ -324,7 +324,7 @@ const acreditarCuenta = async (req, res) => {
       monto,
       referencia,
       ip: ipDelCliente(req),
-      userAgent: req.headers['user-agent'] || null,
+      userAgent: userAgentDe(req),
     });
     if (excedido) return res.status(400).json({ success: false, message: excedido });
     // Si ya no está PENDIENTE (alguien lo concilió mientras tanto) no se cambia, pero queda la discrepancia en el registro

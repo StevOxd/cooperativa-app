@@ -1,7 +1,7 @@
 import {
   Banknote, FileSearch, Gavel, HandCoins, History, Scale, ShieldCheck, UserPlus, Users, Wallet,
 } from 'lucide-react';
-import { formatQ } from '../format';
+import { formatDateOnly, formatQ, hoyEnGuatemala } from '../format';
 import { etiquetaDocumento } from '../documentos';
 
 /**
@@ -33,10 +33,9 @@ const hora = (valor) =>
 const fechaHoraCsv = (valor) => (valor ? new Date(valor).toLocaleString('sv-SE', { timeZone: ZONA }).slice(0, 16) : '');
 
 /** "2026-10-30" → "30/10/2026" sin pasar por Date (que lo tomaría como medianoche UTC y restaría un día). */
-export const fechaCorta = (texto) => (texto ? texto.split('-').reverse().join('/') : '—');
+export const fechaCorta = formatDateOnly;
 
-/** Fecha de hoy en Guatemala (AAAA-MM-DD). */
-export const hoyEnGuatemala = () => new Date().toLocaleDateString('sv-SE', { timeZone: ZONA });
+export { hoyEnGuatemala };
 
 const etiqueta = (mapa) => (valor) => mapa[valor] || valor || '—';
 const codigoYNombre = (codigo, nombre) => [codigo, nombre].filter(Boolean).join(' · ') || '—';
@@ -267,7 +266,7 @@ export const REPORTES = [
     id: 'resoluciones-comite',
     codigo: 'RESOLUCIONES_COMITE',
     titulo: 'Acta de resoluciones del comité',
-    descripcion: 'Los créditos que el comité aprobó, devolvió o denegó en el período, con la observación del ejecutivo.',
+    descripcion: 'Cada resolución del comité en el período (aprobar, devolver o denegar), con la observación del ejecutivo.',
     icono: Gavel,
     roles: ['EJECUTIVO', 'ADMINISTRADOR'],
     filtro: 'periodo',
@@ -286,15 +285,17 @@ export const REPORTES = [
       {
         cifras: [
           { label: 'Resoluciones', value: r.total.cantidad.toLocaleString('es-GT'), strong: true },
-          { label: 'Monto resuelto', value: formatQ(r.total.monto) },
+          { label: 'Créditos', value: r.creditos.toLocaleString('es-GT') },
+          { label: 'Monto aprobado', value: `${formatQ(r.aprobado.monto)} · ${r.aprobado.cantidad}` },
         ],
       },
-      tablaDe('Por resolución', r.por_resolucion, RESOLUCION, { conMonto: true, columna: 'Resolución', cantidad: 'Créditos' }),
+      tablaDe('Por resolución', r.por_resolucion, RESOLUCION, { conMonto: true, columna: 'Resolución', cantidad: 'Resoluciones' }),
       tablaDe('Por ejecutivo', r.por_ejecutivo, {}, { columna: 'Ejecutivo', cantidad: 'Resoluciones' }),
     ],
     nota:
-      'Cada crédito aparece con la última resolución del comité: si se devolvió y después se aprobó, figura como aprobado ' +
-      'en la fecha de la aprobación; si se devolvió y luego el operador lo rechazó o el asociado lo canceló, como devuelto.',
+      'Cada fila es una resolución: un crédito devuelto y después aprobado aparece dos veces, cada una en su fecha, y ' +
+      'su monto cuenta en las dos. «Créditos» cuenta cada crédito una sola vez. De los créditos resueltos antes de que ' +
+      'existiera el historial solo se conserva la última resolución.',
     firmas: () => [
       { name: 'Nombre y firma', role: 'Presidente del comité de crédito' },
       { name: 'Nombre y firma', role: 'Secretario del comité de crédito' },
@@ -465,20 +466,22 @@ export const REPORTES = [
     id: 'reportes-generados',
     codigo: 'REPORTES_GENERADOS',
     titulo: 'Reportes generados',
-    descripcion: 'Quién generó cada reporte, cuándo, en qué formato y con qué filtros.',
+    descripcion: 'Quién generó cada reporte, cuándo, en qué formato, con qué filtros y con qué totales.',
     icono: History,
     roles: ['ADMINISTRADOR'],
     filtro: 'periodo',
     horizontal: true,
     columnas: [
       columnaFecha('Fecha', 0.12),
-      { titulo: 'Usuario', ancho: 0.1, mono: true, pdf: (f) => f.usuario_codigo },
+      { titulo: 'Usuario', ancho: 0.07, mono: true, pdf: (f) => f.usuario_codigo },
       { titulo: 'Rol', ancho: 0.1, pdf: (f) => etiqueta(ROL)(f.rol) },
-      { titulo: 'Reporte', ancho: 0.22, pdf: (f) => tituloDeReporte(f.tipo_reporte) },
+      { titulo: 'Reporte', wrap: true, ancho: 0.15, pdf: (f) => tituloDeReporte(f.tipo_reporte) },
       { titulo: 'Formato', ancho: 0.06, pdf: (f) => f.formato },
-      { titulo: 'Filtros', wrap: true, ancho: 0.2, pdf: (f) => textoDeFiltros(f.parametros) },
-      { titulo: 'Filas', ancho: 0.08, alinear: 'right', pdf: (f) => f.filas.toLocaleString('es-GT'), csv: (f) => f.filas },
-      { titulo: 'IP', ancho: 0.12, mono: true, pdf: (f) => f.ip_origen || '—' },
+      { titulo: 'Filtros', wrap: true, ancho: 0.13, pdf: (f) => textoDeFiltros(f.parametros) },
+      { titulo: 'Filas', ancho: 0.05, alinear: 'right', pdf: (f) => f.filas.toLocaleString('es-GT'), csv: (f) => f.filas },
+      // Las cifras con que se generó: con ellas se coteja un reporte impreso (issue #95)
+      { titulo: 'Totales', wrap: true, ancho: 0.19, pdf: (f) => totalesBreves(f.resumen) },
+      { titulo: 'IP', wrap: true, ancho: 0.13, mono: true, pdf: (f) => f.ip_origen || '—' },
     ],
     totales: (r) => [
       { cifras: [{ label: 'Reportes', value: r.total.toLocaleString('es-GT'), strong: true }] },
@@ -488,6 +491,26 @@ export const REPORTES = [
     vacio: 'Nadie generó reportes en el período.',
   },
 ];
+
+/**
+ * Las cifras principales de un reporte, tal como quedaron registradas (`reportes_generados.resumen`): con ellas se
+ * coteja un reporte impreso por su folio.
+ *
+ * @param {Object} [r] - Resumen del reporte.
+ * @returns {string}
+ */
+export function totalesBreves(r) {
+  if (!r || Object.keys(r).length === 0) return '—';
+  if (r.confirmado) return `${formatQ(r.confirmado.monto)} confirmado en ${r.confirmado.cantidad} operaciones`;
+  if (r.aprobado && r.total) return `${r.total.cantidad} resoluciones; ${formatQ(r.aprobado.monto)} aprobado`;
+  if (r.total && typeof r.total === 'object') return `${formatQ(r.total.monto)} · ${r.total.cantidad} registros`;
+  if (r.depositos || r.reversiones) {
+    const suma = (grupos = []) => grupos.reduce((acc, g) => acc + g.cantidad, 0);
+    return `${suma(r.depositos)} depósitos, ${suma(r.reversiones)} reversiones`;
+  }
+  if (typeof r.total === 'number') return `${r.total.toLocaleString('es-GT')} en total`;
+  return '—';
+}
 
 /** Título de un reporte por su código (`CARTERA_CREDITOS`). */
 export function tituloDeReporte(codigo) {

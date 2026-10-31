@@ -28,7 +28,8 @@ import {
 } from '../components/ui';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
-import { formatQ, humanize } from '../utils/format';
+import { formatDateOnly, formatQ, hoyEnGuatemala, humanize } from '../utils/format';
+import { descargarCsv } from '../utils/csv';
 
 /** Estado del asociado → etiqueta y tono. Los valores de la base no cambian. */
 const ESTADOS = {
@@ -149,47 +150,36 @@ export const AssociatesManagementPage = () => {
   const handleExportCSV = () => {
     if (asociados.length === 0) return;
 
-    const headers = [
-      'ID Asociado',
-      'CUI / DPI',
-      'Nombre Completo',
-      'Usuario',
-      'Correo Electrónico',
-      'Teléfono',
-      'Cuentas Activas',
-      'Saldo Total Disponible (Q)',
-      'Aportaciones (Q)',
-      'Estado',
-      'Fecha Ingreso',
-    ];
-
-    const rows = asociados.map((a) => [
-      a.id_asociado,
-      `"${a.cui_dpi}"`,
-      `"${a.nombre_completo}"`,
-      a.codigo_corporativo || 'N/A',
-      a.email || 'N/A',
-      a.telefono || 'N/A',
-      a.total_cuentas,
-      a.saldo_total_disponible.toFixed(2),
-      a.saldo_aportaciones.toFixed(2),
-      a.estado_asociado,
-      new Date(a.fecha_ingreso).toLocaleDateString('es-GT'),
-    ]);
-
-    const csvContent =
-      '\uFEFF' + [headers.join(','), ...rows.map((e) => e.join(','))].join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.setAttribute('href', url);
-    link.setAttribute(
-      'download',
-      `Padron_General_Asociados_${new Date().toISOString().split('T')[0]}.csv`
-    );
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    // descargarCsv pone comillas, neutraliza lo que Excel tomaría como fórmula y deja el DPI como texto
+    descargarCsv({
+      nombre: `Padron_General_Asociados_${hoyEnGuatemala()}.csv`,
+      encabezados: [
+        'ID Asociado',
+        'CUI / DPI',
+        'Nombre Completo',
+        'Usuario',
+        'Correo Electrónico',
+        'Teléfono',
+        'Cuentas Activas',
+        'Saldo Total Disponible (Q)',
+        'Aportaciones (Q)',
+        'Estado',
+        'Fecha Ingreso',
+      ],
+      filas: asociados.map((a) => [
+        a.id_asociado,
+        { textoFijo: a.cui_dpi },
+        a.nombre_completo,
+        a.codigo_corporativo || 'N/A',
+        a.email || 'N/A',
+        a.telefono || 'N/A',
+        a.total_cuentas,
+        a.saldo_total_disponible,
+        a.saldo_aportaciones,
+        a.estado_asociado,
+        formatDateOnly(a.fecha_ingreso),
+      ]),
+    });
   };
 
   // Métricas rápidas del padrón

@@ -29,7 +29,8 @@ import {
 } from '../components/ui';
 import { creditDestination } from '../components/credit/creditDestination';
 import { ESTADOS_CREDITO_EN_TRAMITE, estadoCreditoAsociado } from '../components/credit/creditProgress';
-import { formatDate, formatQ, humanize } from '../utils/format';
+import { formatDate, formatQ, humanize, megas } from '../utils/format';
+import { CONSTANTS } from '../config/constants';
 
 /** Marca que el backend agrega a las observaciones cuando el asociado desiste. */
 // Desistir tiene su propio estado (issue #11). La marca en las observaciones era la forma anterior.
@@ -313,8 +314,9 @@ export const CreditSimulatorPage = () => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (file.size > 12 * 1024 * 1024) {
-      toast.error('El archivo no puede pasar de 12 MB.');
+    // El mismo máximo del operador, del ejecutivo y del servidor
+    if (file.size > CONSTANTS.ARCHIVOS.PDF_CREDITO_MAX_BYTES) {
+      toast.error(`El archivo pesa ${megas(file.size)} MB; el máximo es 10 MB.`);
       return;
     }
 
@@ -432,7 +434,7 @@ export const CreditSimulatorPage = () => {
                       <div className="min-w-0 flex-1 space-y-3">
                         <div>
                           <p className="text-sm font-medium text-ink">Fírmelo y adjúntelo</p>
-                          <p className="text-sm text-ink-muted">Firma a mano o digital. PDF, PNG o JPG de hasta 12 MB.</p>
+                          <p className="text-sm text-ink-muted">Firma a mano o digital. PDF, PNG o JPG de hasta 10 MB.</p>
                         </div>
                         {!archivoFirmadoBase64 ? (
                           // El input queda accesible con teclado (sr-only), no oculto con `hidden`.

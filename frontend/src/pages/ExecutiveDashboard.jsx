@@ -5,8 +5,9 @@ import { useToast } from '../context/ToastContext';
 import { Button, Card, PageHeader, SearchInput, StatCard, StatGroup, TabPanel, Tabs } from '../components/ui';
 import { ExecutiveCreditsTable } from '../components/executive/ExecutiveCreditsTable';
 import { ExecutiveResolutionModal } from '../components/executive/ExecutiveResolutionModal';
-import { formatQ, formatRelative, horasDesde } from '../utils/format';
+import { formatQ, formatRelative, horasDesde, megas } from '../utils/format';
 import { ESTADOS_CREDITO_VIGENTES } from '../components/credit/creditProgress';
+import { CONSTANTS } from '../config/constants';
 
 // La pestaña «Denegadas» muestra también las que rechazó el operador; en lo resuelto por el ejecutivo solo cuenta DENEGADA
 const DENEGADAS = ['DENEGADA', 'RECHAZADA'];
@@ -48,8 +49,8 @@ export const ExecutiveDashboard = () => {
       return;
     }
 
-    if (file.size > 10 * 1024 * 1024) {
-      setFileError('El PDF no puede pasar de 10 MB.');
+    if (file.size > CONSTANTS.ARCHIVOS.PDF_CREDITO_MAX_BYTES) {
+      setFileError(`El PDF pesa ${megas(file.size)} MB; el máximo es 10 MB.`);
       return;
     }
 

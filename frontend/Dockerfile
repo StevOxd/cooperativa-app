@@ -27,9 +27,12 @@ COPY src/ ./src/
 # Argumentos de compilación para URLs de API y WebSockets
 ARG VITE_API_URL=/api
 ARG VITE_SOCKET_URL=/
+# «produccion» quita la etiqueta «Desarrollo» de la barra (la fija docker-compose.produccion.yml)
+ARG VITE_ENTORNO=desarrollo
 
 ENV VITE_API_URL=$VITE_API_URL
 ENV VITE_SOCKET_URL=$VITE_SOCKET_URL
+ENV VITE_ENTORNO=$VITE_ENTORNO
 
 # Compilar los assets para producción (genera directorio /app/dist)
 RUN npm run build

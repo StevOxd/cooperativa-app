@@ -612,91 +612,118 @@ const createCredito = async (req, res) => {
 };
 
 /**
- * Obtiene la cuenta de nómina/planilla activa asociada a la persona autenticada.
+ * Cuentas desde las que el asociado puede trasladar (issue #82): su cuenta de planilla en la cooperativa y todas sus
+ * cuentas activas en el banco (ahorro y monetaria). Si no tiene ninguna, su cuenta principal en la cooperativa.
+ *
+ * @async
+ * @param {number} idPersona
+ * @returns {Promise<{ cuentas: Array<{ id_cuenta: number, numero_cuenta: string, saldo_disponible: number,
+ *   saldo_reserva: number, estado: string, tipo_cuenta: string, origen_cuenta: 'COOPERATIVA'|'BANCO' }>,
+ *   bancoRespondio: boolean }>} La primera cuenta es la predeterminada.
+ */
+const cuentasDeOrigen = async (idPersona) => {
+  const columnas = `c.id_cuenta, c.numero_cuenta, c.saldo_disponible, c.saldo_reserva, c.estado,
+                    tc.nombre AS tipo_cuenta, 'COOPERATIVA' AS origen_cuenta`;
+  const deLaCooperativa = (fila) => ({
+    ...fila,
+    saldo_disponible: parseFloat(fila.saldo_disponible),
+    saldo_reserva: parseFloat(fila.saldo_reserva),
+  });
+  const cuentas = [];
+
+  // 1. Su cuenta de planilla en la cooperativa
+  const planilla = await db.query(
+    `SELECT ${columnas}
+     FROM cuentas c
+     JOIN asociados a ON c.id_asociado = a.id_asociado
+     JOIN tipos_cuenta tc ON c.id_tipo_cuenta = tc.id_tipo_cuenta
+     WHERE a.id_persona = $1 AND tc.nombre = $2 AND c.estado = 'ACTIVA'
+     ORDER BY c.id_cuenta ASC
+     LIMIT 1`,
+    [idPersona, CONSTANTS.TIPO_CUENTA_PLANILLA]
+  );
+  cuentas.push(...planilla.rows.map(deLaCooperativa));
+
+  // 2. Todas sus cuentas activas en el banco
+  const cuiRes = await db.query('SELECT cui_dpi FROM personas WHERE id_persona = $1', [idPersona]);
+  const cui = cuiRes.rows[0]?.cui_dpi;
+  let bancoRespondio = false;
+  if (cui) {
+    const bcoRes = await bancoApiService.obtenerCuentasCliente(cui);
+    bancoRespondio = Boolean(bcoRes.success);
+    if (bcoRes.success && Array.isArray(bcoRes.data)) {
+      bcoRes.data
+        .filter((c) => c.estado === 'ACTIVA')
+        .forEach((c) => cuentas.push({
+          id_cuenta: c.id_cuenta_bancaria,
+          id_cuenta_bancaria: c.id_cuenta_bancaria,
+          numero_cuenta: c.numero_cuenta_bancaria,
+          saldo_disponible: parseFloat(c.saldo_disponible),
+          saldo_reserva: 0,
+          estado: c.estado,
+          tipo_cuenta: `Cuenta bancaria (${c.tipo_cuenta})`,
+          origen_cuenta: 'BANCO',
+        }));
+    }
+  }
+
+  // 3. Sin planilla ni cuentas en el banco: su cuenta principal en la cooperativa. Si el banco no respondió, no: se
+  //    confundiría «no tiene cuentas en el banco» con «el banco está caído»
+  if (cuentas.length === 0 && (!cui || bancoRespondio)) {
+    const principal = await db.query(
+      `SELECT ${columnas}
+       FROM cuentas c
+       JOIN asociados a ON c.id_asociado = a.id_asociado
+       JOIN tipos_cuenta tc ON c.id_tipo_cuenta = tc.id_tipo_cuenta
+       WHERE a.id_persona = $1 AND c.estado = 'ACTIVA'
+       ORDER BY c.id_cuenta ASC
+       LIMIT 1`,
+      [idPersona]
+    );
+    cuentas.push(...principal.rows.map(deLaCooperativa));
+  }
+  return { cuentas, bancoRespondio: !cui || bancoRespondio };
+};
+
+/**
+ * Cuentas de origen de los traslados del asociado autenticado (issue #82).
+ *
+ * @async
+ * @route GET /api/asociado/cuentas-origen
+ * @param {import('express').Request} req - `req.user.id_persona`.
+ * @param {import('express').Response} res
+ * @returns {Promise<import('express').Response>} 200 con las cuentas (la primera es la predeterminada; puede venir
+ *   vacía) y `banco_disponible` (false si no se pudo consultar el banco); 500.
+ */
+const getCuentasOrigen = async (req, res) => {
+  try {
+    const { cuentas, bancoRespondio } = await cuentasDeOrigen(req.user.id_persona);
+    return res.status(200).json({ success: true, data: cuentas, banco_disponible: bancoRespondio });
+  } catch (error) {
+    console.error('Error en asociadoController.getCuentasOrigen:', error);
+    return res.status(500).json({ success: false, message: 'No se pudieron cargar sus cuentas. Intente de nuevo.' });
+  }
+};
+
+/**
+ * Cuenta de origen predeterminada de los traslados (la primera de `cuentasDeOrigen`). Se conserva por compatibilidad;
+ * el portal usa `GET /api/asociado/cuentas-origen`.
  *
  * @async
  * @function getCuentaPlanilla
  * @param {import('express').Request} req - Solicitud HTTP con `req.user.id_persona`.
  * @param {import('express').Response} res - Respuesta HTTP con la cuenta encontrada.
- * @returns {Promise<import('express').Response>} Retorna 200 con la cuenta, 404 si no posee planilla activa o 500.
+ * @returns {Promise<import('express').Response>} Retorna 200 con la cuenta, 404 si no posee una cuenta activa o 500.
  */
 const getCuentaPlanilla = async (req, res) => {
   try {
-    const idPersona = req.user.id_persona;
-
-    // 1. Buscar si posee Cuenta de Planilla en la cooperativa
-    const queryPlanilla = `
-      SELECT 
-        c.id_cuenta,
-        c.numero_cuenta,
-        c.saldo_disponible,
-        c.saldo_reserva,
-        c.estado,
-        tc.nombre AS tipo_cuenta,
-        'COOPERATIVA' AS origen_cuenta
-      FROM cuentas c
-      JOIN asociados a ON c.id_asociado = a.id_asociado
-      JOIN tipos_cuenta tc ON c.id_tipo_cuenta = tc.id_tipo_cuenta
-      WHERE a.id_persona = $1 AND tc.nombre = $2 AND c.estado = 'ACTIVA'
-      LIMIT 1
-    `;
-    let result = await db.query(queryPlanilla, [idPersona, CONSTANTS.TIPO_CUENTA_PLANILLA]);
-
-    let cuentaData = null;
-    if (result.rows.length > 0) {
-      cuentaData = result.rows[0];
-    } else {
-      // 2. Si no tiene Cuenta de Planilla, buscar su Cuenta Bancaria activa en el Core Bancario
-      const cuiRes = await db.query('SELECT cui_dpi FROM personas WHERE id_persona = $1', [idPersona]);
-      if (cuiRes.rows.length > 0 && cuiRes.rows[0].cui_dpi) {
-        const bcoRes = await bancoApiService.obtenerCuentasCliente(cuiRes.rows[0].cui_dpi);
-        if (bcoRes.success && Array.isArray(bcoRes.data) && bcoRes.data.length > 0) {
-          const act = bcoRes.data.find(c => c.estado === 'ACTIVA') || bcoRes.data[0];
-          cuentaData = {
-            id_cuenta: act.id_cuenta_bancaria,
-            id_cuenta_bancaria: act.id_cuenta_bancaria,
-            numero_cuenta: act.numero_cuenta_bancaria,
-            saldo_disponible: parseFloat(act.saldo_disponible),
-            saldo_reserva: 0,
-            estado: act.estado,
-            tipo_cuenta: `Cuenta Bancaria (${act.tipo_cuenta})`,
-            origen_cuenta: 'BANCO',
-          };
-        }
-      }
-    }
-
-    if (!cuentaData) {
-      // 3. Fallback institucional: Si no posee cuenta de nómina bancaria externa, utilizar su cuenta cooperativa principal activa
-      const queryPrincipal = `
-        SELECT 
-          c.id_cuenta,
-          c.numero_cuenta,
-          c.saldo_disponible,
-          c.saldo_reserva,
-          c.estado,
-          tc.nombre AS tipo_cuenta,
-          'COOPERATIVA' AS origen_cuenta
-        FROM cuentas c
-        JOIN asociados a ON c.id_asociado = a.id_asociado
-        JOIN tipos_cuenta tc ON c.id_tipo_cuenta = tc.id_tipo_cuenta
-        WHERE a.id_persona = $1 AND c.estado = 'ACTIVA'
-        ORDER BY c.id_cuenta ASC
-        LIMIT 1
-      `;
-      const resPrincipal = await db.query(queryPrincipal, [idPersona]);
-      if (resPrincipal.rows.length > 0) {
-        cuentaData = resPrincipal.rows[0];
-      }
-    }
-
+    const [cuentaData] = (await cuentasDeOrigen(req.user.id_persona)).cuentas;
     if (!cuentaData) {
       return res.status(404).json({
         success: false,
         message: 'No tiene una cuenta activa vinculada.',
       });
     }
-
     return res.status(200).json({
       success: true,
       data: cuentaData,
@@ -789,11 +816,13 @@ const getMisCuentasDestino = async (req, res) => {
  * @param {import('express').Request} req - Solicitud HTTP con los datos del traslado.
  * @param {import('express').Response} res - Respuesta HTTP.
  * @returns {Promise<import('express').Response>} Retorna 201 al crear la solicitud o 400/403 ante validaciones.
+ * El cuerpo lleva `origen_cuenta` (BANCO o COOPERATIVA) e `id_cuenta_origen`: la cuenta tiene que ser una de las
+ * que el portal le ofrece (`cuentasDeOrigen`, issue #82); si no, 403, y 502 si el banco no respondió.
  */
 const createSolicitudTraslado = async (req, res) => {
   try {
     const idPersona = req.user.id_persona;
-    const { id_cuenta_origen, id_cuenta_destino, id_tipo_cuenta_destino, monto, tipo_operacion } = req.body;
+    const { id_cuenta_origen, id_cuenta_destino, id_tipo_cuenta_destino, monto, tipo_operacion, origen_cuenta } = req.body;
 
     const parsedMonto = parseFloat(monto);
     if (isNaN(parsedMonto) || parsedMonto <= 0) {
@@ -809,56 +838,28 @@ const createSolicitudTraslado = async (req, res) => {
         message: 'Tipo de traslado no válido.',
       });
     }
-
-    // 1. Validar que la cuenta de origen pertenece al asociado y está activa (cooperativa o banco)
-    let saldo_disponible = 0;
-    let id_asociado = null;
-    let isBanco = false;
-
-    // Verificar si es cuenta bancaria activa del usuario vía Core Banking API
-    const assocCuiRes = await db.query(
-      `SELECT p.cui_dpi, a.id_asociado
-       FROM personas p
-       JOIN asociados a ON a.id_persona = p.id_persona
-       WHERE p.id_persona = $1`,
-      [idPersona]
-    );
-
-    if (assocCuiRes.rows.length === 0) {
+    // 1. La cuenta de origen (issue #82): una de las que el portal le ofrece (`cuentasDeOrigen`), con su origen. El id
+    //    de una cuenta del banco y el de una de la cooperativa pueden coincidir, así que el origen es obligatorio.
+    const idOrigen = Number(id_cuenta_origen);
+    if (!['BANCO', 'COOPERATIVA'].includes(origen_cuenta) || !Number.isInteger(idOrigen) || idOrigen <= 0) {
+      return res.status(400).json({ success: false, message: 'Elija la cuenta de origen.' });
+    }
+    const asociadoRes = await db.query('SELECT id_asociado FROM asociados WHERE id_persona = $1', [idPersona]);
+    if (asociadoRes.rows.length === 0) {
       return res.status(403).json({ success: false, message: 'No encontramos sus datos de asociado.' });
     }
-    const userCui = assocCuiRes.rows[0].cui_dpi;
-    id_asociado = assocCuiRes.rows[0].id_asociado;
+    const id_asociado = asociadoRes.rows[0].id_asociado;
 
-    if (userCui) {
-      const bcoRes = await bancoApiService.obtenerCuentasCliente(userCui);
-      if (bcoRes.success && Array.isArray(bcoRes.data)) {
-        const foundBco = bcoRes.data.find(c => String(c.id_cuenta_bancaria) === String(id_cuenta_origen) && c.estado === 'ACTIVA');
-        if (foundBco) {
-          isBanco = true;
-          saldo_disponible = foundBco.saldo_disponible;
-        }
+    const { cuentas: origenes, bancoRespondio } = await cuentasDeOrigen(idPersona);
+    const cuentaOrigen = origenes.find((c) => c.origen_cuenta === origen_cuenta && Number(c.id_cuenta) === idOrigen);
+    if (!cuentaOrigen) {
+      if (origen_cuenta === 'BANCO' && !bancoRespondio) {
+        return res.status(502).json({ success: false, message: 'No pudimos consultar sus cuentas del banco. Intente de nuevo en unos minutos.' });
       }
+      return res.status(403).json({ success: false, message: 'La cuenta de origen no está activa o no es suya.' });
     }
-
-    if (!isBanco) {
-      // Verificar que la cuenta de origen pertenezca al asociado y esté activa
-      const originQuery = `
-        SELECT c.id_cuenta, c.saldo_disponible, a.id_asociado
-        FROM cuentas c
-        JOIN asociados a ON c.id_asociado = a.id_asociado
-        WHERE c.id_cuenta = $1 AND a.id_persona = $2 AND c.estado = 'ACTIVA'
-      `;
-      const originRes = await db.query(originQuery, [id_cuenta_origen, idPersona]);
-      if (originRes.rows.length === 0) {
-        return res.status(403).json({
-          success: false,
-          message: 'La cuenta de origen no está activa.',
-        });
-      }
-      saldo_disponible = originRes.rows[0].saldo_disponible;
-      id_asociado = originRes.rows[0].id_asociado;
-    }
+    const isBanco = origen_cuenta === 'BANCO';
+    const saldo_disponible = cuentaOrigen.saldo_disponible;
 
     // 2. Validar que posee saldo disponible suficiente
     if (parsedMonto > parseFloat(saldo_disponible)) {
@@ -878,7 +879,7 @@ const createSolicitudTraslado = async (req, res) => {
           message: 'Elija la cuenta de destino.',
         });
       }
-      if (!isBanco && String(id_cuenta_origen) === String(id_cuenta_destino)) {
+      if (!isBanco && String(idOrigen) === String(id_cuenta_destino)) {
         return res.status(400).json({
           success: false,
           message: 'La cuenta de destino no puede ser la misma de origen. Elija otra o abra una cuenta nueva.',
@@ -941,8 +942,8 @@ const createSolicitudTraslado = async (req, res) => {
     `;
     const result = await db.query(insertQuery, [
       id_asociado,
-      isBanco ? null : id_cuenta_origen,
-      isBanco ? id_cuenta_origen : null,
+      isBanco ? null : idOrigen,
+      isBanco ? idOrigen : null,
       id_cuenta_destino || null,
       finalTipoCuentaDestino,
       parsedMonto,
@@ -1404,6 +1405,7 @@ module.exports = {
   subirExpedienteFirmado,
   cancelarCredito,
   getCuentaPlanilla,
+  getCuentasOrigen,
   getMisCuentasDestino,
   createSolicitudTraslado,
   getMisSolicitudesTraslado,

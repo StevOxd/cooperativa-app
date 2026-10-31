@@ -3,13 +3,14 @@ import { Send } from 'lucide-react';
 import {
   Alert, Badge, Button, Field, LoadingState, Modal, ProgressBar, StatCard, StatGroup, TabPanel, Tabs, Textarea,
 } from '../../ui';
-import { formatDate, formatQ } from '../../../utils/format';
+import { formatDate, formatQ, megas } from '../../../utils/format';
 import { creditStatus } from '../dashboard/status';
 import { SignedPdfPanel } from '../../credit/SignedPdfPanel';
 import { AccountBalances } from '../../credit/AccountBalances';
 import { CreditTransactionsTable } from '../../credit/CreditTransactionsTable';
 import { CreditTerms } from '../../credit/CreditTerms';
 import { creditDestination } from '../../credit/creditDestination';
+import { CONSTANTS } from '../../../config/constants';
 
 const TABS_ID = 'evaluacion-operador';
 const PENDING_STATES = ['PENDIENTE', 'EN_REVISION_OPERADOR', 'DEVUELTA_OPERADOR'];
@@ -59,8 +60,8 @@ const OperatorCreditEvaluationModal = ({
       return;
     }
 
-    if (file.size > 10 * 1024 * 1024) {
-      setFileError('El PDF no puede pasar de 10 MB.');
+    if (file.size > CONSTANTS.ARCHIVOS.PDF_CREDITO_MAX_BYTES) {
+      setFileError(`El PDF pesa ${megas(file.size)} MB; el máximo es 10 MB.`);
       return;
     }
 

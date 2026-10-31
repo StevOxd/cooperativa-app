@@ -5,6 +5,9 @@ import { getSocket } from '../services/socket';
 
 const ToastContext = createContext(null);
 
+// Avisos a la vista a la vez: más taparían la pantalla (en el celular, uno solo)
+const maxAvisos = () => (window.matchMedia?.('(min-width: 640px)')?.matches ? 3 : 1);
+
 /** Ícono y colores de cada tipo de aviso. */
 const TOAST_TONES = {
   success: { icon: CheckCircle2, color: 'text-success-700', progress: 'bg-success-600', defaultTitle: 'Listo' },
@@ -48,6 +51,9 @@ export const toast = {
 
 export const ToastProvider = ({ children }) => {
   const [toasts, setToasts] = useState([]);
+  // Lo que leen los lectores de pantalla: dos regiones vivas que existen desde el inicio (una región creada junto con
+  // su texto no siempre se anuncia). Los errores van en la urgente.
+  const [anuncio, setAnuncio] = useState({ id: '', texto: '', urgente: false });
 
   const removeToast = useCallback((id) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
@@ -58,11 +64,14 @@ export const ToastProvider = ({ children }) => {
       const id = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       const newToast = { id, message, title, type, duration };
 
-      setToasts((prev) => [...prev, newToast]);
+      setToasts((prev) => [...prev, newToast].slice(-maxAvisos()));
+      const config = TOAST_TONES[type] || TOAST_TONES.default;
+      setAnuncio({ id, texto: `${title || config.defaultTitle}: ${message}`, urgente: type === 'error' });
 
-      // Desaparición automática tras 4 segundos exactos
+      // Desaparición automática tras 4 segundos exactos; la región viva también se vacía si sigue con este aviso
       setTimeout(() => {
         removeToast(id);
+        setAnuncio((actual) => (actual.id === id ? { id: '', texto: '', urgente: false } : actual));
       }, duration);
     },
     [removeToast]
@@ -124,8 +133,17 @@ export const ToastProvider = ({ children }) => {
     <ToastContext.Provider value={value}>
       {children}
 
-      {/* Avisos flotantes (arriba a la derecha; a todo el ancho en móvil) */}
-      <div className="pointer-events-none fixed inset-x-0 top-4 z-[99999] flex flex-col items-center gap-2 px-4 sm:inset-x-auto sm:right-4 sm:items-end sm:px-0">
+      {/* Regiones vivas: la clave nueva hace que se anuncie también un aviso igual al anterior */}
+      <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+        {!anuncio.urgente && <span key={anuncio.id}>{anuncio.texto}</span>}
+      </div>
+      <div className="sr-only" role="alert" aria-atomic="true">
+        {anuncio.urgente && <span key={anuncio.id}>{anuncio.texto}</span>}
+      </div>
+
+      {/* Avisos flotantes: abajo a la derecha (no tapan las acciones del encabezado) y por encima del pie de los modales;
+          a todo el ancho en el celular */}
+      <div className="pointer-events-none fixed inset-x-0 bottom-24 z-[99999] flex flex-col items-center gap-2 px-4 sm:inset-x-auto sm:right-4 sm:items-end sm:px-0">
         {toasts.map((t) => {
           const config = TOAST_TONES[t.type] || TOAST_TONES.default;
           const IconComponent = config.icon;
@@ -134,7 +152,6 @@ export const ToastProvider = ({ children }) => {
           return (
             <div
               key={t.id}
-              role={t.type === 'error' ? 'alert' : 'status'}
               className="pointer-events-auto w-full max-w-sm overflow-hidden rounded-lg border border-line bg-white shadow-lg animate-slide-in-right"
             >
               <div className="flex items-start gap-3 px-4 py-3">

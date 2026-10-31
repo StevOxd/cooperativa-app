@@ -113,6 +113,7 @@ const testServer = server.listen(0, async () => {
     console.log('\n4. Registrando solicitud de apertura de subcuenta con traslado (Q1,500.00)...');
     const payloadSolicitud = {
       id_cuenta_origen: idCuentaOrigen,
+      origen_cuenta: 'COOPERATIVA',
       id_tipo_cuenta_destino: 5, // Ahorro Programado / Metas
       monto: 1500.00,
       tipo_operacion: 'APERTURA_Y_TRASLADO',

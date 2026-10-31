@@ -3,7 +3,7 @@ import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { RefreshCw, Send, Compass, FileCheck2 } from 'lucide-react';
 import { Button, LoadingState, PageHeader, TabPanel, Tabs } from '../components/ui';
-import { formatDate } from '../utils/format';
+import { formatDateOnly } from '../utils/format';
 import AssociateOnboardingTour from '../components/associate/AssociateOnboardingTour';
 import { useToast } from '../context/ToastContext';
 import {
@@ -16,6 +16,7 @@ import { AssociateProductsTab } from '../components/associate/dashboard/Associat
 import { AssociateBeneficiariesTab } from '../components/associate/dashboard/AssociateBeneficiariesTab';
 import { AssociateDocumentsTab } from '../components/associate/dashboard/AssociateDocumentsTab';
 import { beneficiariosCompletos } from '../components/associate/dashboard/beneficiarios';
+import { claveDeCuenta, esDeLaCooperativa } from '../components/associate/dashboard/cuentasOrigen';
 import { AccountMovementsModal } from '../components/associate/dashboard/AccountMovementsModal';
 import { TransferRequestModal } from '../components/associate/dashboard/TransferRequestModal';
 import { EditBeneficiariesModal } from '../components/associate/dashboard/EditBeneficiariesModal';
@@ -65,9 +66,13 @@ const planDeAmortizacion = (credito) => {
       saldo = Math.round((saldo - capital) * 100) / 100;
     }
 
-    // Fecha de cobro programada sumando i meses a la fecha de aprobación
+    // Fecha de cobro: el día de la aprobación, i meses después. Si ese día no existe en el mes (29, 30 o 31), el último
+    // día del mes: setMonth lo pasaría al mes siguiente y ese año habría dos cuotas en marzo y ninguna en febrero.
     const fechaPago = new Date(fechaAprobacion);
-    fechaPago.setMonth(fechaPago.getMonth() + i);
+    fechaPago.setDate(1);
+    fechaPago.setMonth(fechaAprobacion.getMonth() + i);
+    const ultimoDiaDelMes = new Date(fechaPago.getFullYear(), fechaPago.getMonth() + 1, 0).getDate();
+    fechaPago.setDate(Math.min(fechaAprobacion.getDate(), ultimoDiaDelMes));
 
     cuotas.push({
       numero: i,
@@ -128,6 +133,9 @@ export const AssociateDashboard = () => {
   const [descargando, setDescargando] = useState(() => new Set());
 
   // Estados del módulo de Traslado de Planilla
+  // Cuentas desde las que puede trasladar (issue #82) y la elegida (la primera es la predeterminada)
+  const [cuentasOrigen, setCuentasOrigen] = useState([]);
+  const [bancoDisponible, setBancoDisponible] = useState(true);
   const [cuentaPlanilla, setCuentaPlanilla] = useState(null);
   const [cuentasDestino, setCuentasDestino] = useState({ cuentasExistentes: [], tiposDisponibles: [] });
   const [solicitudesTraslado, setSolicitudesTraslado] = useState([]);
@@ -159,12 +167,26 @@ export const AssociateDashboard = () => {
   const [enviandoTraslado, setEnviandoTraslado] = useState(false);
   const [modalErrorMessage, setModalErrorMessage] = useState('');
 
+  /** Abre el formulario de traslado con la cuenta de origen predeterminada (la primera). */
   const openTrasladoModal = () => {
+    setCuentaPlanilla(cuentasOrigen[0] || null);
     setModalErrorMessage('');
     setMontoTraslado('');
     setDestinoSeleccionado('');
     setObservacionesTraslado('');
     setIsTrasladoModalOpen(true);
+  };
+
+  /** Abre el traslado desde una cuenta de origen ya elegida (pestaña Traslados). */
+  const abrirTrasladoDesde = (cuenta) => {
+    openTrasladoModal();
+    setCuentaPlanilla(cuenta);
+  };
+
+  /** Cambia la cuenta de origen en el formulario de traslado. */
+  const elegirCuentaOrigen = (clave) => {
+    const cuenta = cuentasOrigen.find((c) => claveDeCuenta(c) === clave);
+    if (cuenta) setCuentaPlanilla(cuenta);
   };
 
   /** Abre el traslado con un destino ya elegido, p. ej. "APERTURA:<id>" desde Productos. */
@@ -195,8 +217,9 @@ export const AssociateDashboard = () => {
 
   const cuentasDestinoFiltradas = useMemo(() => {
     if (!cuentasDestino?.cuentasExistentes) return [];
+    // Una cuenta de la cooperativa no es destino de sí misma; las del banco nunca coinciden con un destino
     return cuentasDestino.cuentasExistentes.filter(
-      (d) => String(d.id_cuenta) !== String(cuentaPlanilla?.id_cuenta)
+      (d) => !esDeLaCooperativa(cuentaPlanilla) || String(d.id_cuenta) !== String(cuentaPlanilla.id_cuenta)
     );
   }, [cuentasDestino, cuentaPlanilla]);
 
@@ -207,7 +230,7 @@ export const AssociateDashboard = () => {
   const isMontoMayorQueSaldo = cuentaPlanilla && parsedMontoVal > parseFloat(cuentaPlanilla.saldo_disponible);
   const isMismaCuenta =
     destinoSeleccionado?.startsWith('EXISTENTE:') &&
-    cuentaPlanilla &&
+    esDeLaCooperativa(cuentaPlanilla) &&
     String(destinoSeleccionado.split(':')[1]) === String(cuentaPlanilla.id_cuenta);
 
   let realTimeError = '';
@@ -229,7 +252,7 @@ export const AssociateDashboard = () => {
         api.get('/asociado/perfil').catch(() => ({ data: { success: false } })),
         api.get('/asociado/cuentas').catch(() => ({ data: { success: false } })),
         api.get('/asociado/creditos').catch(() => ({ data: { success: false } })),
-        api.get('/asociado/cuenta-planilla').catch(() => ({ data: { success: false } })),
+        api.get('/asociado/cuentas-origen').catch(() => ({ data: { success: false } })),
         api.get('/asociado/mis-cuentas-destino').catch(() => ({ data: { success: false } })),
         api.get('/asociado/mis-solicitudes').catch(() => ({ data: { success: false } })),
         api.get('/catalogo/tipos-cuenta').catch(() => ({ data: { success: false } })),
@@ -240,7 +263,13 @@ export const AssociateDashboard = () => {
       if (perfilRes.data?.success) setProfile(perfilRes.data.data);
       if (cuentasRes.data?.success) setCuentas(cuentasRes.data.data);
       if (creditosRes.data?.success) setCreditos(creditosRes.data.data);
-      if (planillaRes.data?.success) setCuentaPlanilla(planillaRes.data.data);
+      if (planillaRes.data?.success) {
+        const lista = planillaRes.data.data || [];
+        setCuentasOrigen(lista);
+        setBancoDisponible(planillaRes.data.banco_disponible !== false);
+        // Al recargar se conserva la cuenta elegida si sigue disponible (con su saldo nuevo)
+        setCuentaPlanilla((actual) => lista.find((c) => claveDeCuenta(c) === claveDeCuenta(actual)) || lista[0] || null);
+      }
       if (destinoRes.data?.success) setCuentasDestino(destinoRes.data.data);
       if (solicitudesRes.data?.success) setSolicitudesTraslado(solicitudesRes.data.data);
       if (catalogoRes.data?.success) setCatalogoProductos(catalogoRes.data.data);
@@ -539,7 +568,7 @@ export const AssociateDashboard = () => {
     }
 
     if (!cuentaPlanilla) {
-      setModalErrorMessage('No tiene una cuenta de planilla activa para hacer traslados.');
+      setModalErrorMessage('No tiene una cuenta activa desde la cual trasladar.');
       return;
     }
 
@@ -554,7 +583,7 @@ export const AssociateDashboard = () => {
     }
 
     const [destType, destId] = destinoSeleccionado.split(':');
-    if (destType === 'EXISTENTE' && cuentaPlanilla && String(destId) === String(cuentaPlanilla.id_cuenta)) {
+    if (destType === 'EXISTENTE' && esDeLaCooperativa(cuentaPlanilla) && String(destId) === String(cuentaPlanilla.id_cuenta)) {
       setModalErrorMessage('La cuenta de destino no puede ser la misma de origen. Elija otra o abra una cuenta nueva.');
       return;
     }
@@ -569,6 +598,7 @@ export const AssociateDashboard = () => {
 
     const payload = {
       id_cuenta_origen: cuentaPlanilla.id_cuenta,
+      origen_cuenta: cuentaPlanilla.origen_cuenta,
       monto: monto,
       tipo_operacion: tipoOperacion,
       observaciones: observacionesTraslado,
@@ -723,7 +753,7 @@ export const AssociateDashboard = () => {
         description={
           <>
             Código <span className="font-mono">{profile?.codigo_corporativo || user?.codigo_corporativo}</span>
-            {profile?.fecha_ingreso && <> · Asociado desde {formatDate(profile.fecha_ingreso)}</>}
+            {profile?.fecha_ingreso && <> · Asociado desde {formatDateOnly(profile.fecha_ingreso)}</>}
           </>
         }
         actions={
@@ -739,7 +769,8 @@ export const AssociateDashboard = () => {
                 onClick={descargarConstancia}
                 title="Descargar la constancia de afiliación en PDF"
               >
-                Constancia<span className="sr-only sm:not-sr-only"> de afiliación</span>
+                {/* Un solo bloque de texto: el espacio entre ícono y texto del botón no se suma al de las palabras */}
+                <span>Constancia<span className="sr-only sm:not-sr-only"> de afiliación</span></span>
               </Button>
             )}
             <Button variant="secondary" size="icon" onClick={fetchData} aria-label="Actualizar" title="Actualizar">
@@ -749,7 +780,7 @@ export const AssociateDashboard = () => {
               icon={Send}
               onClick={openTrasladoModal}
               disabled={!cuentaPlanilla}
-              title={cuentaPlanilla ? undefined : 'Necesita una cuenta de planilla vinculada para solicitar traslados'}
+              title={cuentaPlanilla ? undefined : 'Necesita una cuenta vinculada para solicitar traslados'}
             >
               Solicitar traslado
             </Button>
@@ -807,7 +838,6 @@ export const AssociateDashboard = () => {
       {/* ==================== TAB: CUENTA ORIGEN Y TRASLADOS ==================== */}
       {activeTab === 'planilla' && (
         <AssociateTransfersTab
-          cuentaPlanilla={cuentaPlanilla}
           filterTrasladoEstado={filterTrasladoEstado}
           filterTrasladoTipo={filterTrasladoTipo}
           filteredSolicitudesTraslado={filteredSolicitudesTraslado}
@@ -817,6 +847,9 @@ export const AssociateDashboard = () => {
           setFilterTrasladoTipo={setFilterTrasladoTipo}
           setSearchTrasladoQuery={setSearchTrasladoQuery}
           solicitudesTraslado={solicitudesTraslado}
+          cuentasOrigen={cuentasOrigen}
+          bancoDisponible={bancoDisponible}
+          abrirTrasladoDesde={abrirTrasladoDesde}
           descargandoComprobante={(numeroCaso) => descargando.has(numeroCaso)}
           onDescargarComprobante={descargarComprobanteTraslado}
         />
@@ -899,6 +932,8 @@ export const AssociateDashboard = () => {
       <TransferRequestModal
         closeTrasladoModal={closeTrasladoModal}
         cuentaPlanilla={cuentaPlanilla}
+        cuentasOrigen={cuentasOrigen}
+        elegirCuentaOrigen={elegirCuentaOrigen}
         cuentasDestino={cuentasDestino}
         cuentasDestinoFiltradas={cuentasDestinoFiltradas}
         destinoSeleccionado={destinoSeleccionado}

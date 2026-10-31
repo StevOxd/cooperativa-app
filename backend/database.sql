@@ -10,7 +10,8 @@
 
 -- Limpieza previa en cascada para reejecución limpia
 -- (depositos_ventanilla_banco, efectivo_ventanilla, reversiones_pendientes, codigos_verificacion_correo, las
--- tablas de documentos de afiliación y reportes_generados las crea migrations.js al arrancar el backend)
+-- tablas de documentos de afiliación, reportes_generados y resoluciones_credito las crea migrations.js al arrancar)
+DROP TABLE IF EXISTS resoluciones_credito CASCADE;
 DROP TABLE IF EXISTS reportes_generados CASCADE;
 DROP TABLE IF EXISTS accesos_documento CASCADE;
 DROP TABLE IF EXISTS revisiones_documento CASCADE;
@@ -222,9 +223,10 @@ DECLARE
     correlativo TEXT;
 BEGIN
     IF NEW.numero_caso IS NULL OR NEW.numero_caso = '' THEN
-        -- Al menos 4 dígitos; desde el 10000 el número sigue creciendo (LPAD a 4 lo cortaría y se repetiría)
+        -- Al menos 4 dígitos; desde el 10000 el número sigue creciendo (LPAD a 4 lo cortaría y se repetiría).
+        -- El año es el de Guatemala: la base corre en UTC y el 31 de diciembre después de las 18:00 daría el siguiente
         correlativo := nextval('seq_numero_caso_afiliacion')::text;
-        NEW.numero_caso := 'CASO-AFIL-' || TO_CHAR(CURRENT_DATE, 'YYYY') || '-' || LPAD(correlativo, GREATEST(LENGTH(correlativo), 4), '0');
+        NEW.numero_caso := 'CASO-AFIL-' || TO_CHAR(CURRENT_TIMESTAMP AT TIME ZONE 'America/Guatemala', 'YYYY') || '-' || LPAD(correlativo, GREATEST(LENGTH(correlativo), 4), '0');
     END IF;
     RETURN NEW;
 END;
@@ -293,9 +295,10 @@ DECLARE
     correlativo TEXT;
 BEGIN
     IF NEW.numero_caso IS NULL OR NEW.numero_caso = '' THEN
-        -- Al menos 4 dígitos; desde el 10000 el número sigue creciendo (LPAD a 4 lo cortaría y se repetiría)
+        -- Al menos 4 dígitos; desde el 10000 el número sigue creciendo (LPAD a 4 lo cortaría y se repetiría).
+        -- El año es el de Guatemala: la base corre en UTC y el 31 de diciembre después de las 18:00 daría el siguiente
         correlativo := nextval('seq_numero_caso_traslado')::text;
-        NEW.numero_caso := 'CASO-' || TO_CHAR(CURRENT_DATE, 'YYYY') || '-' || LPAD(correlativo, GREATEST(LENGTH(correlativo), 4), '0');
+        NEW.numero_caso := 'CASO-' || TO_CHAR(CURRENT_TIMESTAMP AT TIME ZONE 'America/Guatemala', 'YYYY') || '-' || LPAD(correlativo, GREATEST(LENGTH(correlativo), 4), '0');
     END IF;
     RETURN NEW;
 END;

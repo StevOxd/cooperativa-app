@@ -19,7 +19,7 @@ Documento maestro de arquitectura, flujos operativos de negocio, sistema de dise
    - 5.7 [Módulo Transversal: Configuración de Cuenta y Factor 2FA Opcional](#57-módulo-transversal-configuración-de-cuenta-y-factor-2fa-opcional)
    - 5.8 [Módulo Transversal: Reportes de Gestión](#58-módulo-transversal-reportes-de-gestión)
 6. [Estructura Completa de Base de Datos](#6-estructura-completa-de-base-de-datos)
-   - 6.1 [Base de Datos `cooperativa_db` (21 Tablas 3FN)](#61-base-de-datos-cooperativa_db-21-tablas-3fn)
+   - 6.1 [Base de Datos `cooperativa_db` (22 Tablas 3FN)](#61-base-de-datos-cooperativa_db-22-tablas-3fn)
    - 6.2 [Base de Datos `banco_db` (Core Banking de la Corporación)](#62-base-de-datos-banco_db-core-banking-de-la-corporación)
    - 6.3 [Triggers, Funciones y Secuencias Atómicas](#63-triggers-funciones-y-secuencias-atómicas)
    - 6.4 [Optimización de Índices DBA y Cobertura B-Tree](#64-optimización-de-índices-dba-y-cobertura-b-tree)
@@ -274,7 +274,7 @@ Disponible en `/registro-asociado` sin autenticación previa:
 - **Cartola de Movimientos y Estado de Cuenta en PDF:** Emisión en 1 solo clic del Estado de Cuenta oficial en PDF (`ESTADO-CUENTA-<CUENTA>-<FECHA>.pdf`), con membrete bancario, folio único `EDC-<CUENTA>-<TIMESTAMP>`, tarjetas informativas, desglose transaccional y sello digital SHA-256.
 
 #### 3. Traslados de Nómina y Créditos:
-- Traslados de nómina con generación correlativa `CASO-YYYY-XXXX` para autorización del operador.
+- Traslados de nómina con generación correlativa `CASO-YYYY-XXXX` para autorización del operador. El asociado elige la cuenta de origen entre su cuenta de planilla y todas sus cuentas activas del banco (ahorro y monetaria).
 - Simulador de crédito con Amortización Francesa al 10% anual, tope estatutario de 2 créditos simultáneos y carga de solicitud firmada en PDF.
 
 #### 4. Documentos de Afiliación:
@@ -448,7 +448,7 @@ Pantalla «Reportes» del personal (issue #85): cada reporte se descarga en PDF 
 
 PostgreSQL 16 gestiona dos bases de datos relacionales: `cooperativa_db` (entidad cooperativa) y `banco_db` (Core Banking de la corporación).
 
-### 6.1 Base de Datos `cooperativa_db` (21 Tablas 3FN)
+### 6.1 Base de Datos `cooperativa_db` (22 Tablas 3FN)
 
 ```
                                   +-------------------+
@@ -523,7 +523,8 @@ PostgreSQL 16 gestiona dos bases de datos relacionales: `cooperativa_db` (entida
 18. **`documentos_afiliacion`:** Cada versión de un documento (`id_documento` PK, `id_expediente` FK, `tipo_documento` DPI_FRENTE/DPI_REVERSO/RECIBO_SERVICIOS/FOTO_CON_DPI/CONSTANCIA_INGRESOS, `archivo` UNIQUE generado por el servidor, `tamano_bytes`, `sha256`, `estado` PENDIENTE/ACEPTADO/RECHAZADO/REEMPLAZADO, `id_documento_anterior` del mismo expediente y tipo, `canal_carga`, `id_usuario_carga`, `ip_origen`, `user_agent`, `fecha_carga`). Una sola versión vigente por tipo (índice único parcial); un trigger solo deja cambiar el estado, en el orden de la revisión.
 19. **`revisiones_documento`:** Una revisión por versión (`id_documento` UNIQUE, `resultado` ACEPTADO/RECHAZADO, `motivo` obligatorio al rechazar, `id_usuario_revisa`, `ip_origen`, `user_agent`, `fecha_revision`). Registro de solo agregar; un trigger exige que el resultado sea el estado que se le dio al documento.
 20. **`accesos_documento`:** Quién abrió cada documento, desde dónde y cuándo (`id_documento`, `id_usuario`, `ip_origen`, `user_agent`, `fecha_acceso`). Registro de solo agregar.
-21. **`reportes_generados`:** Cada reporte de gestión que sacó el personal (`id_reporte` PK, que forma el folio `REP-XXXXXX`, `id_usuario` FK, `tipo_reporte`, `formato` PDF/CSV, `parametros` JSONB con los filtros, `filas`, `ip_origen`, `user_agent`, `fecha_generacion`). Registro de solo agregar.
+21. **`reportes_generados`:** Cada reporte de gestión que sacó el personal (`id_reporte` PK, que forma el folio `REP-XXXXXX`, `id_usuario` FK, `id_rol` con que lo sacó, `tipo_reporte`, `formato` PDF/CSV, `parametros` JSONB con los filtros, `filas`, `resumen` JSONB con sus totales para cotejar un reporte impreso, `ip_origen`, `user_agent`, `fecha_generacion`). Registro de solo agregar.
+22. **`resoluciones_credito`:** Cada resolución del comité de crédito (`id_resolucion` PK, `id_solicitud_credito` FK, `id_usuario_resuelve` FK, `resolucion` APROBADA/DEVUELTA/DENEGADA, `observaciones` obligatorias al devolver o denegar, `carga_inicial`, `fecha_resolucion`), en la misma transacción que la aplica. Registro de solo agregar; el acta del comité lo lee. Al crear la tabla se carga la última resolución de cada crédito anterior al historial, marcada con `carga_inicial = TRUE`.
 
 ---
 

@@ -3,6 +3,7 @@ const socketService = require('../services/socketService');
 const bancoApiService = require('../services/bancoApiService');
 const { saveBase64File, eliminarArchivoGuardado, eliminarPdfDeCreditoSinUso } = require('../utils/fileStorage');
 const { errorDeNegocio, respuestaDeError } = require('../utils/errores');
+
 const {
   revertirOAnotar,
   errorTrasCommitFallido,
@@ -11,6 +12,23 @@ const {
   revertirMovimientoSinRegistrar,
   avisoDeReversion,
 } = require('../services/reversionesService');
+
+/**
+ * Deja la resolución del comité en su historial (`resoluciones_credito`, issue #89), en la misma transacción que la
+ * aplica: si algo falla después, el ROLLBACK la deshace con todo lo demás.
+ *
+ * @param {import('pg').PoolClient} client
+ * @param {{ idSolicitud: number|string, idUsuario: number, resolucion: 'APROBADA'|'DEVUELTA'|'DENEGADA',
+ *   observaciones?: string }} datos
+ * @returns {Promise<void>}
+ */
+const registrarResolucion = async (client, { idSolicitud, idUsuario, resolucion, observaciones }) => {
+  await client.query(
+    `INSERT INTO resoluciones_credito (id_solicitud_credito, id_usuario_resuelve, resolucion, observaciones)
+     VALUES ($1, $2, $3, $4)`,
+    [idSolicitud, idUsuario, resolucion, observaciones || null]
+  );
+};
 
 /**
  * Obtener solicitudes de crédito para revisión y resolución de la Gerencia Ejecutiva
@@ -252,6 +270,7 @@ const resolverSolicitudCredito = async (req, res) => {
       devolverParams.push(id);
 
       const updateRes = await client.query(devolverQuery, devolverParams);
+      await registrarResolucion(client, { idSolicitud: id, idUsuario: idEjecutivo, resolucion: 'DEVUELTA', observaciones: observaciones.trim() });
 
       commitIntentado = true;
       await client.query('COMMIT');
@@ -310,6 +329,7 @@ const resolverSolicitudCredito = async (req, res) => {
       denegarParams.push(id);
 
       const updateRes = await client.query(denegarQuery, denegarParams);
+      await registrarResolucion(client, { idSolicitud: id, idUsuario: idEjecutivo, resolucion: 'DENEGADA', observaciones: observaciones.trim() });
 
       commitIntentado = true;
       await client.query('COMMIT');
@@ -465,6 +485,7 @@ const resolverSolicitudCredito = async (req, res) => {
     aceptarParams.push(id);
 
     const updateRes = await client.query(aceptarQuery, aceptarParams);
+    await registrarResolucion(client, { idSolicitud: id, idUsuario: idEjecutivo, resolucion: 'APROBADA', observaciones: obsFinal });
 
     // Acreditación en el banco (último paso): si falla, el ROLLBACK deshace lo de la cooperativa
     if (acreditacionBanco) {

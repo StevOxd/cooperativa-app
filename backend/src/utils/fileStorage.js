@@ -5,6 +5,8 @@ const db = require('../config/db');
 const { errorDeNegocio } = require('./errores');
 
 const UPLOADS_ROOT = path.join(__dirname, '../../uploads');
+// El mismo máximo que revisa el frontend; en Base64 pesa un tercio más (nginx acepta 14 MB en esas rutas)
+const TAMANO_MAXIMO_BYTES = 10 * 1024 * 1024;
 
 /**
  * Guarda un archivo codificado en Base64 en el sistema de archivos del servidor.
@@ -15,6 +17,8 @@ const UPLOADS_ROOT = path.join(__dirname, '../../uploads');
  * @param {string} originalName - Nombre del archivo original proporcionado por el usuario
  * @param {string} prefix - Prefijo para el archivo generado (ej. 'solicitud')
  * @returns {Promise<{ relativeUrl: string, filename: string, sizeBytes: number }>}
+ * @throws {Error} 400 si los datos no son válidos, la extensión no se permite, el archivo está vacío o pesa más de
+ *   10 MB.
  */
 const saveBase64File = async (base64Data, subfolder = 'creditos', originalName = 'formulario.pdf', prefix = 'doc') => {
   if (!base64Data || typeof base64Data !== 'string') {
@@ -57,6 +61,12 @@ const saveBase64File = async (base64Data, subfolder = 'creditos', originalName =
   const fullPath = path.join(targetDir, filename);
 
   const buffer = Buffer.from(cleanBase64, 'base64');
+  if (buffer.length === 0) {
+    throw errorDeNegocio(400, 'El archivo está vacío.');
+  }
+  if (buffer.length > TAMANO_MAXIMO_BYTES) {
+    throw errorDeNegocio(400, 'El archivo pesa más de 10 MB. Redúzcalo e intente de nuevo.');
+  }
   await fs.promises.writeFile(fullPath, buffer);
 
   const relativeUrl = `/api/uploads/${subfolder}/${filename}`;

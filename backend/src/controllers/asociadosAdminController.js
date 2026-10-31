@@ -9,11 +9,15 @@ const socketService = require('../services/socketService');
 const asociadoAfiliacionService = require('../services/asociadoAfiliacionService');
 const { normalizarParentesco } = require('../utils/parentesco');
 const { respuestaDeError, estadoPorFalloDelBanco } = require('../utils/errores');
-const { ipDelCliente } = require('../utils/ipCliente');
+const { ipDelCliente, userAgentDe } = require('../utils/ipCliente');
 const { leerMonto } = require('../utils/montos');
 const { registrarEfectivo } = require('../services/efectivoVentanillaService');
 const { revertirOAnotar, anotarSinConfirmar, errorTrasCommitFallido } = require('../services/reversionesService');
 const { expedienteDePersona, documentosConResumen } = require('../services/documentosAfiliacionService');
+
+// Página del listado de asociados: de 1 a 100 registros, y un número de página con tope
+const MAX_POR_PAGINA = 100;
+const MAX_PAGINA = 1000000;
 
 /**
  * Consulta el padrón institucional de asociados con soporte para paginación, filtros de estado y métricas consolidadas.
@@ -24,15 +28,21 @@ const { expedienteDePersona, documentosConResumen } = require('../services/docum
  * @param {string} [req.query.search] - Criterio opcional de búsqueda por CUI, nombre, email o código corporativo.
  * @param {('ACTIVO'|'INACTIVO'|'SUSPENDIDO')} [req.query.estado] - Filtro opcional por estado del asociado.
  * @param {number} [req.query.page=1] - Número de página para paginación.
- * @param {number} [req.query.limit=10] - Cantidad máxima de registros por página.
+ * @param {number} [req.query.limit=10] - Registros por página, de 1 a 100.
  * @param {import('express').Response} res - Objeto de respuesta HTTP de Express.
  * @returns {Promise<import('express').Response>} Retorna 200 con listado consolidado y metadatos de paginación.
  * @throws {Error} Retorna 500 ante anomalías en el pool de conexiones o consultas SQL.
  */
 const listarAsociados = async (req, res) => {
   try {
-    const { search = '', estado = '', page = 1, limit = 10 } = req.query;
-    const offset = (parseInt(page, 10) - 1) * parseInt(limit, 10);
+    // Un valor repetido en la URL llega como arreglo: se toma como vacío
+    const search = typeof req.query.search === 'string' ? req.query.search : '';
+    const estado = typeof req.query.estado === 'string' ? req.query.estado : '';
+    // Entre 1 y 100 por página: un número mayor traería el padrón completo en una consulta sin registro (para eso
+    // está el padrón de «Reportes», que queda registrado con folio)
+    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 10, 1), MAX_POR_PAGINA);
+    // Página con tope (un número enorme rompería el OFFSET); después se ajusta a las páginas que hay
+    let page = Math.min(Math.max(parseInt(req.query.page, 10) || 1, 1), MAX_PAGINA);
 
     let whereClauses = [];
     let queryParams = [];
@@ -64,9 +74,11 @@ const listarAsociados = async (req, res) => {
     `;
     const countResult = await pool.query(countQuery, queryParams);
     const totalRecords = parseInt(countResult.rows[0].total, 10);
+    page = Math.min(page, Math.max(Math.ceil(totalRecords / limit), 1));
+    const offset = (page - 1) * limit;
 
     // Consulta de registros con saldo total consolidado
-    queryParams.push(parseInt(limit, 10));
+    queryParams.push(limit);
     const limitIdx = queryParams.length;
     queryParams.push(offset);
     const offsetIdx = queryParams.length;
@@ -116,9 +128,9 @@ const listarAsociados = async (req, res) => {
       })),
       pagination: {
         total: totalRecords,
-        page: parseInt(page, 10),
-        limit: parseInt(limit, 10),
-        totalPages: Math.ceil(totalRecords / parseInt(limit, 10)) || 1,
+        page,
+        limit,
+        totalPages: Math.ceil(totalRecords / limit) || 1,
       },
     });
   } catch (error) {
@@ -868,7 +880,7 @@ const cambiarEstadoAsociado = async (req, res) => {
           req.user?.id_usuario || null,
           (typeof motivo === 'string' && motivo.trim()) || `Afiliación ${estado.toLowerCase()} desde la gestión de asociados`,
           ipDelCliente(req),
-          req.headers['user-agent'] || 'Desconocido',
+          userAgentDe(req) || 'Desconocido',
         ]
       );
     }
@@ -984,7 +996,7 @@ const activarAccesoPortalAsociado = async (req, res) => {
       operador: {
         id: req.user?.id_usuario || null,
         ip: ipDelCliente(req),
-        userAgent: req.headers['user-agent'] || 'Desconocido',
+        userAgent: userAgentDe(req) || 'Desconocido',
       },
     });
     return res.status(200).json({

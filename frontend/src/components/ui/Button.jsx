@@ -31,7 +31,8 @@ const SIZES = {
  * @param {'primary'|'secondary'|'ghost'|'danger'|'link'|'secondaryDanger'|'ghostDanger'|'ghostSuccess'} [props.variant='primary']
  * @param {'sm'|'md'|'lg'|'icon'} [props.size='md']
  * @param {React.ElementType} [props.icon] - Ícono de lucide-react a la izquierda del texto.
- * @param {boolean} [props.loading=false] - Muestra un indicador y bloquea el botón.
+ * @param {boolean} [props.loading=false] - Muestra un indicador y bloquea el botón. Mientras carga se marca con
+ *   `aria-disabled` (no `disabled`) e ignora el clic: así no pierde el foco del teclado ni del lector de pantalla.
  * @param {string} [props.loadingText] - Texto opcional mientras carga.
  * @param {boolean} [props.fullWidth=false]
  * @param {React.ElementType} [props.as='button'] - Permite renderizar un `Link` o `a` con el mismo estilo.
@@ -49,20 +50,26 @@ export const Button = forwardRef(function Button(
     disabled,
     className,
     children,
+    onClick,
     ...props
   },
   ref
 ) {
   const isButton = Component === 'button';
   const isDisabled = disabled || loading;
+  // Un botón con `disabled` pierde el foco (cae en el body); mientras carga se bloquea sin quitárselo, aunque quien
+  // lo usa también lo marque como deshabilitado
+  const cargandoConFoco = isButton && loading;
 
   return (
     <Component
       ref={ref}
       type={isButton ? type || 'button' : type}
-      disabled={isButton ? isDisabled : undefined}
-      aria-disabled={!isButton && isDisabled ? true : undefined}
+      disabled={isButton ? Boolean(disabled) && !loading : undefined}
+      aria-disabled={(!isButton && isDisabled) || cargandoConFoco ? true : undefined}
       aria-busy={loading || undefined}
+      // También evita que un botón de envío mande el formulario otra vez
+      onClick={cargandoConFoco ? (e) => e.preventDefault() : onClick}
       className={cn(
         'inline-flex items-center justify-center rounded-md font-medium whitespace-nowrap transition-colors cursor-pointer',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 focus-visible:ring-offset-2',
