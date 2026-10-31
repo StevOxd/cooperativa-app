@@ -3,12 +3,14 @@
  * Contiene la lógica de negocio y transaccional para la atención y formalización de casos de afiliación.
  */
 
+const crypto = require('crypto');
 const db = require('../config/db');
 const bcrypt = require('bcryptjs');
 const { getNextCorporateCode, generateSecureRandomPassword } = require('../utils/codeGenerator');
 const mailerService = require('./mailerService');
 const { decidirAccesoPortal } = require('../utils/accesoPortal');
 const bancoApiService = require('./bancoApiService');
+const documentosAfiliacion = require('./documentosAfiliacionService');
 const { leerMontoEfectivo, registrarEfectivo } = require('./efectivoVentanillaService');
 const {
   revertirOAnotar,
@@ -20,6 +22,7 @@ const {
   avisoDeReversion,
 } = require('./reversionesService');
 const { validateCui, validateAge18 } = require('../middlewares/validationMiddleware');
+const { estadoPorFalloDelBanco } = require('../utils/errores');
 
 /**
  * Bloquea un caso de afiliación en agencia para atención exclusiva por un operador
@@ -132,8 +135,8 @@ const liberarCaso = async ({ idSolicitud, idOperador, esAdmin }) => {
 };
 
 /**
- * Rechaza o cancela un caso de afiliación en agencia. Si un intento anterior de formalizarlo dejó abierta en el banco
- * una cuenta con el depósito (un tiempo agotado), se retira el depósito.
+ * Rechaza o cancela un caso de afiliación en agencia. Si un intento anterior de formalizarlo dejó el aporte en el banco
+ * (un tiempo agotado), se revierte: se retira el depósito o se devuelve el débito.
  *
  * @throws {Error} `errorDeNegocio(502)` si no se puede consultar el banco: sin saberlo, el caso no se cancela.
  */
@@ -150,8 +153,10 @@ const rechazarCaso = async ({ idSolicitud, idOperador, motivo }) => {
     "SELECT numero_caso, fecha_solicitud FROM solicitudes_afiliacion_agencia WHERE id_solicitud = $1 AND estado = 'PENDIENTE_AGENCIA'",
     [idSolicitud]
   )).rows[0];
+  // El aporte pudo quedar en el banco como depósito (efectivo) o como débito de su cuenta, según cómo se intentó cobrar
+  const referenciaCaso = caso ? bancoApiService.referenciaDeOperacion(caso.numero_caso, caso.fecha_solicitud) : null;
   const sinRegistrar = caso
-    ? await movimientoSinRegistrar(bancoApiService.referenciaDeOperacion(caso.numero_caso, caso.fecha_solicitud), 'CREDITO')
+    ? (await movimientoSinRegistrar(referenciaCaso, 'CREDITO')) || (await movimientoSinRegistrar(referenciaCaso, 'DEBITO'))
     : null;
 
   const updateRes = await db.query(`
@@ -188,6 +193,36 @@ const rechazarCaso = async ({ idSolicitud, idOperador, motivo }) => {
   };
 };
 
+/** Tipos de cuenta del banco que reciben el aporte o de los que se debita. */
+const CUENTAS_DEL_COBRO = ['AHORRO', 'MONETARIA'];
+
+/**
+ * Forma de cobro del aporte y la cuenta del banco que se usa, validada contra el banco (nunca se confía en el cuerpo):
+ * tiene que ser del DPI de la persona, estar activa y ser de ahorro o monetaria.
+ *
+ * @param {{ metodoPago?: string, numeroCuenta?: string, cui: string }} datos
+ * @returns {Promise<{ metodo: 'EFECTIVO_VENTANILLA'|'DEBITO_CUENTA', numeroCuenta: string|null, error?: Object }>}
+ *   `numeroCuenta` null: efectivo a una cuenta nueva. `error`: la respuesta para el operador.
+ */
+const cuentaDelCobro = async ({ metodoPago, numeroCuenta, cui }) => {
+  const metodo = metodoPago === 'DEBITO_CUENTA' ? 'DEBITO_CUENTA' : 'EFECTIVO_VENTANILLA';
+  const numero = typeof numeroCuenta === 'string' ? numeroCuenta.trim() : '';
+  if (!numero) {
+    return metodo === 'DEBITO_CUENTA'
+      ? { metodo, numeroCuenta: null, error: { status: 400, success: false, message: 'Elija la cuenta del banco de la que se debitará el aporte.' } }
+      : { metodo, numeroCuenta: null };
+  }
+  const cuenta = await bancoApiService.consultarCuenta(numero);
+  if (cuenta.status >= 500 || (!cuenta.success && cuenta.status !== 404 && cuenta.status !== 400)) {
+    return { metodo, numeroCuenta: null, error: { status: 502, success: false, message: 'No pudimos consultar la cuenta en el banco. Intente de nuevo en unos minutos.' } };
+  }
+  if (!cuenta.success || !cuenta.data?.numero_cuenta_bancaria || cuenta.data.titular_cui !== cui || cuenta.data.estado !== 'ACTIVA'
+    || !CUENTAS_DEL_COBRO.includes(cuenta.data.tipo_cuenta)) {
+    return { metodo, numeroCuenta: null, error: { status: 403, success: false, message: 'Esa cuenta del banco no es de esta persona o no está activa.' } };
+  }
+  return { metodo, numeroCuenta: cuenta.data.numero_cuenta_bancaria };
+};
+
 /**
  * Formaliza la afiliación en ventanilla y genera cuentas/credenciales de manera transaccional
  */
@@ -198,7 +233,7 @@ const formalizarAfiliacion = async ({ idSolicitud, idOperador, rolUsuario, datos
   const {
     monto_aportacion,
     metodo_pago = 'EFECTIVO_VENTANILLA',
-    tipo_asociado = 'EX',
+    numero_cuenta_bancaria,
     observaciones = '',
     primer_nombre,
     segundo_nombre,
@@ -262,6 +297,23 @@ const formalizarAfiliacion = async ({ idSolicitud, idOperador, rolUsuario, datos
       return { status: accesoError.statusCode || 400, success: false, error: accesoError.code, message: accesoError.message };
     }
   }
+
+  // El tipo de asociado (EB o EX) lo decide el banco, no la solicitud (regla 4.6, issue #79). Se consulta
+  // antes de bloquear la solicitud; sin respuesta del banco no se formaliza.
+  const tipoBanco = await bancoApiService.verificarDpi(cuiPrevio);
+  if (!tipoBanco.success) {
+    return {
+      status: 502,
+      success: false,
+      message: 'No pudimos consultar al banco para confirmar el tipo de asociado. Intente de nuevo en unos minutos.',
+    };
+  }
+  const tipoAsociado = tipoBanco.existe_en_banco && tipoBanco.cliente?.tipo_cliente === 'EMPLEADO_PLANILLA' ? 'EB' : 'EX';
+
+  // Cobro (Fase 6, #81): en efectivo, a una cuenta nueva del banco o a una que ya tiene; o con un débito de su cuenta
+  // del banco hacia una cuenta de la cooperativa. La cuenta elegida tiene que ser suya y estar activa.
+  const cobro = await cuentaDelCobro({ metodoPago: metodo_pago, numeroCuenta: numero_cuenta_bancaria, cui: cuiPrevio });
+  if (cobro.error) return cobro.error;
 
   const client = await db.pool.connect();
   try {
@@ -428,11 +480,23 @@ const formalizarAfiliacion = async ({ idSolicitud, idOperador, rolUsuario, datos
       return { status: 409, success: false, message: MENSAJE_YA_ASOCIADO };
     } else {
       const insSocio = await client.query(`
-        INSERT INTO asociados (id_persona, fecha_ingreso, estado_asociado)
-        VALUES ($1, (CURRENT_TIMESTAMP AT TIME ZONE 'America/Guatemala')::date, 'ACTIVO')
+        INSERT INTO asociados (id_persona, fecha_ingreso, estado_asociado, tipo_asociado, canal_afiliacion)
+        VALUES ($1, (CURRENT_TIMESTAMP AT TIME ZONE 'America/Guatemala')::date, 'ACTIVO', $2, 'AGENCIA')
         RETURNING id_asociado
-      `, [idPersona]);
+      `, [idPersona, tipoAsociado]);
       idAsociado = insSocio.rows[0].id_asociado;
+    }
+
+    // 2.1 Documentos obligatorios (Fase 6): los que subió el solicitante o se escanearon en ventanilla. El expediente
+    //     pasa a la persona y, con él bloqueado, se confirma que están completos.
+    const idExpedienteDocs = await documentosAfiliacion.expedienteDeAfiliacion(client, sol.cui_dpi, { idSolicitud: sol.id_solicitud });
+    await documentosAfiliacion.vincularExpedienteAPersona(client, idExpedienteDocs, idPersona);
+    try {
+      await documentosAfiliacion.exigirDocumentosObligatorios(client, idExpedienteDocs);
+    } catch (faltan) {
+      if (!Number.isInteger(faltan.statusCode)) throw faltan;
+      await client.query('ROLLBACK');
+      return { status: faltan.statusCode, success: false, error: faltan.codigo, message: faltan.message };
     }
 
     // 3. Acceso al portal.
@@ -473,7 +537,7 @@ const formalizarAfiliacion = async ({ idSolicitud, idOperador, rolUsuario, datos
             };
       }
 
-      codigoUsuarioFinal = await getNextCorporateCode(client, 'EX');
+      codigoUsuarioFinal = await getNextCorporateCode(client, tipoAsociado);
 
       // Generar contraseña criptográfica segura de forma automática para el nuevo asociado
       rawPass = generateSecureRandomPassword(12);
@@ -486,11 +550,14 @@ const formalizarAfiliacion = async ({ idSolicitud, idOperador, rolUsuario, datos
       `, [idPersona, codigoUsuarioFinal, emailUsuario, passwordHash]);
     }
 
-    // 3.8 La referencia del banco es la del caso: si un intento anterior agotó el tiempo pero el banco sí abrió la
-    //     cuenta, el banco devuelve esa cuenta en lugar de abrir otra. Si un intento anterior (de este caso o de
-    //     esta persona) quedó con el depósito por retirar, no se abre otra cuenta hasta conciliarlo.
+    // 3.8 La referencia del banco es la del caso: si un intento anterior agotó el tiempo pero el banco sí hizo la
+    //     operación, el banco la devuelve en lugar de repetirla. Si un intento anterior (de este caso o de esta
+    //     persona) quedó por revertir, no se cobra hasta conciliarlo. El banco reconoce la referencia por tipo de
+    //     movimiento: un intento anterior con el otro método de pago que quedó en el banco detiene este.
     const referenciaBanco = bancoApiService.referenciaDeOperacion(sol.numero_caso, sol.fecha_solicitud);
-    if (await hayReversionPendiente(client, referenciaBanco) || await hayAperturaPorRevertirDelDpi(client, cuiFinal)) {
+    const tipoMovimiento = cobro.metodo === 'DEBITO_CUENTA' ? 'DEBITO' : 'CREDITO';
+    if (await hayReversionPendiente(client, referenciaBanco)
+      || (!cobro.numeroCuenta && await hayAperturaPorRevertirDelDpi(client, cuiFinal))) {
       await client.query('ROLLBACK');
       return {
         status: 409,
@@ -498,49 +565,97 @@ const formalizarAfiliacion = async ({ idSolicitud, idOperador, rolUsuario, datos
         message: 'Un intento anterior de esta afiliación quedó pendiente de conciliar con el banco. Pida al administrador que lo concilie en «Conciliación» antes de formalizarla.',
       };
     }
+    if (await movimientoSinRegistrar(referenciaBanco, tipoMovimiento === 'DEBITO' ? 'CREDITO' : 'DEBITO')) {
+      await client.query('ROLLBACK');
+      return {
+        status: 409,
+        success: false,
+        message: 'Un intento anterior de esta afiliación con otra forma de pago quedó en el banco. Repita la forma de pago anterior o pida al administrador que lo revise.',
+      };
+    }
 
-    // 3.9 El efectivo queda registrado (y cuenta para el tope del día de la persona) dentro de la transacción
-    await registrarEfectivo(client, {
-      idOperador,
-      cui: cuiFinal,
-      monto: montoAporte,
-      origen: 'FORMALIZACION_AGENCIA',
-      referencia: sol.numero_caso,
-    });
+    // 3.9 El efectivo queda registrado (y cuenta para el tope del día de la persona) dentro de la transacción; un
+    //     débito de su cuenta no es efectivo
+    if (cobro.metodo === 'EFECTIVO_VENTANILLA') {
+      await registrarEfectivo(client, {
+        idOperador,
+        cui: cuiFinal,
+        monto: montoAporte,
+        origen: 'FORMALIZACION_AGENCIA',
+        referencia: sol.numero_caso,
+      });
+    }
 
-    // 4. Apertura de Cuenta Bancaria de Ahorro en la Entidad Bancaria (Core Banking)
-    // El nuevo asociado formaliza su membresía en la cooperativa, y su aportación/depósito inicial
-    // se apertura y acredita en una cuenta de ahorro en la Entidad Bancaria.
-    // Posteriormente, el asociado traslada desde esta cuenta hacia las cuentas de la cooperativa.
-    const bancoRes = await bancoApiService.aperturarConReferenciaDeOperacion({
-      cui_dpi: cuiFinal,
-      primer_nombre: pNombreFinal,
-      segundo_nombre: sNombreFinal,
-      primer_apellido: pApellidoFinal,
-      segundo_apellido: sApellidoFinal,
-      telefono: telFinal,
-      direccion: dirFinal,
-      email: emailUsuario,
-      fecha_nacimiento: fNacFinal,
-      monto_inicial: montoAporte,
-      tipo_cuenta: 'AHORRO',
-      referencia: referenciaBanco,
-    });
+    // 3.10 Con débito, el aporte entra a una cuenta de ahorro de la cooperativa (se registra antes de pedirlo al banco,
+    //      para que después de la operación con el banco solo falte cerrar la solicitud)
+    let cuentaCooperativa = null;
+    if (cobro.metodo === 'DEBITO_CUENTA') {
+      // Con guion: no coincide con el formato de la presencial (CTA-AHORR-<id><3 dígitos>)
+      const numeroCuentaCoop = `CTA-AHORR-${idAsociado}-${crypto.randomInt(100000, 1000000)}`;
+      cuentaCooperativa = (await client.query(
+        `INSERT INTO cuentas (numero_cuenta, id_asociado, id_tipo_cuenta, saldo_disponible, saldo_reserva, estado)
+         VALUES ($1, $2, 2, $3, 0.00, 'ACTIVA')
+         RETURNING id_cuenta, numero_cuenta`,
+        [numeroCuentaCoop, idAsociado, montoAporte]
+      )).rows[0];
+      await client.query(
+        `INSERT INTO transacciones (id_cuenta, tipo_transaccion, monto, saldo_anterior, saldo_nuevo, referencia, id_usuario_registra)
+         VALUES ($1, 'DEPOSITO', $2, 0.00, $2, $3, $4)`,
+        [cuentaCooperativa.id_cuenta, montoAporte, `Aporte de afiliación debitado de la cuenta bancaria ${cobro.numeroCuenta} (caso ${sol.numero_caso})`, idOperador]
+      );
+    }
 
-    if (!bancoRes.success || !bancoRes.data) {
+    // 4. Operación con el banco, justo antes del COMMIT:
+    //    - Efectivo a una cuenta nueva: se abre una cuenta de ahorro con el depósito (el asociado traslada después
+    //      desde ella hacia la cooperativa).
+    //    - Efectivo a una cuenta que ya tiene: se le acredita ahí; no se abre otra (#81).
+    //    - Débito: sale de su cuenta y entra a una cuenta de ahorro de la cooperativa.
+    const concepto = `Aporte de afiliación, caso ${sol.numero_caso}`;
+    let bancoRes;
+    if (cobro.metodo === 'DEBITO_CUENTA') {
+      bancoRes = await bancoApiService.debitarConReferenciaDeOperacion({
+        numero_cuenta: cobro.numeroCuenta, cui_dpi: cuiFinal, monto: montoAporte, concepto, referencia: referenciaBanco,
+      });
+    } else if (cobro.numeroCuenta) {
+      bancoRes = await bancoApiService.acreditarConReferenciaDeOperacion({
+        numero_cuenta: cobro.numeroCuenta, monto: montoAporte, concepto, referencia: referenciaBanco,
+      });
+    } else {
+      bancoRes = await bancoApiService.aperturarConReferenciaDeOperacion({
+        cui_dpi: cuiFinal,
+        primer_nombre: pNombreFinal,
+        segundo_nombre: sNombreFinal,
+        primer_apellido: pApellidoFinal,
+        segundo_apellido: sApellidoFinal,
+        telefono: telFinal,
+        direccion: dirFinal,
+        email: emailUsuario,
+        fecha_nacimiento: fNacFinal,
+        monto_inicial: montoAporte,
+        tipo_cuenta: 'AHORRO',
+        referencia: referenciaBanco,
+      });
+    }
+
+    if (!bancoRes.success || (!cobro.numeroCuenta && !bancoRes.data)) {
       await client.query('ROLLBACK');
       const porReferencia = bancoApiService.mensajePorReferencia(bancoRes);
+      if (porReferencia) return { status: 409, success: false, message: porReferencia };
+      if (bancoRes.status === 504) {
+        return {
+          status: 502,
+          success: false,
+          message: 'El banco no confirmó a tiempo. Puede intentarlo de nuevo con la misma forma de pago: si ya la había hecho, no la repite.',
+        };
+      }
       return {
-        status: porReferencia ? 409 : 502,
+        status: estadoPorFalloDelBanco(bancoRes.status),
         success: false,
-        message: porReferencia
-          || (bancoRes.status === 504
-            ? 'El banco no confirmó a tiempo. Puede intentarlo de nuevo: si ya había abierto la cuenta, no abre otra.'
-            : bancoRes.message || 'Error al aperturar la cuenta de ahorro en la Entidad Bancaria.'),
+        message: bancoRes.message || 'El banco no pudo completar el cobro del aporte.',
       };
     }
     const referenciaUsada = bancoRes.referencia_usada;
-    // El banco devolvió la cuenta de un intento anterior: si ese intento se está revirtiendo, no se registra
+    // El banco devolvió la operación de un intento anterior: si ese intento se está revirtiendo, no se registra
     if (bancoRes.idempotente && await hayReversionPendiente(client, referenciaUsada)) {
       await client.query('ROLLBACK');
       return {
@@ -550,7 +665,8 @@ const formalizarAfiliacion = async ({ idSolicitud, idOperador, rolUsuario, datos
       };
     }
 
-    const cuentaBancaria = bancoRes.data;
+    const cuentaBancaria = { numero_cuenta: cobro.numeroCuenta || bancoRes.data.numero_cuenta };
+
 
     // 5. Actualizar solicitud a ATENDIDA y registrar el número de cuenta bancaria y monto acreditado
     const obsFinal = observaciones
@@ -573,11 +689,11 @@ const formalizarAfiliacion = async ({ idSolicitud, idOperador, rolUsuario, datos
     try {
       await client.query('COMMIT');
     } catch (commitError) {
-      // La cuenta del banco ya se abrió con el aporte: se retira, o queda en «Conciliación» si no se puede. Si el
+      // El banco ya movió el aporte: se revierte, o queda en «Conciliación» si no se puede. Si el
       // COMMIT sí se aplicó (se confirma con otra conexión), la afiliación quedó hecha y se sigue.
       const reversion = await revertirOAnotar({
         origen: 'FORMALIZACION_AGENCIA',
-        tipo: 'DEBITO',
+        tipo: tipoMovimiento === 'DEBITO' ? 'CREDITO' : 'DEBITO',
         numeroCuenta: cuentaBancaria.numero_cuenta,
         cui: cuiFinal,
         monto: montoAporte,
@@ -621,15 +737,18 @@ const formalizarAfiliacion = async ({ idSolicitud, idOperador, rolUsuario, datos
         : !crearUsuario
           ? `Afiliación del caso ${sol.numero_caso} completada. El asociado conserva su acceso al portal.`
           : correoEnviado
-            ? `Afiliación del caso ${sol.numero_caso} completada. Se abrió la cuenta de ahorro y se envió el acceso al portal por correo.`
+            ? `Afiliación del caso ${sol.numero_caso} completada. Se registró el aporte y se envió el acceso al portal por correo.`
             : `Afiliación del caso ${sol.numero_caso} completada, pero el correo con el usuario y la contraseña no se pudo enviar.`,
       data: {
         id_asociado: idAsociado,
         nombre_completo: personaNombreCompleto,
         usuario: codigoUsuarioFinal,
-        numero_cuenta: cuentaBancaria.numero_cuenta,
-        tipo_cuenta: 'Cuenta de Ahorro Bancaria',
-        origen_cuenta: 'BANCO',
+        numero_cuenta: cuentaCooperativa ? cuentaCooperativa.numero_cuenta : cuentaBancaria.numero_cuenta,
+        tipo_cuenta: cuentaCooperativa ? 'Ahorro a la Vista (cooperativa)' : 'Cuenta de Ahorro Bancaria',
+        origen_cuenta: cuentaCooperativa ? 'COOPERATIVA' : 'BANCO',
+        metodo_pago: cobro.metodo,
+        cuenta_bancaria: cuentaBancaria.numero_cuenta,
+        cuenta_bancaria_nueva: cobro.metodo === 'EFECTIVO_VENTANILLA' && !cobro.numeroCuenta,
         saldo_inicial: montoAporte,
         email: crearUsuario ? emailUsuario : emailFinal,
         cui_dpi: sol.cui_dpi,

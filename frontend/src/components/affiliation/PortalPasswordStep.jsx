@@ -15,7 +15,7 @@ const EmailStatusIcon = ({ status }) => {
 };
 
 /**
- * Paso 3 (clientes del banco): correo y contraseña del portal, y confirmación del débito.
+ * Paso 4 (clientes del banco): correo y contraseña del portal, y confirmación del débito.
  *
  * @component
  * @param {Object} props
@@ -47,8 +47,8 @@ export const PortalPasswordStep = ({
   return (
     <form onSubmit={handleSubmitExistente}>
       <StepHeader
-        step={3}
-        total={3}
+        step={4}
+        total={4}
         title="Su acceso al portal"
         description={
           codigoPortalExistente

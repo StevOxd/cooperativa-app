@@ -418,8 +418,44 @@ async function purgarDepositosDePrueba(db, { dpis = [], referencias = [] }) {
   }
 }
 
+/** Documentos que se exigen para completar una afiliación (`DOCUMENTOS.OBLIGATORIOS`). */
+const DOCUMENTOS_OBLIGATORIOS = ['DPI_FRENTE', 'DPI_REVERSO', 'RECIBO_SERVICIOS', 'FOTO_CON_DPI'];
+
+/**
+ * PDF mínimo como Data URI. Cada `marca` da un archivo distinto (el servidor rechaza el mismo archivo en dos tipos).
+ *
+ * @param {string} marca
+ * @returns {string}
+ */
+const pdfDePrueba = (marca) =>
+  `data:application/pdf;base64,${Buffer.from(`%PDF-1.4\n%${marca}\n1 0 obj<<>>endobj\ntrailer<<>>\n%%EOF\n`).toString('base64')}`;
+
+/**
+ * Un operador escanea los documentos obligatorios de una afiliación: de una solicitud de agencia (`idSolicitud`) o,
+ * para el Formulario 1, de un DPI (`cui`). Bórrelos al terminar con `purgarDocumentosDePrueba` (antes que al operador).
+ *
+ * @param {string|number} hostOrPort
+ * @param {string} tokenOperador
+ * @param {{ cui?: string, idSolicitud?: number }} afiliacion
+ * @returns {Promise<boolean>} true si se subieron todos.
+ */
+async function escanearDocumentosObligatorios(hostOrPort, tokenOperador, { cui, idSolicitud }) {
+  const ruta = idSolicitud ? `/api/operador/afiliaciones/${idSolicitud}/documentos` : '/api/admin/asociados/documentos-afiliacion';
+  for (const tipo of DOCUMENTOS_OBLIGATORIOS) {
+    const marca = `${cui || idSolicitud}-${tipo}-${Date.now()}-${Math.random()}`;
+    const res = await makeRequest(hostOrPort, ruta, 'POST', { cui_dpi: cui, tipo_documento: tipo, archivo: pdfDePrueba(marca) }, tokenOperador);
+    if (res.status !== 201) {
+      console.error(`  No se pudo escanear ${tipo}:`, res.status, res.body?.message);
+      return false;
+    }
+  }
+  return true;
+}
+
 module.exports = {
   makeRequest,
+  pdfDePrueba,
+  escanearDocumentosObligatorios,
   poolDueno,
   borrarClienteBancoDePrueba,
   purgarDepositosDePrueba,

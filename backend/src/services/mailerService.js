@@ -532,9 +532,13 @@ class MailerService {
    * @param {string} [datos.nombre] - Primer nombre.
    * @param {string} datos.documento - Nombre del documento (por ejemplo «DPI (frente)»).
    * @param {string} datos.motivo
+   * @param {boolean} [datos.sinPortal] - No tiene usuario del portal (un solicitante): se le pide llevarlo a la agencia.
    * @returns {Promise<Object>} El resultado de `enviarCorreo` (ver `wasSent`).
    */
-  async sendDocumentoRechazadoEmail({ to, nombre, documento, motivo }) {
+  async sendDocumentoRechazadoEmail({ to, nombre, documento, motivo, sinPortal = false }) {
+    const indicacion = sinPortal
+      ? 'Llévelo a cualquier agencia de la cooperativa para que lo escaneen; ahí terminamos su afiliación.'
+      : 'Súbalo de nuevo desde la sección «Documentos» de su portal o llévelo a cualquier agencia.';
     const html = `
       <!DOCTYPE html>
       <html>
@@ -542,9 +546,9 @@ class MailerService {
       <body style="font-family: 'Segoe UI', Helvetica, Arial, sans-serif; background-color: #f1f5f9; margin: 0; padding: 20px; color: #1e293b;">
         <div style="max-width: 520px; margin: 0 auto; background: #ffffff; border-radius: 12px; padding: 28px;">
           <h1 style="margin: 0 0 12px 0; font-size: 18px;">Necesitamos otra copia de un documento</h1>
-          <p style="font-size: 14px;">Estimado(a) <strong>${escaparHtml(nombre || 'asociado')}</strong>, revisamos su <strong>${escaparHtml(documento)}</strong> y no lo pudimos aceptar:</p>
+          <p style="font-size: 14px;">Estimado(a) <strong>${escaparHtml(nombre || (sinPortal ? 'solicitante' : 'asociado'))}</strong>, revisamos su <strong>${escaparHtml(documento)}</strong> y no lo pudimos aceptar:</p>
           <p style="font-size: 14px; background: #f8fafc; border-left: 3px solid #b45309; padding: 10px 12px;">${escaparHtml(motivo)}</p>
-          <p style="font-size: 14px;">Súbalo de nuevo desde la sección «Documentos» de su portal o llévelo a cualquier agencia.</p>
+          <p style="font-size: 14px;">${indicacion}</p>
         </div>
       </body>
       </html>

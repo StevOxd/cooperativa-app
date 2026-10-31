@@ -7,7 +7,7 @@
  *   node scripts/sync-agents.mjs --check   # solo comprueba que estén sincronizados (CI); sale con 1 si no
  *
  * Traducciones:
- * - Encabezado: name y description se copian; model (pro) pasa a `inherit` (el modelo de la sesión);
+ * - Encabezado: name y description se copian; model (pro) pasa a `sonnet` (más barato que el modelo de la sesión);
  *   subagent se descarta; tools se traduce a los nombres de Claude Code.
  * - Cuerpo: los nombres de herramientas de Antigravity entre comillas invertidas se cambian por los
  *   de Claude Code, y se agrega un aviso de que el archivo es generado.
@@ -83,7 +83,7 @@ const generar = (archivo) => {
     `name: ${datos.name}`,
     `description: ${JSON.stringify(datos.description)}`,
     ...(herramientas.length ? [`tools: ${herramientas.join(', ')}`] : []),
-    'model: inherit',
+    'model: sonnet',
     '---',
   ].join('\n');
 

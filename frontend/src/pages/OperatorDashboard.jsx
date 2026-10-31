@@ -9,6 +9,7 @@ import OpenAccountModal from '../components/associates/OpenAccountModal';
 import OperatorAffiliationSuccessModal from '../components/operator/modals/OperatorAffiliationSuccessModal';
 import OperatorTrasladoModal from '../components/operator/modals/OperatorTrasladoModal';
 import { generateAccountOpeningReceiptPdf } from '../utils/pdfs';
+import { COBRO, cobroParaApi } from '../utils/cobroAfiliacion';
 import { Button, Card, PageHeader, TabPanel, Tabs } from '../components/ui';
 import { AffiliationsPanel } from '../components/operator/dashboard/AffiliationsPanel';
 import { TransfersPanel } from '../components/operator/dashboard/TransfersPanel';
@@ -60,7 +61,9 @@ export const OperatorDashboard = () => {
   const [selectedAfiliacion, setSelectedAfiliacion] = useState(null);
   const [lockingCaso, setLockingCaso] = useState(false);
   const [montoAportacion, setMontoAportacion] = useState('');
-  const [tipoAsociado, setTipoAsociado] = useState('EX');
+  // El tipo (EB o EX) lo decide el banco al formalizar (#79); aquí solo la forma de cobro y si están los documentos
+  const [cobroAfiliacion, setCobroAfiliacion] = useState({ metodo: COBRO.EFECTIVO_NUEVA, cuenta: '' });
+  const [documentosCompletos, setDocumentosCompletos] = useState(false);
   const [observacionesAfiliacion, setObservacionesAfiliacion] = useState('');
   const [formalizando, setFormalizando] = useState(false);
 
@@ -362,7 +365,8 @@ export const OperatorDashboard = () => {
         setEditDireccion(caso.direccion || '');
 
         setMontoAportacion(caso.monto_estimado ? String(caso.monto_estimado) : '100.00');
-        setTipoAsociado('EX');
+        setCobroAfiliacion({ metodo: COBRO.EFECTIVO_NUEVA, cuenta: '' });
+        setDocumentosCompletos(false);
         setObservacionesAfiliacion('');
         setShowRechazarAfiliacion(false);
         setMotivoRechazoAfiliacion('');
@@ -458,8 +462,7 @@ export const OperatorDashboard = () => {
       setFormalizando(true);
       const response = await api.post(`/operador/afiliaciones/${selectedAfiliacion.id_solicitud}/formalizar`, {
         monto_aportacion: montoNum,
-        metodo_pago: 'EFECTIVO_VENTANILLA',
-        tipo_asociado: tipoAsociado,
+        ...cobroParaApi(cobroAfiliacion),
         observaciones: observacionesAfiliacion,
         primer_nombre: editPrimerNombre,
         segundo_nombre: editSegundoNombre,
@@ -830,6 +833,10 @@ export const OperatorDashboard = () => {
         montoAportacion={montoAportacion}
         setMontoAportacion={setMontoAportacion}
         observacionesAfiliacion={observacionesAfiliacion}
+        cobroAfiliacion={cobroAfiliacion}
+        setCobroAfiliacion={setCobroAfiliacion}
+        documentosCompletos={documentosCompletos}
+        setDocumentosCompletos={setDocumentosCompletos}
         setObservacionesAfiliacion={setObservacionesAfiliacion}
         formalizando={formalizando}
       />

@@ -2,7 +2,7 @@
 name: security-auditor
 description: "Úsalo cuando un cambio toque login, JWT, 2FA TOTP, sesión única, roles RBAC, afiliación, Banca en Línea, dinero, correo, subida o descarga de archivos, rate limits, .env o docker-compose. Audita OWASP Top 10, CWE-798 y la lista de fallas reales ya corregidas en este proyecto (IDOR por titularidad, pasos que se pueden saltar, enumeración, secretos en respuestas o logs, correo que no sale). Solo lee; no edita. Los hallazgos van a la bitácora y a un advisory privado, nunca a un issue público."
 tools: Read, Grep, Glob, Bash
-model: inherit
+model: sonnet
 ---
 
 <!-- Archivo generado por scripts/sync-agents.mjs a partir de .agent/agents/security-auditor.md. No lo edite: edite el original y vuelva a ejecutar el script. -->

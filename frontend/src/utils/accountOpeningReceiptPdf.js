@@ -17,6 +17,7 @@ const MEDIOS = {
   EFECTIVO_VENTANILLA: 'Efectivo en ventanilla',
   CUENTA_INTERNA: 'Débito de otra cuenta del asociado',
   BANCO_EXTERNO: 'Transferencia desde el banco',
+  DEBITO_CUENTA: 'Débito de su cuenta del banco',
 };
 
 /**

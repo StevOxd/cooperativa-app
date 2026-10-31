@@ -136,7 +136,10 @@ CREATE TABLE asociados (
     id_persona INT UNIQUE NOT NULL REFERENCES personas(id_persona) ON DELETE RESTRICT,
     -- El día de Guatemala: la base corre en UTC y CURRENT_DATE daría el día siguiente después de las 18:00
     fecha_ingreso DATE DEFAULT ((CURRENT_TIMESTAMP AT TIME ZONE 'America/Guatemala')::date),
-    estado_asociado VARCHAR(20) NOT NULL DEFAULT 'ACTIVO' CHECK (estado_asociado IN ('ACTIVO', 'INACTIVO', 'SUSPENDIDO', 'BLOQUEADO'))
+    estado_asociado VARCHAR(20) NOT NULL DEFAULT 'ACTIVO' CHECK (estado_asociado IN ('ACTIVO', 'INACTIVO', 'SUSPENDIDO', 'BLOQUEADO')),
+    -- Tipo (lo decide el banco) y canal de afiliación (issue #90); NULL en los asociados anteriores
+    tipo_asociado VARCHAR(2) CONSTRAINT chk_asociados_tipo CHECK (tipo_asociado IN ('EB', 'EX')),
+    canal_afiliacion VARCHAR(10) CONSTRAINT chk_asociados_canal CHECK (canal_afiliacion IN ('EN_LINEA', 'AGENCIA', 'VENTANILLA'))
 );
 
 CREATE TABLE tipos_cuenta (

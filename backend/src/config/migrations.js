@@ -1027,6 +1027,16 @@ const runMigrations = async () => {
                    (SELECT c.relowner FROM pg_catalog.pg_class c WHERE c.oid = TG_RELID), 'MEMBER') THEN
               RETURN COALESCE(NEW, OLD);
           END IF;
+          -- Purga diaria (purgar_cargas_previas_vencidas, del rol dueño): solo documentos de una carga previa vencida
+          IF TG_OP = 'DELETE'
+             AND pg_catalog.current_setting('cooperativa.purga_cargas_previas', true) = 'on'
+             AND pg_catalog.pg_has_role(current_user,
+                   (SELECT c.relowner FROM pg_catalog.pg_class c WHERE c.oid = TG_RELID), 'MEMBER')
+             AND EXISTS (SELECT 1 FROM public.expedientes_documentos e
+                         WHERE e.id_expediente = OLD.id_expediente AND e.id_persona IS NULL AND e.id_solicitud IS NULL
+                           AND e.expira_en < pg_catalog.now()) THEN
+              RETURN OLD;
+          END IF;
           IF TG_OP = 'UPDATE'
              AND (to_jsonb(NEW) - 'estado') = (to_jsonb(OLD) - 'estado')
              AND ((OLD.estado = 'PENDIENTE' AND NEW.estado IN ('ACEPTADO', 'RECHAZADO', 'REEMPLAZADO'))
@@ -1058,6 +1068,13 @@ const runMigrations = async () => {
              AND pg_catalog.pg_has_role(current_user,
                    (SELECT c.relowner FROM pg_catalog.pg_class c WHERE c.oid = TG_RELID), 'MEMBER') THEN
               RETURN COALESCE(NEW, OLD);
+          END IF;
+          IF TG_OP = 'DELETE'
+             AND pg_catalog.current_setting('cooperativa.purga_cargas_previas', true) = 'on'
+             AND pg_catalog.pg_has_role(current_user,
+                   (SELECT c.relowner FROM pg_catalog.pg_class c WHERE c.oid = TG_RELID), 'MEMBER')
+             AND OLD.id_persona IS NULL AND OLD.id_solicitud IS NULL AND OLD.expira_en < pg_catalog.now() THEN
+              RETURN OLD;
           END IF;
           IF TG_OP = 'UPDATE'
              AND (OLD.id_persona IS NULL
@@ -1230,6 +1247,76 @@ const runMigrations = async () => {
           ALTER TABLE reportes_generados ADD CONSTRAINT chk_reportes_generados_resumen CHECK (jsonb_typeof(resumen) = 'object');
         END IF;
       END $$;
+    `);
+
+    // 15.1 Afiliación con documentos en todos los canales (Fase 6, partes 2 y 3).
+    //   - Tipo de asociado (EB o EX, lo decide el banco) y canal por el que se afilió (issue #90). Los anteriores
+    //     quedan en NULL y los reportes deducen el dato solo para ellos. El CHECK va dentro del ADD COLUMN para que
+    //     no se revise la tabla en cada arranque.
+    //   - Una sola carga previa (documentos de una afiliación que todavía no se completa) por DPI.
+    //   - Las cargas previas vencidas se borran una vez al día con una función del rol dueño: el de la aplicación no
+    //     borra en estas tablas, solo puede ejecutarla, y ella solo borra cargas previas vencidas que nadie abrió.
+    const appEjecuta = escapeIdentifier(process.env.DB_USER);
+    await pool.query(`
+      ALTER TABLE asociados ADD COLUMN IF NOT EXISTS tipo_asociado VARCHAR(2)
+          CONSTRAINT chk_asociados_tipo CHECK (tipo_asociado IN ('EB', 'EX'));
+      ALTER TABLE asociados ADD COLUMN IF NOT EXISTS canal_afiliacion VARCHAR(10)
+          CONSTRAINT chk_asociados_canal CHECK (canal_afiliacion IN ('EN_LINEA', 'AGENCIA', 'VENTANILLA'));
+
+      -- Antes de este cambio ningún flujo creaba cargas previas, así que no debería haber dos del mismo DPI. Si las
+      -- hubiera, el índice no se crea (con un aviso) en lugar de impedir que el backend arranque.
+      DO $$
+      BEGIN
+        IF NOT EXISTS (SELECT 1 FROM expedientes_documentos WHERE id_persona IS NULL AND id_solicitud IS NULL
+                       GROUP BY cui_dpi HAVING count(*) > 1) THEN
+          CREATE UNIQUE INDEX IF NOT EXISTS uq_expedientes_carga_previa ON expedientes_documentos (cui_dpi)
+            WHERE id_persona IS NULL AND id_solicitud IS NULL;
+          DROP INDEX IF EXISTS idx_expedientes_carga_previa;
+        ELSE
+          RAISE WARNING 'expedientes_documentos: hay cargas previas repetidas por DPI; no se creó uq_expedientes_carga_previa';
+        END IF;
+      END $$;
+      CREATE INDEX IF NOT EXISTS idx_expedientes_carga_previa_vence ON expedientes_documentos (expira_en)
+        WHERE id_persona IS NULL AND id_solicitud IS NULL;
+
+      CREATE OR REPLACE FUNCTION purgar_cargas_previas_vencidas()
+      RETURNS TABLE (archivo VARCHAR)
+      SECURITY DEFINER
+      SET search_path = pg_catalog, pg_temp
+      AS $$
+      DECLARE
+          doc RECORD;
+      BEGIN
+          PERFORM pg_catalog.set_config('cooperativa.purga_cargas_previas', 'on', true);
+          -- De la versión más nueva a la más vieja: cada una apunta a la anterior (fk_documento_anterior_mismo_tipo)
+          FOR doc IN
+              SELECT d.id_documento, d.archivo
+              FROM public.documentos_afiliacion d
+              JOIN public.expedientes_documentos e ON e.id_expediente = d.id_expediente
+              WHERE e.id_persona IS NULL AND e.id_solicitud IS NULL AND e.expira_en < pg_catalog.now()
+                -- Lo que alguien abrió o revisó es auditoría y no se borra (una carga previa no debería tener ninguno)
+                AND NOT EXISTS (SELECT 1 FROM public.documentos_afiliacion d2
+                                JOIN public.accesos_documento a ON a.id_documento = d2.id_documento
+                                WHERE d2.id_expediente = e.id_expediente)
+                AND NOT EXISTS (SELECT 1 FROM public.documentos_afiliacion d3
+                                JOIN public.revisiones_documento r ON r.id_documento = d3.id_documento
+                                WHERE d3.id_expediente = e.id_expediente)
+              ORDER BY d.id_documento DESC
+              -- Una carga previa que en este momento se renueva o se vincula no se toca
+              FOR UPDATE OF e SKIP LOCKED
+          LOOP
+              DELETE FROM public.documentos_afiliacion WHERE id_documento = doc.id_documento;
+              archivo := doc.archivo;
+              RETURN NEXT;
+          END LOOP;
+          DELETE FROM public.expedientes_documentos e
+          WHERE e.id_persona IS NULL AND e.id_solicitud IS NULL AND e.expira_en < pg_catalog.now()
+            AND NOT EXISTS (SELECT 1 FROM public.documentos_afiliacion d WHERE d.id_expediente = e.id_expediente);
+          PERFORM pg_catalog.set_config('cooperativa.purga_cargas_previas', 'off', true);
+      END;
+      $$ LANGUAGE plpgsql;
+      REVOKE ALL ON FUNCTION purgar_cargas_previas_vencidas() FROM PUBLIC;
+      GRANT EXECUTE ON FUNCTION purgar_cargas_previas_vencidas() TO ${appEjecuta};
     `);
 
     // 16. Permisos del rol de la aplicación sobre lo que haya quedado en la base (al final, con todas las tablas)

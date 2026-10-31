@@ -112,27 +112,171 @@ const documentosConResumen = async (cliente, idExpediente, opciones = {}) => {
 
 /**
  * Expediente de documentos de una persona; si no tiene y se indica quién lo crea, se le crea uno (asociado actual
- * que completa sus documentos).
+ * que completa sus documentos, o alguien del personal que se afilia).
  *
  * @param {{ query: Function }} cliente
  * @param {number} idPersona
- * @param {{ crearPor?: number|null }} [opciones] - Usuario que lo crea (el asociado o el operador).
+ * @param {{ crearPor?: number|null, canalOrigen?: 'ASOCIADO_ACTUAL'|'PERSONAL' }} [opciones] - Usuario que lo crea
+ *   (el asociado, el operador o el colaborador) y por qué canal.
  * @returns {Promise<number|null>} El id del expediente, o null si no tiene y no se pidió crearlo.
  */
-const expedienteDePersona = async (cliente, idPersona, { crearPor = null } = {}) => {
+const expedienteDePersona = async (cliente, idPersona, { crearPor = null, canalOrigen = 'ASOCIADO_ACTUAL' } = {}) => {
   const buscar = () => cliente.query('SELECT id_expediente FROM expedientes_documentos WHERE id_persona = $1', [idPersona]);
   const existente = await buscar();
   if (existente.rows[0] || !crearPor) return existente.rows[0]?.id_expediente ?? null;
   const creado = await cliente.query(
     `INSERT INTO expedientes_documentos (cui_dpi, id_persona, canal_origen, id_usuario_crea, fecha_vinculacion)
-     SELECT cui_dpi, id_persona, 'ASOCIADO_ACTUAL', $2, CURRENT_TIMESTAMP FROM personas WHERE id_persona = $1
+     SELECT cui_dpi, id_persona, $3, $2, CURRENT_TIMESTAMP FROM personas WHERE id_persona = $1
      ON CONFLICT (id_persona) WHERE id_persona IS NOT NULL DO NOTHING
      RETURNING id_expediente`,
-    [idPersona, crearPor]
+    [idPersona, crearPor, canalOrigen]
   );
   if (creado.rows[0]) return creado.rows[0].id_expediente;
   // Otra petición lo creó al mismo tiempo
   return (await buscar()).rows[0]?.id_expediente ?? null;
+};
+
+/**
+ * Expediente con que se afilia un DPI, sin crearlo. En este orden: el de la solicitud de agencia (si se indica), el de
+ * la persona con ese DPI (por ejemplo, alguien del personal que ya subió los suyos) y la carga previa vigente.
+ *
+ * @param {{ query: Function }} cliente
+ * @param {string} cui - DPI de 13 dígitos.
+ * @param {{ idSolicitud?: number|null }} [opciones]
+ * @returns {Promise<number|null>}
+ */
+const expedienteDeAfiliacion = async (cliente, cui, { idSolicitud = null } = {}) => {
+  // Una consulta por índice (solicitud, persona y carga previa) en lugar de un OR que recorrería toda la tabla
+  const { rows } = await cliente.query(
+    `SELECT id_expediente FROM (
+       SELECT id_expediente, 1 AS prioridad FROM expedientes_documentos WHERE $2::int IS NOT NULL AND id_solicitud = $2
+       UNION ALL
+       SELECT e.id_expediente, 2 FROM personas p JOIN expedientes_documentos e ON e.id_persona = p.id_persona WHERE p.cui_dpi = $1
+       UNION ALL
+       SELECT id_expediente, 3 FROM expedientes_documentos
+       WHERE cui_dpi = $1 AND id_persona IS NULL AND id_solicitud IS NULL AND expira_en > CURRENT_TIMESTAMP
+     ) candidatos
+     ORDER BY prioridad
+     LIMIT 1`,
+    [cui, idSolicitud]
+  );
+  return rows[0]?.id_expediente ?? null;
+};
+
+/**
+ * Expediente de una solicitud de agencia (solo el suyo), o null.
+ *
+ * @param {{ query: Function }} cliente
+ * @param {number} idSolicitud
+ * @returns {Promise<number|null>}
+ */
+const expedienteDeSolicitud = async (cliente, idSolicitud) =>
+  (await cliente.query('SELECT id_expediente FROM expedientes_documentos WHERE id_solicitud = $1', [idSolicitud])).rows[0]?.id_expediente ?? null;
+
+/**
+ * Expediente donde se sube un documento de una afiliación que todavía no termina; si no hay, lo crea. Con una
+ * solicitud de agencia, una carga previa del mismo DPI pasa a la solicitud. Sin solicitud ni persona, el expediente es
+ * una carga previa que vence en `DOCUMENTOS.DIAS_CARGA_PREVIA` días si la afiliación no se completa.
+ *
+ * @param {{ query: Function }} cliente - Cliente de la transacción de la carga.
+ * @param {{ cui: string, idSolicitud?: number|null, crearPor?: number|null,
+ *   canalOrigen: 'EN_LINEA'|'VENTANILLA'|'PERSONAL', soloSolicitud?: boolean }} afiliacion - `crearPor` null solo en
+ *   línea. `soloSolicitud`: el permiso de carga de una solicitud pública (el DPI no está comprobado) solo llega al
+ *   expediente de esa solicitud, nunca al de la persona ni a una carga previa de ese DPI.
+ * @returns {Promise<number>}
+ */
+const expedienteParaCargar = async (cliente, { cui, idSolicitud = null, crearPor = null, canalOrigen, soloSolicitud = false }) => {
+  if (soloSolicitud) {
+    const propio = await expedienteDeSolicitud(cliente, idSolicitud);
+    if (propio) return propio;
+    const creado = await cliente.query(
+      `INSERT INTO expedientes_documentos (cui_dpi, id_solicitud, canal_origen, id_usuario_crea)
+       VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING RETURNING id_expediente`,
+      [cui, idSolicitud, canalOrigen, crearPor]
+    );
+    return creado.rows[0]?.id_expediente ?? expedienteDeSolicitud(cliente, idSolicitud);
+  }
+  const existente = await expedienteDeAfiliacion(cliente, cui, { idSolicitud });
+  if (existente) {
+    if (!idSolicitud) return existente;
+    // Una carga previa de este DPI pasa a la solicitud (deja de vencer); uno de la persona o de la solicitud se queda
+    const pasada = await cliente.query(
+      `UPDATE expedientes_documentos SET id_solicitud = $2, expira_en = NULL
+       WHERE id_expediente = $1 AND id_persona IS NULL AND id_solicitud IS NULL
+       RETURNING id_expediente`,
+      [existente, idSolicitud]
+    );
+    return pasada.rows[0]?.id_expediente ?? existente;
+  }
+  // Una carga previa vencida que la purga diaria todavía no borró ocupa el lugar de este DPI: se reutiliza (vuelve a
+  // vencer en 30 días; con una solicitud, pasa a ella)
+  const renovada = await cliente.query(
+    `UPDATE expedientes_documentos
+     SET id_solicitud = $2,
+         expira_en = CASE WHEN $2::int IS NULL THEN CURRENT_TIMESTAMP + make_interval(days => $3) END
+     WHERE cui_dpi = $1 AND id_persona IS NULL AND id_solicitud IS NULL AND expira_en <= CURRENT_TIMESTAMP
+     RETURNING id_expediente`,
+    [cui, idSolicitud, DOCUMENTOS.DIAS_CARGA_PREVIA]
+  );
+  if (renovada.rows[0]) return renovada.rows[0].id_expediente;
+  const creado = await cliente.query(
+    `INSERT INTO expedientes_documentos (cui_dpi, id_solicitud, canal_origen, id_usuario_crea, expira_en)
+     VALUES ($1, $2, $3, $4, CASE WHEN $2::int IS NULL THEN CURRENT_TIMESTAMP + make_interval(days => $5) END)
+     ON CONFLICT DO NOTHING
+     RETURNING id_expediente`,
+    [cui, idSolicitud, canalOrigen, crearPor, DOCUMENTOS.DIAS_CARGA_PREVIA]
+  );
+  if (creado.rows[0]) return creado.rows[0].id_expediente;
+  // Otra carga lo creó al mismo tiempo
+  const otro = await expedienteDeAfiliacion(cliente, cui, { idSolicitud });
+  if (!otro) throw new Error('No se pudo crear el expediente de documentos.');
+  return otro;
+};
+
+/**
+ * Exige los documentos obligatorios (entregados: pendientes de revisión o aceptados) antes de completar una afiliación.
+ *
+ * @param {{ query: Function }} cliente
+ * @param {number|null} idExpediente
+ * @returns {Promise<void>}
+ * @throws {Error} 400 `DOCUMENTOS_INCOMPLETOS` con los que faltan.
+ */
+const exigirDocumentosObligatorios = async (cliente, idExpediente) => {
+  const { faltantes } = resumirDocumentos(await listarDocumentos(cliente, idExpediente));
+  if (faltantes.length === 0) return;
+  throw errorDeNegocio(
+    400,
+    `Faltan documentos para completar la afiliación: ${faltantes.map((tipo) => ETIQUETAS[tipo]).join(', ')}.`,
+    'DOCUMENTOS_INCOMPLETOS'
+  );
+};
+
+/**
+ * Al afiliar, el expediente pasa a la persona (deja de vencer y toma su DPI, por si se corrigió en ventanilla). Si la
+ * persona ya tenía otro, ese sigue siendo el suyo: un documento no cambia de expediente, y el de la afiliación queda
+ * con su solicitud.
+ *
+ * @param {{ query: Function }} cliente - Cliente de la transacción de la afiliación.
+ * @param {number|null} idExpediente
+ * @param {number} idPersona
+ * @returns {Promise<void>}
+ */
+const vincularExpedienteAPersona = async (cliente, idExpediente, idPersona) => {
+  if (!idExpediente) return;
+  const expediente = (await cliente.query(
+    'SELECT id_persona FROM expedientes_documentos WHERE id_expediente = $1 FOR NO KEY UPDATE',
+    [idExpediente]
+  )).rows[0];
+  if (!expediente || expediente.id_persona) return;
+  const propio = await cliente.query('SELECT 1 FROM expedientes_documentos WHERE id_persona = $1', [idPersona]);
+  if (propio.rows[0]) return;
+  await cliente.query(
+    `UPDATE expedientes_documentos
+     SET id_persona = $2, cui_dpi = (SELECT cui_dpi FROM personas WHERE id_persona = $2),
+         fecha_vinculacion = CURRENT_TIMESTAMP, expira_en = NULL
+     WHERE id_expediente = $1`,
+    [idExpediente, idPersona]
+  );
 };
 
 /**
@@ -145,8 +289,11 @@ const expedienteDePersona = async (cliente, idPersona, { crearPor = null } = {})
  * @async
  * @param {Object} datos
  * @param {number} [datos.idExpediente] - Ya resuelto por quien llama según la sesión o el trámite (nunca del cuerpo).
- * @param {{ idPersona: number, crearPor: number }} [datos.persona] - En lugar de `idExpediente`: el expediente de esa
- *   persona, que se crea en la misma transacción si no tiene (así una carga inválida no deja un expediente vacío).
+ * @param {{ idPersona: number, crearPor: number, canalOrigen?: string }} [datos.persona] - En lugar de
+ *   `idExpediente`: el expediente de esa persona, que se crea en la misma transacción si no tiene (así una carga
+ *   inválida no deja un expediente vacío).
+ * @param {Object} [datos.afiliacion] - En lugar de los anteriores: el de una afiliación en curso (ver
+ *   `expedienteParaCargar`), también creado en la misma transacción.
  * @param {string} datos.tipo - Uno de `DOCUMENTOS.TIPOS`.
  * @param {string} datos.archivo - Data URI (ver `leerDocumento`).
  * @param {'EN_LINEA'|'PERSONAL'|'PORTAL'|'VENTANILLA'} datos.canal
@@ -157,7 +304,9 @@ const expedienteDePersona = async (cliente, idPersona, { crearPor = null } = {})
  * @throws {Error} 400 tipo o archivo inválido, repetido; 404 sin expediente; 409 si ya está aceptado o se llegó al
  *   tope de versiones; 413 si pasa de 5 MB.
  */
-const subirDocumento = async ({ idExpediente, persona, tipo, archivo, canal, idUsuario = null, ip = null, userAgent = null }) => {
+const subirDocumento = async ({
+  idExpediente, persona, afiliacion, tipo, archivo, canal, idUsuario = null, ip = null, userAgent = null,
+}) => {
   if (!CANALES.includes(canal)) throw new Error(`Canal de carga desconocido: ${canal}`);
   if (!DOCUMENTOS.TIPOS.includes(tipo)) throw errorDeNegocio(400, 'Elija qué documento está subiendo.');
   const leido = leerDocumento(archivo);
@@ -167,7 +316,9 @@ const subirDocumento = async ({ idExpediente, persona, tipo, archivo, canal, idU
   let guardado = null;
   try {
     await client.query('BEGIN');
-    const id = persona ? await expedienteDePersona(client, persona.idPersona, { crearPor: persona.crearPor }) : idExpediente;
+    let id = idExpediente;
+    if (persona) id = await expedienteDePersona(client, persona.idPersona, persona);
+    else if (afiliacion) id = await expedienteParaCargar(client, afiliacion);
     const expediente = await client.query(
       'SELECT id_expediente FROM expedientes_documentos WHERE id_expediente = $1 FOR NO KEY UPDATE',
       [id]
@@ -235,8 +386,9 @@ const subirDocumento = async ({ idExpediente, persona, tipo, archivo, canal, idU
  * @param {number} datos.idUsuario - El operador que revisa.
  * @param {string|null} [datos.ip]
  * @param {string|null} [datos.userAgent]
- * @returns {Promise<{ documento: Object, contacto: { email: string|null, nombre: string|null } }>} A quién avisar
- *   de un rechazo: el usuario de asociado activo de la persona o, si es una solicitud, su correo.
+ * @returns {Promise<{ documento: Object, contacto: { email: string|null, nombre: string|null, sinPortal: boolean } }>}
+ *   A quién avisar de un rechazo: el usuario de asociado activo de la persona o, si es una solicitud, su correo.
+ *   `sinPortal`: no tiene usuario activo del portal, así que no puede volver a subirlo en línea.
  * @throws {Error} 400 datos inválidos; 403 `REVISION_POR_QUIEN_CARGO`; 404 si no existe; 409 si ya se revisó, se
  *   reemplazó o es una carga previa.
  */
@@ -285,7 +437,8 @@ const revisarDocumento = async ({ idDocumento, resultado, motivo, idUsuario, ip 
       [idDocumento, resultado, motivoLimpio || null, idUsuario, ip, userAgentDe(userAgent)]
     );
     const contacto = (await client.query(
-      `SELECT COALESCE(u.email, s.email) AS email, COALESCE(p.primer_nombre, s.primer_nombre) AS nombre
+      `SELECT COALESCE(u.email, s.email) AS email, COALESCE(p.primer_nombre, s.primer_nombre) AS nombre,
+              (u.id_usuario IS NULL) AS sin_portal
        FROM expedientes_documentos e
        LEFT JOIN personas p ON p.id_persona = e.id_persona
        LEFT JOIN usuarios u ON u.id_persona = e.id_persona AND u.id_rol = 3 /* ASOCIADO */ AND u.estado = 'ACTIVO'
@@ -302,7 +455,7 @@ const revisarDocumento = async ({ idDocumento, resultado, motivo, idUsuario, ip 
         estado: resultado,
         motivo_rechazo: resultado === 'RECHAZADO' ? motivoLimpio : null,
       },
-      contacto: { email: contacto?.email || null, nombre: contacto?.nombre || null },
+      contacto: { email: contacto?.email || null, nombre: contacto?.nombre || null, sinPortal: contacto?.sin_portal !== false },
     };
   } catch (error) {
     await client.query('ROLLBACK').catch(() => {});
@@ -448,6 +601,10 @@ module.exports = {
   resumirDocumentos,
   documentosConResumen,
   expedienteDePersona,
+  expedienteDeAfiliacion,
+  expedienteDeSolicitud,
+  exigirDocumentosObligatorios,
+  vincularExpedienteAPersona,
   subirDocumento,
   revisarDocumento,
   bandejaDocumentos,

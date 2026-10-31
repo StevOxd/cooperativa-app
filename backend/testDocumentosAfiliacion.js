@@ -21,8 +21,12 @@ const {
   createTestReporter,
   crearUsuarioDePrueba,
   borrarPersonaDePrueba,
+  purgarDocumentosDePrueba,
   poolDueno,
 } = require('./testHelper');
+const mailerService = require('./src/services/mailerService');
+const { firmarCargaDocumentosToken } = require('./src/utils/afiliacionToken');
+const { purgarCargasPreviasVencidas } = require('./src/services/limpiezaCargasPreviasService');
 
 const CARPETA = path.join(__dirname, 'uploads', 'afiliaciones');
 
@@ -81,6 +85,9 @@ const testServer = server.listen(0, async () => {
   // Primero las personas con documentos, después el personal que los escaneó o revisó (ver borrarPersonaDePrueba)
   const asociados = [];
   const personal = [];
+  // DPI sin persona (cargas previas y solicitudes de la sección 7) y solicitudes creadas
+  const dpisSinPersona = [];
+  const solicitudes = [];
   const tokens = [];
   let errorInesperado = false;
 
@@ -310,12 +317,136 @@ const testServer = server.listen(0, async () => {
     );
     assert(incoherente?.code === '23514' && /resultado debe ser el estado/.test(incoherente.message),
       'Una revisión no puede decir otra cosa que el estado del documento');
+
+    // -------------------------------------------------------------------------
+    console.log('\n--- 7. Afiliación con documentos (Fase 6, partes 2 y 3) ---');
+    // 7.1 Personal que se afilia: sube los suyos a su expediente; quien ya es asociado los sube desde su portal
+    const delPersonal = await request('/api/afiliacion/personal/documentos', 'POST', { tipo_documento: 'DPI_FRENTE', archivo: pdf('personal-op') }, op.token);
+    const origenPersonal = (await db.query('SELECT canal_origen FROM expedientes_documentos WHERE id_persona = $1', [op.idPersona])).rows[0];
+    const personalAsociado = await request('/api/afiliacion/personal/documentos', 'GET', null, doble.token);
+    assert(delPersonal.status === 201 && origenPersonal?.canal_origen === 'PERSONAL' && personalAsociado.status === 409,
+      'El personal sube sus documentos de afiliación; si ya es asociado, se le manda a su portal');
+
+    // 7.2 Ventanilla escanea antes de afiliar: queda como carga previa, sin enlace y sin poder abrirse
+    const dpiVentanilla = dpi('989');
+    dpisSinPersona.push(dpiVentanilla);
+    const escaneo = await request('/api/admin/asociados/documentos-afiliacion', 'POST', {
+      cui_dpi: dpiVentanilla, tipo_documento: 'DPI_FRENTE', archivo: pdf('ventanilla-previa'),
+    }, op.token);
+    const listaPrevia = await request(`/api/admin/asociados/documentos-afiliacion?cui_dpi=${dpiVentanilla}`, 'GET', null, op2.token);
+    const archivoPrevio = (await db.query(
+      `SELECT d.archivo FROM documentos_afiliacion d JOIN expedientes_documentos e ON e.id_expediente = d.id_expediente
+       WHERE e.cui_dpi = $1 AND e.id_persona IS NULL AND e.id_solicitud IS NULL`, [dpiVentanilla]
+    )).rows[0]?.archivo;
+    const abrirPrevio = await getArchivo(port, `/api/uploads/afiliaciones/${archivoPrevio}`, op2.token);
+    assert(escaneo.status === 201 && listaPrevia.status === 200 && listaPrevia.body.data.resumen.faltantes.length === 3
+      && listaPrevia.body.data.documentos.every((d) => !d.url) && abrirPrevio.status === 404,
+      'El documento escaneado antes de afiliar queda como carga previa: se lista sin enlace y no se abre');
+    const escaneoPropio = await request('/api/admin/asociados/documentos-afiliacion', 'POST', {
+      cui_dpi: dpi('983'), tipo_documento: 'DPI_FRENTE', archivo: pdf('propio'),
+    }, doble.token);
+    assert(escaneoPropio.status === 403 && escaneoPropio.body.error === 'AUTOATENCION_NO_PERMITIDA', 'Nadie escanea sus propios documentos');
+
+    // 7.2.1 Una carga previa vencida que la purga todavía no borró no bloquea al DPI: se reutiliza y vuelve a vencer en 30 días
+    await db.query("UPDATE expedientes_documentos SET expira_en = now() - interval '1 minute' WHERE cui_dpi = $1 AND id_persona IS NULL", [dpiVentanilla]);
+    const trasVencer = await request('/api/admin/asociados/documentos-afiliacion', 'POST', {
+      cui_dpi: dpiVentanilla, tipo_documento: 'DPI_REVERSO', archivo: pdf('ventanilla-vencida'),
+    }, op.token);
+    const renovada = (await db.query(
+      "SELECT count(*)::int AS n, bool_and(expira_en > now() + interval '29 days') AS renovada FROM expedientes_documentos WHERE cui_dpi = $1",
+      [dpiVentanilla]
+    )).rows[0];
+    assert(trasVencer.status === 201 && renovada.n === 1 && renovada.renovada,
+      'Una carga previa vencida sin purgar se reutiliza (no da error) y vuelve a vencer en 30 días');
+
+    // 7.3 La purga diaria borra la carga previa vencida (filas y archivo); el rol de la aplicación no puede borrarla
+    await db.query("UPDATE expedientes_documentos SET expira_en = now() - interval '1 minute' WHERE cui_dpi = $1 AND id_persona IS NULL", [dpiVentanilla]);
+    assert(await codigoDeError('DELETE FROM expedientes_documentos WHERE cui_dpi = $1', [dpiVentanilla]) === '42501',
+      'El rol de la aplicación no borra una carga previa vencida por su cuenta');
+    const borrados = await purgarCargasPreviasVencidas();
+    const quedan = await db.query('SELECT 1 FROM expedientes_documentos WHERE cui_dpi = $1', [dpiVentanilla]);
+    const archivoExiste = fs.existsSync(path.join(CARPETA, archivoPrevio));
+    const personalSigue = await db.query('SELECT 1 FROM expedientes_documentos WHERE id_persona = $1', [op.idPersona]);
+    assert(borrados >= 1 && quedan.rows.length === 0 && !archivoExiste && personalSigue.rows.length === 1,
+      'La purga borra la carga previa vencida y su archivo, y no toca otros expedientes');
+
+    // 7.4 Externo: sube sus documentos después de registrar la solicitud, con el permiso de esa solicitud
+    const dpiExterno = dpi('990');
+    dpisSinPersona.push(dpiExterno);
+    const idSolicitud = (await db.query(
+      `INSERT INTO solicitudes_afiliacion_agencia (numero_caso, cui_dpi, primer_nombre, primer_apellido, telefono, fecha_nacimiento, email, estado)
+       VALUES ('', $1, 'Externo', 'Documentos', '55550990', '1990-03-03', $2, 'PENDIENTE_AGENCIA') RETURNING id_solicitud`,
+      [dpiExterno, `externo.doc.${sufijo}@example.com`]
+    )).rows[0].id_solicitud;
+    solicitudes.push(idSolicitud);
+    const cargaToken = firmarCargaDocumentosToken({ id_solicitud: idSolicitud, cui_dpi: dpiExterno });
+    const otroToken = firmarCargaDocumentosToken({ id_solicitud: idSolicitud, cui_dpi: dpi('999') });
+    const delExterno = await request('/api/afiliacion/documentos', 'POST', { carga_token: cargaToken, tipo_documento: 'RECIBO_SERVICIOS', archivo: pdf('externo-recibo') });
+    const conOtroDpi = await request('/api/afiliacion/documentos', 'POST', { carga_token: otroToken, tipo_documento: 'DPI_FRENTE', archivo: pdf('externo-otro') });
+    const expedienteExterno = (await db.query('SELECT id_solicitud, expira_en FROM expedientes_documentos WHERE cui_dpi = $1', [dpiExterno])).rows[0];
+    assert(delExterno.status === 201 && conOtroDpi.status === 403
+      && expedienteExterno?.id_solicitud === idSolicitud && expedienteExterno.expira_en === null,
+      'El externo sube sus documentos a su solicitud con el permiso de esa solicitud (no con otro DPI)');
+
+    // 7.4.1 El permiso de una solicitud no llega a los documentos de otra persona con ese DPI: si ya es asociado se
+    //       rechaza, y si es del personal (con su propio expediente) solo toca el de la solicitud
+    const idSolicitudAna = (await db.query(
+      `INSERT INTO solicitudes_afiliacion_agencia (numero_caso, cui_dpi, primer_nombre, primer_apellido, telefono, fecha_nacimiento, email, estado)
+       VALUES ('', $1, 'Suplanta', 'Ana', '55550991', '1990-03-03', $2, 'PENDIENTE_AGENCIA') RETURNING id_solicitud`,
+      [dpi('981'), `suplanta.ana.${sufijo}@example.com`]
+    )).rows[0].id_solicitud;
+    solicitudes.push(idSolicitudAna);
+    const contraAsociada = await request('/api/afiliacion/documentos/consultar', 'POST', {
+      carga_token: firmarCargaDocumentosToken({ id_solicitud: idSolicitudAna, cui_dpi: dpi('981') }),
+    });
+    const idSolicitudOp = (await db.query(
+      `INSERT INTO solicitudes_afiliacion_agencia (numero_caso, cui_dpi, primer_nombre, primer_apellido, telefono, fecha_nacimiento, email, estado)
+       VALUES ('', $1, 'Suplanta', 'Operador', '55550992', '1990-03-03', $2, 'PENDIENTE_AGENCIA') RETURNING id_solicitud`,
+      [dpi('984'), `suplanta.op.${sufijo}@example.com`]
+    )).rows[0].id_solicitud;
+    solicitudes.push(idSolicitudOp);
+    dpisSinPersona.push(dpi('984'));
+    const tokenOp = firmarCargaDocumentosToken({ id_solicitud: idSolicitudOp, cui_dpi: dpi('984') });
+    const vistaOp = await request('/api/afiliacion/documentos/consultar', 'POST', { carga_token: tokenOp });
+    const subidaOp = await request('/api/afiliacion/documentos', 'POST', { carga_token: tokenOp, tipo_documento: 'DPI_FRENTE', archivo: pdf('suplanta-op') });
+    const delPersonalOp = (await db.query(
+      `SELECT count(*)::int AS n FROM documentos_afiliacion d JOIN expedientes_documentos e ON e.id_expediente = d.id_expediente
+       WHERE e.id_persona = $1`, [op.idPersona]
+    )).rows[0].n;
+    // Con el DPI de una asociada no se responde distinto (no revela que lo es) ni se ven sus documentos
+    assert(contraAsociada.status === 200 && contraAsociada.body.data.documentos.length === 0 && vistaOp.status === 200 && vistaOp.body.data.documentos.length === 0
+      && subidaOp.status === 201 && delPersonalOp === 1,
+      'El permiso de una solicitud no ve ni toca los documentos de otra persona con ese DPI, ni revela si es asociada');
+
+    // 7.5 Rechazo a un solicitante sin portal: el correo le pide llevarlo a la agencia
+    const idReciboExterno = delExterno.body.data.documentos.find((d) => d.tipo_documento === 'RECIBO_SERVICIOS').id_documento;
+    const enviarOriginal = mailerService.sendDocumentoRechazadoEmail;
+    let datosCorreo = null;
+    mailerService.sendDocumentoRechazadoEmail = async (datos) => {
+      datosCorreo = datos;
+      return { success: true, simulado: false, messageId: 'prueba' };
+    };
+    let rechazoExterno;
+    try {
+      rechazoExterno = await revisar(op.token, idReciboExterno, 'RECHAZADO', 'El recibo tiene más de tres meses.');
+    } finally {
+      mailerService.sendDocumentoRechazadoEmail = enviarOriginal;
+    }
+    assert(rechazoExterno.status === 200 && datosCorreo?.sinPortal === true && datosCorreo.to === `externo.doc.${sufijo}@example.com`,
+      'El rechazo a un solicitante sin portal le avisa que lleve el documento a la agencia');
+    await db.query("UPDATE solicitudes_afiliacion_agencia SET estado = 'CANCELADA' WHERE id_solicitud = $1", [idSolicitud]);
+    const solicitudCerrada = await request('/api/afiliacion/documentos', 'POST', { carga_token: cargaToken, tipo_documento: 'DPI_FRENTE', archivo: pdf('externo-cerrada') });
+    assert(solicitudCerrada.status === 403, 'Con la solicitud cerrada ya no se suben documentos en línea');
   } catch (error) {
     console.error('\n[ERROR INESPERADO]', error);
     errorInesperado = true;
   } finally {
     for (const token of tokens) await request('/api/auth/logout', 'POST', null, token).catch(() => {});
     try {
+      await purgarDocumentosDePrueba(db, dpisSinPersona);
+      if (solicitudes.length) {
+        await poolDueno(db.pool).query('DELETE FROM solicitudes_afiliacion_agencia WHERE id_solicitud = ANY($1)', [solicitudes]);
+      }
       for (const idPersona of [...asociados, ...personal]) await borrarPersonaDePrueba(db, idPersona);
       console.log('\n  [CLEANUP] Datos de prueba eliminados.');
     } catch (limpiezaError) {

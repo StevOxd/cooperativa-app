@@ -4,6 +4,7 @@
  * Desacopla la lógica de negocio, validaciones estatutarias, débito ACH y auditoría del controlador HTTP.
  */
 
+const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 const { pool } = require('../config/db');
 const constants = require('../config/constants');
@@ -15,6 +16,7 @@ const { decidirAccesoPortal } = require('../utils/accesoPortal');
 const { estadoPorFalloDelBanco } = require('../utils/errores');
 const { leerMonto } = require('../utils/montos');
 const { registrarEfectivo } = require('./efectivoVentanillaService');
+const documentosAfiliacion = require('./documentosAfiliacionService');
 const {
   revertirOAnotar,
   anotarSinConfirmar,
@@ -207,6 +209,10 @@ class AsociadoAfiliacionService {
       }
     }
 
+    // 2.3 Documentos obligatorios escaneados (Fase 6): sin ellos no se afilia. Se vuelven a revisar con el expediente
+    //     bloqueado dentro de la transacción.
+    await documentosAfiliacion.exigirDocumentosObligatorios(pool, await documentosAfiliacion.expedienteDeAfiliacion(pool, cuiLimpio));
+
     // 3. Transacción ACID para persistir el asociado completo
     const client = await pool.connect();
     let conexionRota = false;
@@ -236,6 +242,22 @@ class AsociadoAfiliacionService {
         error.statusCode = 400;
         throw error;
       }
+      // EX con cuentas en el banco (#81): el efectivo puede ir a una de ellas en lugar de abrirle otra. Tiene que ser
+      // suya, estar activa y ser de ahorro o monetaria (el banco lo confirma; no se confía en el formulario).
+      const cuentaDepositoEx = tipoAsociadoDeterminado === 'EX' && cuentaBancoEb ? cuentaBancoEb : null;
+      if (cuentaDepositoEx) {
+        const cuenta = await bancoApiService.consultarCuenta(cuentaDepositoEx);
+        // Sin respuesta del banco (o un error que no sea «no existe») no se sabe de quién es: 502, no 403
+        const sinRespuesta = !cuenta.success && cuenta.status !== 404 && cuenta.status !== 400;
+        if (sinRespuesta || cuenta.data?.titular_cui !== cuiLimpio || cuenta.data?.estado !== 'ACTIVA'
+          || !['AHORRO', 'MONETARIA'].includes(cuenta.data?.tipo_cuenta)) {
+          const error = new Error(sinRespuesta
+            ? 'No pudimos consultar la cuenta en el banco. Intente de nuevo en unos minutos.'
+            : 'Esa cuenta del banco no es de esta persona o no está activa.');
+          error.statusCode = sinRespuesta ? 502 : 403;
+          throw error;
+        }
+      }
 
       // 4.2 Persona: la del personal (solo se actualiza su teléfono) o una nueva
       const personaRes = personaPrevia
@@ -264,12 +286,17 @@ class AsociadoAfiliacionService {
 
       // 4.3 Inserción de Membresía de Asociado
       const asociadoRes = await client.query(
-        `INSERT INTO asociados (id_persona, fecha_ingreso, estado_asociado)
-         VALUES ($1, (CURRENT_TIMESTAMP AT TIME ZONE 'America/Guatemala')::date, 'ACTIVO')
+        `INSERT INTO asociados (id_persona, fecha_ingreso, estado_asociado, tipo_asociado, canal_afiliacion)
+         VALUES ($1, (CURRENT_TIMESTAMP AT TIME ZONE 'America/Guatemala')::date, 'ACTIVO', $2, 'VENTANILLA')
          RETURNING id_asociado`,
-        [persona.id_persona]
+        [persona.id_persona, tipoAsociadoDeterminado]
       );
       const asociado = asociadoRes.rows[0];
+
+      // 4.3.1 El expediente de documentos pasa a la persona; con él bloqueado, se confirma que siguen completos
+      const idExpedienteDocs = await documentosAfiliacion.expedienteDeAfiliacion(client, cuiLimpio);
+      await documentosAfiliacion.vincularExpedienteAPersona(client, idExpedienteDocs, persona.id_persona);
+      await documentosAfiliacion.exigirDocumentosObligatorios(client, idExpedienteDocs);
 
       // 4.4 Aprovisionamiento de Usuario y Credenciales (solo con acceso al portal)
       const emailFinal = cleanEmail;
@@ -292,7 +319,8 @@ class AsociadoAfiliacionService {
 
       // 4.7 EB: cuenta de ahorro en la cooperativa con el aporte debitado del banco
       let cuentaAhorro = null;
-      const referenciaBanco = `AFIL-VENT-${asociado.id_asociado}-${Date.now()}`;
+      // Única por intento (48 bits al azar, regla 4.10): el banco toma una referencia repetida como un reintento
+      const referenciaBanco = `AFIL-VENT-${asociado.id_asociado}-${Date.now()}-${crypto.randomBytes(6).toString('hex')}`;
       if (tipoAsociadoDeterminado === 'EB') {
         const randomSuffix = Math.floor(100 + Math.random() * 900);
         const numeroCuentaAhorro = `CTA-AHORR-${String(asociado.id_asociado).padStart(3, '0')}${randomSuffix}`;
@@ -312,8 +340,10 @@ class AsociadoAfiliacionService {
         );
       }
 
-      // 4.8 Operación con el banco (al final): EX abre su cuenta con el efectivo; EB debita el aporte.
+      // 4.8 Operación con el banco (al final): EX deposita el efectivo en una cuenta nueva o en la que eligió; EB
+      //     debita el aporte.
       let cuentaBancariaAperturada = null;
+      let depositoRealizado = false;
       let debitoRealizado = false;
       const reversionDelDebito = {
         origen: 'AFILIACION_PRESENCIAL',
@@ -331,7 +361,7 @@ class AsociadoAfiliacionService {
       if (tipoAsociadoDeterminado === 'EX') {
         // Si un intento anterior dejó una cuenta del banco con el depósito por retirar, no se abre otra hasta
         // conciliarlo: la persona tendría el depósito dos veces
-        if (await hayAperturaPorRevertirDelDpi(client, cuiLimpio)) {
+        if (!cuentaDepositoEx && await hayAperturaPorRevertirDelDpi(client, cuiLimpio)) {
           const error = new Error('Un intento anterior de afiliar a esta persona quedó pendiente de conciliar con el banco. Pida al administrador que lo concilie en «Conciliación».');
           error.statusCode = 409;
           throw error;
@@ -344,35 +374,58 @@ class AsociadoAfiliacionService {
           origen: 'AFILIACION_PRESENCIAL',
           referencia: referenciaBanco,
         });
-        const bcoRes = await bancoApiService.aperturarCuentaBancaria({
-          cui_dpi: cuiLimpio,
-          primer_nombre: identidad.primer_nombre,
-          segundo_nombre: identidad.segundo_nombre,
-          primer_apellido: identidad.primer_apellido,
-          segundo_apellido: identidad.segundo_apellido,
-          telefono: cleanTel,
-          direccion: identidad.direccion,
-          email: cleanEmail,
-          fecha_nacimiento: identidad.fecha_nacimiento,
-          tipo_cuenta: 'AHORRO',
-          monto_inicial: montoAporte,
-          referencia: referenciaBanco,
-        });
-        if (!bcoRes.success || !bcoRes.data) {
-          // Sin respuesta a tiempo no se sabe si el banco abrió la cuenta: queda en «Conciliación» (la cuenta se toma
-          // del movimiento al conciliar) y, hasta resolverlo, a esta persona no se le abre otra
-          const anotado = bcoRes.status === 504 && await anotarSinConfirmar({
-            ...reversionDelDebito,
-            ...reversionDeLaApertura,
-            numeroCuenta: null,
+        if (cuentaDepositoEx) {
+          const depRes = await bancoApiService.acreditarCuenta({
+            numero_cuenta: cuentaDepositoEx,
+            monto: montoAporte,
+            concepto: 'Aporte inicial de afiliación a la cooperativa (efectivo en ventanilla)',
+            referencia: referenciaBanco,
           });
-          const error = new Error(anotado
-            ? `El banco no respondió a tiempo. Si llegó a abrir la cuenta, el administrador retirará ese depósito desde «Conciliación» (referencia ${referenciaBanco}); después podrá repetir la afiliación.`
-            : bcoRes.message || 'No se pudo abrir la cuenta de ahorro en el banco. No se registró la afiliación.');
-          error.statusCode = 502;
-          throw error;
+          if (!depRes.success) {
+            // Sin respuesta a tiempo el depósito pudo hacerse: queda en «Conciliación» para retirarlo si entró
+            const anotado = depRes.status === 504 && await anotarSinConfirmar({
+              ...reversionDelDebito,
+              ...reversionDeLaApertura,
+              numeroCuenta: cuentaDepositoEx,
+            });
+            const error = new Error(anotado
+              ? `El banco no respondió a tiempo. Si llegó a depositar, el administrador lo retirará desde «Conciliación» (referencia ${referenciaBanco}). Puede intentarlo de nuevo en unos minutos.`
+              : depRes.message || 'No se pudo depositar en la cuenta del banco. No se registró la afiliación.');
+            error.statusCode = estadoPorFalloDelBanco(depRes.status);
+            throw error;
+          }
+          depositoRealizado = true;
+        } else {
+          const bcoRes = await bancoApiService.aperturarCuentaBancaria({
+            cui_dpi: cuiLimpio,
+            primer_nombre: identidad.primer_nombre,
+            segundo_nombre: identidad.segundo_nombre,
+            primer_apellido: identidad.primer_apellido,
+            segundo_apellido: identidad.segundo_apellido,
+            telefono: cleanTel,
+            direccion: identidad.direccion,
+            email: cleanEmail,
+            fecha_nacimiento: identidad.fecha_nacimiento,
+            tipo_cuenta: 'AHORRO',
+            monto_inicial: montoAporte,
+            referencia: referenciaBanco,
+          });
+          if (!bcoRes.success || !bcoRes.data) {
+            // Sin respuesta a tiempo no se sabe si el banco abrió la cuenta: queda en «Conciliación» (la cuenta se toma
+            // del movimiento al conciliar) y, hasta resolverlo, a esta persona no se le abre otra
+            const anotado = bcoRes.status === 504 && await anotarSinConfirmar({
+              ...reversionDelDebito,
+              ...reversionDeLaApertura,
+              numeroCuenta: null,
+            });
+            const error = new Error(anotado
+              ? `El banco no respondió a tiempo. Si llegó a abrir la cuenta, el administrador retirará ese depósito desde «Conciliación» (referencia ${referenciaBanco}); después podrá repetir la afiliación.`
+              : bcoRes.message || 'No se pudo abrir la cuenta de ahorro en el banco. No se registró la afiliación.');
+            error.statusCode = 502;
+            throw error;
+          }
+          cuentaBancariaAperturada = bcoRes.data.numero_cuenta;
         }
-        cuentaBancariaAperturada = bcoRes.data.numero_cuenta;
       } else {
         const debitRes = await bancoApiService.debitarCuenta({
           numero_cuenta: cuentaBancoEb,
@@ -403,10 +456,15 @@ class AsociadoAfiliacionService {
         // El dinero ya se movió en el banco (issue #31): EB recupera su débito; a EX se le retira el aporte de la
         // cuenta que se abrió. Si no se puede, queda en «Conciliación». Si el COMMIT sí se aplicó (se confirma con
         // otra conexión), la afiliación quedó hecha y se sigue.
-        if (!debitoRealizado && !cuentaBancariaAperturada) throw commitError;
+        if (!debitoRealizado && !cuentaBancariaAperturada && !depositoRealizado) throw commitError;
         const reversion = await revertirOAnotar(debitoRealizado
           ? { ...reversionDelDebito, pid: client.processID }
-          : { ...reversionDelDebito, ...reversionDeLaApertura, numeroCuenta: cuentaBancariaAperturada, pid: client.processID });
+          : {
+            ...reversionDelDebito,
+            ...reversionDeLaApertura,
+            numeroCuenta: cuentaBancariaAperturada || cuentaDepositoEx,
+            pid: client.processID,
+          });
         if (!reversion.aplicada) throw errorTrasCommitFallido(reversion, commitError, referenciaBanco);
       }
 
@@ -440,7 +498,7 @@ class AsociadoAfiliacionService {
         metodo_pago: tipoAsociadoDeterminado === 'EB' ? 'DEBITO_BANCO' : 'EFECTIVO_VENTANILLA',
         mfa_enabled: false,
         cuenta_bancaria_creada: cuentaBancariaAperturada,
-        numero_cuenta_bancaria_asociada: tipoAsociadoDeterminado === 'EB' ? cuentaBancoEb : null,
+        numero_cuenta_bancaria_asociada: tipoAsociadoDeterminado === 'EB' ? cuentaBancoEb : cuentaDepositoEx,
         tipo_asociado: tipoAsociadoDeterminado,
       };
     } catch (txError) {

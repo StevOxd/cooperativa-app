@@ -2,7 +2,7 @@
 name: software-architect
 description: "Úsalo antes de una funcionalidad nueva, un refactor grande, un endpoint nuevo entre la Cooperativa y el Core Banking, o un cambio en Docker Compose, Nginx o Dockerfiles. Verifica la arquitectura en capas (routes, middlewares, controllers, services, config; context, pages, components, services), el desacoplamiento del banco vía bancoApiService y la configuración de contenedores. Produce un plan de implementación por pasos. Solo lee; no edita."
 tools: Read, Grep, Glob
-model: inherit
+model: sonnet
 ---
 
 <!-- Archivo generado por scripts/sync-agents.mjs a partir de .agent/agents/software-architect.md. No lo edite: edite el original y vuelva a ejecutar el script. -->

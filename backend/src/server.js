@@ -73,6 +73,7 @@ app.use(express.urlencoded({ extended: true, limit: '15mb' }));
 
 // Servir archivos estáticos protegidos con autenticación y RBAC (SEC-02)
 const { secureUploadsHandler } = require('./middlewares/secureUploads');
+const { programarPurgaDiaria } = require('./services/limpiezaCargasPreviasService');
 // Siempre con carpeta: los PDF de crédito están en uploads/creditos y los documentos en uploads/afiliaciones
 app.get('/api/uploads/:subfolder/:filename', secureUploadsHandler);
 
@@ -143,6 +144,8 @@ if (require.main === module) {
     server.listen(PORT, '0.0.0.0', () => {
       console.log(`[INFO] Servidor ejecutándose en http://localhost:${PORT}`);
       console.log(`[INFO] Rutas de autenticación disponibles en http://localhost:${PORT}/api/auth`);
+      // Documentos de afiliaciones que no se completaron en 30 días (Fase 6)
+      programarPurgaDiaria();
     });
   })();
 }
