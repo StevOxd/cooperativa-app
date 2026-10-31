@@ -161,6 +161,9 @@ const resolverSolicitud = async (req, res) => {
     const client = await db.pool.connect();
     try {
       await client.query('BEGIN');
+      // Mismo candado que la creación de solicitudes (4, por asociado): dos aprobaciones a la vez no abren dos cuentas
+      // del mismo tipo (issue #101)
+      await client.query('SELECT pg_advisory_xact_lock(4, $1)', [solicitud.id_asociado]);
 
       // Se bloquea la solicitud y se vuelve a revisar: si dos operadores aprueban a la vez, el segundo se
       // detiene aquí, antes de mover dinero.
@@ -217,11 +220,15 @@ const resolverSolicitud = async (req, res) => {
           referencia: referenciaCaso,
         };
       } else {
-        const originQuery = 'SELECT saldo_disponible, numero_cuenta FROM cuentas WHERE id_cuenta = $1 FOR UPDATE';
+        const originQuery = 'SELECT saldo_disponible, numero_cuenta, estado FROM cuentas WHERE id_cuenta = $1 FOR UPDATE';
         const originRes = await client.query(originQuery, [solicitud.id_cuenta_origen]);
         
         if (originRes.rows.length === 0) {
           throw errorDeNegocio(404, 'Cuenta de origen no encontrada.');
+        }
+        // Se pudo inactivar después de crear la solicitud (issue #102)
+        if (originRes.rows[0].estado !== 'ACTIVA') {
+          throw errorDeNegocio(409, 'La cuenta de origen ya no está activa. Rechace la solicitud con ese motivo.');
         }
 
         const saldoOrigen = parseFloat(originRes.rows[0].saldo_disponible);
@@ -243,7 +250,7 @@ const resolverSolicitud = async (req, res) => {
           monto,
           saldoOrigen,
           nuevoSaldoOrigen,
-          `Débito Planilla - Caso ${solicitud.numero_caso}`,
+          `Débito por traslado - Caso ${solicitud.numero_caso}`,
           idOperador
         ]);
       }
@@ -251,9 +258,17 @@ const resolverSolicitud = async (req, res) => {
       let idCuentaDestino = solicitud.id_cuenta_destino;
 
       if (solicitud.tipo_operacion === 'APERTURA_Y_TRASLADO') {
-        let prefix = 'AHORR';
-        if (solicitud.id_tipo_cuenta_destino === 3) prefix = 'PLAZO';
-        else if (solicitud.id_tipo_cuenta_destino === 5) prefix = 'METAS';
+        // Uno de cada tipo (issue #101): otra solicitud aprobada antes pudo abrir ya una de este tipo
+        const yaTiene = await client.query(
+          "SELECT 1 FROM cuentas WHERE id_asociado = $1 AND id_tipo_cuenta = $2 AND estado = 'ACTIVA'",
+          [solicitud.id_asociado, solicitud.id_tipo_cuenta_destino]
+        );
+        if (yaTiene.rows.length > 0) {
+          throw errorDeNegocio(409, 'El asociado ya tiene una cuenta activa de ese tipo. Rechace la solicitud o trasládelo a esa cuenta.');
+        }
+        // Un prefijo por tipo, como en la apertura en ventanilla (el Plan de Ahorro Programado tenía el de Ahorro)
+        const PREFIJOS = { 2: 'AHORR', 3: 'PLAZO', 4: 'PLAN', 5: 'METAS' };
+        const prefix = PREFIJOS[solicitud.id_tipo_cuenta_destino] || 'AHORR';
 
         let numeroCuentaNuevo = '';
         let exists = true;

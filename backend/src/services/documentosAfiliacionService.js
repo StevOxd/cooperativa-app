@@ -341,6 +341,28 @@ const subirDocumento = async ({
     if (vigente?.sha256 === leido.sha256) {
       throw errorDeNegocio(400, 'Es el mismo archivo que ya está cargado. Suba uno nuevo.');
     }
+    // Sin sesión hay un tope total para lo que todavía no pertenece a un asociado (H-84): así no se llena el disco
+    // con muchas solicitudes. En ventanilla y en el portal no aplica.
+    if (canal === 'EN_LINEA') {
+      const enEspera = Number((await client.query(
+        `SELECT COALESCE(sum(d.tamano_bytes), 0) AS bytes
+         FROM documentos_afiliacion d JOIN expedientes_documentos e ON e.id_expediente = d.id_expediente
+         WHERE e.id_persona IS NULL AND d.canal_carga = 'EN_LINEA'`
+      )).rows[0].bytes);
+      if (enEspera + leido.buffer.length > DOCUMENTOS.MAX_BYTES_EN_LINEA_SIN_AFILIAR) {
+        throw errorDeNegocio(503, 'Por ahora no recibimos documentos en línea. Llévelos a la agencia o intente más tarde.');
+      }
+    }
+    // Sin sesión, a una solicitud de agencia se le sube un total acotado (H-84); en ventanilla, el operador sí puede más
+    if (afiliacion?.soloSolicitud) {
+      const usados = Number((await client.query(
+        'SELECT COALESCE(sum(tamano_bytes), 0) AS bytes FROM documentos_afiliacion WHERE id_expediente = $1',
+        [id]
+      )).rows[0].bytes);
+      if (usados + leido.buffer.length > DOCUMENTOS.MAX_BYTES_SOLICITUD_EN_LINEA) {
+        throw errorDeNegocio(409, 'Ya subió el máximo de archivos permitido en línea. Lleve los documentos que falten a la agencia.');
+      }
+    }
     const repetido = await client.query(
       `SELECT tipo_documento FROM documentos_afiliacion
        WHERE id_expediente = $1 AND sha256 = $2 AND estado <> 'REEMPLAZADO' AND tipo_documento <> $3 LIMIT 1`,

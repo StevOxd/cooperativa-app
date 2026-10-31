@@ -87,6 +87,11 @@ module.exports = Object.freeze({
     MAX_VERSIONES_POR_TIPO: 8,
     // Días que se guardan los documentos de una afiliación que se empezó y no se completó; después se borran
     DIAS_CARGA_PREVIA: 30,
+    // Lo que se puede subir sin sesión a una solicitud de agencia (permiso de 30 minutos), sumando todas las versiones
+    MAX_BYTES_SOLICITUD_EN_LINEA: 25 * 1024 * 1024,
+    // Todo lo que se subió sin sesión y todavía no pertenece a un asociado (H-84): pasado este total, la carga en línea
+    // se suspende (se puede llevar a la agencia) hasta que la purga diaria libere espacio
+    MAX_BYTES_EN_LINEA_SIN_AFILIAR: 2 * 1024 * 1024 * 1024,
     MOTIVO_RECHAZO_MIN: 5,
     MOTIVO_RECHAZO_MAX: 500,
   }),

@@ -499,11 +499,13 @@ const createUser = async (req, res) => {
     ]);
     const createdUser = userResult.rows[0];
 
-    // 9. Si es asociado, registrar en tabla asociados
+    // 9. Si es asociado, registrar en tabla asociados con su tipo (el del prefijo que se le asignó, EB o EX) y su canal:
+    //    lo da de alta el personal, en ventanilla (issue #106)
     if (rolUpper === 'ASOCIADO') {
       await client.query(
-        `INSERT INTO asociados (id_persona, estado_asociado) VALUES ($1, 'ACTIVO') ON CONFLICT DO NOTHING`,
-        [personaId]
+        `INSERT INTO asociados (id_persona, estado_asociado, tipo_asociado, canal_afiliacion)
+         VALUES ($1, 'ACTIVO', $2, 'VENTANILLA') ON CONFLICT DO NOTHING`,
+        [personaId, finalCodigoCorp.startsWith('EB-') ? 'EB' : 'EX']
       );
     }
 

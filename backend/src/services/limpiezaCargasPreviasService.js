@@ -2,8 +2,9 @@ const db = require('../config/db');
 const { eliminarDocumentoSinUso } = require('../utils/documentoArchivo');
 
 /**
- * Borra las cargas previas vencidas: documentos de una afiliación que se empezó y no se completó en
- * `DOCUMENTOS.DIAS_CARGA_PREVIA` días (Fase 6). Las filas las borra la función `purgar_cargas_previas_vencidas` del rol
+ * Borra los documentos que ya no sirven para afiliar: cargas previas de una afiliación que se empezó y no se completó en
+ * `DOCUMENTOS.DIAS_CARGA_PREVIA` días (Fase 6), y los de solicitudes de agencia canceladas, expiradas o pendientes por
+ * más de 30 días (H-84). Las filas las borra la función `purgar_cargas_previas_vencidas` del rol
  * dueño (el de la aplicación no borra en esas tablas); después se borran sus archivos. Si el proceso se detiene entre
  * los dos pasos, el archivo queda sin registro y nadie lo puede abrir (`secureUploads` busca primero en la base).
  */
