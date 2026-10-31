@@ -40,7 +40,8 @@ const leerFiltros = (filtro, query) => {
 
 /**
  * Datos de un reporte de gestión (issue #85). Antes de entregarlo queda registrado en `reportes_generados` (quién,
- * cuál, formato, filtros, filas, IP y navegador): si no se puede registrar, no se entrega.
+ * cuál, formato, filtros, filas, totales, IP y navegador): si no se puede registrar, no se entrega. Con los totales
+ * guardados se cotejan las cifras de un reporte impreso por su folio (issue #95).
  *
  * @async
  * @route GET /api/reportes/:tipo
@@ -71,10 +72,10 @@ const generar = async (req, res) => {
     const { filas, resumen } = await datosDelReporte(db, tipo, { ...filtros, idUsuario: req.user.id_usuario });
 
     const registro = await db.query(
-      `INSERT INTO reportes_generados (id_usuario, id_rol, tipo_reporte, formato, parametros, filas, ip_origen, user_agent)
-       VALUES ($1, (SELECT id_rol FROM usuarios WHERE id_usuario = $1), $2, $3, $4, $5, $6, $7)
+      `INSERT INTO reportes_generados (id_usuario, id_rol, tipo_reporte, formato, parametros, filas, resumen, ip_origen, user_agent)
+       VALUES ($1, (SELECT id_rol FROM usuarios WHERE id_usuario = $1), $2, $3, $4, $5, $6, $7, $8)
        RETURNING id_reporte, fecha_generacion`,
-      [req.user.id_usuario, reporte.codigo, formato, filtros, filas.length, ipDelCliente(req), userAgentDe(req)]
+      [req.user.id_usuario, reporte.codigo, formato, filtros, filas.length, resumen, ipDelCliente(req), userAgentDe(req)]
     );
     const { id_reporte: idReporte, fecha_generacion: generadoEn } = registro.rows[0];
 

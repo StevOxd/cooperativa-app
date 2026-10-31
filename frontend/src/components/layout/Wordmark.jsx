@@ -1,9 +1,11 @@
 import React from 'react';
 import { Layers } from 'lucide-react';
-import { cn } from '../ui';
+import { Badge, cn } from '../ui';
+import { ES_DESARROLLO } from '../../utils/entorno';
 
 /**
- * Marca de la cooperativa: símbolo (el mismo del favicon) y nombre.
+ * Marca de la cooperativa: símbolo (el mismo del favicon) y nombre. Fuera de producción lleva la etiqueta
+ * «Desarrollo», para no confundir la copia local con la del servidor.
  *
  * @param {Object} props
  * @param {boolean} [props.inverse=false] - Versión clara para fondos azules.
@@ -29,6 +31,12 @@ export const Wordmark = ({ inverse = false, size = 'md', className }) => (
     >
       Cooperativa
     </span>
+    {ES_DESARROLLO && (
+      <Badge tone="warning">
+        <span className="sm:hidden" aria-hidden="true">Dev</span>
+        <span className="sr-only sm:not-sr-only">Desarrollo</span>
+      </Badge>
+    )}
   </span>
 );
 

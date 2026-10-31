@@ -26,6 +26,22 @@ export const formatDate = (value) =>
     ? new Date(value).toLocaleDateString('es-GT', { day: '2-digit', month: '2-digit', year: 'numeric' })
     : '—';
 
+/**
+ * Fecha de una columna DATE (fecha de ingreso, de nacimiento): "30/10/2026". Se toma el día tal como viene
+ * (AAAA-MM-DD), sin convertirlo a la hora local: la columna llega como medianoche UTC y en Guatemala se vería el
+ * día anterior.
+ */
+export const formatDateOnly = (value) => {
+  const dia = String(value || '').slice(0, 10);
+  return /^\d{4}-\d{2}-\d{2}$/.test(dia) ? dia.split('-').reverse().join('/') : '—';
+};
+
+/** Fecha de hoy en Guatemala (AAAA-MM-DD), p. ej. para el nombre de un archivo. */
+export const hoyEnGuatemala = () => new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Guatemala' });
+
+/** Tamaño en MB con un decimal: "12.3". */
+export const megas = (bytes) => (bytes / (1024 * 1024)).toFixed(1);
+
 /** "EN_REVISION_OPERADOR" → "En revision operador" (respaldo para estados sin etiqueta). */
 export const humanize = (value) => {
   if (!value) return '';

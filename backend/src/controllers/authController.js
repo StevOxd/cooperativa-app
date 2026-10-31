@@ -5,7 +5,7 @@ const db = require('../config/db');
 const socketService = require('../services/socketService');
 const mfaService = require('../services/mfaService');
 const { idUsuarioDelToken } = require('../utils/tokenUsuario');
-const { ipDelCliente } = require('../utils/ipCliente');
+const { ipDelCliente, userAgentDe } = require('../utils/ipCliente');
 require('dotenv').config();
 
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -115,7 +115,7 @@ const login = async (req, res) => {
         );
 
         const clientIp = ipDelCliente(req);
-        const userAgent = req.headers['user-agent'] || 'Desconocido';
+        const userAgent = userAgentDe(req) || 'Desconocido';
 
         await db.query(
           `INSERT INTO historial_estados_usuario 

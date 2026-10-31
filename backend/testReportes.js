@@ -123,23 +123,31 @@ const testServer = server.listen(0, async () => {
          ($1, 'CTA-TEST-1', $2, 30.00, $5, 'RECHAZADO')`,
       [operadorA.idUsuario, dpiAsociado, `TEST-REP-D1-${sufijo}`, `TEST-REP-D2-${sufijo}`, `TEST-REP-D3-${sufijo}`]
     );
-    // Créditos: aprobado y denegado por el ejecutivo de prueba, uno con el operador y uno cancelado
-    const credito = async (estado, resuelto) => (await db.query(
-      `INSERT INTO solicitudes_credito (id_asociado, monto_solicitado, plazo_meses, tasa_interes, cuota_mensual_estimada, estado,
-         id_operador_revisa, id_ejecutivo_resuelve, fecha_resolucion_ejecutivo, observaciones_ejecutivo)
-       VALUES ($1, 5000.00, 12, 10.00, 439.58, $2, $3, $4, $5, $6) RETURNING id_solicitud_credito`,
-      [
-        asociado.idAsociado, estado, operadorA.idUsuario,
-        resuelto ? ejecutivo.idUsuario : null, resuelto ? new Date() : null, resuelto ? `Prueba ${estado}` : null,
-      ]
-    )).rows[0].id_solicitud_credito;
+    // Créditos: las resoluciones del comité quedan en su historial (resoluciones_credito), como las deja el ejecutivo
+    const resolver = (idSolicitud, resolucion, haceMinutos = 0) => db.query(
+      `INSERT INTO resoluciones_credito (id_solicitud_credito, id_usuario_resuelve, resolucion, observaciones, fecha_resolucion)
+       VALUES ($1, $2, $3, $4, now() - make_interval(mins => $5))`,
+      [idSolicitud, ejecutivo.idUsuario, resolucion, `Prueba ${resolucion}`, haceMinutos]
+    );
+    const credito = async (estado, resoluciones = []) => {
+      const id = (await db.query(
+        `INSERT INTO solicitudes_credito (id_asociado, monto_solicitado, plazo_meses, tasa_interes, cuota_mensual_estimada, estado,
+           id_operador_revisa)
+         VALUES ($1, 5000.00, 12, 10.00, 439.58, $2, $3) RETURNING id_solicitud_credito`,
+        [asociado.idAsociado, estado, operadorA.idUsuario]
+      )).rows[0].id_solicitud_credito;
+      for (const [i, resolucion] of resoluciones.entries()) await resolver(id, resolucion, resoluciones.length - i);
+      return id;
+    };
     const creditos = {
-      aprobado: await credito('APROBADA', true),
-      denegado: await credito('DENEGADA', true),
-      enTramite: await credito('EN_REVISION_OPERADOR', false),
-      cancelado: await credito('CANCELADA', false),
-      // El comité lo devolvió y el operador lo volvió a elevar: sigue con el ejecutivo que lo devolvió
-      reelevado: await credito('EN_AUTORIZACION_EJECUTIVO', true),
+      aprobado: await credito('APROBADA', ['APROBADA']),
+      denegado: await credito('DENEGADA', ['DENEGADA']),
+      enTramite: await credito('EN_REVISION_OPERADOR'),
+      cancelado: await credito('CANCELADA'),
+      // El comité lo devolvió y el operador lo volvió a elevar: queda la devolución
+      reelevado: await credito('EN_AUTORIZACION_EJECUTIVO', ['DEVUELTA']),
+      // Devuelto y después aprobado: dos resoluciones
+      devueltoYAprobado: await credito('APROBADA', ['DEVUELTA', 'APROBADA']),
     };
     // Auditoría: el administrador de prueba bloquea al operador B
     await db.query(
@@ -228,13 +236,15 @@ const testServer = server.listen(0, async () => {
       'Los filtros guardados son solo los del reporte (se ignora lo demás de la URL)');
 
     const registro = (await db.query(
-      `SELECT tipo_reporte, formato, parametros, filas, ip_origen IS NOT NULL AS con_ip
+      `SELECT tipo_reporte, formato, parametros, filas, resumen, ip_origen IS NOT NULL AS con_ip
        FROM reportes_generados WHERE id_reporte = $1`,
       [parseInt(datosA.folio.slice(4), 10)]
     )).rows[0];
     assert(registro?.tipo_reporte === 'CIERRE_CAJA' && registro.formato === 'PDF' && registro.filas === 5
       && registro.parametros.fecha === hoy && registro.con_ip,
       'Queda registrado con su folio: tipo, formato, filtros, filas e IP');
+    assert(registro?.resumen?.confirmado?.monto === 420.5 && registro.resumen.por_conciliar.monto === 50,
+      'El registro guarda los totales del reporte: con el folio se cotejan las cifras impresas (#95)');
 
     // ---------------------------------------------------------------------------------------------------------
     console.log('\n[4] Padrón, cartera, acta y afiliaciones');
@@ -249,7 +259,7 @@ const testServer = server.listen(0, async () => {
     const cartera = await reporte('cartera-creditos', `formato=CSV&${periodo}`, tokenEjecutivo);
     const deLaPrueba = (cartera.body.reporte?.filas || []).filter((f) => f.asociado_codigo === `EX-T${sufijo}`);
     const grupoDe = (id) => deLaPrueba.find((f) => f.id_solicitud_credito === id)?.grupo;
-    assert(cartera.status === 200 && deLaPrueba.length === 5, 'Cartera: trae las 5 solicitudes de prueba del período');
+    assert(cartera.status === 200 && deLaPrueba.length === 6, 'Cartera: trae las 6 solicitudes de prueba del período');
     assert(grupoDe(creditos.aprobado) === 'APROBADA' && grupoDe(creditos.denegado) === 'NO_APROBADA'
       && grupoDe(creditos.enTramite) === 'EN_TRAMITE' && grupoDe(creditos.cancelado) === 'CANCELADA',
       'Cartera: cada estado cae en su grupo (aprobada, no aprobada, en trámite, cancelada)');
@@ -271,6 +281,12 @@ const testServer = server.listen(0, async () => {
       'Acta: la resolución es la del comité (un devuelto que se volvió a elevar figura como devuelto, no «por autorizar»)');
     assert(acta.body.reporte?.filas.find((f) => f.id_solicitud_credito === creditos.aprobado)?.ejecutivo_codigo === `EJ-T${sufijo}`,
       'Acta: cada resolución dice qué ejecutivo la tomó');
+    const dosVeces = (acta.body.reporte?.filas || []).filter((f) => f.id_solicitud_credito === creditos.devueltoYAprobado);
+    assert(dosVeces.map((f) => f.resolucion).join() === 'DEVUELTA,APROBADA',
+      'Acta: un crédito devuelto y luego aprobado aparece con sus dos resoluciones, en orden (#89)');
+    const resumenActa = acta.body.reporte?.resumen;
+    assert(resumenActa && resumenActa.creditos < resumenActa.total.cantidad,
+      'Acta: cuenta las resoluciones y, aparte, los créditos distintos');
 
     const afiliaciones = await reporte('afiliaciones', `formato=CSV&${periodo}`, tokenAdmin);
     const canalDe = (codigo) => afiliaciones.body.reporte?.filas.find((f) => f.codigo === codigo);

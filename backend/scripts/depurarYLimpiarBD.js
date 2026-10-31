@@ -519,6 +519,7 @@ async function main() {
     await clientCoop.query('DELETE FROM codigos_verificacion_correo;');
     await clientCoop.query('DELETE FROM accesos_documento;');
     await clientCoop.query('DELETE FROM reportes_generados;');
+    await clientCoop.query('DELETE FROM resoluciones_credito;');
     await clientCoop.query('DELETE FROM revisiones_documento;');
     await clientCoop.query('DELETE FROM documentos_afiliacion;');
     await clientCoop.query('DELETE FROM expedientes_documentos;');

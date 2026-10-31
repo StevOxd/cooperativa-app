@@ -83,6 +83,13 @@ router.post('/creditos/:id/cancelar', asociadoController.cancelarCredito);
 router.get('/cuenta-planilla', asociadoController.getCuentaPlanilla);
 
 /**
+ * @route   GET /api/asociado/cuentas-origen
+ * @desc    Cuentas desde las que puede trasladar: su planilla y sus cuentas activas del banco (issue #82)
+ * @access  Privado
+ */
+router.get('/cuentas-origen', asociadoController.getCuentasOrigen);
+
+/**
  * @route   GET /api/asociado/mis-cuentas-destino
  * @desc    Obtener cuentas destino del asociado y opciones para apertura
  * @access  Privado

@@ -5,7 +5,7 @@ const mailerService = require('../services/mailerService');
 const { getNextCorporateCode, previewNextCorporateCode, resolvePrefix, generateSecureRandomPassword } = require('../utils/codeGenerator');
 const { filtroUsuario } = require('../utils/identificadores');
 const { respuestaDeError } = require('../utils/errores');
-const { ipDelCliente } = require('../utils/ipCliente');
+const { ipDelCliente, userAgentDe } = require('../utils/ipCliente');
 const { SEGURIDAD } = require('../config/constants');
 
 // Motivo con que queda en la auditoría el cambio de correo; el reinicio de contraseña lo busca
@@ -16,7 +16,7 @@ const ESTADOS_PERMITIDOS = ['ACTIVO', 'INACTIVO'];
 const ID_ROL_ASOCIADO = 3;
 
 const getClientIp = ipDelCliente;
-const getUserAgent = (req) => req.headers['user-agent'] || 'Desconocido';
+const getUserAgent = (req) => userAgentDe(req) || 'Desconocido';
 
 /**
  * Obtener la lista detallada de usuarios con id_usuario y Código Corporativo

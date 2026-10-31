@@ -4,7 +4,7 @@ const { crearPoolDueno } = require('./db');
 // Registros que solo se agregan (auditoría y movimientos de dinero): el rol de la aplicación no los modifica
 const TABLAS_SOLO_INSERCION = [
   'historial_estados_usuario', 'historial_cambios_beneficiarios', 'transacciones', 'efectivo_ventanilla',
-  'revisiones_documento', 'accesos_documento', 'reportes_generados',
+  'revisiones_documento', 'accesos_documento', 'reportes_generados', 'resoluciones_credito',
 ];
 // Las únicas tablas en que el código borra filas; en el resto, la desvinculación es por estado (borrado lógico)
 const TABLAS_CON_BORRADO = ['beneficiarios', 'roles_permisos', 'codigos_verificacion_correo'];
@@ -314,9 +314,10 @@ const runMigrations = async () => {
           correlativo TEXT;
       BEGIN
           IF NEW.numero_caso IS NULL OR NEW.numero_caso = '' THEN
-              -- Al menos 4 dígitos; desde el 10000 el número sigue creciendo (LPAD a 4 lo cortaría y se repetiría)
+              -- Al menos 4 dígitos; desde el 10000 el número sigue creciendo (LPAD a 4 lo cortaría y se repetiría).
+              -- El año es el de Guatemala: la base corre en UTC y el 31 de diciembre después de las 18:00 daría el siguiente
               correlativo := nextval('seq_numero_caso_traslado')::text;
-              NEW.numero_caso := 'CASO-' || TO_CHAR(CURRENT_DATE, 'YYYY') || '-' || LPAD(correlativo, GREATEST(LENGTH(correlativo), 4), '0');
+              NEW.numero_caso := 'CASO-' || TO_CHAR(CURRENT_TIMESTAMP AT TIME ZONE 'America/Guatemala', 'YYYY') || '-' || LPAD(correlativo, GREATEST(LENGTH(correlativo), 4), '0');
           END IF;
           RETURN NEW;
       END;
@@ -558,9 +559,10 @@ const runMigrations = async () => {
           correlativo TEXT;
       BEGIN
           IF NEW.numero_caso IS NULL OR NEW.numero_caso = '' THEN
-              -- Al menos 4 dígitos; desde el 10000 el número sigue creciendo (LPAD a 4 lo cortaría y se repetiría)
+              -- Al menos 4 dígitos; desde el 10000 el número sigue creciendo (LPAD a 4 lo cortaría y se repetiría).
+              -- El año es el de Guatemala: la base corre en UTC y el 31 de diciembre después de las 18:00 daría el siguiente
               correlativo := nextval('seq_numero_caso_afiliacion')::text;
-              NEW.numero_caso := 'CASO-AFIL-' || TO_CHAR(CURRENT_DATE, 'YYYY') || '-' || LPAD(correlativo, GREATEST(LENGTH(correlativo), 4), '0');
+              NEW.numero_caso := 'CASO-AFIL-' || TO_CHAR(CURRENT_TIMESTAMP AT TIME ZONE 'America/Guatemala', 'YYYY') || '-' || LPAD(correlativo, GREATEST(LENGTH(correlativo), 4), '0');
           END IF;
           RETURN NEW;
       END;
@@ -1156,8 +1158,8 @@ const runMigrations = async () => {
           FOR EACH STATEMENT EXECUTE FUNCTION trg_registro_solo_insercion();
 
       CREATE INDEX IF NOT EXISTS idx_solicitudes_credito_fecha ON solicitudes_credito (fecha_solicitud);
-      CREATE INDEX IF NOT EXISTS idx_solicitudes_credito_resolucion_ejecutivo
-        ON solicitudes_credito (fecha_resolucion_ejecutivo) WHERE fecha_resolucion_ejecutivo IS NOT NULL;
+      -- El acta lee el historial de resoluciones (paso 15): este índice ya no lo usa nadie
+      DROP INDEX IF EXISTS idx_solicitudes_credito_resolucion_ejecutivo;
       CREATE INDEX IF NOT EXISTS idx_asociados_fecha_ingreso ON asociados (fecha_ingreso);
       CREATE INDEX IF NOT EXISTS idx_historial_estados_fecha ON historial_estados_usuario (fecha_cambio);
       CREATE INDEX IF NOT EXISTS idx_efectivo_ventanilla_fecha ON efectivo_ventanilla (fecha_registro);
@@ -1170,7 +1172,67 @@ const runMigrations = async () => {
       ALTER TABLE asociados ALTER COLUMN fecha_ingreso SET DEFAULT ((CURRENT_TIMESTAMP AT TIME ZONE 'America/Guatemala')::date);
     `);
 
-    // 15. Permisos del rol de la aplicación sobre lo que haya quedado en la base (al final, con todas las tablas)
+    // 15. Historial de resoluciones del comité (issue #89): cada resolución (aprobar, devolver o denegar) es una fila;
+    //     antes solo quedaba la última en solicitudes_credito. Registro de auditoría: solo se inserta. Las resoluciones
+    //     anteriores se cargan solo al crear la tabla (la última de cada crédito, marcada `carga_inicial`): en arranques
+    //     posteriores no se deduce nada de columnas que sí se pueden cambiar.
+    //     Totales de cada reporte (issue #95): con el folio se cotejan las cifras de un reporte impreso.
+    await pool.query(`
+      DO $$
+      BEGIN
+        IF to_regclass('public.resoluciones_credito') IS NULL THEN
+          CREATE TABLE resoluciones_credito (
+            id_resolucion SERIAL PRIMARY KEY,
+            id_solicitud_credito INT NOT NULL REFERENCES solicitudes_credito(id_solicitud_credito) ON DELETE RESTRICT,
+            id_usuario_resuelve INT NOT NULL REFERENCES usuarios(id_usuario) ON DELETE RESTRICT,
+            resolucion VARCHAR(10) NOT NULL CHECK (resolucion IN ('APROBADA', 'DEVUELTA', 'DENEGADA')),
+            -- Devolver y denegar llevan motivo (COALESCE: un NULL dejaría el CHECK en NULL, que se da por cumplido)
+            observaciones TEXT CONSTRAINT chk_resoluciones_motivo
+              CHECK (resolucion = 'APROBADA' OR COALESCE(char_length(btrim(observaciones)), 0) > 0),
+            -- Fila deducida de solicitudes_credito al crear la tabla (no registrada en el momento)
+            carga_inicial BOOLEAN NOT NULL DEFAULT FALSE,
+            fecha_resolucion TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+          );
+          -- Las resoluciones de antes del historial: la última de cada crédito (devolver deja un estado que no es final)
+          INSERT INTO resoluciones_credito (id_solicitud_credito, id_usuario_resuelve, resolucion, observaciones,
+                                            carga_inicial, fecha_resolucion)
+          SELECT sc.id_solicitud_credito, sc.id_ejecutivo_resuelve, r.resolucion,
+                 CASE WHEN r.resolucion = 'APROBADA' THEN sc.observaciones_ejecutivo
+                      ELSE COALESCE(NULLIF(btrim(sc.observaciones_ejecutivo), ''), 'Sin observación (anterior al historial)') END,
+                 TRUE, sc.fecha_resolucion_ejecutivo
+          FROM solicitudes_credito sc
+          CROSS JOIN LATERAL (SELECT CASE WHEN sc.estado IN ('APROBADA', 'APROBADO', 'DESEMBOLSADA') THEN 'APROBADA'
+                                          WHEN sc.estado = 'DENEGADA' THEN 'DENEGADA'
+                                          ELSE 'DEVUELTA' END AS resolucion) r
+          WHERE sc.id_ejecutivo_resuelve IS NOT NULL AND sc.fecha_resolucion_ejecutivo IS NOT NULL;
+        END IF;
+      END $$;
+      CREATE INDEX IF NOT EXISTS idx_resoluciones_credito_solicitud ON resoluciones_credito (id_solicitud_credito, fecha_resolucion);
+      CREATE INDEX IF NOT EXISTS idx_resoluciones_credito_usuario ON resoluciones_credito (id_usuario_resuelve, fecha_resolucion DESC);
+      CREATE INDEX IF NOT EXISTS idx_resoluciones_credito_fecha ON resoluciones_credito (fecha_resolucion);
+
+      DROP TRIGGER IF EXISTS trg_resoluciones_credito_inmutable ON resoluciones_credito;
+      CREATE TRIGGER trg_resoluciones_credito_inmutable
+          BEFORE UPDATE OR DELETE ON resoluciones_credito
+          FOR EACH ROW EXECUTE FUNCTION trg_registro_solo_insercion();
+      DROP TRIGGER IF EXISTS trg_resoluciones_credito_sin_truncate ON resoluciones_credito;
+      CREATE TRIGGER trg_resoluciones_credito_sin_truncate
+          BEFORE TRUNCATE ON resoluciones_credito
+          FOR EACH STATEMENT EXECUTE FUNCTION trg_registro_solo_insercion();
+
+      -- Solo cambia el catálogo (valor constante): no reescribe las filas ni dispara el trigger de solo inserción. El
+      -- CHECK se agrega una vez: recrearlo en cada arranque revisaría toda la tabla, que solo crece.
+      ALTER TABLE reportes_generados ADD COLUMN IF NOT EXISTS resumen JSONB NOT NULL DEFAULT '{}'::jsonb;
+      DO $$
+      BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_constraint
+                       WHERE conname = 'chk_reportes_generados_resumen' AND conrelid = 'reportes_generados'::regclass) THEN
+          ALTER TABLE reportes_generados ADD CONSTRAINT chk_reportes_generados_resumen CHECK (jsonb_typeof(resumen) = 'object');
+        END IF;
+      END $$;
+    `);
+
+    // 16. Permisos del rol de la aplicación sobre lo que haya quedado en la base (al final, con todas las tablas)
     await aplicarPermisosDeLaAplicacion(pool);
 
     console.log('[MIGRATION] Esquema, cuenta_bancaria corporativa, MFA TOTP, roles, beneficiarios y optimizaciones DBA aplicadas exitosamente.');

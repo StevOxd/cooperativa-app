@@ -5,6 +5,7 @@ import {
   THead, TR,
 } from '../../ui';
 import { formatDate, formatQ, formatRelative, humanize } from '../../../utils/format';
+import { claveDeCuenta } from './cuentasOrigen';
 
 const TRANSFER_STATES = {
   PENDIENTE: { label: 'En revisión', tone: 'warning' },
@@ -21,15 +22,21 @@ const totalPorEstado = (solicitudes, estado) => {
 };
 
 /**
- * Pestaña de traslados: resumen de sus solicitudes, cuenta de planilla (origen) e historial con el comprobante de
- * cada solicitud.
+ * Pestaña de traslados: resumen de sus solicitudes, cuentas desde las que puede trasladar (la de planilla y las del
+ * banco, issue #82) e historial con el comprobante de cada solicitud.
  *
  * @param {Object} props
+ * @param {Object[]} props.cuentasOrigen - Cuentas desde las que puede trasladar.
+ * @param {(cuenta: Object) => void} props.abrirTrasladoDesde - Abre el formulario con esa cuenta de origen.
+ * @param {boolean} [props.bancoDisponible=true] - false si no se pudieron consultar sus cuentas del banco.
+ * @param {() => void} props.openTrasladoModal - Abre el formulario con la cuenta predeterminada.
  * @param {(solicitud: Object) => void} props.onDescargarComprobante - Descarga el comprobante en PDF.
  * @param {(numeroCaso: string) => boolean} props.descargandoComprobante - Si el comprobante de ese caso se está generando.
  */
 export const AssociateTransfersTab = ({
-  cuentaPlanilla,
+  abrirTrasladoDesde,
+  bancoDisponible = true,
+  cuentasOrigen = [],
   descargandoComprobante,
   onDescargarComprobante,
   filterTrasladoEstado,
@@ -42,7 +49,6 @@ export const AssociateTransfersTab = ({
   setSearchTrasladoQuery,
   solicitudesTraslado,
 }) => {
-  const esCooperativa = cuentaPlanilla?.origen_cuenta === 'COOPERATIVA';
   const hayFiltros = filterTrasladoEstado !== 'TODOS' || filterTrasladoTipo !== 'TODOS' || searchTrasladoQuery.trim() !== '';
   const quitarFiltros = () => {
     setFilterTrasladoEstado('TODOS');
@@ -75,35 +81,40 @@ export const AssociateTransfersTab = ({
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-12 lg:items-start">
         <Card className="lg:col-span-5">
           <CardHeader
-            title="Cuenta de planilla"
-            description={esCooperativa ? 'Cuenta principal en la cooperativa' : 'Cuenta bancaria vinculada'}
-            actions={cuentaPlanilla && <Badge>{esCooperativa ? 'Cooperativa' : 'Banco'}</Badge>}
+            title={cuentasOrigen.length > 1 ? 'Sus cuentas para trasladar' : 'Su cuenta para trasladar'}
+            description={cuentasOrigen.length > 1
+              ? 'Elija la cuenta desde la que se trasladará el dinero a la cooperativa.'
+              : 'Desde esta cuenta se traslada el dinero a la cooperativa.'}
           />
-          {cuentaPlanilla ? (
-            <CardBody className="space-y-5">
-              <div>
-                <p className="text-sm text-ink">{cuentaPlanilla.tipo_cuenta}</p>
-                <p className="font-mono text-sm text-ink-muted">{cuentaPlanilla.numero_cuenta}</p>
-              </div>
-
-              <div>
-                <p className="text-xs text-ink-muted">Saldo disponible</p>
-                <p className="text-3xl font-semibold text-ink tabular-nums">{formatQ(cuentaPlanilla.saldo_disponible)}</p>
-                <p className="mt-2 text-sm text-ink-muted">
-                  {esCooperativa
-                    ? 'Puede usar estos fondos para traslados, pagos o aperturas en la cooperativa.'
-                    : 'Puede trasladar estos fondos a sus cuentas de la cooperativa o abrir una nueva.'}
-                </p>
-              </div>
-
-              <Button fullWidth icon={Send} onClick={openTrasladoModal}>
-                Solicitar traslado
-              </Button>
-            </CardBody>
-          ) : (
+          {!bancoDisponible && (
+            <div className="border-b border-line px-5 py-3">
+              <Alert tone="warning">No pudimos consultar sus cuentas del banco. Actualice en unos minutos para verlas.</Alert>
+            </div>
+          )}
+          {cuentasOrigen.length > 0 ? (
+            <ul className="divide-y divide-line" aria-label="Cuentas de origen">
+              {cuentasOrigen.map((c) => (
+                <li key={claveDeCuenta(c)} className="flex flex-wrap items-center justify-between gap-3 px-5 py-4">
+                  <div className="min-w-0">
+                    <p className="flex flex-wrap items-center gap-2 text-sm text-ink">
+                      {c.tipo_cuenta}
+                      <Badge>{c.origen_cuenta === 'BANCO' ? 'Banco' : 'Cooperativa'}</Badge>
+                    </p>
+                    <p className="font-mono text-xs text-ink-muted">{c.numero_cuenta}</p>
+                    <p className="mt-1 text-xl font-semibold text-ink tabular-nums">
+                      {formatQ(c.saldo_disponible)} <span className="text-xs font-normal text-ink-muted">disponible</span>
+                    </p>
+                  </div>
+                  <Button size="sm" icon={Send} onClick={() => abrirTrasladoDesde(c)}>
+                    Trasladar<span className="sr-only"> desde la cuenta {c.numero_cuenta}</span>
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          ) : bancoDisponible && (
             <CardBody>
-              {/* Sin planilla los botones de traslado quedan deshabilitados: este aviso explica por qué */}
-              <Alert tone="warning" title="No encontramos su cuenta de planilla">
+              {/* Sin cuentas los botones de traslado quedan deshabilitados: este aviso explica por qué */}
+              <Alert tone="warning" title="No encontramos cuentas para trasladar">
                 Para solicitar traslados necesita una cuenta vinculada. Acérquese a una agencia de la cooperativa.
               </Alert>
             </CardBody>
@@ -149,9 +160,9 @@ export const AssociateTransfersTab = ({
             <EmptyState
               icon={ArrowLeftRight}
               title="Aún no ha solicitado traslados"
-              description="Con un traslado pasa dinero de su cuenta de planilla a una cuenta de la cooperativa, o abre una nueva. Un operador lo revisa y aquí verá su estado."
+              description="Con un traslado pasa dinero de una de sus cuentas a una cuenta de la cooperativa, o abre una nueva. Un operador lo revisa y aquí verá su estado."
               action={
-                cuentaPlanilla && (
+                cuentasOrigen.length > 0 && (
                   <Button variant="secondary" icon={Send} onClick={openTrasladoModal}>
                     Solicitar traslado
                   </Button>

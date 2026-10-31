@@ -280,6 +280,13 @@ const testServer = server.listen(0, async () => {
     const aprobado = await aceptar(normal);
     const orden = registro.join(' > ');
     assert(aprobado.status === 200 && (await estadoDe(normal)) === 'APROBADA', 'El ejecutivo aprueba y desembolsa');
+    // #89: la aprobación queda en el historial; las que no se completaron, no (el ROLLBACK las deshace)
+    const historialDe = async (id) => (await db.query(
+      'SELECT resolucion FROM resoluciones_credito WHERE id_solicitud_credito = $1 ORDER BY id_resolucion', [id]
+    )).rows.map((f) => f.resolucion).join();
+    assert((await historialDe(normal)) === 'APROBADA' && (await historialDe(aplicado)) === 'APROBADA'
+      && (await historialDe(conBancoCaido)) === '' && (await historialDe(conCommitFallido)) === '' && (await historialDe(sinReversion)) === '',
+      'El historial guarda la aprobación y nada de las que no se completaron (banco caído o COMMIT fallido)');
     assert(
       registro.indexOf('UPDATE solicitudes_credito') !== -1
         && registro.indexOf('UPDATE solicitudes_credito') < registro.indexOf('ACREDITAR')

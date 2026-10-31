@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { KeyRound, PlusCircle, Printer, Users } from 'lucide-react';
 import api from '../../services/api';
 import { Alert, Badge, Button, LoadingState, Modal, StatCard, StatGroup, cn } from '../ui';
-import { formatDate, formatQ, humanize } from '../../utils/format';
+import { formatDate, formatDateOnly, formatQ, humanize } from '../../utils/format';
 import { parentescoLabel } from '../../utils/parentesco';
 import { toast } from '../../context/ToastContext';
 import { DocumentChecklist, DocumentViewerModal } from '../documents';
@@ -146,7 +146,7 @@ export const AssociateExpedienteModal = ({
                 ['Código de usuario', a.codigo_corporativo || 'Sin acceso al portal', a.codigo_corporativo && 'font-mono'],
                 ['Teléfono', a.telefono || 'No registrado', a.telefono && 'font-mono'],
                 ['Correo', a.email || 'No registrado'],
-                ['Asociado desde', formatDate(a.fecha_ingreso)],
+                ['Asociado desde', formatDateOnly(a.fecha_ingreso)],
               ].map(([label, value, valueClass]) => (
                 <div key={label}>
                   <dt className="text-xs text-ink-muted">{label}</dt>

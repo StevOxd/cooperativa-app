@@ -10,10 +10,10 @@ import {
   money,
   noteBox,
   sectionTitle,
-  shortDate,
   table,
 } from './pdf/pdfKit';
 import { esIngreso } from './movimientos';
+import { formatDateOnly } from './format';
 
 /** Tipos de movimiento en palabras. */
 const TIPOS = {
@@ -77,7 +77,7 @@ export const generateAccountStatementPdf = ({ asociado, cuenta, transacciones = 
     { label: 'Nombre', value: nombre, strong: true },
     { label: 'Usuario', value: asociado?.codigo_corporativo, mono: true },
     { label: 'DPI', value: asociado?.cui_dpi, mono: true },
-    { label: 'Asociado desde', value: asociado?.fecha_ingreso ? shortDate(asociado.fecha_ingreso) : '—' },
+    { label: 'Asociado desde', value: formatDateOnly(asociado?.fecha_ingreso) },
   ]);
 
   let ingresos = 0;

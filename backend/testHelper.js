@@ -242,6 +242,10 @@ async function borrarPersonaDePrueba(db, idPersona) {
     `DELETE FROM historial_cambios_beneficiarios WHERE id_cuenta IN (${cuentas})`,
     `DELETE FROM beneficiarios WHERE id_cuenta IN (${cuentas})`,
     `DELETE FROM transacciones WHERE id_cuenta IN (${cuentas})`,
+    // El historial de las solicitudes del asociado va antes que ellas. El de solicitudes ajenas que resolvió esta
+    // persona no se toca: su llave foránea detiene el borrado (como lo demás que el personal registró)
+    `DELETE FROM resoluciones_credito
+       WHERE id_solicitud_credito IN (SELECT id_solicitud_credito FROM solicitudes_credito WHERE id_asociado IN (${asociados}))`,
     `DELETE FROM solicitudes_credito WHERE id_asociado IN (${asociados})`,
     `DELETE FROM solicitudes_traslado_apertura WHERE id_asociado IN (${asociados})`,
     `DELETE FROM cuentas WHERE id_asociado IN (${asociados})`,
