@@ -4,7 +4,7 @@ process.env.MAIL_ENABLED = 'false';
 /**
  * testMejorasLote.js
  *
- * - #82: el asociado ve todas sus cuentas del banco (y la de planilla) como origen de un traslado y elige una; la
+ * - #82: el asociado ve todas sus cuentas del banco como origen de un traslado y elige una; la
  *   solicitud dice si la cuenta es del banco o de la cooperativa y solo se busca ahí.
  * - #89: cada resolución del comité (devolver, denegar) queda en su historial.
  * - #91: el listado de asociados no pasa de 100 por página.
@@ -88,9 +88,6 @@ const testServer = server.listen(0, async () => {
     const claves = (origenes.body.data || []).map((c) => `${c.origen_cuenta}:${c.id_cuenta}`);
     assert(origenes.status === 200 && claves.join() === 'BANCO:9901,BANCO:9902',
       'Lista todas las cuentas activas del banco (ahorro y monetaria) y no la inactiva');
-    const predeterminada = await request('/api/asociado/cuenta-planilla', 'GET', null, tokenAsociado);
-    assert(predeterminada.status === 200 && predeterminada.body.data.id_cuenta === 9901,
-      'La cuenta de planilla de siempre sigue respondiendo con la primera');
 
     const minimo = (await db.query('SELECT monto_minimo_apertura FROM tipos_cuenta WHERE id_tipo_cuenta = 2')).rows[0].monto_minimo_apertura;
     const solicitar = (datos) => request('/api/asociado/solicitudes-traslado', 'POST', {

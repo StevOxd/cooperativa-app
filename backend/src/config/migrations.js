@@ -1027,14 +1027,13 @@ const runMigrations = async () => {
                    (SELECT c.relowner FROM pg_catalog.pg_class c WHERE c.oid = TG_RELID), 'MEMBER') THEN
               RETURN COALESCE(NEW, OLD);
           END IF;
-          -- Purga diaria (purgar_cargas_previas_vencidas, del rol dueño): solo documentos de una carga previa vencida
+          -- Purga diaria (purgar_cargas_previas_vencidas, del rol dueño): solo documentos de un expediente que ya no
+          -- sirve para afiliar (expediente_documentos_purgable, paso 15.1)
           IF TG_OP = 'DELETE'
              AND pg_catalog.current_setting('cooperativa.purga_cargas_previas', true) = 'on'
              AND pg_catalog.pg_has_role(current_user,
                    (SELECT c.relowner FROM pg_catalog.pg_class c WHERE c.oid = TG_RELID), 'MEMBER')
-             AND EXISTS (SELECT 1 FROM public.expedientes_documentos e
-                         WHERE e.id_expediente = OLD.id_expediente AND e.id_persona IS NULL AND e.id_solicitud IS NULL
-                           AND e.expira_en < pg_catalog.now()) THEN
+             AND public.expediente_documentos_purgable(OLD.id_expediente) THEN
               RETURN OLD;
           END IF;
           IF TG_OP = 'UPDATE'
@@ -1073,7 +1072,7 @@ const runMigrations = async () => {
              AND pg_catalog.current_setting('cooperativa.purga_cargas_previas', true) = 'on'
              AND pg_catalog.pg_has_role(current_user,
                    (SELECT c.relowner FROM pg_catalog.pg_class c WHERE c.oid = TG_RELID), 'MEMBER')
-             AND OLD.id_persona IS NULL AND OLD.id_solicitud IS NULL AND OLD.expira_en < pg_catalog.now() THEN
+             AND public.expediente_documentos_purgable(OLD.id_expediente) THEN
               RETURN OLD;
           END IF;
           IF TG_OP = 'UPDATE'
@@ -1254,8 +1253,9 @@ const runMigrations = async () => {
     //     quedan en NULL y los reportes deducen el dato solo para ellos. El CHECK va dentro del ADD COLUMN para que
     //     no se revise la tabla en cada arranque.
     //   - Una sola carga previa (documentos de una afiliación que todavía no se completa) por DPI.
-    //   - Las cargas previas vencidas se borran una vez al día con una función del rol dueño: el de la aplicación no
-    //     borra en estas tablas, solo puede ejecutarla, y ella solo borra cargas previas vencidas que nadie abrió.
+    //   - Una vez al día se borran, con una función del rol dueño, los documentos que ya no sirven para afiliar: cargas
+    //     previas vencidas y los de solicitudes canceladas, expiradas o pendientes por más de 30 días (H-84), siempre
+    //     que nadie los haya abierto ni revisado. El rol de la aplicación no borra en estas tablas: solo la ejecuta.
     const appEjecuta = escapeIdentifier(process.env.DB_USER);
     await pool.query(`
       ALTER TABLE asociados ADD COLUMN IF NOT EXISTS tipo_asociado VARCHAR(2)
@@ -1279,6 +1279,34 @@ const runMigrations = async () => {
       CREATE INDEX IF NOT EXISTS idx_expedientes_carga_previa_vence ON expedientes_documentos (expira_en)
         WHERE id_persona IS NULL AND id_solicitud IS NULL;
 
+      -- Un expediente que ya no sirve para afiliar (H-84): una carga previa vencida, o el de una solicitud de agencia
+      -- cancelada, expirada o pendiente por más de 30 días, que no se vinculó a nadie. Lo usan los triggers de
+      -- documentos y expedientes para dejar pasar la purga y la propia purga para elegir qué borrar.
+      CREATE OR REPLACE FUNCTION expediente_documentos_purgable(p_id_expediente integer)
+      RETURNS boolean
+      LANGUAGE sql STABLE
+      SET search_path = pg_catalog, pg_temp
+      AS $$
+          SELECT EXISTS (
+              SELECT 1
+              FROM public.expedientes_documentos e
+              LEFT JOIN public.solicitudes_afiliacion_agencia s ON s.id_solicitud = e.id_solicitud
+              WHERE e.id_expediente = p_id_expediente AND e.id_persona IS NULL
+                AND ((e.id_solicitud IS NULL AND e.expira_en < pg_catalog.now())
+                     OR s.estado IN ('CANCELADA', 'EXPIRADA')
+                     -- Pendiente por más de 30 días, salvo que un operador la esté atendiendo o se le haya subido algo
+                     -- en los últimos 2 días (la están retomando)
+                     OR (s.estado = 'PENDIENTE_AGENCIA' AND s.fecha_solicitud < pg_catalog.now() - INTERVAL '30 days'
+                         AND s.id_operador_bloqueo IS NULL
+                         AND NOT EXISTS (SELECT 1 FROM public.documentos_afiliacion d
+                                         WHERE d.id_expediente = e.id_expediente
+                                           AND d.fecha_carga > pg_catalog.now() - INTERVAL '2 days')))
+          )
+      $$;
+
+      -- Solo la usan los triggers y la purga, como rol dueño
+      REVOKE ALL ON FUNCTION expediente_documentos_purgable(integer) FROM PUBLIC;
+
       CREATE OR REPLACE FUNCTION purgar_cargas_previas_vencidas()
       RETURNS TABLE (archivo VARCHAR)
       SECURITY DEFINER
@@ -1293,7 +1321,7 @@ const runMigrations = async () => {
               SELECT d.id_documento, d.archivo
               FROM public.documentos_afiliacion d
               JOIN public.expedientes_documentos e ON e.id_expediente = d.id_expediente
-              WHERE e.id_persona IS NULL AND e.id_solicitud IS NULL AND e.expira_en < pg_catalog.now()
+              WHERE public.expediente_documentos_purgable(e.id_expediente)
                 -- Lo que alguien abrió o revisó es auditoría y no se borra (una carga previa no debería tener ninguno)
                 AND NOT EXISTS (SELECT 1 FROM public.documentos_afiliacion d2
                                 JOIN public.accesos_documento a ON a.id_documento = d2.id_documento
@@ -1305,13 +1333,29 @@ const runMigrations = async () => {
               -- Una carga previa que en este momento se renueva o se vincula no se toca
               FOR UPDATE OF e SKIP LOCKED
           LOOP
-              DELETE FROM public.documentos_afiliacion WHERE id_documento = doc.id_documento;
-              archivo := doc.archivo;
-              RETURN NEXT;
+              -- Si en este momento se vincula a una persona, el trigger lo rechaza: se salta ese documento y la purga
+              -- del día sigue con los demás
+              BEGIN
+                  DELETE FROM public.documentos_afiliacion WHERE id_documento = doc.id_documento;
+                  archivo := doc.archivo;
+                  RETURN NEXT;
+              EXCEPTION WHEN restrict_violation THEN
+                  NULL;
+              END;
           END LOOP;
-          DELETE FROM public.expedientes_documentos e
-          WHERE e.id_persona IS NULL AND e.id_solicitud IS NULL AND e.expira_en < pg_catalog.now()
-            AND NOT EXISTS (SELECT 1 FROM public.documentos_afiliacion d WHERE d.id_expediente = e.id_expediente);
+          FOR doc IN
+              SELECT e.id_expediente
+              FROM public.expedientes_documentos e
+              WHERE public.expediente_documentos_purgable(e.id_expediente)
+                AND NOT EXISTS (SELECT 1 FROM public.documentos_afiliacion d WHERE d.id_expediente = e.id_expediente)
+              FOR UPDATE OF e SKIP LOCKED
+          LOOP
+              BEGIN
+                  DELETE FROM public.expedientes_documentos WHERE id_expediente = doc.id_expediente;
+              EXCEPTION WHEN restrict_violation THEN
+                  NULL;
+              END;
+          END LOOP;
           PERFORM pg_catalog.set_config('cooperativa.purga_cargas_previas', 'off', true);
       END;
       $$ LANGUAGE plpgsql;

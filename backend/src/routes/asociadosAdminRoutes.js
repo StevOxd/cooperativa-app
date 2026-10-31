@@ -1,4 +1,5 @@
 const express = require('express');
+const rateLimit = require('express-rate-limit');
 const router = express.Router();
 const asociadosAdminController = require('../controllers/asociadosAdminController');
 const documentosController = require('../controllers/documentosAfiliacionController');
@@ -9,11 +10,27 @@ const { prohibirAutoatencion } = require('../middlewares/segregacion');
 router.use(verifyToken);
 router.use(checkRole('OPERADOR'));
 
+// Padrón por usuario (issue #104): cada página trae hasta 100 asociados. El tope deja buscar y paginar con normalidad
+// (cada búsqueda es una consulta), pero no descargar el padrón completo una y otra vez.
+const isTestOrDev = process.env.NODE_ENV === 'test' || process.env.NODE_ENV === 'development';
+const padronLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: isTestOrDev ? 1000 : 300,
+  keyGenerator: (req) => `usuario:${req.user.id_usuario}`,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    message: 'Consultó el padrón demasiadas veces seguidas. Espere 15 minutos e intente de nuevo.',
+    error: 'RATE_LIMIT_EXCEEDED',
+  },
+});
+
 /**
  * @route   GET /api/admin/asociados
- * @desc    Listar padrón de asociados con filtros y paginación
+ * @desc    Listar padrón de asociados con filtros y paginación (con límite por usuario)
  */
-router.get('/', asociadosAdminController.listarAsociados);
+router.get('/', padronLimiter, asociadosAdminController.listarAsociados);
 
 /**
  * @route   GET /api/admin/asociados/:id/expediente

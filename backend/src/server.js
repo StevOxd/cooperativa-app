@@ -67,9 +67,17 @@ const corsOptions = {
 };
 app.use(cors(corsOptions));
 
-// Soporte para carga de archivos y firmas PDF escalables en base64 (límite 15MB)
-app.use(express.json({ limit: '15mb' }));
-app.use(express.urlencoded({ extended: true, limit: '15mb' }));
+// Cuerpo de la petición: 1 MB en toda la API; más solo en las rutas que envían archivos en Base64 (issue #99, ver
+// config/limitesCuerpo.js). Así no se lee un cuerpo de 15 MB en cualquier ruta antes de revisar la sesión.
+const { LIMITES, limiteDeRuta } = require('./config/limitesCuerpo');
+const lectoresDeCuerpo = Object.fromEntries(Object.values(LIMITES).map((limite) => [limite, [
+  express.json({ limit: limite }),
+  express.urlencoded({ extended: true, limit: limite }),
+]]));
+app.use((req, res, next) => {
+  const [json, urlencoded] = lectoresDeCuerpo[limiteDeRuta(req.path)];
+  json(req, res, (error) => (error ? next(error) : urlencoded(req, res, next)));
+});
 
 // Servir archivos estáticos protegidos con autenticación y RBAC (SEC-02)
 const { secureUploadsHandler } = require('./middlewares/secureUploads');

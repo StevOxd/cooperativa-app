@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { CheckCircle2, AlertCircle, AlertTriangle, Info, X, Bell } from 'lucide-react';
 import { cn } from '../components/ui/cn';
 import { getSocket } from '../services/socket';
@@ -54,6 +55,31 @@ export const ToastProvider = ({ children }) => {
   // Lo que leen los lectores de pantalla: dos regiones vivas que existen desde el inicio (una región creada junto con
   // su texto no siempre se anuncia). Los errores van en la urgente.
   const [anuncio, setAnuncio] = useState({ id: '', texto: '', urgente: false });
+  // Con un modal abierto (aria-modal), los lectores de pantalla ignoran lo que está fuera de él: las regiones vivas van
+  // dentro del modal de más arriba (issue #105). Viven siempre en el mismo contenedor, que se mueve de lugar: así no se
+  // vuelven a crear (una región recién creada no anuncia su texto) al abrir o cerrar un modal.
+  const [contenedorAnuncios] = useState(() => document.createElement('div'));
+  useEffect(() => {
+    let pendiente = null;
+    const ubicar = () => {
+      pendiente = null;
+      const modales = document.querySelectorAll('[role="dialog"][aria-modal="true"]');
+      const destino = modales[modales.length - 1] || document.body;
+      if (contenedorAnuncios.parentNode !== destino) destino.appendChild(contenedorAnuncios);
+    };
+    ubicar();
+    // Hay modales que no se montan en <body> (el menú lateral del personal): se observa todo el árbol, pero se revisa
+    // a lo sumo una vez por cuadro
+    const observador = new MutationObserver(() => {
+      if (pendiente === null) pendiente = requestAnimationFrame(ubicar);
+    });
+    observador.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['aria-modal'] });
+    return () => {
+      observador.disconnect();
+      if (pendiente !== null) cancelAnimationFrame(pendiente);
+      contenedorAnuncios.remove();
+    };
+  }, [contenedorAnuncios]);
 
   const removeToast = useCallback((id) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
@@ -134,12 +160,17 @@ export const ToastProvider = ({ children }) => {
       {children}
 
       {/* Regiones vivas: la clave nueva hace que se anuncie también un aviso igual al anterior */}
-      <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">
-        {!anuncio.urgente && <span key={anuncio.id}>{anuncio.texto}</span>}
-      </div>
-      <div className="sr-only" role="alert" aria-atomic="true">
-        {anuncio.urgente && <span key={anuncio.id}>{anuncio.texto}</span>}
-      </div>
+      {createPortal(
+        <>
+          <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+            {!anuncio.urgente && <span key={anuncio.id}>{anuncio.texto}</span>}
+          </div>
+          <div className="sr-only" role="alert" aria-atomic="true">
+            {anuncio.urgente && <span key={anuncio.id}>{anuncio.texto}</span>}
+          </div>
+        </>,
+        contenedorAnuncios
+      )}
 
       {/* Avisos flotantes: abajo a la derecha (no tapan las acciones del encabezado) y por encima del pie de los modales;
           a todo el ancho en el celular */}

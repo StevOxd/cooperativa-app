@@ -8,11 +8,6 @@ const { normalizarParentesco } = require('../utils/parentesco');
 const { respuestaDeError } = require('../utils/errores');
 const { movimientoSinRegistrar, revertirMovimientoSinRegistrar } = require('../services/reversionesService');
 
-// Constantes institucionales para eliminación de números mágicos
-const CONSTANTS = {
-  TIPO_CUENTA_PLANILLA: 'Cuenta de Planilla',
-};
-
 /**
  * Obtiene el perfil integral del asociado autenticado con sus datos personales y membresía.
  *
@@ -612,8 +607,8 @@ const createCredito = async (req, res) => {
 };
 
 /**
- * Cuentas desde las que el asociado puede trasladar (issue #82): su cuenta de planilla en la cooperativa y todas sus
- * cuentas activas en el banco (ahorro y monetaria). Si no tiene ninguna, su cuenta principal en la cooperativa.
+ * Cuentas desde las que el asociado puede trasladar (issue #82): todas sus cuentas activas en el banco (ahorro y
+ * monetaria). Si no tiene ninguna, su cuenta principal en la cooperativa (la de Ahorro a la Vista).
  *
  * @async
  * @param {number} idPersona
@@ -631,20 +626,7 @@ const cuentasDeOrigen = async (idPersona) => {
   });
   const cuentas = [];
 
-  // 1. Su cuenta de planilla en la cooperativa
-  const planilla = await db.query(
-    `SELECT ${columnas}
-     FROM cuentas c
-     JOIN asociados a ON c.id_asociado = a.id_asociado
-     JOIN tipos_cuenta tc ON c.id_tipo_cuenta = tc.id_tipo_cuenta
-     WHERE a.id_persona = $1 AND tc.nombre = $2 AND c.estado = 'ACTIVA'
-     ORDER BY c.id_cuenta ASC
-     LIMIT 1`,
-    [idPersona, CONSTANTS.TIPO_CUENTA_PLANILLA]
-  );
-  cuentas.push(...planilla.rows.map(deLaCooperativa));
-
-  // 2. Todas sus cuentas activas en el banco
+  // 1. Todas sus cuentas activas en el banco
   const cuiRes = await db.query('SELECT cui_dpi FROM personas WHERE id_persona = $1', [idPersona]);
   const cui = cuiRes.rows[0]?.cui_dpi;
   let bancoRespondio = false;
@@ -667,7 +649,7 @@ const cuentasDeOrigen = async (idPersona) => {
     }
   }
 
-  // 3. Sin planilla ni cuentas en el banco: su cuenta principal en la cooperativa. Si el banco no respondió, no: se
+  // 2. Sin cuentas en el banco: su cuenta principal en la cooperativa. Si el banco no respondió, no: se
   //    confundiría «no tiene cuentas en el banco» con «el banco está caído»
   if (cuentas.length === 0 && (!cui || bancoRespondio)) {
     const principal = await db.query(
@@ -706,40 +688,8 @@ const getCuentasOrigen = async (req, res) => {
 };
 
 /**
- * Cuenta de origen predeterminada de los traslados (la primera de `cuentasDeOrigen`). Se conserva por compatibilidad;
- * el portal usa `GET /api/asociado/cuentas-origen`.
- *
- * @async
- * @function getCuentaPlanilla
- * @param {import('express').Request} req - Solicitud HTTP con `req.user.id_persona`.
- * @param {import('express').Response} res - Respuesta HTTP con la cuenta encontrada.
- * @returns {Promise<import('express').Response>} Retorna 200 con la cuenta, 404 si no posee una cuenta activa o 500.
- */
-const getCuentaPlanilla = async (req, res) => {
-  try {
-    const [cuentaData] = (await cuentasDeOrigen(req.user.id_persona)).cuentas;
-    if (!cuentaData) {
-      return res.status(404).json({
-        success: false,
-        message: 'No tiene una cuenta activa vinculada.',
-      });
-    }
-    return res.status(200).json({
-      success: true,
-      data: cuentaData,
-    });
-  } catch (error) {
-    console.error('Error en asociadoController.getCuentaPlanilla:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'No se pudo cargar su cuenta de planilla. Intente de nuevo.',
-    });
-  }
-};
-
-/**
  * Obtiene las cuentas activas del asociado elegibles como destino de traslados y los tipos de cuenta
- * disponibles para nueva apertura inmediata. Excluye la cuenta de planilla.
+ * disponibles para nueva apertura inmediata.
  *
  * @async
  * @function getMisCuentasDestino
@@ -773,7 +723,8 @@ const getMisCuentasDestino = async (req, res) => {
     existingCuentasQuery += ' ORDER BY c.id_cuenta ASC';
     const existingRes = await db.query(existingCuentasQuery, params);
 
-    // 2. Tipos de cuenta disponibles para nueva apertura (excluye cuentas que ya posee y tipo planilla id 4)
+    // 2. Tipos de cuenta que puede abrir (issue #101): uno de cada tipo, así que se excluyen los que ya tiene activos
+    //    y los que ya pidió en una solicitud pendiente
     const availableTypesQuery = `
       SELECT 
         tc.id_tipo_cuenta,
@@ -787,7 +738,12 @@ const getMisCuentasDestino = async (req, res) => {
         FROM cuentas c
         JOIN asociados a ON c.id_asociado = a.id_asociado
         WHERE a.id_persona = $1 AND c.estado = 'ACTIVA'
-      ) AND tc.id_tipo_cuenta != 4
+      ) AND tc.id_tipo_cuenta NOT IN (
+        SELECT s.id_tipo_cuenta_destino
+        FROM solicitudes_traslado_apertura s
+        JOIN asociados a ON s.id_asociado = a.id_asociado
+        WHERE a.id_persona = $1 AND s.estado = 'PENDIENTE' AND s.tipo_operacion = 'APERTURA_Y_TRASLADO'
+      )
       ORDER BY tc.id_tipo_cuenta ASC
     `;
     const availableRes = await db.query(availableTypesQuery, [idPersona]);
@@ -824,11 +780,12 @@ const createSolicitudTraslado = async (req, res) => {
     const idPersona = req.user.id_persona;
     const { id_cuenta_origen, id_cuenta_destino, id_tipo_cuenta_destino, monto, tipo_operacion, origen_cuenta } = req.body;
 
-    const parsedMonto = parseFloat(monto);
-    if (isNaN(parsedMonto) || parsedMonto <= 0) {
+    // Quetzales con hasta dos decimales (la columna es NUMERIC(14,2): con más, se redondearía al guardar)
+    const parsedMonto = Number(monto);
+    if (!Number.isFinite(parsedMonto) || parsedMonto < 0.01 || Math.round(parsedMonto * 100) !== parsedMonto * 100) {
       return res.status(400).json({
         success: false,
-        message: 'Escriba un monto mayor que cero.',
+        message: 'Escriba un monto mayor que cero, con hasta dos decimales.',
       });
     }
 
@@ -901,7 +858,7 @@ const createSolicitudTraslado = async (req, res) => {
       finalTipoCuentaDestino = destRes.rows[0].id_tipo_cuenta;
     } else {
       // APERTURA_Y_TRASLADO
-      if (!id_tipo_cuenta_destino) {
+      if (!Number.isInteger(Number(id_tipo_cuenta_destino)) || Number(id_tipo_cuenta_destino) <= 0) {
         return res.status(400).json({
           success: false,
           message: 'Elija el tipo de cuenta que quiere abrir.',
@@ -925,7 +882,7 @@ const createSolicitudTraslado = async (req, res) => {
       }
     }
 
-    // 4. Insertar la solicitud (el numero_caso correlativo se genera atómicamente por trigger/secuencia)
+    // Solicitud nueva (el numero_caso correlativo se genera atómicamente por trigger/secuencia)
     const insertQuery = `
       INSERT INTO solicitudes_traslado_apertura (
         id_asociado,
@@ -940,15 +897,82 @@ const createSolicitudTraslado = async (req, res) => {
       VALUES ($1, $2, $3, $4, $5, $6, $7, 'PENDIENTE')
       RETURNING id_solicitud, numero_caso, monto, tipo_operacion, estado, fecha_solicitud
     `;
-    const result = await db.query(insertQuery, [
-      id_asociado,
-      isBanco ? null : idOrigen,
-      isBanco ? idOrigen : null,
-      id_cuenta_destino || null,
-      finalTipoCuentaDestino,
-      parsedMonto,
-      tipo_operacion
-    ]);
+
+    // 4. Con las solicitudes del asociado bloqueadas (un envío a la vez, issue #100): no se registra otra igual a una
+    //    pendiente reciente (doble envío), ni una que con los traslados pendientes de la misma cuenta pase el saldo, ni
+    //    la apertura de un tipo que ya tiene o ya pidió (uno de cada tipo, issue #101)
+    const client = await db.pool.connect();
+    let result;
+    try {
+      await client.query('BEGIN');
+      // Candado 4 (el 1 son los códigos corporativos, el 2 el efectivo de ventanilla y el 3 la purga diaria)
+      await client.query('SELECT pg_advisory_xact_lock(4, $1)', [id_asociado]);
+
+      if (tipo_operacion === 'APERTURA_Y_TRASLADO') {
+        const yaTiene = await client.query(
+          `SELECT 1 FROM cuentas WHERE id_asociado = $1 AND id_tipo_cuenta = $2 AND estado = 'ACTIVA'
+           UNION ALL
+           SELECT 1 FROM solicitudes_traslado_apertura
+           WHERE id_asociado = $1 AND id_tipo_cuenta_destino = $2 AND estado = 'PENDIENTE' AND tipo_operacion = 'APERTURA_Y_TRASLADO'`,
+          [id_asociado, finalTipoCuentaDestino]
+        );
+        if (yaTiene.rows.length > 0) {
+          await client.query('ROLLBACK');
+          return res.status(409).json({
+            success: false,
+            message: 'Ya tiene una cuenta de ese tipo o una solicitud para abrirla. Traslade a esa cuenta o espere la respuesta.',
+          });
+        }
+      }
+
+      const pendientes = (await client.query(
+        `SELECT monto, id_cuenta_destino, id_tipo_cuenta_destino, tipo_operacion,
+                fecha_solicitud > CURRENT_TIMESTAMP - INTERVAL '10 minutes' AS reciente
+         FROM solicitudes_traslado_apertura
+         WHERE id_asociado = $1 AND estado = 'PENDIENTE' AND ${isBanco ? 'id_cuenta_bancaria_origen' : 'id_cuenta_origen'} = $2`,
+        [id_asociado, idOrigen]
+      )).rows;
+      // En centavos: los montos son NUMERIC(14,2) y la suma en coma flotante podría errar por un centavo
+      const centavos = (valor) => Math.round(Number(valor) * 100);
+      const repetida = pendientes.some((p) => p.reciente && p.tipo_operacion === tipo_operacion
+        && centavos(p.monto) === centavos(parsedMonto)
+        && (tipo_operacion === 'TRASLADO_DIRECTO'
+          ? String(p.id_cuenta_destino) === String(id_cuenta_destino)
+          : String(p.id_tipo_cuenta_destino) === String(finalTipoCuentaDestino)));
+      if (repetida) {
+        await client.query('ROLLBACK');
+        return res.status(409).json({
+          success: false,
+          message: 'Ya envió esta misma solicitud hace unos minutos. Revísela en «Mis solicitudes».',
+        });
+      }
+      const comprometido = pendientes.reduce((total, p) => total + centavos(p.monto), 0) / 100;
+      if (centavos(comprometido) + centavos(parsedMonto) > centavos(saldo_disponible)) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({
+          success: false,
+          message: `Con sus traslados pendientes de esa cuenta (Q${comprometido.toFixed(2)}) no le alcanza el saldo. `
+            + `Disponible para otro traslado: Q${Math.max(parseFloat(saldo_disponible) - comprometido, 0).toFixed(2)}.`,
+        });
+      }
+
+      // 5. Insertar la solicitud (el numero_caso correlativo se genera atómicamente por trigger/secuencia)
+      result = await client.query(insertQuery, [
+        id_asociado,
+        isBanco ? null : idOrigen,
+        isBanco ? idOrigen : null,
+        id_cuenta_destino || null,
+        finalTipoCuentaDestino,
+        parsedMonto,
+        tipo_operacion
+      ]);
+      await client.query('COMMIT');
+    } catch (txError) {
+      await client.query('ROLLBACK').catch(() => {});
+      throw txError;
+    } finally {
+      client.release();
+    }
 
     return res.status(201).json({
       success: true,
@@ -1404,7 +1428,6 @@ module.exports = {
   iniciarCredito,
   subirExpedienteFirmado,
   cancelarCredito,
-  getCuentaPlanilla,
   getCuentasOrigen,
   getMisCuentasDestino,
   createSolicitudTraslado,

@@ -76,15 +76,8 @@ router.post('/creditos/:id/subir-expediente-firmado', asociadoController.subirEx
 router.post('/creditos/:id/cancelar', asociadoController.cancelarCredito);
 
 /**
- * @route   GET /api/asociado/cuenta-planilla
- * @desc    Obtener cuenta de planilla y saldo del asociado
- * @access  Privado
- */
-router.get('/cuenta-planilla', asociadoController.getCuentaPlanilla);
-
-/**
  * @route   GET /api/asociado/cuentas-origen
- * @desc    Cuentas desde las que puede trasladar: su planilla y sus cuentas activas del banco (issue #82)
+ * @desc    Cuentas desde las que puede trasladar: sus cuentas activas del banco o su cuenta principal (issue #82)
  * @access  Privado
  */
 router.get('/cuentas-origen', asociadoController.getCuentasOrigen);
@@ -101,7 +94,20 @@ router.get('/mis-cuentas-destino', asociadoController.getMisCuentasDestino);
  * @desc    Crear solicitud de traslado o apertura y traslado
  * @access  Privado
  */
-router.post('/solicitudes-traslado', asociadoController.createSolicitudTraslado);
+// Por usuario: cada solicitud llega a la bandeja de los operadores (un asociado no la llena de casos)
+const solicitudesTrasladoLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: isTestOrDev ? 200 : 20,
+  keyGenerator: (req) => `usuario:${req.user.id_usuario}`,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    message: 'Envió demasiadas solicitudes seguidas. Espere 15 minutos e intente de nuevo.',
+    error: 'RATE_LIMIT_EXCEEDED',
+  },
+});
+router.post('/solicitudes-traslado', solicitudesTrasladoLimiter, asociadoController.createSolicitudTraslado);
 
 /**
  * @route   GET /api/asociado/mis-solicitudes

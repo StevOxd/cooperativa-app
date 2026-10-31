@@ -65,8 +65,9 @@ const testServer = server.listen(0, async () => {
       throw new Error('Fallo de autenticación en suite de traslados.');
     }
 
-    // 2. Asegurar que el asociado tenga una Cuenta de Planilla activa con saldo para la prueba
-    console.log('\n2. Obteniendo cuenta de planilla para traslado...');
+    // 2. Cuenta de origen con saldo para la prueba: su cuenta principal en la cooperativa (Ahorro a la Vista). El
+    //    asociado de prueba no tiene cuentas en el banco, así que es la que el portal le ofrece como origen.
+    console.log('\n2. Preparando la cuenta de origen del traslado...');
     const userRes = await db.query(`
       SELECT a.id_asociado, a.id_persona 
       FROM asociados a 
@@ -74,34 +75,20 @@ const testServer = server.listen(0, async () => {
       WHERE u.codigo_corporativo = $1
     `, [codigoAsociado]);
     const idAsociado = userRes.rows[0].id_asociado;
-
-    // Buscar si ya tiene cuenta de planilla
-    const planRes = await db.query(`
-      SELECT c.id_cuenta, c.numero_cuenta, c.saldo_disponible 
-      FROM cuentas c 
-      JOIN tipos_cuenta tc ON c.id_tipo_cuenta = tc.id_tipo_cuenta 
-      WHERE c.id_asociado = $1 AND tc.nombre = 'Cuenta de Planilla' AND c.estado = 'ACTIVA'
+    const nuevaOrigen = await db.query(`
+      INSERT INTO cuentas (numero_cuenta, id_asociado, id_tipo_cuenta, saldo_disponible, saldo_reserva, estado)
+      VALUES ('CTA-ORIG-TEST-' || FLOOR(RANDOM() * 89999 + 10000)::text, $1, 2, 15000.00, 0.00, 'ACTIVA')
+      RETURNING id_cuenta, saldo_disponible;
     `, [idAsociado]);
+    idCuentaOrigen = nuevaOrigen.rows[0].id_cuenta;
+    saldoInicialOrigen = parseFloat(nuevaOrigen.rows[0].saldo_disponible);
+    isTempPlanilla = true;
 
-    if (planRes.rows.length > 0) {
-      idCuentaOrigen = planRes.rows[0].id_cuenta;
-      saldoInicialOrigen = parseFloat(planRes.rows[0].saldo_disponible);
-    } else {
-      // Crear cuenta temporal de planilla para la prueba
-      const newPlan = await db.query(`
-        INSERT INTO cuentas (numero_cuenta, id_asociado, id_tipo_cuenta, saldo_disponible, saldo_reserva, estado)
-        VALUES ('CTA-PLAN-TEST-' || FLOOR(RANDOM() * 89999 + 10000)::text, $1, 4, 15000.00, 0.00, 'ACTIVA')
-        RETURNING id_cuenta, saldo_disponible;
-      `, [idAsociado]);
-      idCuentaOrigen = newPlan.rows[0].id_cuenta;
-      saldoInicialOrigen = parseFloat(newPlan.rows[0].saldo_disponible);
-      isTempPlanilla = true;
-    }
-
-    // Consultar vía API GET /api/asociado/cuenta-planilla
-    const resPlanillaApi = await request('/api/asociado/cuenta-planilla', 'GET', null, assocToken);
-    reporter.assert(resPlanillaApi.status === 200, 'Endpoint GET /api/asociado/cuenta-planilla retornó status 200');
-    reporter.assert(parseFloat(resPlanillaApi.body.data?.saldo_disponible) >= 1500.00, `Cuenta planilla con saldo disponible suficiente (Q${saldoInicialOrigen.toFixed(2)})`);
+    // Consultar vía API GET /api/asociado/cuentas-origen
+    const resOrigenApi = await request('/api/asociado/cuentas-origen', 'GET', null, assocToken);
+    const origenApi = (resOrigenApi.body.data || []).find((c) => Number(c.id_cuenta) === Number(idCuentaOrigen));
+    reporter.assert(resOrigenApi.status === 200 && Boolean(origenApi), 'El portal ofrece su cuenta principal como origen del traslado');
+    reporter.assert(parseFloat(origenApi?.saldo_disponible) >= 1500.00, `Cuenta de origen con saldo suficiente (Q${saldoInicialOrigen.toFixed(2)})`);
 
     // 3. Consultar opciones de destino para el asociado
     console.log('\n3. Consultando catálogo de destinos para el asociado...');
@@ -195,7 +182,7 @@ const testServer = server.listen(0, async () => {
         if (isTempPlanilla) {
           await comoDueno('DELETE FROM transacciones WHERE id_cuenta = $1', [idCuentaOrigen]);
           await comoDueno('DELETE FROM cuentas WHERE id_cuenta = $1', [idCuentaOrigen]);
-          console.log('  [CLEANUP] Cuenta temporal de planilla eliminada.');
+          console.log('  [CLEANUP] Cuenta de origen temporal eliminada.');
         } else if (saldoInicialOrigen !== null) {
           await db.query('UPDATE cuentas SET saldo_disponible = $1 WHERE id_cuenta = $2', [saldoInicialOrigen, idCuentaOrigen]);
           console.log(`  [CLEANUP] Saldo original de la cuenta de prueba restaurado a Q${saldoInicialOrigen.toFixed(2)}.`);
