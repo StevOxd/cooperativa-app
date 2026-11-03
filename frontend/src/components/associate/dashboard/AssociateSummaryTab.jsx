@@ -150,7 +150,7 @@ export const AssociateSummaryTab = ({
                     </div>
                     <p className="mt-5 text-xs text-ink-muted">Saldo disponible</p>
                     <p className="text-2xl font-semibold text-ink tabular-nums">{formatQ(c.saldo_disponible)}</p>
-                    {parseFloat(c.saldo_reserva) > 0 && (
+                    {Number.parseFloat(c.saldo_reserva) > 0 && (
                       <p className="mt-1 text-xs text-ink-subtle tabular-nums">En reserva: {formatQ(c.saldo_reserva)}</p>
                     )}
                   </div>

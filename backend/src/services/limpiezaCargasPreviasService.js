@@ -56,7 +56,7 @@ const programarPurgaDiaria = () => {
       console.error('[ERROR] No se pudo purgar las cargas previas vencidas:', error.message);
     }
   };
-  correr();
+  void correr();
   return setInterval(correr, UN_DIA_MS).unref();
 };
 

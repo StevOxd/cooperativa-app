@@ -257,7 +257,7 @@ export const AssociateExpedienteModal = ({
                                 {b.cui_dpi && <> · DPI <span className="font-mono">{b.cui_dpi}</span></>}
                               </span>
                             </span>
-                            <span className="shrink-0 tabular-nums text-ink-soft">{parseFloat(b.porcentaje).toFixed(2)} %</span>
+                            <span className="shrink-0 tabular-nums text-ink-soft">{Number.parseFloat(b.porcentaje).toFixed(2)} %</span>
                           </li>
                         ))}
                       </ul>

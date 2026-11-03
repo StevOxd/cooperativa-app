@@ -48,7 +48,7 @@ export const AdminDashboard = () => {
   };
 
   useEffect(() => {
-    fetchDashboardData();
+    void fetchDashboardData();
   }, []);
 
   // Escuchar eventos de presencia en tiempo real por WebSocket

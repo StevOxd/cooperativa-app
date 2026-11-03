@@ -45,8 +45,8 @@ export const generateAccountStatementPdf = ({ asociado, cuenta, transacciones = 
   const doc = createDoc();
   const now = new Date();
 
-  const disponible = parseFloat(cuenta?.saldo_disponible || 0);
-  const reserva = parseFloat(cuenta?.saldo_reserva || 0);
+  const disponible = Number.parseFloat(cuenta?.saldo_disponible || 0);
+  const reserva = Number.parseFloat(cuenta?.saldo_reserva || 0);
   const nombre =
     asociado?.nombre_completo || `${asociado?.primer_nombre || ''} ${asociado?.primer_apellido || ''}`.trim();
 
@@ -83,7 +83,7 @@ export const generateAccountStatementPdf = ({ asociado, cuenta, transacciones = 
   let ingresos = 0;
   let egresos = 0;
   const rows = transacciones.map((t) => {
-    const monto = parseFloat(t.monto || 0);
+    const monto = Number.parseFloat(t.monto || 0);
     const ingreso = esIngreso(t);
     if (ingreso) ingresos += monto;
     else egresos += monto;

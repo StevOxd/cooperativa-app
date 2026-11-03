@@ -73,8 +73,8 @@ const init = (httpServer) => {
   io.on('connection', (socket) => {
     // Si vino autenticado en el handshake
     if (socket.userId) {
-      registrarSocketUsuario(socket.userId, socket.id, socket.sesionId);
-      if (socket.rol === 'ADMINISTRADOR') socket.join(SALA_PRESENCIA);
+      void registrarSocketUsuario(socket.userId, socket.id, socket.sesionId);
+      if (socket.rol === 'ADMINISTRADOR') void socket.join(SALA_PRESENCIA);
     }
 
     // Evento de autenticación manual o re-autenticación
@@ -98,9 +98,9 @@ const init = (httpServer) => {
         socket.userId = sesion.idUsuario;
         socket.sesionId = sesion.sesionId;
         socket.rol = sesion.rol;
-        registrarSocketUsuario(sesion.idUsuario, socket.id, sesion.sesionId);
-        if (sesion.rol === 'ADMINISTRADOR') socket.join(SALA_PRESENCIA);
-        else socket.leave(SALA_PRESENCIA);
+        void registrarSocketUsuario(sesion.idUsuario, socket.id, sesion.sesionId);
+        if (sesion.rol === 'ADMINISTRADOR') void socket.join(SALA_PRESENCIA);
+        else void socket.leave(SALA_PRESENCIA);
         socket.emit('authenticated', { success: true, userId: sesion.idUsuario });
       } catch (error) {
         registrarErrorDeToken(error);

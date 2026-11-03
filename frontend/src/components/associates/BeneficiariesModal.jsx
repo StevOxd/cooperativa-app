@@ -88,8 +88,8 @@ export const BeneficiariesModal = ({
             setSelectedCuentaId(targetId);
 
             if (targetId) {
-              loadBeneficiariosDeCuenta(targetId);
-              loadHistorialBeneficiarios(targetId);
+              void loadBeneficiariosDeCuenta(targetId);
+              void loadHistorialBeneficiarios(targetId);
             }
           }
         })
@@ -134,8 +134,8 @@ export const BeneficiariesModal = ({
     setSelectedCuentaId(cuentaId);
     setErrorMsg('');
     setSuccessMsg('');
-    loadBeneficiariosDeCuenta(cuentaId);
-    loadHistorialBeneficiarios(cuentaId);
+    void loadBeneficiariosDeCuenta(cuentaId);
+    void loadHistorialBeneficiarios(cuentaId);
   };
 
   const handleBenChange = (index, field, value) => {
@@ -174,19 +174,19 @@ export const BeneficiariesModal = ({
     if (totalCount === 0) return;
 
     const basePct = Math.floor((100 / totalCount) * 100) / 100;
-    const remainder = parseFloat((100 - basePct * totalCount).toFixed(2));
+    const remainder = Number.parseFloat((100 - basePct * totalCount).toFixed(2));
 
     setBeneficiarios((prev) =>
       prev.map((ben, idx) => ({
         ...ben,
-        porcentaje: idx === 0 ? parseFloat((basePct + remainder).toFixed(2)) : basePct,
+        porcentaje: idx === 0 ? Number.parseFloat((basePct + remainder).toFixed(2)) : basePct,
       }))
     );
   };
 
   // Cálculo de la suma total
   const sumaPorcentajes = beneficiarios.reduce((sum, b) => {
-    const val = parseFloat(b.porcentaje);
+    const val = Number.parseFloat(b.porcentaje);
     return sum + (isNaN(val) ? 0 : val);
   }, 0);
 
@@ -203,7 +203,7 @@ export const BeneficiariesModal = ({
           parentesco: (b.parentesco || 'HIJO/A').trim(),
           cui_dpi: (b.cui_dpi || '').trim(),
           telefono: (b.telefono || '').trim(),
-          porcentaje: Number(parseFloat(b.porcentaje || 0).toFixed(2)),
+          porcentaje: Number(Number.parseFloat(b.porcentaje || 0).toFixed(2)),
         }))
         .filter((b) => b.nombre_completo !== '' || b.cui_dpi !== '' || b.telefono !== '');
     };
@@ -278,7 +278,7 @@ export const BeneficiariesModal = ({
           parentesco: b.parentesco,
           cui_dpi: b.cui_dpi?.trim() || null,
           telefono: b.telefono?.trim() || null,
-          porcentaje: parseFloat(b.porcentaje),
+          porcentaje: Number.parseFloat(b.porcentaje),
         })),
         motivo: motivoCambio.trim() || 'Actualización de beneficiarios en ventanilla por Operador',
       });
@@ -287,7 +287,7 @@ export const BeneficiariesModal = ({
         setSuccessMsg('Beneficiarios guardados.');
         setMotivoCambio('');
         setInitialBeneficiarios(JSON.parse(JSON.stringify(beneficiarios)));
-        loadHistorialBeneficiarios(selectedCuentaId);
+        void loadHistorialBeneficiarios(selectedCuentaId);
         if (onSuccess) onSuccess();
       } else {
         setErrorMsg(res.data?.message || 'No se pudieron guardar los beneficiarios. Intente de nuevo.');
@@ -348,7 +348,7 @@ export const BeneficiariesModal = ({
           value={activeModalTab}
           onChange={(id) => {
             setActiveModalTab(id);
-            if (id === 'historial' && selectedCuentaId) loadHistorialBeneficiarios(selectedCuentaId);
+            if (id === 'historial' && selectedCuentaId) void loadHistorialBeneficiarios(selectedCuentaId);
           }}
           items={[
             { id: 'declaracion', label: 'Declaración' },
@@ -524,7 +524,7 @@ export const BeneficiariesModal = ({
                                   {list.map((b, i) => (
                                     <li key={i} className="flex justify-between gap-2">
                                       <span className="truncate text-ink">{b.nombre_completo}</span>
-                                      <span className="shrink-0 tabular-nums text-ink-soft">{parseFloat(b.porcentaje).toFixed(2)} %</span>
+                                      <span className="shrink-0 tabular-nums text-ink-soft">{Number.parseFloat(b.porcentaje).toFixed(2)} %</span>
                                     </li>
                                   ))}
                                 </ul>

@@ -47,7 +47,7 @@ export const GoogleEmailConfigModal = ({ isOpen, onClose, onConfigSaved }) => {
 
   useEffect(() => {
     if (isOpen) {
-      fetchStatus();
+      void fetchStatus();
       setTestResult(null);
     }
   }, [isOpen]);

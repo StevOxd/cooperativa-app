@@ -177,7 +177,7 @@ const resolverSolicitud = async (req, res) => {
         return res.status(409).json({ success: false, message: 'Esa solicitud ya fue resuelta.' });
       }
 
-      const monto = parseFloat(solicitud.monto);
+      const monto = Number.parseFloat(solicitud.monto);
       // Débito en el banco, si el origen es una cuenta del banco: se hace al final, justo antes del COMMIT (issue #31)
       let debitoBanco = null;
 
@@ -231,7 +231,7 @@ const resolverSolicitud = async (req, res) => {
           throw errorDeNegocio(409, 'La cuenta de origen ya no está activa. Rechace la solicitud con ese motivo.');
         }
 
-        const saldoOrigen = parseFloat(originRes.rows[0].saldo_disponible);
+        const saldoOrigen = Number.parseFloat(originRes.rows[0].saldo_disponible);
         if (saldoOrigen < monto) {
           throw errorDeNegocio(400, `Saldo insuficiente en cuenta de origen para procesar el traslado (Saldo: Q${saldoOrigen.toFixed(2)}).`);
         }
@@ -316,7 +316,7 @@ const resolverSolicitud = async (req, res) => {
           throw errorDeNegocio(404, 'Cuenta de destino no encontrada.');
         }
 
-        const saldoDestino = parseFloat(destRes.rows[0].saldo_disponible);
+        const saldoDestino = Number.parseFloat(destRes.rows[0].saldo_disponible);
         const nuevoSaldoDestino = saldoDestino + monto;
 
         await client.query('UPDATE cuentas SET saldo_disponible = $1 WHERE id_cuenta = $2', [

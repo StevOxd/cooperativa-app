@@ -92,7 +92,7 @@ export const OpenAccountModal = ({ isOpen, onClose, asociado, onSuccess, valores
   }, [isOpen]);
 
   const productoSeleccionado =
-    productos.find((p) => p.id_tipo_cuenta === parseInt(formData.id_tipo_cuenta, 10)) ||
+    productos.find((p) => p.id_tipo_cuenta === Number.parseInt(formData.id_tipo_cuenta, 10)) ||
     productos[0] || { id_tipo_cuenta: null, nombre: '', monto_minimo: 0 };
 
   useEffect(() => {
@@ -170,7 +170,7 @@ export const OpenAccountModal = ({ isOpen, onClose, asociado, onSuccess, valores
     e.preventDefault();
     setErrorMsg('');
 
-    const monto = parseFloat(formData.monto_apertura);
+    const monto = Number.parseFloat(formData.monto_apertura);
     if (isNaN(monto) || monto < productoSeleccionado.monto_minimo) {
       setErrorMsg(
         `El monto ingresado (Q${monto.toFixed(2)}) es menor al monto mínimo de apertura para ${
@@ -196,7 +196,7 @@ export const OpenAccountModal = ({ isOpen, onClose, asociado, onSuccess, valores
 
     try {
       const payload = {
-        id_tipo_cuenta: parseInt(formData.id_tipo_cuenta, 10),
+        id_tipo_cuenta: Number.parseInt(formData.id_tipo_cuenta, 10),
         monto_apertura: monto,
         origen_fondos: formData.origen_fondos,
         numero_cuenta_bancaria:

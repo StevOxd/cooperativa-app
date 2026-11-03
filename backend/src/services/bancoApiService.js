@@ -8,7 +8,7 @@ const getBaseUrl = () => {
   return process.env.BANCO_API_URL || 'http://localhost:5002';
 };
 
-const DEFAULT_TIMEOUT_MS = parseInt(process.env.BANCO_API_TIMEOUT_MS || '6000', 10);
+const DEFAULT_TIMEOUT_MS = Number.parseInt(process.env.BANCO_API_TIMEOUT_MS || '6000', 10);
 
 /**
  * Envoltorio HTTP con timeout preventivo usando AbortController (ARQ-02)

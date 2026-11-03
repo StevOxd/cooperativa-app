@@ -16,7 +16,7 @@ const MAX_INTENTOS = 5;
 const ESPERA_REENVIO_SEGUNDOS = 60;
 const MAX_ENVIOS_POR_HORA = 5;
 
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const EMAIL_REGEX = /^[^\s@]+@[^\s@.]+(\.[^\s@.]+)+$/;
 
 /** Error con estado HTTP y código para el frontend. Los códigos empiezan con CODIGO_ o CORREO_. */
 class CodigoVerificacionError extends Error {

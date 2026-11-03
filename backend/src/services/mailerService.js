@@ -31,11 +31,6 @@ class MailerService {
     this.currentUser = null;
     this.from = null;
     this.lastError = null;
-
-    // Inicializar transporte de forma asíncrona
-    this.initTransporter().catch((err) => {
-      console.warn('[MAILER] Error durante la inicialización:', err.message);
-    });
   }
 
   /**
@@ -858,7 +853,7 @@ class MailerService {
    */
   async sendAccountOpeningReceiptEmail({ to, nombre, numeroCuenta, tipoCuenta, montoApertura, origenFondos, fechaApertura }) {
     const subject = `Comprobante Oficial de Apertura de Cuenta: ${numeroCuenta}`;
-    const montoFormateado = `Q${parseFloat(montoApertura || 0).toLocaleString('es-GT', { minimumFractionDigits: 2 })}`;
+    const montoFormateado = `Q${Number.parseFloat(montoApertura || 0).toLocaleString('es-GT', { minimumFractionDigits: 2 })}`;
     const fechaTexto = fechaApertura ? new Date(fechaApertura).toLocaleString('es-GT') : new Date().toLocaleString('es-GT');
     const ORIGENES = {
       EFECTIVO_VENTANILLA: 'Efectivo en Ventanilla',
@@ -963,4 +958,11 @@ class MailerService {
   }
 }
 
-module.exports = new MailerService();
+const mailerService = new MailerService();
+
+// El transporte se prepara de forma asíncrona fuera del constructor: un constructor no debe lanzar trabajo asíncrono.
+mailerService.initTransporter().catch((err) => {
+  console.warn('[MAILER] Error durante la inicialización:', err.message);
+});
+
+module.exports = mailerService;

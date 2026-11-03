@@ -76,8 +76,8 @@ const responderReferenciaRepetida = (res, previo, cta, montoNum, tipo) => {
       id_movimiento: previo.id_movimiento,
       numero_cuenta: cta.numero_cuenta,
       [tipo === 'DEBITO' ? 'monto_debitado' : 'monto_acreditado']: montoNum,
-      saldo_anterior: parseFloat(previo.saldo_anterior),
-      saldo_nuevo: parseFloat(previo.saldo_posterior),
+      saldo_anterior: Number.parseFloat(previo.saldo_anterior),
+      saldo_nuevo: Number.parseFloat(previo.saldo_posterior),
       referencia: previo.referencia,
       fecha: previo.fecha_movimiento,
     },
@@ -132,7 +132,7 @@ const consultarCuenta = async (req, res) => {
         tipo_cuenta: cta.tipo_cuenta,
         titular_cui: cta.titular_cui,
         titular_nombre: cta.titular_nombre,
-        saldo_disponible: parseFloat(cta.saldo_disponible),
+        saldo_disponible: Number.parseFloat(cta.saldo_disponible),
         estado: cta.estado,
       },
     });
@@ -163,7 +163,7 @@ const debitar = async (req, res) => {
       });
     }
 
-    const montoNum = parseFloat(monto);
+    const montoNum = Number.parseFloat(monto);
     if (isNaN(montoNum) || montoNum <= 0) {
       return res.status(400).json({
         success: false,
@@ -217,7 +217,7 @@ const debitar = async (req, res) => {
       });
     }
 
-    const saldoAnterior = parseFloat(cta.saldo_disponible);
+    const saldoAnterior = Number.parseFloat(cta.saldo_disponible);
     if (saldoAnterior < montoNum) {
       await client.query('ROLLBACK');
       return res.status(400).json({
@@ -291,7 +291,7 @@ const acreditar = async (req, res) => {
       });
     }
 
-    const montoNum = parseFloat(monto);
+    const montoNum = Number.parseFloat(monto);
     if (isNaN(montoNum) || montoNum <= 0) {
       return res.status(400).json({
         success: false,
@@ -334,7 +334,7 @@ const acreditar = async (req, res) => {
       });
     }
 
-    const saldoAnterior = parseFloat(cta.saldo_disponible);
+    const saldoAnterior = Number.parseFloat(cta.saldo_disponible);
     const saldoPosterior = saldoAnterior + montoNum;
 
     await client.query(
@@ -406,7 +406,7 @@ const getCuentasDemo = async (req, res) => {
       success: true,
       data: result.rows.map((r) => ({
         ...r,
-        saldo_disponible: parseFloat(r.saldo_disponible),
+        saldo_disponible: Number.parseFloat(r.saldo_disponible),
       })),
     });
   } catch (error) {
@@ -450,7 +450,7 @@ const responderAperturaRepetida = async (client, res, previo, cui, montoNum) => 
       id_cuenta_bancaria: cta.id_cuenta_bancaria,
       numero_cuenta: cta.numero_cuenta,
       tipo_cuenta: cta.tipo_cuenta,
-      saldo_disponible: parseFloat(cta.saldo_disponible),
+      saldo_disponible: Number.parseFloat(cta.saldo_disponible),
       estado: cta.estado,
       titular_nombre: cta.nombre_completo,
       titular_cui: cta.cui_dpi,
@@ -556,7 +556,7 @@ const aperturarCuenta = async (req, res) => {
     let existeCuenta = true;
     const prefix = tipo_cuenta.toUpperCase() === 'MONETARIA' ? 'CTA-BCO-MONET-' : 'CTA-BCO-AHORRO-';
     while (existeCuenta) {
-      numeroCuenta = `${prefix}${String(Math.floor(100000 + Math.random() * 900000))}`;
+      numeroCuenta = `${prefix}${String(crypto.randomInt(100000, 1000000))}`;
       const checkNum = await client.query(
         'SELECT id_cuenta_bancaria FROM cuentas_bancarias WHERE numero_cuenta = $1',
         [numeroCuenta]
@@ -604,7 +604,7 @@ const aperturarCuenta = async (req, res) => {
         id_cuenta_bancaria: cta.id_cuenta_bancaria,
         numero_cuenta: cta.numero_cuenta,
         tipo_cuenta: cta.tipo_cuenta,
-        saldo_disponible: parseFloat(cta.saldo_disponible),
+        saldo_disponible: Number.parseFloat(cta.saldo_disponible),
         estado: cta.estado,
         titular_nombre: cliRow.rows[0]?.nombre_completo,
         titular_cui: cliRow.rows[0]?.cui_dpi,
@@ -658,7 +658,7 @@ const consultarMovimiento = async (req, res) => {
       return res.status(404).json({ success: false, message: 'No hay un movimiento con esa referencia.' });
     }
     const m = result.rows[0];
-    return res.status(200).json({ success: true, data: { ...m, monto: parseFloat(m.monto) } });
+    return res.status(200).json({ success: true, data: { ...m, monto: Number.parseFloat(m.monto) } });
   } catch (error) {
     console.error('[BANCO MOVIMIENTO ERROR]', error);
     return res.status(500).json({ success: false, message: 'Error al consultar el movimiento en la Entidad Bancaria.' });

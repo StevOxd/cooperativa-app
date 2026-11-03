@@ -29,7 +29,7 @@ import {
 export const generatePaymentPlanPdf = ({ asociado, credito, plan }) => {
   const doc = createDoc();
   const now = new Date();
-  const tasa = parseFloat(credito.tasa_interes);
+  const tasa = Number.parseFloat(credito.tasa_interes);
   const nombre = nombreCompleto(asociado);
   const totalCapital = plan.reduce((suma, c) => suma + c.capital, 0);
   const totalInteres = plan.reduce((suma, c) => suma + c.interes, 0);

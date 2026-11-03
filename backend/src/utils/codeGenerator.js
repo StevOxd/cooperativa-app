@@ -32,7 +32,7 @@ const calcularSiguienteCodigo = async (client, cleanPrefix) => {
   for (const row of res.rows) {
     const parts = row.codigo_corporativo.split('-');
     if (parts.length === 2) {
-      const num = parseInt(parts[1], 10);
+      const num = Number.parseInt(parts[1], 10);
       if (!isNaN(num) && num > maxNum) {
         maxNum = num;
       }

@@ -32,7 +32,7 @@ const CreditsSummary = ({ todos }) => {
       <StatCard
         label="Por analizar"
         value={porAnalizar.length}
-        hint={`${formatQ(porAnalizar.reduce((sum, c) => sum + (parseFloat(c.monto_solicitado) || 0), 0))} solicitados`}
+        hint={`${formatQ(porAnalizar.reduce((sum, c) => sum + (Number.parseFloat(c.monto_solicitado) || 0), 0))} solicitados`}
       />
       <StatCard
         label="Devueltas por el ejecutivo"
@@ -140,7 +140,7 @@ export const CreditsPanel = ({ creditos, todos, loading, search, onSearchChange,
                 </TD>
                 <TD numeric className="font-medium text-ink">{formatQ(c.monto_solicitado)}</TD>
                 <TD className="whitespace-nowrap">
-                  <div>{c.plazo_meses} meses · {parseFloat(c.tasa_interes).toFixed(2)}%</div>
+                  <div>{c.plazo_meses} meses · {Number.parseFloat(c.tasa_interes).toFixed(2)}%</div>
                   <div className="text-xs text-ink-subtle tabular-nums">{formatQ(c.cuota_mensual_estimada)}/mes</div>
                   {/* Dónde se acredita el desembolso, para compararlo con el PDF firmado */}
                   <div className="max-w-[12rem] truncate text-xs text-ink-subtle" title={c.cuenta_destino_info || undefined}>

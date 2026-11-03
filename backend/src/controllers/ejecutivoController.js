@@ -278,13 +278,13 @@ const resolverSolicitudCredito = async (req, res) => {
 
       // Notificaciones WebSocket
       try {
-        socketService.emitToRole('OPERADOR', 'solicitud_credito:devuelta', {
+        void socketService.emitToRole('OPERADOR', 'solicitud_credito:devuelta', {
           id_solicitud_credito: id,
           monto: sol.monto_solicitado,
           asociado: `${sol.primer_nombre} ${sol.primer_apellido}`,
           observaciones_ejecutivo: observaciones.trim(),
         });
-        socketService.emitToUser(sol.id_usuario_asociado, 'solicitud_credito:actualizada', {
+        void socketService.emitToUser(sol.id_usuario_asociado, 'solicitud_credito:actualizada', {
           id_solicitud_credito: id,
           estado: 'DEVUELTA_OPERADOR',
           mensaje: 'Su solicitud ha sido devuelta al operador para revisión de observaciones adicionales.',
@@ -337,7 +337,7 @@ const resolverSolicitudCredito = async (req, res) => {
 
       // Notificaciones WebSocket
       try {
-        socketService.emitToUser(sol.id_usuario_asociado, 'solicitud_credito:actualizada', {
+        void socketService.emitToUser(sol.id_usuario_asociado, 'solicitud_credito:actualizada', {
           id_solicitud_credito: id,
           estado: 'DENEGADA',
           mensaje: `Su solicitud de crédito ha sido denegada por la gerencia ejecutiva. Motivo: ${observaciones.trim()}`,
@@ -362,7 +362,7 @@ const resolverSolicitudCredito = async (req, res) => {
       });
     }
 
-    const monto = parseFloat(sol.monto_solicitado);
+    const monto = Number.parseFloat(sol.monto_solicitado);
     let cuentaBancariaId = sol.id_cuenta_bancaria_destino;
     let cuentaCoopId = sol.id_cuenta_destino;
     let destinoInfo = sol.cuenta_destino_info;
@@ -431,7 +431,7 @@ const resolverSolicitudCredito = async (req, res) => {
         throw errorDeNegocio(409, 'La cuenta cooperativa de acreditación no existe o fue cancelada.');
       }
 
-      const saldoAnterior = parseFloat(coopRes.rows[0].saldo_disponible);
+      const saldoAnterior = Number.parseFloat(coopRes.rows[0].saldo_disponible);
       const saldoPosterior = saldoAnterior + monto;
 
       await client.query(`
@@ -533,13 +533,13 @@ const resolverSolicitudCredito = async (req, res) => {
 
     // Notificaciones WebSocket
     try {
-      socketService.emitToUser(sol.id_usuario_asociado, 'solicitud_credito:actualizada', {
+      void socketService.emitToUser(sol.id_usuario_asociado, 'solicitud_credito:actualizada', {
         id_solicitud_credito: id,
         estado: 'APROBADA',
         monto: monto,
         mensaje: `¡Felicidades! Su crédito por Q${monto.toFixed(2)} ha sido ACEPTADO y acreditado exitosamente a su ${destinoInfo}.`,
       });
-      socketService.emitToRole('OPERADOR', 'solicitud_credito:actualizada', {
+      void socketService.emitToRole('OPERADOR', 'solicitud_credito:actualizada', {
         id_solicitud_credito: id,
         estado: 'APROBADA',
         mensaje: `Crédito #${id} aprobado y desembolsado por Gerencia Ejecutiva.`,

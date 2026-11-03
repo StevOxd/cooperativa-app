@@ -38,9 +38,9 @@ const listarAsociados = async (req, res) => {
     const estado = typeof req.query.estado === 'string' ? req.query.estado : '';
     // Entre 1 y 100 por página: un número mayor traería el padrón completo en una consulta sin registro (para eso
     // está el padrón de «Reportes», que queda registrado con folio)
-    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 10, 1), MAX_POR_PAGINA);
+    const limit = Math.min(Math.max(Number.parseInt(req.query.limit, 10) || 10, 1), MAX_POR_PAGINA);
     // Página con tope (un número enorme rompería el OFFSET); después se ajusta a las páginas que hay
-    let page = Math.min(Math.max(parseInt(req.query.page, 10) || 1, 1), MAX_PAGINA);
+    let page = Math.min(Math.max(Number.parseInt(req.query.page, 10) || 1, 1), MAX_PAGINA);
 
     let whereClauses = [];
     let queryParams = [];
@@ -71,7 +71,7 @@ const listarAsociados = async (req, res) => {
       ${whereSQL}
     `;
     const countResult = await pool.query(countQuery, queryParams);
-    const totalRecords = parseInt(countResult.rows[0].total, 10);
+    const totalRecords = Number.parseInt(countResult.rows[0].total, 10);
     page = Math.min(page, Math.max(Math.ceil(totalRecords / limit), 1));
     const offset = (page - 1) * limit;
 
@@ -120,9 +120,9 @@ const listarAsociados = async (req, res) => {
       success: true,
       data: result.rows.map((row) => ({
         ...row,
-        total_cuentas: parseInt(row.total_cuentas, 10),
-        saldo_total_disponible: parseFloat(row.saldo_total_disponible),
-        saldo_aportaciones: parseFloat(row.saldo_aportaciones),
+        total_cuentas: Number.parseInt(row.total_cuentas, 10),
+        saldo_total_disponible: Number.parseFloat(row.saldo_total_disponible),
+        saldo_aportaciones: Number.parseFloat(row.saldo_aportaciones),
       })),
       pagination: {
         total: totalRecords,
@@ -230,16 +230,16 @@ const getExpedienteAsociado = async (req, res) => {
         }
         beneficiariosMap[b.id_cuenta].push({
           ...b,
-          porcentaje: parseFloat(b.porcentaje),
+          porcentaje: Number.parseFloat(b.porcentaje),
         });
       });
     }
 
     const cuentasFormateadas = cuentasResult.rows.map((c) => ({
       ...c,
-      saldo_disponible: parseFloat(c.saldo_disponible),
-      saldo_reserva: parseFloat(c.saldo_reserva),
-      tasa_interes_anual: parseFloat(c.tasa_interes_anual),
+      saldo_disponible: Number.parseFloat(c.saldo_disponible),
+      saldo_reserva: Number.parseFloat(c.saldo_reserva),
+      tasa_interes_anual: Number.parseFloat(c.tasa_interes_anual),
       beneficiarios: beneficiariosMap[c.id_cuenta] || [],
     }));
 
@@ -392,7 +392,7 @@ const aperturarCuenta = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Tipo de cuenta no válido.' });
     }
     const tipoCuenta = tipoRes.rows[0];
-    const montoMinimo = parseFloat(tipoCuenta.monto_minimo_apertura);
+    const montoMinimo = Number.parseFloat(tipoCuenta.monto_minimo_apertura);
     // Sin monto, la cuenta se abre en cero; con monto, tiene que ser un número válido (parseFloat dejaba pasar
     // textos y NaN, que llegaba a guardarse como saldo). El efectivo cuenta además para el tope del día por persona
     // (registrarEfectivo); el débito al banco no.
@@ -436,7 +436,7 @@ const aperturarCuenta = async (req, res) => {
       }
 
       const ctaBco = bcoRes.data;
-      if (parseFloat(ctaBco.saldo_disponible) < montoInicial) {
+      if (Number.parseFloat(ctaBco.saldo_disponible) < montoInicial) {
         await client.query('ROLLBACK');
         return res.status(400).json({ success: false, message: 'La cuenta del banco no tiene saldo suficiente.' });
       }
@@ -481,7 +481,7 @@ const aperturarCuenta = async (req, res) => {
       5: 'CTA-METAS',
     };
     const prefijo = prefijos[id_tipo_cuenta] || 'CTA-FIN';
-    const rand = Math.floor(1000 + Math.random() * 9000);
+    const rand = crypto.randomInt(1000, 10000);
     const numeroCuenta = `${prefijo}-${idAsociado}${rand}`;
 
     // 5. Insertar nueva cuenta
@@ -558,7 +558,7 @@ const aperturarCuenta = async (req, res) => {
         id_cuenta: nuevaCuenta.id_cuenta,
         numero_cuenta: nuevaCuenta.numero_cuenta,
         tipo_cuenta: tipoCuenta.nombre,
-        saldo_disponible: parseFloat(nuevaCuenta.saldo_disponible),
+        saldo_disponible: Number.parseFloat(nuevaCuenta.saldo_disponible),
         fecha_apertura: nuevaCuenta.fecha_apertura,
         movimiento_inicial: movimientoInicial,
       },
@@ -598,7 +598,7 @@ const getBeneficiarios = async (req, res) => {
       success: true,
       data: result.rows.map((row) => ({
         ...row,
-        porcentaje: parseFloat(row.porcentaje),
+        porcentaje: Number.parseFloat(row.porcentaje),
       })),
     });
   } catch (error) {
@@ -657,7 +657,7 @@ const guardarBeneficiarios = async (req, res) => {
         });
       }
       ben.parentesco = parentesco;
-      const pct = parseFloat(ben.porcentaje);
+      const pct = Number.parseFloat(ben.porcentaje);
       if (isNaN(pct) || pct <= 0 || pct > 100) {
         return res.status(400).json({
           success: false,
@@ -701,7 +701,7 @@ const guardarBeneficiarios = async (req, res) => {
       parentesco: (b.parentesco || '').trim().toUpperCase(),
       cui_dpi: (b.cui_dpi || '').trim(),
       telefono: (b.telefono || '').trim(),
-      porcentaje: parseFloat(b.porcentaje || 0).toFixed(2),
+      porcentaje: Number.parseFloat(b.porcentaje || 0).toFixed(2),
     })).sort((a, b) => a.nombre_completo.localeCompare(b.nombre_completo));
 
     const prevNorm = normalize(prevRes.rows);
@@ -730,7 +730,7 @@ const guardarBeneficiarios = async (req, res) => {
           ben.parentesco.trim().substring(0, 100),
           ben.cui_dpi?.trim().substring(0, 50) || null,
           ben.telefono?.trim().substring(0, 50) || null,
-          parseFloat(ben.porcentaje),
+          Number.parseFloat(ben.porcentaje),
         ]
       );
     }

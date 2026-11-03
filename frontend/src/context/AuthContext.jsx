@@ -85,7 +85,7 @@ export const AuthProvider = ({ children }) => {
       setIsLoading(false);
     };
 
-    initializeAuth();
+    void initializeAuth();
   }, [logout]);
 
   // Escuchar evento de cambio forzado de contraseña desde interceptores

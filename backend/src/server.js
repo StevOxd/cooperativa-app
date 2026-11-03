@@ -140,7 +140,7 @@ app.use((err, req, res, _next) => {
 // Iniciar servidor solo si es ejecutado directamente. Las migraciones corren antes de atender peticiones:
 // si la base de datos no responde o una migración falla, el proceso termina y Docker lo reinicia.
 if (require.main === module) {
-  (async () => {
+  void (async () => {
     const dbConnected = await testConnection();
     if (!dbConnected || !(await runMigrations())) {
       console.error('[ERROR] No se pudo preparar la base de datos. El servidor no se inicia.');

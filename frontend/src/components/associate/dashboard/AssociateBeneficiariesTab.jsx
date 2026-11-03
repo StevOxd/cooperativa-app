@@ -133,7 +133,7 @@ export const AssociateBeneficiariesTab = ({
                           <TD>{parentescoLabel(b.parentesco)}</TD>
                           <TD className="whitespace-nowrap font-mono">{b.cui_dpi || '—'}</TD>
                           <TD className="whitespace-nowrap font-mono">{b.telefono || '—'}</TD>
-                          <TD numeric className="text-ink">{parseFloat(b.porcentaje).toFixed(2)} %</TD>
+                          <TD numeric className="text-ink">{Number.parseFloat(b.porcentaje).toFixed(2)} %</TD>
                         </TR>
                       ))}
                     </TBody>

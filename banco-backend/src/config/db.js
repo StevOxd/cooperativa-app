@@ -2,7 +2,7 @@ require('dotenv').config();
 const { Pool } = require('pg');
 
 const host = process.env.DB_HOST || 'localhost';
-const port = parseInt(process.env.DB_PORT || '5432', 10);
+const port = Number.parseInt(process.env.DB_PORT || '5432', 10);
 const user = process.env.DB_USER;
 const password = process.env.DB_PASSWORD;
 const database = process.env.DB_NAME || 'banco_db';

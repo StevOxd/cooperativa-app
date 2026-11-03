@@ -387,7 +387,7 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess, onAbrirCuenta })
   useEffect(() => {
     const cleanCui = formData.cui_dpi?.trim().replace(/\D/g, '');
     if (cleanCui && cleanCui.length === 13) {
-      fetchCuentasYVerificarDpi(cleanCui);
+      void fetchCuentasYVerificarDpi(cleanCui);
     } else {
       soltarIdentidad(identidadDeRef, setFormData);
       setPersonaRegistrada(null);
@@ -490,7 +490,7 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess, onAbrirCuenta })
       setEmailStatus({ checking: false, available: null, message: '' });
       return;
     }
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const emailRegex = /^[^\s@]+@[^\s@.]+(\.[^\s@.]+)+$/;
     if (!emailRegex.test(cleanEmail)) {
       setEmailStatus({ checking: false, available: false, message: 'Revise el formato del correo.' });
       return;
@@ -531,7 +531,7 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess, onAbrirCuenta })
       return;
     }
     const timer = setTimeout(() => {
-      checkEmailAvailability(formData.email);
+      void checkEmailAvailability(formData.email);
     }, 500);
     return () => clearTimeout(timer);
   }, [formData.email, crearAcceso]);
@@ -685,7 +685,7 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess, onAbrirCuenta })
 
     // 5. Validar Correo Electrónico
     const cleanEmail = formData.email.trim().toLowerCase();
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const emailRegex = /^[^\s@]+@[^\s@.]+(\.[^\s@.]+)+$/;
     if (crearAcceso) {
       if (!cleanEmail || !emailRegex.test(cleanEmail)) {
         errors.email = 'Ingrese un correo electrónico válido.';
@@ -697,7 +697,7 @@ export const NewAssociateModal = ({ isOpen, onClose, onSuccess, onAbrirCuenta })
     }
 
     // 6. Validar Monto
-    const monto = parseFloat(formData.monto_aportacion);
+    const monto = Number.parseFloat(formData.monto_aportacion);
     if (isNaN(monto) || monto < 100.00) {
       errors.monto_aportacion = 'La aportación inicial no puede ser inferior a Q100.00.';
     } else if (formData.tipo_asociado === 'EB') {

@@ -95,7 +95,7 @@ export const TransferRequestModal = ({
           <Input
             type="number"
             min={1}
-            max={parseFloat(cuentaPlanilla.saldo_disponible)}
+            max={Number.parseFloat(cuentaPlanilla.saldo_disponible)}
             step={0.01}
             prefix="Q"
             value={montoTraslado}

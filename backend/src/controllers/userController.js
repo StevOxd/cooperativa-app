@@ -265,7 +265,7 @@ const createUser = async (req, res) => {
     }
 
     // 1.05 Validaciones rigurosas de integridad y formato
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const emailRegex = /^[^\s@]+@[^\s@.]+(\.[^\s@.]+)+$/;
     if (!emailRegex.test(email.trim())) {
       return res.status(400).json({
         success: false,
@@ -1120,7 +1120,7 @@ const desbloquearUsuario = async (req, res) => {
  */
 const getRecentSecurityEvents = async (req, res) => {
   try {
-    const limit = parseInt(req.query.limit, 10) || 5;
+    const limit = Number.parseInt(req.query.limit, 10) || 5;
     const queryText = `
       SELECT 
         h.id_historial_estado,

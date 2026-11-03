@@ -5,7 +5,7 @@
 
 /** Monto en quetzales: "Q1,250.00". */
 export const formatQ = (value) =>
-  `Q${parseFloat(value || 0).toLocaleString('es-GT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  `Q${Number.parseFloat(value || 0).toLocaleString('es-GT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 /** Fecha y hora compacta para tablas: "12/09/2026, 22:30". */
 export const formatDateTime = (value) =>

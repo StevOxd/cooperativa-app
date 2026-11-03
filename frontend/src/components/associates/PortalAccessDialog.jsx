@@ -5,7 +5,7 @@ import { Alert, Button, Field, Input, Modal } from '../ui';
 import { useEstadoCorreo } from '../../hooks/useCorreoDisponible';
 
 const FORM_ID = 'acceso-portal';
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const EMAIL_REGEX = /^[^\s@]+@[^\s@.]+(\.[^\s@.]+)+$/;
 
 /**
  * Activa el acceso al portal de un asociado desde su expediente, o se lo reenvía si nunca entró

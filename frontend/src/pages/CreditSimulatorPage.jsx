@@ -164,9 +164,9 @@ export const CreditSimulatorPage = () => {
   };
 
   useEffect(() => {
-    fetchCuentas();
-    fetchCreditos();
-    fetchCapacidad();
+    void fetchCuentas();
+    void fetchCreditos();
+    void fetchCapacidad();
   }, []);
 
   const solicitudesPendientesCount =
@@ -515,7 +515,7 @@ export const CreditSimulatorPage = () => {
                         max={Math.max(10000, Math.min(cupoDisponible > 0 ? cupoDisponible : 100000, 150000))}
                         step={500}
                         value={monto}
-                        onChange={(e) => setMonto(parseFloat(e.target.value))}
+                        onChange={(e) => setMonto(Number.parseFloat(e.target.value))}
                         aria-label="Monto (control deslizante)"
                         aria-valuetext={formatQ(monto)}
                         className="w-full cursor-pointer accent-brand-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 rounded-sm"
@@ -541,7 +541,7 @@ export const CreditSimulatorPage = () => {
                         max={60}
                         step={1}
                         value={plazo}
-                        onChange={(e) => setPlazo(parseInt(e.target.value, 10))}
+                        onChange={(e) => setPlazo(Number.parseInt(e.target.value, 10))}
                         aria-label="Plazo (control deslizante)"
                         aria-valuetext={`${plazo} meses`}
                         className="w-full cursor-pointer accent-brand-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 rounded-sm"

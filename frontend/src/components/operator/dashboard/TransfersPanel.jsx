@@ -11,13 +11,13 @@ const SUBTABS_ID = 'traslados';
 
 /** Resumen de los pendientes: cuánto dinero espera dictamen, cuántas son aperturas y desde cuándo esperan. */
 const PendingSummary = ({ solicitudes }) => {
-  const monto = solicitudes.reduce((sum, s) => sum + (parseFloat(s.monto) || 0), 0);
+  const monto = solicitudes.reduce((sum, s) => sum + (Number.parseFloat(s.monto) || 0), 0);
   const aperturas = solicitudes.filter((s) => s.tipo_operacion === 'APERTURA_Y_TRASLADO').length;
   const masAntigua = solicitudes.reduce(
     (min, s) => (!min || new Date(s.fecha_solicitud) < new Date(min.fecha_solicitud) ? s : min),
     null
   );
-  const sinSaldo = solicitudes.filter((s) => parseFloat(s.monto) > parseFloat(s.cuenta_origen_saldo)).length;
+  const sinSaldo = solicitudes.filter((s) => Number.parseFloat(s.monto) > Number.parseFloat(s.cuenta_origen_saldo)).length;
   return (
     <StatGroup columns={3}>
       <StatCard
@@ -83,7 +83,7 @@ const PendingTransfers = ({ solicitudes, loading, onResolve, onVerHistorial }) =
               <TD className="whitespace-nowrap">
                 <div className="font-mono">{s.cuenta_origen_numero}</div>
                 <div className="text-xs text-ink-subtle tabular-nums">Saldo {formatQ(s.cuenta_origen_saldo)}</div>
-                {parseFloat(s.monto) > parseFloat(s.cuenta_origen_saldo) && (
+                {Number.parseFloat(s.monto) > Number.parseFloat(s.cuenta_origen_saldo) && (
                   <Badge tone="danger" className="mt-1">Saldo insuficiente</Badge>
                 )}
               </TD>

@@ -52,7 +52,7 @@ const validateAge18 = (fechaNacimiento) => {
  * @returns {{ valid: boolean, value?: number, message?: string }}
  */
 const validatePositiveAmount = (monto, min = 0, fieldName = 'monto') => {
-  const num = parseFloat(monto);
+  const num = Number.parseFloat(monto);
   if (isNaN(num) || num <= min) {
     return {
       valid: false,
@@ -71,7 +71,7 @@ const validateBeneficiarios = (beneficiarios) => {
   if (!Array.isArray(beneficiarios) || beneficiarios.length === 0) {
     return { valid: false, message: 'Agregue al menos un beneficiario.' };
   }
-  const total = beneficiarios.reduce((acc, b) => acc + (parseFloat(b.porcentaje) || 0), 0);
+  const total = beneficiarios.reduce((acc, b) => acc + (Number.parseFloat(b.porcentaje) || 0), 0);
   if (Math.abs(total - 100) > 0.01) {
     return {
       valid: false,
@@ -104,7 +104,7 @@ const validateCuiMiddleware = (field = 'cui_dpi') => {
  * @returns {{ valid: boolean, value?: number }}
  */
 const validateMinimumAmount = (monto, min) => {
-  const num = parseFloat(monto);
+  const num = Number.parseFloat(monto);
   return isNaN(num) || num < min ? { valid: false } : { valid: true, value: num };
 };
 

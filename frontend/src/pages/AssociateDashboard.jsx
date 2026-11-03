@@ -225,9 +225,9 @@ export const AssociateDashboard = () => {
 
   const minRequerido = getMinimoRequerido();
   const nombreProductoDestino = getNombreProductoDestino();
-  const parsedMontoVal = parseFloat(montoTraslado) || 0;
+  const parsedMontoVal = Number.parseFloat(montoTraslado) || 0;
   const isMontoInferior = minRequerido > 0 && parsedMontoVal > 0 && parsedMontoVal < minRequerido;
-  const isMontoMayorQueSaldo = cuentaPlanilla && parsedMontoVal > parseFloat(cuentaPlanilla.saldo_disponible);
+  const isMontoMayorQueSaldo = cuentaPlanilla && parsedMontoVal > Number.parseFloat(cuentaPlanilla.saldo_disponible);
   const isMismaCuenta =
     destinoSeleccionado?.startsWith('EXISTENTE:') &&
     esDeLaCooperativa(cuentaPlanilla) &&
@@ -286,7 +286,7 @@ export const AssociateDashboard = () => {
   };
 
   useEffect(() => {
-    fetchData();
+    void fetchData();
   }, []);
 
   // Filtrado de solicitudes de traslado (Req-7)
@@ -320,7 +320,7 @@ export const AssociateDashboard = () => {
 
   useEffect(() => {
     if (activeTab === 'beneficiarios') {
-      fetchMisBeneficiarios();
+      void fetchMisBeneficiarios();
     }
   }, [activeTab]);
 
@@ -358,7 +358,7 @@ export const AssociateDashboard = () => {
   };
 
   const totalPorcentajeAsociado = useMemo(() => {
-    return editBeneficiariosList.reduce((acc, b) => acc + (parseFloat(b.porcentaje) || 0), 0);
+    return editBeneficiariosList.reduce((acc, b) => acc + (Number.parseFloat(b.porcentaje) || 0), 0);
   }, [editBeneficiariosList]);
 
   // Detección estricta de cambios respecto al estado original
@@ -372,7 +372,7 @@ export const AssociateDashboard = () => {
           parentesco: (b.parentesco || 'HIJO/A').trim(),
           cui_dpi: (b.cui_dpi || '').trim(),
           telefono: (b.telefono || '').trim(),
-          porcentaje: Number(parseFloat(b.porcentaje || 0).toFixed(2)),
+          porcentaje: Number(Number.parseFloat(b.porcentaje || 0).toFixed(2)),
         }))
         .filter((b) => b.nombre_completo !== '' || b.cui_dpi !== '' || b.telefono !== '');
     };
@@ -460,7 +460,7 @@ export const AssociateDashboard = () => {
         toast.success('Beneficiarios guardados.');
         setInitialEditBeneficiarios(JSON.parse(JSON.stringify(editBeneficiariosList)));
         closeEditarBeneficiariosModal();
-        fetchMisBeneficiarios();
+        void fetchMisBeneficiarios();
       } else {
         setModalBenError(res.data?.message || 'No se pudieron guardar los beneficiarios. Intente de nuevo.');
       }
@@ -618,7 +618,7 @@ export const AssociateDashboard = () => {
         setObservacionesTraslado('');
         setDestinoSeleccionado('');
         setIsTrasladoModalOpen(false);
-        fetchData();
+        void fetchData();
       }
     } catch (error) {
       console.error('Error al registrar traslado:', error);
@@ -639,7 +639,7 @@ export const AssociateDashboard = () => {
   };
 
   // Cálculos de totales
-  const totalAhorrado = cuentas.reduce((sum, c) => sum + parseFloat(c.saldo_disponible), 0);
+  const totalAhorrado = cuentas.reduce((sum, c) => sum + Number.parseFloat(c.saldo_disponible), 0);
   const activeCuentasCount = cuentas.filter(c => c.estado === 'ACTIVA').length;
   // Solicitudes que aún no se resuelven (de firma a autorización) y traslados que espera el operador
   const creditosEnTramite = creditos.filter((c) => ESTADOS_CREDITO_EN_TRAMITE.includes(c.estado));
@@ -664,7 +664,7 @@ export const AssociateDashboard = () => {
     const res = await api.post('/asociado/documentos', { tipo_documento: tipo, archivo });
     toast.success(res.data.message);
     if (res.data.data) setMisDocumentos(res.data.data);
-    else cargarMisDocumentos();
+    else void cargarMisDocumentos();
   };
 
   // Cálculos de créditos y amortización nivelada francesa

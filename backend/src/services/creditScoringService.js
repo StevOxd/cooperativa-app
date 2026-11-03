@@ -9,7 +9,7 @@ const bancoApiService = require('./bancoApiService');
  * @returns {object} Información de nivel, límite máximo y descripción.
  */
 const calcularCapacidadCrediticia = (saldoTotal) => {
-  const saldo = Math.max(0, parseFloat(saldoTotal) || 0);
+  const saldo = Math.max(0, Number.parseFloat(saldoTotal) || 0);
 
   if (saldo < 1000) {
     return {
@@ -66,7 +66,7 @@ const calcularCapacidadCrediticia = (saldoTotal) => {
  * @returns {Promise<object>} Evaluación detallada con scoring y dictamen.
  */
 const evaluarSolicitudCrediticia = async ({ idAsociado, idPersona, montoSolicitado }) => {
-  const monto = Math.max(0, parseFloat(montoSolicitado) || 0);
+  const monto = Math.max(0, Number.parseFloat(montoSolicitado) || 0);
 
   // 1. Obtener cuentas bancarias activas (consultando al Core Banking API)
   let cuentasBancarias = [];
@@ -81,7 +81,7 @@ const evaluarSolicitudCrediticia = async ({ idAsociado, idPersona, montoSolicita
           id_cuenta_bancaria: c.id_cuenta_bancaria,
           numero_cuenta_bancaria: c.numero_cuenta_bancaria,
           tipo_cuenta: c.tipo_cuenta,
-          saldo_disponible: parseFloat(c.saldo_disponible),
+          saldo_disponible: Number.parseFloat(c.saldo_disponible),
           estado: c.estado,
           etiqueta_tipo: `Cuenta Bancaria de ${c.tipo_cuenta}`,
           origen: 'BANCO',
@@ -111,8 +111,8 @@ const evaluarSolicitudCrediticia = async ({ idAsociado, idPersona, montoSolicita
 
   const cuentasCooperativa = coopRes.rows.map((r) => ({
     ...r,
-    saldo_disponible: parseFloat(r.saldo_disponible),
-    saldo: parseFloat(r.saldo_disponible),
+    saldo_disponible: Number.parseFloat(r.saldo_disponible),
+    saldo: Number.parseFloat(r.saldo_disponible),
     tipo: r.tipo_cuenta,
   }));
 
@@ -155,7 +155,7 @@ const evaluarSolicitudCrediticia = async ({ idAsociado, idPersona, montoSolicita
        AND estado IN ('PENDIENTE', 'PENDIENTE_FIRMA', 'EN_REVISION_OPERADOR', 'EN_AUTORIZACION_EJECUTIVO', 'DEVUELTA_OPERADOR')`,
     [idAsociado]
   );
-  const solicitudesPendientesCount = parseInt(pendientesRes.rows[0]?.total_pendientes || 0, 10);
+  const solicitudesPendientesCount = Number.parseInt(pendientesRes.rows[0]?.total_pendientes || 0, 10);
 
   // 5. Aplicar matriz de capacidad de endeudamiento
   const capacidad = calcularCapacidadCrediticia(saldoTotal);
@@ -232,9 +232,9 @@ const evaluarSolicitudCrediticia = async ({ idAsociado, idPersona, montoSolicita
   const coopTxRes = await db.query(coopTxQuery, [idAsociado]);
   const movsCoop = coopTxRes.rows.map((t) => ({
     ...t,
-    monto: parseFloat(t.monto),
-    saldo_anterior: parseFloat(t.saldo_anterior),
-    saldo_nuevo: parseFloat(t.saldo_nuevo),
+    monto: Number.parseFloat(t.monto),
+    saldo_anterior: Number.parseFloat(t.saldo_anterior),
+    saldo_nuevo: Number.parseFloat(t.saldo_nuevo),
   }));
 
   const transacciones = [...movsBanco, ...movsCoop]

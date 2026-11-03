@@ -310,8 +310,8 @@ const iniciarCredito = async (req, res) => {
       id_cuenta_bancaria_destino
     } = req.body;
 
-    const monto = parseFloat(monto_solicitado);
-    const plazo = parseInt(plazo_meses, 10);
+    const monto = Number.parseFloat(monto_solicitado);
+    const plazo = Number.parseInt(plazo_meses, 10);
 
     if (isNaN(monto) || monto <= 0 || isNaN(plazo) || plazo <= 0) {
       return res.status(400).json({
@@ -375,7 +375,7 @@ const iniciarCredito = async (req, res) => {
          AND estado IN ('PENDIENTE', 'PENDIENTE_FIRMA', 'EN_REVISION_OPERADOR', 'EN_AUTORIZACION_EJECUTIVO', 'DEVUELTA_OPERADOR')`,
       [idAsociado]
     );
-    const totalPendientes = parseInt(pendientesRes.rows[0]?.total_pendientes || 0, 10);
+    const totalPendientes = Number.parseInt(pendientesRes.rows[0]?.total_pendientes || 0, 10);
     if (totalPendientes >= 2) {
       return res.status(400).json({
         success: false,
@@ -575,7 +575,7 @@ const subirExpedienteFirmado = async (req, res) => {
 
     // Notificar a operadores vía WebSockets
     try {
-      socketService.emitToRole('OPERADOR', 'solicitud_credito:nueva', {
+      void socketService.emitToRole('OPERADOR', 'solicitud_credito:nueva', {
         id_solicitud_credito: sol.id_solicitud_credito,
         monto_solicitado: sol.monto_solicitado,
         id_asociado: idAsociado,
@@ -621,8 +621,8 @@ const cuentasDeOrigen = async (idPersona) => {
                     tc.nombre AS tipo_cuenta, 'COOPERATIVA' AS origen_cuenta`;
   const deLaCooperativa = (fila) => ({
     ...fila,
-    saldo_disponible: parseFloat(fila.saldo_disponible),
-    saldo_reserva: parseFloat(fila.saldo_reserva),
+    saldo_disponible: Number.parseFloat(fila.saldo_disponible),
+    saldo_reserva: Number.parseFloat(fila.saldo_reserva),
   });
   const cuentas = [];
 
@@ -640,7 +640,7 @@ const cuentasDeOrigen = async (idPersona) => {
           id_cuenta: c.id_cuenta_bancaria,
           id_cuenta_bancaria: c.id_cuenta_bancaria,
           numero_cuenta: c.numero_cuenta_bancaria,
-          saldo_disponible: parseFloat(c.saldo_disponible),
+          saldo_disponible: Number.parseFloat(c.saldo_disponible),
           saldo_reserva: 0,
           estado: c.estado,
           tipo_cuenta: `Cuenta bancaria (${c.tipo_cuenta})`,
@@ -700,7 +700,7 @@ const getCuentasOrigen = async (req, res) => {
 const getMisCuentasDestino = async (req, res) => {
   try {
     const idPersona = req.user.id_persona;
-    const idCuentaOrigen = req.query.id_cuenta_origen ? parseInt(req.query.id_cuenta_origen, 10) : null;
+    const idCuentaOrigen = req.query.id_cuenta_origen ? Number.parseInt(req.query.id_cuenta_origen, 10) : null;
 
     // 1. Cuentas destino existentes (excluye la cuenta que se está usando como origen)
     let existingCuentasQuery = `
@@ -819,7 +819,7 @@ const createSolicitudTraslado = async (req, res) => {
     const saldo_disponible = cuentaOrigen.saldo_disponible;
 
     // 2. Validar que posee saldo disponible suficiente
-    if (parsedMonto > parseFloat(saldo_disponible)) {
+    if (parsedMonto > Number.parseFloat(saldo_disponible)) {
       return res.status(400).json({
         success: false,
         message: `No tiene saldo suficiente. Disponible: Q${parseFloat(saldo_disponible).toFixed(2)}.`,
@@ -874,7 +874,7 @@ const createSolicitudTraslado = async (req, res) => {
         });
       }
       const { monto_minimo_apertura, nombre: tipoNombre } = typeRes.rows[0];
-      if (parsedMonto < parseFloat(monto_minimo_apertura)) {
+      if (parsedMonto < Number.parseFloat(monto_minimo_apertura)) {
         return res.status(400).json({
           success: false,
           message: `Para abrir una cuenta ${tipoNombre} el mínimo es Q${parseFloat(monto_minimo_apertura).toFixed(2)}.`,
@@ -952,7 +952,7 @@ const createSolicitudTraslado = async (req, res) => {
         return res.status(400).json({
           success: false,
           message: `Con sus traslados pendientes de esa cuenta (Q${comprometido.toFixed(2)}) no le alcanza el saldo. `
-            + `Disponible para otro traslado: Q${Math.max(parseFloat(saldo_disponible) - comprometido, 0).toFixed(2)}.`,
+            + `Disponible para otro traslado: Q${Math.max(Number.parseFloat(saldo_disponible) - comprometido, 0).toFixed(2)}.`,
         });
       }
 
@@ -1311,7 +1311,7 @@ const guardarMisBeneficiarios = async (req, res) => {
         });
       }
       ben.parentesco = parentesco;
-      const pct = parseFloat(ben.porcentaje);
+      const pct = Number.parseFloat(ben.porcentaje);
       if (isNaN(pct) || pct <= 0 || pct > 100) {
         return res.status(400).json({
           success: false,
@@ -1352,7 +1352,7 @@ const guardarMisBeneficiarios = async (req, res) => {
       parentesco: (b.parentesco || '').trim().toUpperCase(),
       cui_dpi: (b.cui_dpi || '').trim(),
       telefono: (b.telefono || '').trim(),
-      porcentaje: parseFloat(b.porcentaje || 0).toFixed(2),
+      porcentaje: Number.parseFloat(b.porcentaje || 0).toFixed(2),
     })).sort((a, b) => a.nombre_completo.localeCompare(b.nombre_completo));
 
     const prevNorm = normalize(prevRes.rows);
@@ -1380,7 +1380,7 @@ const guardarMisBeneficiarios = async (req, res) => {
           ben.parentesco.trim().substring(0, 100),
           ben.cui_dpi?.trim().substring(0, 50) || null,
           ben.telefono?.trim().substring(0, 50) || null,
-          parseFloat(ben.porcentaje),
+          Number.parseFloat(ben.porcentaje),
         ]
       );
     }
