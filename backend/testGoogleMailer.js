@@ -12,9 +12,6 @@ const printHeader = (title) => {
 };
 
 const printPass = (msg) => console.log(`  [PASS] ${msg}`);
-const printFail = (msg, err) => {
-  console.error(`  [FAIL] ${msg}:`, err);
-};
 
 async function runTests() {
   let passed = 0;

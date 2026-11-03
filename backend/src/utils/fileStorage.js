@@ -30,7 +30,7 @@ const saveBase64File = async (base64Data, subfolder = 'creditos', originalName =
   let cleanBase64 = base64Data;
 
   if (base64Data.startsWith('data:')) {
-    const matches = base64Data.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+    const matches = base64Data.match(/^data:([A-Za-z-+/]+);base64,(.+)$/);
     if (matches && matches.length === 3) {
       const mime = matches[1].toLowerCase();
       cleanBase64 = matches[2];

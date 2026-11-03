@@ -33,3 +33,5 @@ reports/
 backend/uploads/**
 !backend/uploads/**/
 !backend/uploads/**/.gitkeep
+# Reportes de cobertura
+coverage/

@@ -72,7 +72,7 @@ const MENSAJES_CUERPO = {
   400: 'La solicitud no tiene un formato válido.',
   413: 'La solicitud es demasiado grande.',
 };
-app.use((err, req, res, next) => {
+app.use((err, req, res, _next) => {
   // Si el cuerpo no se pudo leer, es un error de quien llama: se responde su estado y no se escribe el error, que
   // trae el cuerpo crudo
   if (err.type && err.expose && err.status >= 400 && err.status < 500) {

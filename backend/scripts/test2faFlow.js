@@ -1,5 +1,4 @@
 require('dotenv').config({ path: require('path').join(__dirname, '../.env') });
-const jwt = require('jsonwebtoken');
 const speakeasy = require('speakeasy');
 const db = require('../src/config/db');
 const mfaService = require('../src/services/mfaService');

@@ -2,7 +2,7 @@
 process.env.MAIL_ENABLED = 'false';
 
 const http = require('http');
-const { app, server } = require('./src/server');
+const { server } = require('./src/server');
 
 const testServer = server.listen(0, async () => {
   const testPort = testServer.address().port;

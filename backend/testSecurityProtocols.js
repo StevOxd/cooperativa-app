@@ -2,8 +2,7 @@
 process.env.MAIL_ENABLED = 'false';
 
 const http = require('http');
-const { app, server, io } = require('./src/server');
-const socketService = require('./src/services/socketService');
+const { server } = require('./src/server');
 const { io: Client } = require('socket.io-client');
 const db = require('./src/config/db');
 
