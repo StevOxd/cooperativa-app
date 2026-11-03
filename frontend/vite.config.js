@@ -15,7 +15,7 @@ export default defineConfig({
       include: ['src/**/*.{js,jsx}'],
       exclude: ['src/test/**', 'src/main.jsx', 'src/dev/**'],
       reportOnFailure: true,
-      thresholds: { lines: 50 },
+      thresholds: { lines: 60 },
     },
   },
   server: {

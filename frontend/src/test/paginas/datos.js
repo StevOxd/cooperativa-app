@@ -132,10 +132,23 @@ const RESPUESTAS = [
       }),
   ],
   [/^\/admin\/asociados/, () => ok([asociado], { pagination: { total: 1, page: 1, pages: 1, limit: 20 } })],
-  [/^\/ejecutivo\/creditos\/\d+\/evaluacion/, () => ok({ evaluacion: { score: 700 } })],
+  [
+    /^\/ejecutivo\/creditos\/\d+\/evaluacion/,
+    () =>
+      ok({
+        evaluacion: {
+          evaluacion: { apto: true, score: 700, diagnostico: 'Apto para crédito' },
+          solicitante: { ...persona, cuentas: [cuenta], cuentasBancarias: [cuenta], totalBanco: 1500, totalCoop: 1500 },
+          analisisSolicitud: { diagnosticos: ['Sin observaciones'] },
+        },
+      }),
+  ],
   [/^\/ejecutivo\/creditos/, () => ok([credito])],
   [/^\/asociado\/perfil/, () => ok(asociado)],
-  [/^\/asociado\/cuentas-acreditacion/, () => ok({ todas: [cuenta] })],
+  [
+    /^\/asociado\/cuentas-acreditacion/,
+    () => ok({ todas: [{ ...cuenta, key: 'banco-5', id_cuenta_bancaria: 5, disponible_para_credito: true }] }),
+  ],
   [/^\/asociado\/cuentas-origen/, () => ok([cuenta], { banco_disponible: true })],
   [/^\/asociado\/cuentas/, () => ok([cuenta])],
   [
