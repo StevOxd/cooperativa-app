@@ -14,8 +14,6 @@ const { poolDueno } = require('./testHelper');
 // Limpieza con el rol dueño: el de la aplicación no borra filas (salvo en las pocas tablas que el código limpia)
 const comoDueno = (sql, params) => poolDueno(db.pool).query(sql, params);
 
-const BANCO_URL = process.env.BANCO_API_URL || 'http://localhost:5002';
-const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:5001';
 const BANCO_INTERNAL_API_KEY = process.env.BANCO_INTERNAL_API_KEY;
 const JWT_SECRET = process.env.JWT_SECRET;
 if (!BANCO_INTERNAL_API_KEY || !JWT_SECRET) {

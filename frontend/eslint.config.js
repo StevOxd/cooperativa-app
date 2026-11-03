@@ -11,7 +11,10 @@ import reactRefresh from 'eslint-plugin-react-refresh';
  * no deja entrar nuevas.
  */
 export default [
-  { ignores: ['dist/**', 'node_modules/**'] },
+  { ignores: ['dist/**', 'node_modules/**', 'coverage/**'] },
+
+  // Pruebas: el entorno de Vitest define sus funciones como globales solo si se importan
+  { files: ['src/test/**/*.{js,jsx}'], rules: { 'react-refresh/only-export-components': 'off' } },
 
   // Código de la aplicación (navegador, React con JSX)
   {

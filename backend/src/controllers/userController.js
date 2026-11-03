@@ -1382,7 +1382,7 @@ const resetPasswordUsuario = async (req, res) => {
   try {
     const { id } = req.params;
     const filtro = filtroUsuario(id);
-    const { password, motivo } = req.body;
+    const { motivo } = req.body;
 
     const checkUser = await client.query(
       `SELECT u.id_usuario, u.id_persona, u.codigo_corporativo, u.email, u.estado, u.id_rol, r.nombre AS rol_nombre, p.primer_nombre, p.primer_apellido

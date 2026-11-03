@@ -4,6 +4,19 @@ import react from '@vitejs/plugin-react';
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react()],
+  test: {
+    environment: 'jsdom',
+    setupFiles: ['./src/test/setup.js'],
+    include: ['src/test/**/*.test.{js,jsx}'],
+    coverage: {
+      provider: 'v8',
+      reporter: ['lcov', 'text-summary', 'json-summary'],
+      reportsDirectory: 'coverage',
+      include: ['src/**/*.{js,jsx}'],
+      exclude: ['src/test/**', 'src/main.jsx', 'src/dev/**'],
+      thresholds: { lines: 25 },
+    },
+  },
   server: {
     host: true,
     port: 3000,

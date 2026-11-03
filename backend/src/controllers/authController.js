@@ -466,7 +466,7 @@ const changePassword = async (req, res) => {
     // 3. Validar complejidad: debe combinar letras, números y al menos un carácter especial
     const hasLetters = /[a-zA-Z]/.test(nueva_password);
     const hasNumbers = /[0-9]/.test(nueva_password);
-    const hasSpecial = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?~`]/.test(nueva_password);
+    const hasSpecial = /[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?~`]/.test(nueva_password);
     if (!hasLetters || !hasNumbers || !hasSpecial) {
       return res.status(400).json({
         success: false,

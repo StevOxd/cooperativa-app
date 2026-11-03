@@ -1,6 +1,8 @@
-# Integración continua: se ejecuta en cada Pull Request hacia main y en cada push a main.
-# Los nombres de los trabajos ("Frontend" y "Backend") son los que se eligen en
-# GitHub → Settings → Branches como checks obligatorios para fusionar.
+# Integración continua con quality gates: se ejecuta en cada Pull Request hacia main y en cada push a main.
+# Etapas: Build → Test → Analyze → Report. Los cuatro trabajos son checks obligatorios de main
+# (GitHub → Settings → Branches). Umbrales y motivos: docs/SQA-Plan.md, sección 5.
+#
+# El repositorio es público y estos registros también: nunca imprimir el .env ni registros de contenedores.
 name: CI
 
 on:
@@ -19,34 +21,8 @@ permissions:
   contents: read
 
 jobs:
-  frontend:
-    name: Frontend
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: frontend
-    steps:
-      - name: Descargar el código
-        uses: actions/checkout@v4
-
-      - name: Instalar Node 20 (igual que los Dockerfiles)
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: npm
-          cache-dependency-path: frontend/package-lock.json
-
-      - name: Instalar dependencias
-        run: npm ci
-
-      - name: Lint (ESLint)
-        run: npm run lint
-
-      - name: Build (Vite)
-        run: npm run build
-
-  backend:
-    name: Backend
+  build:
+    name: Build
     runs-on: ubuntu-latest
     steps:
       - name: Descargar el código
@@ -60,24 +36,231 @@ jobs:
           cache-dependency-path: |
             backend/package-lock.json
             banco-backend/package-lock.json
+            frontend/package-lock.json
 
       # `npm ci` falla si package.json y package-lock.json no coinciden.
-      - name: Instalar dependencias (backend)
-        working-directory: backend
-        run: npm ci
+      - name: Instalar dependencias
+        run: |
+          for dir in backend banco-backend frontend; do
+            npm ci --ignore-scripts --prefix "$dir"
+          done
 
-      - name: Instalar dependencias (banco-backend)
-        working-directory: banco-backend
-        run: npm ci
-
-      - name: Revisar sintaxis de todos los archivos .js
+      - name: Revisar sintaxis de los servicios
         run: |
           for dir in backend banco-backend; do
-            echo "Revisando $dir"
             find "$dir" -path "$dir/node_modules" -prune -o -name '*.js' -print0 | xargs -0 -n1 node --check
           done
-          echo "Sintaxis correcta"
+
+      - name: Compilar el frontend
+        working-directory: frontend
+        run: npm run build
 
       # Los subagentes de Claude Code (.claude/agents/) se generan desde .agent/agents/.
-      - name: Subagentes de Claude Code sincronizados
+      - name: Subagentes sincronizados
         run: node scripts/sync-agents.mjs --check
+
+  test:
+    name: Test
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Descargar el código
+        uses: actions/checkout@v4
+
+      - name: Instalar Node 20 (igual que los Dockerfiles)
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: |
+            backend/package-lock.json
+            frontend/package-lock.json
+
+      - name: Instalar dependencias del backend
+        working-directory: backend
+        run: npm ci --ignore-scripts
+
+      - name: Pruebas unitarias del backend (Jest)
+        working-directory: backend
+        run: npm run test:unit
+
+      # Credenciales al azar que solo existen durante este trabajo.
+      - name: Generar las credenciales de prueba
+        run: |
+          {
+            echo "DB_NAME=cooperativa_db"
+            echo "DB_ADMIN_USER=cooperativa_user"
+            echo "DB_ADMIN_PASSWORD=$(openssl rand -hex 24)"
+            echo "DB_OWNER_USER=cooperativa_owner"
+            echo "DB_OWNER_PASSWORD=$(openssl rand -hex 24)"
+            echo "DB_USER=cooperativa_app"
+            echo "DB_PASSWORD=$(openssl rand -hex 24)"
+            echo "JWT_SECRET=$(openssl rand -hex 48)"
+            echo "BANCO_INTERNAL_API_KEY=$(openssl rand -hex 32)"
+            echo "MAIL_ENABLED=false"
+          } > .env
+          cut -d= -f2 .env | grep -E '^[0-9a-f]{32,}$' | sed 's/^/::add-mask::/'
+          cat .env >> "$GITHUB_ENV"
+          {
+            echo "DB_HOST=localhost"
+            echo "DB_PORT=5432"
+            echo "BANCO_API_URL=http://localhost:5002"
+          } >> "$GITHUB_ENV"
+
+      - name: Levantar PostgreSQL y el banco de prueba
+        run: |
+          docker compose up -d --build banco-backend > /dev/null
+          for _ in $(seq 1 40); do
+            estado=$(docker inspect -f '{{.State.Health.Status}}' banco-backend 2>/dev/null || echo ausente)
+            [ "$estado" = healthy ] && { echo "[PASS] Banco de prueba sano"; exit 0; }
+            sleep 3
+          done
+          echo "::error::El banco de prueba no quedó sano."
+          exit 1
+
+      - name: Aplicar las migraciones
+        working-directory: backend
+        run: |
+          node -e "require('./src/config/migrations').runMigrations().then((ok) => process.exit(ok ? 0 : 1))"
+
+      - name: Pruebas de integración de la API (Jest y Supertest)
+        working-directory: backend
+        run: npm run test:integracion
+
+      - name: Pruebas de regresión y umbral de cobertura del backend (c8)
+        working-directory: backend
+        env:
+          REGRESION_COBERTURA: 1
+        run: npm run test:regresion
+
+      # Vitest 5 necesita Node 22; solo se usa aquí, no al compilar ni en producción.
+      - name: Instalar Node 22 para las pruebas del frontend
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Instalar dependencias del frontend
+        working-directory: frontend
+        run: npm ci --ignore-scripts
+
+      - name: Pruebas y umbral de cobertura del frontend (Vitest)
+        working-directory: frontend
+        run: npm run test:cobertura
+
+      - name: Guardar los reportes de cobertura
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cobertura
+          include-hidden-files: true
+          if-no-files-found: warn
+          path: |
+            backend/coverage/jest/lcov.info
+            backend/coverage/regresion/lcov.info
+            backend/coverage/regresion/coverage-summary.json
+            frontend/coverage/lcov.info
+            frontend/coverage/coverage-summary.json
+
+  analyze:
+    name: Analyze
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Descargar el código con su historial
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # SonarCloud necesita el historial para ubicar el código nuevo
+
+      - name: Instalar Node 20 (igual que los Dockerfiles)
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: |
+            backend/package-lock.json
+            banco-backend/package-lock.json
+            frontend/package-lock.json
+
+      - name: Instalar dependencias
+        run: |
+          for dir in backend banco-backend frontend; do
+            npm ci --ignore-scripts --prefix "$dir"
+          done
+
+      - name: ESLint
+        run: |
+          for dir in backend banco-backend frontend; do
+            echo "Revisando $dir"
+            npm run lint --prefix "$dir"
+          done
+
+      # La regla se aplica al código de calidad nuevo. El código anterior no se reformateó de golpe (SQA-Plan, sección 4).
+      - name: Prettier
+        run: |
+          backend/node_modules/.bin/prettier --check \
+            .github/workflows/ci.yml backend/tests backend/jest.config.js backend/eslint.config.js \
+            backend/scripts/regresion.js banco-backend/eslint.config.js frontend/src/test
+
+      - name: Vulnerabilidades críticas o altas en dependencias
+        run: |
+          for dir in backend banco-backend frontend; do
+            echo "Revisando $dir"
+            npm audit --audit-level=high --prefix "$dir"
+          done
+
+      - name: Descargar los reportes de cobertura
+        uses: actions/download-artifact@v4
+        with:
+          name: cobertura
+
+      # Los PR desde un fork no reciben el token, así que este análisis solo corre en ramas de este repositorio.
+      - name: SonarCloud y su Quality Gate
+        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+        uses: SonarSource/sonarqube-scan-action@v5
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
+  report:
+    name: Report
+    needs: [build, test, analyze]
+    if: always() # Sin esto, un trabajo omitido contaría como aprobado para la protección de main
+    runs-on: ubuntu-latest
+    steps:
+      - name: Descargar los reportes de cobertura
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          name: cobertura
+
+      - name: Publicar el resumen de calidad
+        env:
+          BUILD: ${{ needs.build.result }}
+          TEST: ${{ needs.test.result }}
+          ANALYZE: ${{ needs.analyze.result }}
+        run: |
+          pct() { [ -f "$1" ] && node -p "require('./$1').total.lines.pct + ' %'" || echo "sin dato"; }
+          {
+            echo "### Quality gates"
+            echo ""
+            echo "| Etapa | Resultado |"
+            echo "|---|---|"
+            echo "| Build | ${BUILD} |"
+            echo "| Test | ${TEST} |"
+            echo "| Analyze | ${ANALYZE} |"
+            echo ""
+            echo "| Cobertura de líneas | Valor |"
+            echo "|---|---|"
+            echo "| Backend | $(pct backend/coverage/regresion/coverage-summary.json) |"
+            echo "| Frontend | $(pct frontend/coverage/coverage-summary.json) |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Fallar si alguna etapa no aprobó
+        env:
+          RESULTADOS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          for resultado in $RESULTADOS; do
+            [ "$resultado" = success ] || { echo "::error::Una etapa terminó en: $resultado"; exit 1; }
+          done
+          echo "[PASS] Todas las etapas aprobaron"

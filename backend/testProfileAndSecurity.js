@@ -2,7 +2,7 @@
 process.env.MAIL_ENABLED = 'false';
 
 const http = require('http');
-const { app, server } = require('./src/server');
+const { server } = require('./src/server');
 const db = require('./src/config/db');
 const { crearUsuarioDePrueba, borrarPersonaDePrueba } = require('./testHelper');
 

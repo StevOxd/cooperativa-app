@@ -80,10 +80,7 @@ class AsociadoAfiliacionService {
       fecha_nacimiento,
       email,
       monto_aportacion,
-      metodo_pago,
-      banco_nombre,
       numero_cuenta_bancaria,
-      tipo_asociado,
       crear_acceso_portal,
     } = payload;
 

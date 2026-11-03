@@ -1,7 +1,5 @@
 const crypto = require('crypto');
-const bcrypt = require('bcryptjs');
 const { pool } = require('../config/db');
-const mfaService = require('../services/mfaService');
 const { activarAccesoPortal, estadoAccesoPortal } = require('../services/accesoPortalService');
 const mailerService = require('../services/mailerService');
 const bancoApiService = require('../services/bancoApiService');
@@ -348,7 +346,6 @@ const aperturarCuenta = async (req, res) => {
       id_tipo_cuenta,
       monto_apertura,
       origen_fondos, // 'EFECTIVO_VENTANILLA' o 'BANCO_EXTERNO'
-      banco_nombre,
       numero_cuenta_bancaria,
     } = req.body;
 

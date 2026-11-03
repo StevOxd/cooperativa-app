@@ -125,7 +125,7 @@ const MENSAJES_CUERPO = {
   400: 'La solicitud no tiene un formato válido.',
   413: 'La solicitud es demasiado grande.',
 };
-app.use((err, req, res, next) => {
+app.use((err, req, res, _next) => {
   if (err.type && err.expose && err.status >= 400 && err.status < 500) {
     return res.status(err.status).json({ success: false, message: MENSAJES_CUERPO[err.status] || 'No se pudo leer la solicitud.' });
   }

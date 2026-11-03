@@ -87,7 +87,7 @@ const testServer = server.listen(0, async () => {
     });
     const dpiAsociado = dpi('970');
     // Uno sin rastro de su afiliación y uno afiliado en línea (primera cuenta abierta sin operador)
-    const sinRastro = await crear(asociados, {
+    await crear(asociados, {
       dpi: dpi('976'), codigo: `EX-TS${sufijo}`, email: `test.rep.sin.${unico}@cooperativa.com`, rol: 'ASOCIADO', asociado: true,
     });
     const enLinea = await crear(asociados, {
