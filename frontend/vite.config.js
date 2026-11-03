@@ -14,7 +14,8 @@ export default defineConfig({
       reportsDirectory: 'coverage',
       include: ['src/**/*.{js,jsx}'],
       exclude: ['src/test/**', 'src/main.jsx', 'src/dev/**'],
-      thresholds: { lines: 25 },
+      reportOnFailure: true,
+      thresholds: { lines: 50 },
     },
   },
   server: {
