@@ -29,7 +29,7 @@ const COBERTURA_SALIDA = path.join(RAIZ, 'coverage', 'regresion');
 const scripts = fs
   .readdirSync(RAIZ)
   .filter((f) => /^test.*\.js$/.test(f) && !EXCLUIDOS.has(f))
-  .sort();
+  .sort((a, b) => a.localeCompare(b));
 const entorno = { ...process.env, MAIL_ENABLED: 'false' };
 
 if (CON_COBERTURA) fs.rmSync(COBERTURA_TEMP, { recursive: true, force: true });
