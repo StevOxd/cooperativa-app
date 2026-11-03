@@ -46,10 +46,10 @@ export const generateCreditApplicationPdf = ({ asociado, credito, cuentaDestino 
   const width = pageW - MARGIN * 2;
 
   const id = credito?.id_solicitud_credito || credito?.id_solicitud;
-  const monto = parseFloat(credito?.monto ?? credito?.monto_solicitado ?? 0);
-  const plazo = parseInt(credito?.plazo ?? credito?.plazo_meses ?? 0, 10);
-  const cuota = parseFloat(credito?.cuotaMensual ?? credito?.cuota_mensual_estimada ?? 0);
-  const tasa = parseFloat(credito?.tasa_interes ?? TASA_ANUAL_POR_DEFECTO);
+  const monto = Number.parseFloat(credito?.monto ?? credito?.monto_solicitado ?? 0);
+  const plazo = Number.parseInt(credito?.plazo ?? credito?.plazo_meses ?? 0, 10);
+  const cuota = Number.parseFloat(credito?.cuotaMensual ?? credito?.cuota_mensual_estimada ?? 0);
+  const tasa = Number.parseFloat(credito?.tasa_interes ?? TASA_ANUAL_POR_DEFECTO);
   const destino = cuentaDestino?.etiqueta_tipo && cuentaDestino?.numero_cuenta && cuentaDestino.etiqueta_tipo !== cuentaDestino.numero_cuenta
     ? `${cuentaDestino.etiqueta_tipo} · ${cuentaDestino.numero_cuenta}`
     : credito?.cuenta_destino_info || cuentaDestino?.numero_cuenta || 'Cuenta principal del asociado';

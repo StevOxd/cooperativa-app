@@ -39,7 +39,7 @@ const verificarDpi = async (req, res) => {
     }
 
     const row = result.rows[0];
-    const cuentasActivas = parseInt(row.cuentas_activas_count, 10);
+    const cuentasActivas = Number.parseInt(row.cuentas_activas_count, 10);
 
     return res.status(200).json({
       success: true,
@@ -94,7 +94,7 @@ const obtenerCuentasCliente = async (req, res) => {
         id_cuenta_bancaria: r.id_cuenta_bancaria,
         numero_cuenta_bancaria: r.numero_cuenta,
         tipo_cuenta: r.tipo_cuenta,
-        saldo_disponible: parseFloat(r.saldo_disponible),
+        saldo_disponible: Number.parseFloat(r.saldo_disponible),
         estado: r.estado,
         titular_cui: r.cui_dpi,
         titular_nombre: r.nombre_completo,
@@ -146,13 +146,13 @@ const obtenerHistorialFinanciero = async (req, res) => {
       success: true,
       cuentas: cuentasRes.rows.map((r) => ({
         ...r,
-        saldo_disponible: parseFloat(r.saldo_disponible),
+        saldo_disponible: Number.parseFloat(r.saldo_disponible),
       })),
       movimientos: movsRes.rows.map((m) => ({
         ...m,
-        monto: parseFloat(m.monto),
-        saldo_anterior: parseFloat(m.saldo_anterior),
-        saldo_posterior: parseFloat(m.saldo_posterior),
+        monto: Number.parseFloat(m.monto),
+        saldo_anterior: Number.parseFloat(m.saldo_anterior),
+        saldo_posterior: Number.parseFloat(m.saldo_posterior),
       })),
     });
   } catch (error) {

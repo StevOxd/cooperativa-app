@@ -8,7 +8,7 @@ import { jsPDF } from 'jspdf';
 
 export const INSTITUCION = 'Cooperativa Integral de Ahorro y Crédito, R.L.';
 
-const hex = (h) => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
+const hex = (h) => [Number.parseInt(h.slice(1, 3), 16), Number.parseInt(h.slice(3, 5), 16), Number.parseInt(h.slice(5, 7), 16)];
 
 /** Colores de tailwind.config.js en RGB. */
 export const C = {
@@ -45,7 +45,7 @@ const FOOTER_SPACE = 20;
 
 /** "Q12,500.50" */
 export const money = (value) =>
-  `Q${parseFloat(value || 0).toLocaleString('es-GT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  `Q${Number.parseFloat(value || 0).toLocaleString('es-GT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 /** "29/09/2026" */
 export const shortDate = (value) =>

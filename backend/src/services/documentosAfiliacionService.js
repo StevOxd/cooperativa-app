@@ -528,7 +528,7 @@ const bandejaDocumentos = async ({ estado, search, limit = 20, offset = 0, idPer
   const total = (await db.query(`SELECT count(*)::int AS total ${base} ${donde}`, params)).rows[0].total;
 
   const tope = Math.min(Math.max(parseInt(limit, 10) || 20, 1), 100);
-  const desde = Math.max(parseInt(offset, 10) || 0, 0);
+  const desde = Math.max(Number.parseInt(offset, 10) || 0, 0);
   const orden = estado === 'PENDIENTE' ? 'd.fecha_carga ASC' : 'd.fecha_carga DESC';
   const n = params.length;
   // Documento propio: de la persona del revisor o con su DPI (antes de que exista la persona)

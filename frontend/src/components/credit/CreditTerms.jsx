@@ -27,7 +27,7 @@ export const CreditTerms = ({ credito, showRate = true }) => (
       <div>
         <dt className="text-xs text-ink-muted">Tasa de interés</dt>
         <dd className="mt-0.5 text-lg font-semibold text-ink tabular-nums">
-          {parseFloat(credito.tasa_interes).toFixed(2)}% <span className="text-sm font-normal text-ink-muted">anual</span>
+          {Number.parseFloat(credito.tasa_interes).toFixed(2)}% <span className="text-sm font-normal text-ink-muted">anual</span>
         </dd>
       </div>
     ) : (

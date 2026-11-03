@@ -96,3 +96,9 @@ No corren en el pipeline `testGoogleMailer.js`, porque envía un correo real, ni
 | FL-12 | Solicitud de crédito | `POST /asociado/creditos/iniciar` | Aprobado |
 | FL-13 | Afiliación pública con DPI incompleto | No se consulta | Aprobado |
 | FL-14 | Cliente del banco con credenciales inválidas | Muestra el error del servidor | Aprobado |
+| FL-15 | Reiniciar la contraseña de un usuario | `POST /usuarios/:id/reset-password` y recarga la lista | Aprobado |
+| FL-16 | Desactivar a un usuario con motivo | `PATCH` del estado y recarga la lista | Aprobado |
+| FL-17 | Editar el correo de un usuario | `PUT /usuarios/:id` con el correo nuevo | Aprobado |
+| FL-18 | Buscar un usuario por código | Vuelve a pedir la lista | Aprobado |
+| FL-19 | Buscar en el padrón de asociados | Pide la primera página | Aprobado |
+| FL-20 | Ver el historial de traslados | `GET /operador/traslados/historial` | Aprobado |

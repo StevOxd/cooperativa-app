@@ -217,7 +217,7 @@ const procesarAfiliacionExistente = async (req, res) => {
       });
     }
 
-    const monto = parseFloat(monto_aportacion);
+    const monto = Number.parseFloat(monto_aportacion);
     if (isNaN(monto) || monto < 100.00) {
       return res.status(400).json({
         success: false,
@@ -399,7 +399,7 @@ const procesarAfiliacionExistente = async (req, res) => {
     await documentosAfiliacion.exigirDocumentosObligatorios(client, idExpedienteDocs);
 
     // 4. Aperturar cuenta de Ahorro a la Vista cooperativa (id_tipo_cuenta = 2)
-    const numeroCuentaCooperativa = 'CTA-AHORR-' + String(Math.floor(100000 + Math.random() * 900000));
+    const numeroCuentaCooperativa = 'CTA-AHORR-' + String(crypto.randomInt(100000, 1000000));
     const cuentaCoopRes = await client.query(
       `INSERT INTO cuentas (numero_cuenta, id_asociado, id_tipo_cuenta, saldo_disponible, saldo_reserva, estado)
        VALUES ($1, $2, 2, $3, 0.00, 'ACTIVA')
@@ -713,7 +713,7 @@ const registrarSolicitudAgencia = async (req, res) => {
     // Validación estricta de correo electrónico único
     {
       const emailLimpio = email.trim().toLowerCase();
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      const emailRegex = /^[^\s@]+@[^\s@.]+(\.[^\s@.]+)+$/;
       if (!emailRegex.test(emailLimpio)) {
         return res.status(400).json({
           success: false,
@@ -794,7 +794,7 @@ const registrarSolicitudAgencia = async (req, res) => {
 
     // El número CASO-AFIL-AAAA-XXXX lo pone el trigger (correlativo atómico y año de Guatemala): el servidor corre en
     // UTC y el año de JavaScript sería el siguiente el 31 de diciembre después de las 18:00
-    const montoEst = parseFloat(monto_estimado) || 100.00;
+    const montoEst = Number.parseFloat(monto_estimado) || 100.00;
 
     const insertCaseRes = await client.query(
       `INSERT INTO solicitudes_afiliacion_agencia (
@@ -928,7 +928,7 @@ const verificarEmail = async (req, res) => {
     }
 
     const email = rawEmail.trim().toLowerCase();
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const emailRegex = /^[^\s@]+@[^\s@.]+(\.[^\s@.]+)+$/;
     if (!emailRegex.test(email)) {
       return res.status(200).json({
         success: true,

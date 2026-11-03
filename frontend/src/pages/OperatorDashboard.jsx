@@ -127,7 +127,7 @@ export const OperatorDashboard = () => {
       return;
     }
 
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const emailRegex = /^[^\s@]+@[^\s@.]+(\.[^\s@.]+)+$/;
     if (!emailRegex.test(rawEmail)) {
       setOperatorEmailStatus({
         checking: false,
@@ -267,7 +267,7 @@ export const OperatorDashboard = () => {
     fetchDocumentosPendientes();
     setRecargaDocumentos((n) => n + 1);
     if (subTabTraslados === 'historial') {
-      fetchHistorialTraslados();
+      void fetchHistorialTraslados();
     }
   };
 
@@ -764,7 +764,7 @@ export const OperatorDashboard = () => {
               onSubTabChange={(id) => {
                 setSubTabTraslados(id);
                 if (id === 'historial' && historialTraslados.length === 0) {
-                  fetchHistorialTraslados();
+                  void fetchHistorialTraslados();
                 }
               }}
               solicitudes={solicitudes}

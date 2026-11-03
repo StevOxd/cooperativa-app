@@ -108,6 +108,6 @@ const startServer = async () => {
   }
 };
 
-startServer();
+void startServer();
 
 module.exports = app;

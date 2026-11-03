@@ -13,7 +13,7 @@ import { Button } from '../ui';
  */
 export const StepHeader = ({ step, total, title, description }) => (
   <div className="mb-6">
-    {step && total && (
+    {Boolean(step && total) && (
       <p className="text-sm text-ink-muted tabular-nums">
         Paso {step} de {total}
       </p>

@@ -63,7 +63,7 @@ export const SignedPdfPanel = ({
           <span className="flex items-center gap-2 text-ink-soft">
             <FileText className="w-4 h-4 text-ink-subtle" aria-hidden="true" />
             {existingName || 'formulario_firmado.pdf'}
-            {existingSize && <span className="text-ink-subtle">({kb(existingSize)})</span>}
+            {Boolean(existingSize) && <span className="text-ink-subtle">({kb(existingSize)})</span>}
           </span>
           <a
             href={existente.objectUrl}

@@ -97,7 +97,7 @@ const validarCredenciales = async (req, res) => {
         id_cuenta_bancaria: cta.id_cuenta_bancaria,
         numero_cuenta_bancaria: cta.numero_cuenta,
         tipo_cuenta: cta.tipo_cuenta,
-        saldo_disponible: parseFloat(cta.saldo_disponible),
+        saldo_disponible: Number.parseFloat(cta.saldo_disponible),
         estado: cta.estado,
       })),
     });

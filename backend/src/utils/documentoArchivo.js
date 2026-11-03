@@ -38,7 +38,7 @@ const PDF_CONTENIDO_ACTIVO =
  */
 const pdfConContenidoActivo = (buffer) =>
   PDF_CONTENIDO_ACTIVO.test(
-    buffer.toString('latin1').replace(/#([0-9A-Fa-f]{2})/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)))
+    buffer.toString('latin1').replace(/#([0-9A-Fa-f]{2})/g, (_, hex) => String.fromCharCode(Number.parseInt(hex, 16)))
   );
 
 const DATA_URI = /^data:(application\/pdf|image\/jpeg|image\/png);base64,/;

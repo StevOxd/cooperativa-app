@@ -91,7 +91,7 @@ const generar = (archivo) => {
   return `${encabezado}\n\n${aviso}\n${traducirCuerpo(cuerpo)}`;
 };
 
-const origenes = readdirSync(ORIGEN).filter((f) => f.endsWith('.md') && f !== 'README.md').sort();
+const origenes = readdirSync(ORIGEN).filter((f) => f.endsWith('.md') && f !== 'README.md').sort((a, b) => a.localeCompare(b));
 const esperados = new Map(origenes.map((archivo) => [archivo, generar(archivo)]));
 
 if (soloComprobar) {

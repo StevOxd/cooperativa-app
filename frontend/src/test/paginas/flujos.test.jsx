@@ -307,3 +307,144 @@ describe('afiliación pública', () => {
     expect(api.post).not.toHaveBeenCalledWith('/afiliacion/validar-dpi', expect.anything());
   });
 });
+
+describe('acciones sobre usuarios', () => {
+  beforeEach(() => iniciarSesionComo('ADMINISTRADOR'));
+
+  const abrirAccion = async (nombre) => {
+    montar(<UsersPage />);
+    await screen.findAllByText(BASE.usuario.email);
+    await userEvent.click(screen.getByRole('button', { name: nombre }));
+    return screen.findByRole('dialog');
+  };
+
+  test('reiniciar la contraseña la envía al servidor y recarga la lista', async () => {
+    const dialogo = await abrirAccion(`Reiniciar la contraseña de ${BASE.usuario.codigo_corporativo}`);
+    fireEvent.submit(dialogo.querySelector('form'));
+    await waitFor(() =>
+      expect(api.post).toHaveBeenCalledWith(`/usuarios/${BASE.usuario.id_usuario}/reset-password`, expect.anything())
+    );
+    await waitFor(() => expect(api.get.mock.calls.filter(([url]) => url === '/usuarios').length).toBeGreaterThan(1));
+  });
+
+  test('desactivar a un usuario cambia su estado y recarga la lista', async () => {
+    const dialogo = await abrirAccion(`Desactivar a ${BASE.usuario.codigo_corporativo}`);
+    const motivo = dialogo.querySelector('textarea, input');
+    if (motivo) fireEvent.change(motivo, { target: { value: 'Ya no trabaja en la cooperativa' } });
+    fireEvent.submit(dialogo.querySelector('form'));
+    await waitFor(() =>
+      expect(api.patch).toHaveBeenCalledWith(
+        expect.stringContaining(`/usuarios/${BASE.usuario.id_usuario}`),
+        expect.anything()
+      )
+    );
+    await waitFor(() => expect(api.get.mock.calls.filter(([url]) => url === '/usuarios').length).toBeGreaterThan(1));
+  });
+
+  test('editar a un usuario guarda los cambios con PUT', async () => {
+    const dialogo = await abrirAccion(`Editar a ${BASE.usuario.codigo_corporativo}`);
+    fireEvent.change(within(dialogo).getByLabelText(/Correo/), { target: { value: 'cambiado@prueba.test' } });
+    fireEvent.submit(dialogo.querySelector('form'));
+    await waitFor(() =>
+      expect(api.put).toHaveBeenCalledWith(
+        `/usuarios/${BASE.usuario.id_usuario}`,
+        expect.objectContaining({ email: 'cambiado@prueba.test' })
+      )
+    );
+  });
+
+  test('buscar por código vuelve a pedir la lista', async () => {
+    montar(<UsersPage />);
+    await screen.findAllByText(BASE.usuario.email);
+    const buscador = screen.getByLabelText('Buscar por código de usuario');
+    await userEvent.type(buscador, 'OP-9');
+    fireEvent.submit(buscador.closest('form'));
+    await waitFor(() => expect(api.get.mock.calls.filter(([url]) => url === '/usuarios').length).toBeGreaterThan(2));
+  });
+});
+
+describe('padrón y bandeja', () => {
+  beforeEach(() => iniciarSesionComo('OPERADOR'));
+
+  test('buscar en el padrón pide la primera página', async () => {
+    const { container } = montar(<AssociatesManagementPage />);
+    await screen.findAllByText(/Ana/);
+    const formulario = container.querySelector('form');
+    fireEvent.submit(formulario);
+    await waitFor(() =>
+      expect(api.get.mock.calls.filter(([url]) => url === '/admin/asociados').length).toBeGreaterThan(1)
+    );
+  });
+
+  test('ver el historial de traslados lo pide al servidor', async () => {
+    api.get.mockImplementation(async (url, ...resto) =>
+      url === '/operador/bandeja-solicitudes' ? { data: { success: true, data: [] } } : responder(url, ...resto)
+    );
+    montar(<OperatorDashboard />);
+    await waitFor(() => expect(api.get).toHaveBeenCalledWith('/operador/bandeja-solicitudes'));
+    await userEvent.click(screen.getByRole('tab', { name: /traslados/i }));
+    await userEvent.click(await screen.findByRole('button', { name: /Ver historial/ }));
+    await waitFor(() => expect(api.get).toHaveBeenCalledWith('/operador/traslados/historial', expect.anything()));
+  });
+});
+
+describe('afiliación en línea de una persona sin cuenta en el banco', () => {
+  const llenarSolicitud = async (container) => {
+    await userEvent.type(container.querySelector('input'), '1234567890123');
+    fireEvent.submit(container.querySelector('form'));
+    await screen.findByRole('button', { name: /Obtener número de caso/ });
+    const escribir = (etiqueta, valor) =>
+      fireEvent.change(screen.getByLabelText(etiqueta), { target: { value: valor } });
+    escribir(/Primer nombre/, 'Nora');
+    escribir(/Primer apellido/, 'Nueva');
+    escribir(/Teléfono/, '55554444');
+    escribir(/Correo electrónico/, 'nora@prueba.test');
+    fireEvent.change(screen.getByLabelText('Año'), { target: { value: '1990' } });
+    fireEvent.change(screen.getByLabelText('Mes'), { target: { value: '05' } });
+    fireEvent.change(screen.getByLabelText('Día'), { target: { value: '10' } });
+    fireEvent.submit(screen.getByRole('button', { name: /Obtener número de caso/ }).closest('form'));
+  };
+
+  const confirmarCodigo = async (codigo) => {
+    const dialogo = await screen.findByRole('dialog');
+    await userEvent.type(within(dialogo).getByLabelText(/Código de verificación/), codigo);
+    fireEvent.submit(dialogo.querySelector('form'));
+  };
+
+  beforeEach(() => {
+    api.get.mockImplementation(async () => ({ data: { success: true, disponible: true, data: [] } }));
+  });
+
+  test('verifica el correo con un código y registra la solicitud', async () => {
+    api.post.mockImplementation(async (url) => {
+      if (url === '/afiliacion/validar-dpi') return { data: { success: true, pertenece_banco: false } };
+      if (url === '/afiliacion/codigo-correo') return { data: { success: true, reenviar_en: 60 } };
+      return { data: { success: true, data: { numero_caso: 'AF-2026-0001', fecha_solicitud: '2026-02-01' } } };
+    });
+    const { container } = montar(<PublicAffiliationPage />);
+    await llenarSolicitud(container);
+    await act(async () => {});
+    await waitFor(() =>
+      expect(api.post).toHaveBeenCalledWith('/afiliacion/codigo-correo', { email: 'nora@prueba.test' })
+    );
+    await confirmarCodigo('123456');
+    await waitFor(() =>
+      expect(api.post).toHaveBeenCalledWith(
+        '/afiliacion/solicitar-nuevo',
+        expect.objectContaining({ cui_dpi: '1234567890123', primer_nombre: 'Nora', primer_apellido: 'Nueva' })
+      )
+    );
+  });
+
+  test('un código incorrecto se muestra en el mismo diálogo', async () => {
+    api.post.mockImplementation(async (url) => {
+      if (url === '/afiliacion/validar-dpi') return { data: { success: true, pertenece_banco: false } };
+      if (url === '/afiliacion/codigo-correo') return { data: { success: true, reenviar_en: 60 } };
+      throw { response: { data: { success: false, error: 'CODIGO_INCORRECTO', message: 'El código no coincide.' } } };
+    });
+    const { container } = montar(<PublicAffiliationPage />);
+    await llenarSolicitud(container);
+    await confirmarCodigo('000000');
+    expect(await screen.findByText(/código no coincide|no coincide/i)).toBeInTheDocument();
+  });
+});

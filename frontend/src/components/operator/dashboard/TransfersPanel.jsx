@@ -17,7 +17,7 @@ const PendingSummary = ({ solicitudes }) => {
     (min, s) => (!min || new Date(s.fecha_solicitud) < new Date(min.fecha_solicitud) ? s : min),
     null
   );
-  const sinSaldo = solicitudes.filter((s) => parseFloat(s.monto) > parseFloat(s.cuenta_origen_saldo)).length;
+  const sinSaldo = solicitudes.filter((s) => Number.parseFloat(s.monto) > Number.parseFloat(s.cuenta_origen_saldo)).length;
   return (
     <StatGroup columns={3}>
       <StatCard

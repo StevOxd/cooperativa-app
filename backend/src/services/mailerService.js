@@ -31,11 +31,6 @@ class MailerService {
     this.currentUser = null;
     this.from = null;
     this.lastError = null;
-
-    // Inicializar transporte de forma asíncrona
-    this.initTransporter().catch((err) => {
-      console.warn('[MAILER] Error durante la inicialización:', err.message);
-    });
   }
 
   /**
@@ -963,4 +958,11 @@ class MailerService {
   }
 }
 
-module.exports = new MailerService();
+const mailerService = new MailerService();
+
+// El transporte se prepara de forma asíncrona fuera del constructor: un constructor no debe lanzar trabajo asíncrono.
+mailerService.initTransporter().catch((err) => {
+  console.warn('[MAILER] Error durante la inicialización:', err.message);
+});
+
+module.exports = mailerService;

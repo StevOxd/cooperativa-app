@@ -1,7 +1,7 @@
 const mailerService = require('../services/mailerService');
 const { verificarDominioCorreo } = require('./correoDominio');
 
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const EMAIL_REGEX = /^[^\s@]+@[^\s@.]+(\.[^\s@.]+)+$/;
 const VALORES_NO = ['false', '0', 'no', 'off'];
 
 /**

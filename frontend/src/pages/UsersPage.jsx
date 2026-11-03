@@ -275,7 +275,7 @@ export const UsersPage = () => {
 
   const fetchUsersRef = useLatest(fetchUsers);
   useEffect(() => {
-    fetchUsersRef.current();
+    void fetchUsersRef.current();
   }, [filterEstado, filterRol, fetchUsersRef]);
 
   // Al abrir la pantalla carga el efecto de los filtros; la búsqueda solo recarga cuando cambia
@@ -284,7 +284,7 @@ export const UsersPage = () => {
     if (searchTerm === busquedaInicial.current) return undefined;
     busquedaInicial.current = null;
     const timer = setTimeout(() => {
-      fetchUsersRef.current(false);
+      void fetchUsersRef.current(false);
     }, 300);
     return () => clearTimeout(timer);
   }, [searchTerm, fetchUsersRef]);
@@ -304,7 +304,7 @@ export const UsersPage = () => {
             })
           );
         } else {
-          fetchUsersRef.current(false);
+          void fetchUsersRef.current(false);
         }
       };
       socket.on('presence_update', handlePresence);
@@ -322,7 +322,7 @@ export const UsersPage = () => {
       const response = await api.patch(`/usuarios/${userId}/desbloquear`);
       if (response.data?.success) {
         setSuccessMessage(response.data.message || 'Usuario desbloqueado.');
-        fetchUsers(false);
+        void fetchUsers(false);
       }
     } catch (error) {
       console.error('Error al desbloquear usuario:', error);
@@ -332,7 +332,7 @@ export const UsersPage = () => {
 
   const handleSearchSubmit = (e) => {
     e.preventDefault();
-    fetchUsers();
+    void fetchUsers();
   };
 
   const openCreateModal = () => {
@@ -386,7 +386,7 @@ export const UsersPage = () => {
     setModalError('');
 
     // Validaciones de negocio y formato (igual al estándar institucional y de asociados)
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const emailRegex = /^[^\s@]+@[^\s@.]+(\.[^\s@.]+)+$/;
     if (!formData.email || !emailRegex.test(formData.email.trim())) {
       setModalError('Revise el correo. Debe verse así: nombre@correo.com.');
       return;
@@ -460,7 +460,7 @@ export const UsersPage = () => {
             setSuccessMessage('Cambios guardados.');
           }
           setIsModalOpen(false);
-          fetchUsers();
+          void fetchUsers();
         }
       } else {
         // En creación de nuevo colaborador institucional:
@@ -486,7 +486,7 @@ export const UsersPage = () => {
             );
           }
           setIsModalOpen(false);
-          fetchUsers();
+          void fetchUsers();
         }
       }
     } catch (error) {
@@ -519,7 +519,7 @@ export const UsersPage = () => {
       if (response.data?.success) {
         setResetSuccess(true);
         setSuccessMessage(`Se reinició la contraseña de ${resetTargetUser.codigo_corporativo} y se envió a su correo.`);
-        fetchUsers(false);
+        void fetchUsers(false);
       }
     } catch (error) {
       setResetError(error.response?.data?.message || 'No se pudo reiniciar la contraseña. Intente de nuevo.');
@@ -557,7 +557,7 @@ export const UsersPage = () => {
           `${statusTargetUser.nombre_completo || statusTargetUser.codigo_corporativo} quedó ${statusNewValue === 'INACTIVO' ? 'inactivo' : 'activo'}.`
         );
         setStatusModalOpen(false);
-        fetchUsers();
+        void fetchUsers();
       }
     } catch (error) {
       setStatusError(error.response?.data?.message || 'No se pudo cambiar el estado. Intente de nuevo.');

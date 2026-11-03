@@ -39,7 +39,7 @@ if (!process.env.DB_OWNER_USER || !process.env.DB_OWNER_PASSWORD) {
 
 const dbConfigCoop = {
   host: process.env.DB_HOST || 'localhost',
-  port: parseInt(process.env.DB_PORT || '5432', 10),
+  port: Number.parseInt(process.env.DB_PORT || '5432', 10),
   user: process.env.DB_OWNER_USER,
   password: process.env.DB_OWNER_PASSWORD,
   database: process.env.DB_NAME || 'cooperativa_db',
@@ -708,4 +708,4 @@ async function main() {
   }
 }
 
-main();
+void main();

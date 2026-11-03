@@ -152,13 +152,13 @@ const elevarCredito = async ({ idSolicitud, idOperador, dictamen_operador, docum
 
   // Notificaciones en tiempo real por WebSockets
   try {
-    socketService.emitToRole('EJECUTIVO', 'solicitud_credito:elevada', {
+    void socketService.emitToRole('EJECUTIVO', 'solicitud_credito:elevada', {
       id_solicitud_credito: idSolicitud,
       monto: sol.monto_solicitado,
       asociado: `${sol.primer_nombre} ${sol.primer_apellido}`,
       dictamen: dictamen_operador.trim(),
     });
-    socketService.emitToUser(sol.id_usuario_asociado, 'solicitud_credito:actualizada', {
+    void socketService.emitToUser(sol.id_usuario_asociado, 'solicitud_credito:actualizada', {
       id_solicitud_credito: idSolicitud,
       estado: 'EN_AUTORIZACION_EJECUTIVO',
       mensaje: 'Su solicitud ha sido revisada por el operador y elevada al Comité Ejecutivo para su dictamen final.',

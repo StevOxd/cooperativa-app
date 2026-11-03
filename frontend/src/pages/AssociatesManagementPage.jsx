@@ -102,12 +102,12 @@ export const AssociatesManagementPage = () => {
 
   const fetchAsociadosRef = useLatest(fetchAsociados);
   useEffect(() => {
-    fetchAsociadosRef.current(1);
+    void fetchAsociadosRef.current(1);
   }, [estadoFilter, fetchAsociadosRef]);
 
   const handleSearchSubmit = (e) => {
     e.preventDefault();
-    fetchAsociados(1);
+    void fetchAsociados(1);
   };
 
   // Cambio de estado institucional mediante ConfirmModal (H-02)
@@ -132,7 +132,7 @@ export const AssociatesManagementPage = () => {
       });
       if (res.data?.success) {
         toast.success(`${asociado.nombre_completo} quedó ${nuevoEstado === 'SUSPENDIDO' ? 'suspendido' : 'activo'}.`);
-        fetchAsociados(pagination.page);
+        void fetchAsociados(pagination.page);
       }
     } catch (err) {
       toast.error(err.response?.data?.message || 'No se pudo cambiar el estado. Intente de nuevo.');
@@ -252,7 +252,7 @@ export const AssociatesManagementPage = () => {
                   onClick={() => {
                     setSearch('');
                     setEstadoFilter('');
-                    fetchAsociados(1);
+                    void fetchAsociados(1);
                   }}
                 >
                   Limpiar filtros

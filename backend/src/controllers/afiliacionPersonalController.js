@@ -2,7 +2,7 @@ const { pool } = require('../config/db');
 const mailerService = require('../services/mailerService');
 const { verificarDominioCorreo } = require('../utils/correoDominio');
 
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const EMAIL_REGEX = /^[^\s@]+@[^\s@.]+(\.[^\s@.]+)+$/;
 
 /**
  * Afiliación del personal desde su propia sesión (issue #32).

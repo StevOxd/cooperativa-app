@@ -52,7 +52,7 @@ const validateAge18 = (fechaNacimiento) => {
  * @returns {{ valid: boolean, value?: number, message?: string }}
  */
 const validatePositiveAmount = (monto, min = 0, fieldName = 'monto') => {
-  const num = parseFloat(monto);
+  const num = Number.parseFloat(monto);
   if (isNaN(num) || num <= min) {
     return {
       valid: false,
@@ -104,7 +104,7 @@ const validateCuiMiddleware = (field = 'cui_dpi') => {
  * @returns {{ valid: boolean, value?: number }}
  */
 const validateMinimumAmount = (monto, min) => {
-  const num = parseFloat(monto);
+  const num = Number.parseFloat(monto);
   return isNaN(num) || num < min ? { valid: false } : { valid: true, value: num };
 };
 

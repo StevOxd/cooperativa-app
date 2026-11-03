@@ -23,7 +23,7 @@ import {
  *
  * @component
  */
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const EMAIL_REGEX = /^[^\s@]+@[^\s@.]+(\.[^\s@.]+)+$/;
 
 /** Errores del servidor que se muestran dentro de la ventana del código (el resto, en la página). */
 const esErrorDeCodigo = (codigoError) => typeof codigoError === 'string' && codigoError.startsWith('CODIGO_');
@@ -341,9 +341,9 @@ export const PublicAffiliationPage = () => {
     try {
       const response = await api.post('/afiliacion/procesar-existente', {
         cui_dpi: bancoData.persona.cui_dpi,
-        id_cuenta_bancaria: parseInt(selectedCuentaBancariaId, 10),
+        id_cuenta_bancaria: Number.parseInt(selectedCuentaBancariaId, 10),
         numero_cuenta_bancaria: cuentaSeleccionadaObj?.numero_cuenta_bancaria || '',
-        monto_aportacion: parseFloat(montoAportacion),
+        monto_aportacion: Number.parseFloat(montoAportacion),
         ...(accesoExistente
           ? {}
           : { email: credenciales.email.trim(), password: credenciales.password, codigo_verificacion: codigo }),
@@ -408,9 +408,9 @@ export const PublicAffiliationPage = () => {
 
   const confirmarCodigoCorreo = (codigo) => {
     setCodigoModal((prev) => ({ ...prev, error: '' }));
-    if (codigoModal.camino === 'EXISTENTE') enviarAfiliacionExistente(codigo);
-    else if (codigoModal.camino === 'AGENCIA_BANCO') enviarTerminarEnAgencia(codigo);
-    else enviarSolicitudNuevo(codigo);
+    if (codigoModal.camino === 'EXISTENTE') void enviarAfiliacionExistente(codigo);
+    else if (codigoModal.camino === 'AGENCIA_BANCO') void enviarTerminarEnAgencia(codigo);
+    else void enviarSolicitudNuevo(codigo);
   };
 
   // 2.1 Cliente del banco que prefiere terminar en una agencia (Fase 6): sin débito en línea, con número de caso
@@ -501,7 +501,7 @@ export const PublicAffiliationPage = () => {
       return;
     }
 
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const emailRegex = /^[^\s@]+@[^\s@.]+(\.[^\s@.]+)+$/;
     if (!emailRegex.test(nuevoForm.email.trim())) {
       setErrorMsg('Revise el correo. Debe verse así: nombre@correo.com.');
       return;

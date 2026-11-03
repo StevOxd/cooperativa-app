@@ -46,7 +46,7 @@ export const generateAccountStatementPdf = ({ asociado, cuenta, transacciones = 
   const now = new Date();
 
   const disponible = parseFloat(cuenta?.saldo_disponible || 0);
-  const reserva = parseFloat(cuenta?.saldo_reserva || 0);
+  const reserva = Number.parseFloat(cuenta?.saldo_reserva || 0);
   const nombre =
     asociado?.nombre_completo || `${asociado?.primer_nombre || ''} ${asociado?.primer_apellido || ''}`.trim();
 

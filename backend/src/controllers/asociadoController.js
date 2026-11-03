@@ -310,8 +310,8 @@ const iniciarCredito = async (req, res) => {
       id_cuenta_bancaria_destino
     } = req.body;
 
-    const monto = parseFloat(monto_solicitado);
-    const plazo = parseInt(plazo_meses, 10);
+    const monto = Number.parseFloat(monto_solicitado);
+    const plazo = Number.parseInt(plazo_meses, 10);
 
     if (isNaN(monto) || monto <= 0 || isNaN(plazo) || plazo <= 0) {
       return res.status(400).json({
@@ -575,7 +575,7 @@ const subirExpedienteFirmado = async (req, res) => {
 
     // Notificar a operadores vía WebSockets
     try {
-      socketService.emitToRole('OPERADOR', 'solicitud_credito:nueva', {
+      void socketService.emitToRole('OPERADOR', 'solicitud_credito:nueva', {
         id_solicitud_credito: sol.id_solicitud_credito,
         monto_solicitado: sol.monto_solicitado,
         id_asociado: idAsociado,
@@ -621,8 +621,8 @@ const cuentasDeOrigen = async (idPersona) => {
                     tc.nombre AS tipo_cuenta, 'COOPERATIVA' AS origen_cuenta`;
   const deLaCooperativa = (fila) => ({
     ...fila,
-    saldo_disponible: parseFloat(fila.saldo_disponible),
-    saldo_reserva: parseFloat(fila.saldo_reserva),
+    saldo_disponible: Number.parseFloat(fila.saldo_disponible),
+    saldo_reserva: Number.parseFloat(fila.saldo_reserva),
   });
   const cuentas = [];
 
@@ -640,7 +640,7 @@ const cuentasDeOrigen = async (idPersona) => {
           id_cuenta: c.id_cuenta_bancaria,
           id_cuenta_bancaria: c.id_cuenta_bancaria,
           numero_cuenta: c.numero_cuenta_bancaria,
-          saldo_disponible: parseFloat(c.saldo_disponible),
+          saldo_disponible: Number.parseFloat(c.saldo_disponible),
           saldo_reserva: 0,
           estado: c.estado,
           tipo_cuenta: `Cuenta bancaria (${c.tipo_cuenta})`,
@@ -952,7 +952,7 @@ const createSolicitudTraslado = async (req, res) => {
         return res.status(400).json({
           success: false,
           message: `Con sus traslados pendientes de esa cuenta (Q${comprometido.toFixed(2)}) no le alcanza el saldo. `
-            + `Disponible para otro traslado: Q${Math.max(parseFloat(saldo_disponible) - comprometido, 0).toFixed(2)}.`,
+            + `Disponible para otro traslado: Q${Math.max(Number.parseFloat(saldo_disponible) - comprometido, 0).toFixed(2)}.`,
         });
       }
 

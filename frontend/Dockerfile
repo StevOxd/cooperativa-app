@@ -15,7 +15,7 @@ WORKDIR /app
 COPY package*.json ./
 
 # Instalar dependencias completas (incluye devDependencies para vite y tailwind)
-RUN npm ci
+RUN npm ci --ignore-scripts
 
 # Copiar únicamente los archivos fuente y de configuración para la compilación
 COPY index.html ./

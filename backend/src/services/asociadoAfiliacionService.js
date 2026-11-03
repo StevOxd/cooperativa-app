@@ -319,7 +319,7 @@ class AsociadoAfiliacionService {
       // Única por intento (48 bits al azar, regla 4.10): el banco toma una referencia repetida como un reintento
       const referenciaBanco = `AFIL-VENT-${asociado.id_asociado}-${Date.now()}-${crypto.randomBytes(6).toString('hex')}`;
       if (tipoAsociadoDeterminado === 'EB') {
-        const randomSuffix = Math.floor(100 + Math.random() * 900);
+        const randomSuffix = crypto.randomInt(100, 1000);
         const numeroCuentaAhorro = `CTA-AHORR-${String(asociado.id_asociado).padStart(3, '0')}${randomSuffix}`;
         const cuentaRes = await client.query(
           `INSERT INTO cuentas (numero_cuenta, id_asociado, id_tipo_cuenta, saldo_disponible, saldo_reserva, estado)
