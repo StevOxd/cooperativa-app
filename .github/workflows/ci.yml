@@ -218,7 +218,7 @@ jobs:
       # Los PR desde un fork no reciben el token, así que este análisis solo corre en ramas de este repositorio.
       - name: SonarCloud y su Quality Gate
         if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
-        uses: SonarSource/sonarqube-scan-action@2f77a1ec69fb1d595b06f35ab27e97605bdef703 commit # v5
+        uses: SonarSource/sonarqube-scan-action@2f77a1ec69fb1d595b06f35ab27e97605bdef703 # v5
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
