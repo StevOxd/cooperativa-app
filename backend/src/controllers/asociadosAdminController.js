@@ -657,7 +657,7 @@ const guardarBeneficiarios = async (req, res) => {
         });
       }
       ben.parentesco = parentesco;
-      const pct = Number.parseFloat(ben.porcentaje);
+      const pct = parseFloat(ben.porcentaje);
       if (isNaN(pct) || pct <= 0 || pct > 100) {
         return res.status(400).json({
           success: false,
@@ -701,7 +701,7 @@ const guardarBeneficiarios = async (req, res) => {
       parentesco: (b.parentesco || '').trim().toUpperCase(),
       cui_dpi: (b.cui_dpi || '').trim(),
       telefono: (b.telefono || '').trim(),
-      porcentaje: Number.parseFloat(b.porcentaje || 0).toFixed(2),
+      porcentaje: parseFloat(b.porcentaje || 0).toFixed(2),
     })).sort((a, b) => a.nombre_completo.localeCompare(b.nombre_completo));
 
     const prevNorm = normalize(prevRes.rows);
@@ -730,7 +730,7 @@ const guardarBeneficiarios = async (req, res) => {
           ben.parentesco.trim().substring(0, 100),
           ben.cui_dpi?.trim().substring(0, 50) || null,
           ben.telefono?.trim().substring(0, 50) || null,
-          Number.parseFloat(ben.porcentaje),
+          parseFloat(ben.porcentaje),
         ]
       );
     }

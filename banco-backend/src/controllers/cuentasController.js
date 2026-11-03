@@ -163,7 +163,7 @@ const debitar = async (req, res) => {
       });
     }
 
-    const montoNum = Number.parseFloat(monto);
+    const montoNum = parseFloat(monto);
     if (isNaN(montoNum) || montoNum <= 0) {
       return res.status(400).json({
         success: false,
@@ -291,7 +291,7 @@ const acreditar = async (req, res) => {
       });
     }
 
-    const montoNum = Number.parseFloat(monto);
+    const montoNum = parseFloat(monto);
     if (isNaN(montoNum) || montoNum <= 0) {
       return res.status(400).json({
         success: false,

@@ -372,7 +372,7 @@ export const AssociateDashboard = () => {
           parentesco: (b.parentesco || 'HIJO/A').trim(),
           cui_dpi: (b.cui_dpi || '').trim(),
           telefono: (b.telefono || '').trim(),
-          porcentaje: Number(Number.parseFloat(b.porcentaje || 0).toFixed(2)),
+          porcentaje: Number(parseFloat(b.porcentaje || 0).toFixed(2)),
         }))
         .filter((b) => b.nombre_completo !== '' || b.cui_dpi !== '' || b.telefono !== '');
     };
