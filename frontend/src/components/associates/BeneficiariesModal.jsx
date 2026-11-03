@@ -179,7 +179,7 @@ export const BeneficiariesModal = ({
     setBeneficiarios((prev) =>
       prev.map((ben, idx) => ({
         ...ben,
-        porcentaje: idx === 0 ? Number.parseFloat((basePct + remainder).toFixed(2)) : basePct,
+        porcentaje: idx === 0 ? parseFloat((basePct + remainder).toFixed(2)) : basePct,
       }))
     );
   };

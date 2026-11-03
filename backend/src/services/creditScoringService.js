@@ -9,7 +9,7 @@ const bancoApiService = require('./bancoApiService');
  * @returns {object} Información de nivel, límite máximo y descripción.
  */
 const calcularCapacidadCrediticia = (saldoTotal) => {
-  const saldo = Math.max(0, Number.parseFloat(saldoTotal) || 0);
+  const saldo = Math.max(0, parseFloat(saldoTotal) || 0);
 
   if (saldo < 1000) {
     return {
@@ -155,7 +155,7 @@ const evaluarSolicitudCrediticia = async ({ idAsociado, idPersona, montoSolicita
        AND estado IN ('PENDIENTE', 'PENDIENTE_FIRMA', 'EN_REVISION_OPERADOR', 'EN_AUTORIZACION_EJECUTIVO', 'DEVUELTA_OPERADOR')`,
     [idAsociado]
   );
-  const solicitudesPendientesCount = Number.parseInt(pendientesRes.rows[0]?.total_pendientes || 0, 10);
+  const solicitudesPendientesCount = parseInt(pendientesRes.rows[0]?.total_pendientes || 0, 10);
 
   // 5. Aplicar matriz de capacidad de endeudamiento
   const capacidad = calcularCapacidadCrediticia(saldoTotal);

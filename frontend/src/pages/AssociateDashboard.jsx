@@ -358,7 +358,7 @@ export const AssociateDashboard = () => {
   };
 
   const totalPorcentajeAsociado = useMemo(() => {
-    return editBeneficiariosList.reduce((acc, b) => acc + (Number.parseFloat(b.porcentaje) || 0), 0);
+    return editBeneficiariosList.reduce((acc, b) => acc + (parseFloat(b.porcentaje) || 0), 0);
   }, [editBeneficiariosList]);
 
   // Detección estricta de cambios respecto al estado original

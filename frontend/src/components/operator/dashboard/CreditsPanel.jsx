@@ -32,7 +32,7 @@ const CreditsSummary = ({ todos }) => {
       <StatCard
         label="Por analizar"
         value={porAnalizar.length}
-        hint={`${formatQ(porAnalizar.reduce((sum, c) => sum + (Number.parseFloat(c.monto_solicitado) || 0), 0))} solicitados`}
+        hint={`${formatQ(porAnalizar.reduce((sum, c) => sum + (parseFloat(c.monto_solicitado) || 0), 0))} solicitados`}
       />
       <StatCard
         label="Devueltas por el ejecutivo"

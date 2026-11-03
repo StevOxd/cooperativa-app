@@ -375,7 +375,7 @@ const iniciarCredito = async (req, res) => {
          AND estado IN ('PENDIENTE', 'PENDIENTE_FIRMA', 'EN_REVISION_OPERADOR', 'EN_AUTORIZACION_EJECUTIVO', 'DEVUELTA_OPERADOR')`,
       [idAsociado]
     );
-    const totalPendientes = Number.parseInt(pendientesRes.rows[0]?.total_pendientes || 0, 10);
+    const totalPendientes = parseInt(pendientesRes.rows[0]?.total_pendientes || 0, 10);
     if (totalPendientes >= 2) {
       return res.status(400).json({
         success: false,
@@ -700,7 +700,7 @@ const getCuentasOrigen = async (req, res) => {
 const getMisCuentasDestino = async (req, res) => {
   try {
     const idPersona = req.user.id_persona;
-    const idCuentaOrigen = req.query.id_cuenta_origen ? Number.parseInt(req.query.id_cuenta_origen, 10) : null;
+    const idCuentaOrigen = req.query.id_cuenta_origen ? parseInt(req.query.id_cuenta_origen, 10) : null;
 
     // 1. Cuentas destino existentes (excluye la cuenta que se está usando como origen)
     let existingCuentasQuery = `
@@ -819,7 +819,7 @@ const createSolicitudTraslado = async (req, res) => {
     const saldo_disponible = cuentaOrigen.saldo_disponible;
 
     // 2. Validar que posee saldo disponible suficiente
-    if (parsedMonto > Number.parseFloat(saldo_disponible)) {
+    if (parsedMonto > parseFloat(saldo_disponible)) {
       return res.status(400).json({
         success: false,
         message: `No tiene saldo suficiente. Disponible: Q${parseFloat(saldo_disponible).toFixed(2)}.`,
@@ -874,7 +874,7 @@ const createSolicitudTraslado = async (req, res) => {
         });
       }
       const { monto_minimo_apertura, nombre: tipoNombre } = typeRes.rows[0];
-      if (parsedMonto < Number.parseFloat(monto_minimo_apertura)) {
+      if (parsedMonto < parseFloat(monto_minimo_apertura)) {
         return res.status(400).json({
           success: false,
           message: `Para abrir una cuenta ${tipoNombre} el mínimo es Q${parseFloat(monto_minimo_apertura).toFixed(2)}.`,

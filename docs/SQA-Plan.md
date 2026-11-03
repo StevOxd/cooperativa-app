@@ -61,6 +61,13 @@ Este plan define cómo se verifica la calidad de Cooperativa App y qué condicio
 
 **Gestión de deuda técnica:** los hallazgos que no se corrijan en el momento quedan registrados con severidad y decisión. Críticos y mayores se corrigen dentro del proyecto. Los hallazgos de seguridad se manejan por advisory privado.
 
+**Criterio para corregir issues antiguos:** el Quality Gate exige 80 % de cobertura y como máximo 3 % de duplicación en el código que cambia cada pull request. Por eso:
+
+- Los bugs y vulnerabilidades se corrigen siempre. Si la línea no tiene pruebas, primero se escriben.
+- Las correcciones menores de estilo (por ejemplo `Number.parseFloat`) solo se aplican en líneas con todas sus líneas y condiciones probadas.
+- Las líneas dentro de bloques duplicados no se tocan sin refactorizar el bloque completo.
+- Lo que queda pendiente se reporta como deuda técnica en `Reporte-Mejora.md`.
+
 ## 5. Métricas y quality gates
 
 El pipeline falla si no se cumple alguna condición de la columna "Bloquea".

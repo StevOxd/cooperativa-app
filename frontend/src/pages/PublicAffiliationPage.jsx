@@ -436,7 +436,7 @@ export const PublicAffiliationPage = () => {
         direccion: persona.direccion || '',
         fecha_nacimiento: String(persona.fecha_nacimiento || '').slice(0, 10),
         email: credenciales.email.trim(),
-        monto_estimado: Number.parseFloat(montoAportacion) || 100.0,
+        monto_estimado: parseFloat(montoAportacion) || 100.0,
         codigo_verificacion: codigo,
       });
       cerrarVerificacionCorreo();
@@ -524,7 +524,7 @@ export const PublicAffiliationPage = () => {
         direccion: nuevoForm.direccion.trim(),
         fecha_nacimiento: nuevoForm.fecha_nacimiento,
         email: nuevoForm.email.trim(),
-        monto_estimado: Number.parseFloat(nuevoForm.monto_estimado) || 100.0,
+        monto_estimado: parseFloat(nuevoForm.monto_estimado) || 100.0,
         codigo_verificacion: codigo,
       });
 

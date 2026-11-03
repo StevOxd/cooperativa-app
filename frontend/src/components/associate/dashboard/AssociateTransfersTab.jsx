@@ -18,7 +18,7 @@ const transferStatus = (estado) => TRANSFER_STATES[estado] || { label: humanize(
 /** Cantidad y suma de los traslados en un estado. */
 const totalPorEstado = (solicitudes, estado) => {
   const lista = solicitudes.filter((s) => s.estado === estado);
-  return { cantidad: lista.length, monto: lista.reduce((sum, s) => sum + (Number.parseFloat(s.monto) || 0), 0) };
+  return { cantidad: lista.length, monto: lista.reduce((sum, s) => sum + (parseFloat(s.monto) || 0), 0) };
 };
 
 /**

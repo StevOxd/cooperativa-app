@@ -853,7 +853,7 @@ class MailerService {
    */
   async sendAccountOpeningReceiptEmail({ to, nombre, numeroCuenta, tipoCuenta, montoApertura, origenFondos, fechaApertura }) {
     const subject = `Comprobante Oficial de Apertura de Cuenta: ${numeroCuenta}`;
-    const montoFormateado = `Q${Number.parseFloat(montoApertura || 0).toLocaleString('es-GT', { minimumFractionDigits: 2 })}`;
+    const montoFormateado = `Q${parseFloat(montoApertura || 0).toLocaleString('es-GT', { minimumFractionDigits: 2 })}`;
     const fechaTexto = fechaApertura ? new Date(fechaApertura).toLocaleString('es-GT') : new Date().toLocaleString('es-GT');
     const ORIGENES = {
       EFECTIVO_VENTANILLA: 'Efectivo en Ventanilla',

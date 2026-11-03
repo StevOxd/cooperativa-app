@@ -436,7 +436,7 @@ const aperturarCuenta = async (req, res) => {
       }
 
       const ctaBco = bcoRes.data;
-      if (Number.parseFloat(ctaBco.saldo_disponible) < montoInicial) {
+      if (parseFloat(ctaBco.saldo_disponible) < montoInicial) {
         await client.query('ROLLBACK');
         return res.status(400).json({ success: false, message: 'La cuenta del banco no tiene saldo suficiente.' });
       }

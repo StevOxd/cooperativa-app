@@ -71,7 +71,7 @@ const validateBeneficiarios = (beneficiarios) => {
   if (!Array.isArray(beneficiarios) || beneficiarios.length === 0) {
     return { valid: false, message: 'Agregue al menos un beneficiario.' };
   }
-  const total = beneficiarios.reduce((acc, b) => acc + (Number.parseFloat(b.porcentaje) || 0), 0);
+  const total = beneficiarios.reduce((acc, b) => acc + (parseFloat(b.porcentaje) || 0), 0);
   if (Math.abs(total - 100) > 0.01) {
     return {
       valid: false,
