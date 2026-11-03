@@ -18,7 +18,8 @@ Closes #
 
 ## Verificación
 
-- [ ] El CI pasa (lint, build y chequeo del backend).
+- [ ] El CI pasa (Build, Test, Analyze y Report).
+- [ ] Agregué pruebas para el cambio y revisé el código línea por línea.
 - [ ] Lo probé en el navegador con el rol afectado.
 - [ ] No expongo contraseñas, códigos 2FA ni datos personales reales (en código, capturas o registros).
 - [ ] Si cambia el backend, indiqué si hay que reconstruir los contenedores o migrar la base de datos.

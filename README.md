@@ -1,5 +1,12 @@
 # Sistema de Gestion Integral - Cooperativa de Ahorro y Credito
 
+[![CI](https://github.com/StevOxd/cooperativa-app/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/StevOxd/cooperativa-app/actions/workflows/ci.yml)
+[![Quality Gate](https://sonarcloud.io/api/project_badges/measure?project=StevOxd_cooperativa-app&metric=alert_status)](https://sonarcloud.io/summary/overall?id=StevOxd_cooperativa-app)
+[![Coverage](https://sonarcloud.io/api/project_badges/measure?project=StevOxd_cooperativa-app&metric=coverage)](https://sonarcloud.io/summary/overall?id=StevOxd_cooperativa-app)
+[![Bugs](https://sonarcloud.io/api/project_badges/measure?project=StevOxd_cooperativa-app&metric=bugs)](https://sonarcloud.io/summary/overall?id=StevOxd_cooperativa-app)
+[![Code Smells](https://sonarcloud.io/api/project_badges/measure?project=StevOxd_cooperativa-app&metric=code_smells)](https://sonarcloud.io/summary/overall?id=StevOxd_cooperativa-app)
+[![Duplicated Lines](https://sonarcloud.io/api/project_badges/measure?project=StevOxd_cooperativa-app&metric=duplicated_lines_density)](https://sonarcloud.io/summary/overall?id=StevOxd_cooperativa-app)
+
 Plataforma integral bancaria y cooperativa disenada para la gestion financiera, inclusion economica, captacion de aportaciones y democratizacion crediticia. El sistema opera como una entidad filial e integrada dentro de la Corporacion Bancaria, manteniendo comunicacion inter-servicio con el sistema central bancario (Core Banking).
 
 Proyecto desarrollado para el curso de Proyecto de Graduacion 2, Decimo Ciclo, Facultad de Ingenieria en Sistemas de Informacion y Ciencias de la Computacion, Universidad Mariano Galvez de Guatemala.
@@ -20,6 +27,7 @@ Proyecto desarrollado para el curso de Proyecto de Graduacion 2, Decimo Ciclo, F
 10. Configuracion de Variables de Entorno
 11. Suites de Pruebas Automatizadas
 12. Creditos y Datos Academicos
+13. Aseguramiento de la Calidad
 
 ---
 
@@ -373,3 +381,25 @@ Cambie `testModulo1Completo.js` por el nombre de la prueba que quiera ejecutar.
 - **Facultad:** Ingenieria en Sistemas de Informacion y Ciencias de la Computacion
 - **Curso:** Proyecto de Graduacion 2 (Decimo Ciclo)
 - **Ano Academico:** 2026
+
+---
+
+## 13. Aseguramiento de la Calidad
+
+Cada cambio pasa por un pipeline de GitHub Actions antes de entrar a `main`: **Build → Test → Analyze → Report**. Si no se cumple un umbral, el pipeline falla y el pull request no se puede fusionar.
+
+| Control | Herramienta | Umbral |
+|---|---|---|
+| Pruebas unitarias, de integracion y de regresion | Jest, Supertest, Vitest, React Testing Library | 100 % aprobadas |
+| Cobertura de lineas del backend | `c8` | 70 % o mas |
+| Cobertura de lineas del frontend | Vitest | 60 % o mas |
+| Analisis estatico | ESLint, Prettier, SonarCloud | Sin errores y Quality Gate aprobado |
+| Dependencias | `npm audit` | Sin vulnerabilidades criticas ni altas |
+
+| Documento | Contenido |
+|---|---|
+| [SQA-Plan.md](docs/SQA-Plan.md) | Plan de aseguramiento de la calidad |
+| [Matriz-Pruebas.md](docs/Matriz-Pruebas.md) | Casos de prueba |
+| [Linea-Base-Calidad.md](docs/Linea-Base-Calidad.md) | Metricas antes de la intervencion |
+| [Reporte-Mejora.md](docs/Reporte-Mejora.md) | Comparacion antes y despues |
+| [Manual-Tecnico.md](docs/Manual-Tecnico.md) | Arquitectura del pipeline y mantenimiento |

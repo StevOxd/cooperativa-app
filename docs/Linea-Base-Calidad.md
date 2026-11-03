@@ -49,7 +49,7 @@ Estado del proyecto antes de la intervención de SQA. Sirve de punto de comparac
 | Métrica | Valor en la línea base |
 |---|---|
 | ESLint en el frontend | 143 archivos, 0 errores, 0 advertencias |
-| ESLint en el backend y en banco-backend | Sin configurar. El CI solo revisa la sintaxis con `node --check` |
+| ESLint en el backend y en banco-backend | Sin configurar. El CI solo revisa la sintaxis con `node --check`. La primera ejecución dio 21 errores en el backend y 1 en banco-backend |
 | Prettier | Sin configurar |
 
 ## SonarCloud

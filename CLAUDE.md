@@ -19,4 +19,6 @@ Los errores que se encuentren fuera del alcance de la tarea se anotan en `.agent
 
 - Backend: `backend/test*.js`. Las que cargan el servidor fijan `MAIL_ENABLED=false`; las que usan el backend levantado (puerto 5001) se corren con el backend sin correo.
 - Las migraciones (`backend/src/config/migrations.js`) corren al arrancar el contenedor del backend: una tabla nueva exige `docker compose up -d --build backend` antes de probar.
-- Frontend: `npm run lint` y `npm run build` en `frontend/`.
+- Backend con Jest: `npm run test:unit` y `npm run test:integracion`; regresión: `npm run test:regresion`.
+- Frontend: `npm run lint`, `npm run build` y `npm run test:cobertura` en `frontend/`.
+- Umbrales y etapas del CI: `docs/SQA-Plan.md` y `docs/Manual-Tecnico.md`.

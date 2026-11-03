@@ -2,7 +2,7 @@
 
 **Proyecto:** Pipeline CI/CD con aseguramiento de calidad integrado, aplicado a Cooperativa App
 **Curso:** Aseguramiento de la Calidad del Software
-**Versión:** 0.1, borrador del 2026-11-02
+**Versión:** 1.0, del 2026-11-02
 
 ## 1. Propósito
 
@@ -69,9 +69,10 @@ El pipeline falla si no se cumple alguna condición de la columna "Bloquea".
 |---|---|---|---|
 | Pruebas unitarias, de integración y de regresión | 100 % aprobadas | Jest, Vitest | Sí |
 | Cobertura de líneas del backend | ≥ 70 %, por encima del mínimo de 60 % del curso, porque la línea base medida es 79.15 % y un umbral menor permitiría retrocesos. Se ajusta si la medición en el pipeline da un valor distinto | `c8` y Jest | Sí |
-| Cobertura de líneas del frontend | ≥ 60 % como meta. El mínimo bloqueante se fija al cerrar la Fase 2 con el valor medido (ver riesgo R1) | Vitest (`thresholds`) | Sí |
+| Cobertura de líneas del frontend | ≥ 60 % | Vitest (`thresholds`) | Sí |
+| Cobertura de líneas de las utilidades del backend con prueba unitaria | ≥ 60 % | Jest (`coverageThreshold`) | Sí |
 | Errores de ESLint | 0 en los tres componentes | ESLint | Sí |
-| Formato | Sin diferencias | Prettier | Sí |
+| Formato del código nuevo de calidad (pruebas, configuración y workflow) | Sin diferencias | Prettier | Sí |
 | Quality Gate de SonarCloud | Aprobado | SonarCloud | Sí |
 | Vulnerabilidades críticas o altas en dependencias | 0 | `npm audit` | Sí |
 | Bugs, code smells, duplicación y deuda técnica | Sin umbral propio: se reportan y se comparan con la línea base | SonarCloud | No |
@@ -80,7 +81,12 @@ Cualquier archivo que se excluya de la medición de cobertura se lista aquí con
 
 | Excluido | Motivo |
 |---|---|
-| Por definir | |
+| `banco-backend/` | Simulador del banco que corre en su contenedor durante las pruebas. Sí pasa por ESLint, `npm audit` y SonarCloud |
+| `frontend/src/main.jsx` | Solo monta la aplicación |
+| `frontend/src/dev/` | Herramientas de desarrollo que no llegan a producción |
+| Scripts y archivos de configuración | No son código de la aplicación |
+
+**Prettier:** no se reformateó el código anterior, porque tocaría cientos de archivos de un sistema en uso sin cambiar su comportamiento. El código anterior se reporta como deuda técnica.
 
 ## 6. Herramientas
 
@@ -100,7 +106,7 @@ Cualquier archivo que se excluya de la medición de cobertura se lista aquí con
 
 | ID | Riesgo | Prob. | Impacto | Mitigación |
 |---|---|---|---|---|
-| R1 | No llegar a 60 % en el frontend: tiene 23,062 líneas, sin pruebas, y la mayoría está en componentes y páginas | Alta | Alto | Empezar por utilidades y flujos críticos, medir al cerrar la Fase 2 y declarar cualquier exclusión en la sección 5 |
+| R1 | Bajar de 60 % en el frontend: el valor está muy cerca del umbral (60.27 %) | Alta | Alto | Cada cambio en el frontend agrega sus pruebas. El pipeline rechaza lo que baje del umbral |
 | R2 | Un merge de QA dispara un despliegue a producción, porque el repositorio también tiene CD | Media | Alto | El despliegue exige aprobación manual. Se aprueba solo cuando cambia código de la aplicación |
 | R3 | Bloquear los merges al renombrar trabajos del CI, porque `Backend` y `Frontend` son checks obligatorios | Alta | Medio | Cambiar los trabajos y la protección de `main` en el mismo paso |
 | R4 | Exponer datos o secretos en los registros de Actions, que son públicos | Baja | Alto | Credenciales de prueba desechables, tokens en GitHub Secrets y sin imprimir `.env` ni registros de contenedores |
