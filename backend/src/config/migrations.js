@@ -487,31 +487,6 @@ const runMigrations = async () => {
       ALTER TABLE solicitudes_credito DROP CONSTRAINT IF EXISTS solicitudes_credito_estado_check;
       ALTER TABLE solicitudes_credito ADD CONSTRAINT solicitudes_credito_estado_check 
         CHECK (estado IN ('PENDIENTE_FIRMA', 'EN_REVISION_OPERADOR', 'EN_AUTORIZACION_EJECUTIVO', 'DEVUELTA_OPERADOR', 'APROBADA', 'APROBADO', 'DESEMBOLSADA', 'DENEGADA', 'RECHAZADA', 'RECHAZADO', 'PENDIENTE', 'CANCELADA'));
-
-      -- 6.4 Crear persona y usuario demo para rol EJECUTIVO (EJ-1)
-      INSERT INTO personas (
-        cui_dpi, primer_nombre, segundo_nombre, primer_apellido, segundo_apellido,
-        telefono, direccion, fecha_nacimiento
-      ) VALUES (
-        '6000000000001', 'Carlos', 'Eduardo', 'Mendoza', 'Gómez',
-        '44445555', 'Zona 10, Ciudad de Guatemala', '1985-05-15'
-      )
-      ON CONFLICT (cui_dpi) DO NOTHING;
-
-      INSERT INTO usuarios (
-        id_persona, id_rol, codigo_corporativo, email, password_hash, estado, mfa_enabled
-      ) VALUES (
-        (SELECT id_persona FROM personas WHERE cui_dpi = '6000000000001'),
-        (SELECT id_rol FROM roles WHERE codigo = 'EJECUTIVO'),
-        'EJ-1',
-        'ejecutivo@cooperativa.com',
-        '$2a$10$vNPUEupr.jaRBJ/2vUE4CurM.mZqeEc1PTGrA8Pds020v2tm0T1Ey',
-        'ACTIVO',
-        FALSE
-      )
-      ON CONFLICT (codigo_corporativo) DO UPDATE SET
-        id_rol = (SELECT id_rol FROM roles WHERE codigo = 'EJECUTIVO'),
-        estado = 'ACTIVO';
     `;
     await pool.query(securityMfaSuperAdminQuery);
 

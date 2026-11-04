@@ -20,7 +20,7 @@ flowchart LR
 | Etapa | Qué hace | Falla si |
 |---|---|---|
 | **Build** | Instala las dependencias, revisa la sintaxis de los servicios, compila el frontend y comprueba los subagentes | No compila o el `package-lock.json` no coincide |
-| **Test** | Levanta PostgreSQL y el banco de prueba, aplica las migraciones y ejecuta las pruebas unitarias, de integración, de regresión y del frontend | Falla una prueba o la cobertura queda bajo el umbral |
+| **Test** | Levanta PostgreSQL y el banco de prueba, aplica las migraciones, crea las cuentas de prueba y ejecuta las pruebas unitarias, de integración, de regresión y del frontend | Falla una prueba o la cobertura queda bajo el umbral |
 | **Analyze** | Ejecuta ESLint, Prettier, `npm audit` y SonarCloud | Hay errores de lint o de formato, vulnerabilidades críticas o altas, o SonarCloud rechaza el Quality Gate |
 | **Report** | Publica el resumen de etapas y de cobertura | Alguna etapa anterior no aprobó |
 
@@ -33,6 +33,7 @@ El workflow está en `.github/workflows/ci.yml` y conserva el nombre `CI`, porqu
 | **Report corre siempre** (`if: always()`) y revisa el resultado de las demás etapas | GitHub trata un trabajo omitido como aprobado. Sin esto, un fallo en Test dejaría pasar la protección de `main` |
 | **Base de datos real en Test**, con Docker Compose | Los permisos por rol y los triggers de auditoría son parte de lo que se prueba, y una base simulada no los ejercita |
 | **Credenciales al azar en cada ejecución** | Los registros de Actions son públicos. Esas credenciales dejan de servir al terminar el trabajo |
+| **La base nace sin usuarios** y el CI crea las cuentas de prueba con `scripts/crearUsuariosPrueba.js` | Antes `database.sql` creaba 5 cuentas con una contraseña conocida, también en producción. Ahora esas cuentas solo existen en desarrollo y en el CI, y producción empieza con `scripts/crearAdministrador.js` |
 | **Dos herramientas de cobertura en el backend:** `c8` y Jest | Los scripts de regresión son procesos de Node independientes, que Jest no puede instrumentar. SonarCloud combina los dos reportes LCOV |
 | **`npm ci --ignore-scripts`** | Evita que un paquete ejecute código durante la instalación |
 | **Vitest en Node 22** y el resto en Node 20 | La versión de Vitest sin vulnerabilidades críticas exige Node 22. Solo se usa para probar; la imagen de producción sigue en Node 20 |
@@ -65,7 +66,7 @@ Requisitos: Node 22 o 24 y Docker Desktop.
 | Lint | `npm run lint` | `backend/`, `banco-backend/`, `frontend/` |
 | Vulnerabilidades | `npm audit --audit-level=high` | `backend/`, `banco-backend/`, `frontend/` |
 
-Las pruebas de integración y de regresión usan la base local y el banco de `docker compose up -d`. Modifican datos de prueba, así que no se deben ejecutar contra producción.
+Las pruebas de integración y de regresión usan la base local y el banco de `docker compose up -d`, y las cuentas de prueba del personal. En una base nueva, créelas una vez desde `backend/` con `node scripts/crearUsuariosPrueba.js`, con `USUARIOS_PRUEBA_PASSWORD=admin123` en `backend/.env`. Modifican datos de prueba, así que no se deben ejecutar contra producción.
 
 ## Guía de mantenimiento
 
