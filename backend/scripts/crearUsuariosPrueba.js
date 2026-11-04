@@ -14,38 +14,26 @@
 const bcrypt = require('bcryptjs');
 const { crearPoolDueno } = require('../src/config/db');
 
+// Una cuenta por fila: código, rol, correo, CUI, nombres, apellidos, teléfono y fecha de nacimiento
 const USUARIOS_PRUEBA = [
-  {
-    codigo: 'AD-1',
-    rol: 'ADMINISTRADOR',
-    email: 'admin@cooperativa.com',
-    persona: ['1000000000001', 'Steven', 'Alejandro', 'Ortiz', 'Gómez', '55110001', '1995-03-12'],
-  },
-  {
-    codigo: 'AD-2',
-    rol: 'ADMINISTRADOR',
-    email: 'admin.lucia@cooperativa.com',
-    persona: ['1000000000002', 'Lucía', 'Fernanda', 'Morales', 'Castillo', '55110002', '1996-07-25'],
-  },
-  {
-    codigo: 'EJ-1',
-    rol: 'EJECUTIVO',
-    email: 'ejecutivo@cooperativa.com',
-    persona: ['6000000000001', 'Carlos', 'Eduardo', 'Mendoza', 'Gómez', '55110003', '1992-11-18'],
-  },
-  {
-    codigo: 'OP-1',
-    rol: 'OPERADOR',
-    email: 'operador@cooperativa.com',
-    persona: ['2000000000001', 'Juan', 'Carlos', 'Martínez', 'Pérez', '55110004', '1994-05-14'],
-  },
-  {
-    codigo: 'OP-2',
-    rol: 'OPERADOR',
-    email: 'operador.maria@cooperativa.com',
-    persona: ['2000000000002', 'María', 'Elena', 'Gutiérrez', 'Castro', '55110005', '1997-09-08'],
-  },
-];
+  'AD-1|ADMINISTRADOR|admin@cooperativa.com|1000000000001|Steven Alejandro|Ortiz Gómez|55110001|1995-03-12',
+  'AD-2|ADMINISTRADOR|admin.lucia@cooperativa.com|1000000000002|Lucía Fernanda|Morales Castillo|55110002|1996-07-25',
+  'EJ-1|EJECUTIVO|ejecutivo@cooperativa.com|6000000000001|Carlos Eduardo|Mendoza Gómez|55110003|1992-11-18',
+  'OP-1|OPERADOR|operador@cooperativa.com|2000000000001|Juan Carlos|Martínez Pérez|55110004|1994-05-14',
+  'OP-2|OPERADOR|operador.maria@cooperativa.com|2000000000002|María Elena|Gutiérrez Castro|55110005|1997-09-08',
+].map((fila) => {
+  const [codigo, rol, email, cui, nombres, apellidos, telefono, nacimiento] = fila.split('|');
+  return {
+    codigo,
+    rol,
+    email,
+    cui,
+    nombres: nombres.split(' '),
+    apellidos: apellidos.split(' '),
+    telefono,
+    nacimiento,
+  };
+});
 
 async function main() {
   if (process.env.NODE_ENV === 'production') {
@@ -62,13 +50,13 @@ async function main() {
   try {
     await client.query('BEGIN');
     for (const usuario of USUARIOS_PRUEBA) {
-      const [cui, primerNombre, segundoNombre, primerApellido, segundoApellido, telefono, nacimiento] = usuario.persona;
+      const { cui, nombres, apellidos, telefono, nacimiento } = usuario;
       await client.query(
         `INSERT INTO personas (cui_dpi, primer_nombre, segundo_nombre, primer_apellido, segundo_apellido, telefono,
                                direccion, fecha_nacimiento)
          VALUES ($1, $2, $3, $4, $5, $6, 'Ciudad de Guatemala', $7)
          ON CONFLICT (cui_dpi) DO NOTHING`,
-        [cui, primerNombre, segundoNombre, primerApellido, segundoApellido, telefono, nacimiento]
+        [cui, nombres[0], nombres[1], apellidos[0], apellidos[1], telefono, nacimiento]
       );
       const res = await client.query(
         `INSERT INTO usuarios (id_usuario, id_persona, id_rol, codigo_corporativo, email, password_hash, estado)
