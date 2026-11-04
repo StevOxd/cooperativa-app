@@ -5,10 +5,14 @@
  * La contraseña no está en el código: se toma de USUARIOS_PRUEBA_PASSWORD y el hash se calcula aquí.
  * No corre con NODE_ENV=production y no toca una cuenta que ya existe.
  *
+ * Cada cuenta usa id_usuario = id_persona, como las cuentas del personal anteriores a issue #32: testUsuarioDoble.js
+ * comprueba que esos datos y los tokens de entonces sigan funcionando. Por eso usa el rol dueño, que puede mover la
+ * secuencia de usuarios.
+ *
  * Uso: USUARIOS_PRUEBA_PASSWORD=... node scripts/crearUsuariosPrueba.js
  */
 const bcrypt = require('bcryptjs');
-const { pool } = require('../src/config/db');
+const { crearPoolDueno } = require('../src/config/db');
 
 const USUARIOS_PRUEBA = [
   {
@@ -53,6 +57,7 @@ async function main() {
   }
   const passwordHash = await bcrypt.hash(password, 10);
 
+  const pool = crearPoolDueno();
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
@@ -66,8 +71,8 @@ async function main() {
         [cui, primerNombre, segundoNombre, primerApellido, segundoApellido, telefono, nacimiento]
       );
       const res = await client.query(
-        `INSERT INTO usuarios (id_persona, id_rol, codigo_corporativo, email, password_hash, estado)
-         SELECT p.id_persona, r.id_rol, $3, $4, $5, 'ACTIVO'
+        `INSERT INTO usuarios (id_usuario, id_persona, id_rol, codigo_corporativo, email, password_hash, estado)
+         SELECT p.id_persona, p.id_persona, r.id_rol, $3, $4, $5, 'ACTIVO'
          FROM personas p, roles r
          WHERE p.cui_dpi = $1 AND r.codigo = $2
          ON CONFLICT (codigo_corporativo) DO NOTHING
@@ -76,6 +81,11 @@ async function main() {
       );
       console.log(`[${res.rowCount ? 'CREADO' : 'YA EXISTE'}] ${usuario.codigo} (${usuario.rol})`);
     }
+    // Los id_usuario se fijaron a mano: la secuencia sigue después del mayor para que las altas no choquen con ellos
+    await client.query(
+      `SELECT setval('usuarios_id_usuario_seq',
+                     GREATEST((SELECT last_value FROM usuarios_id_usuario_seq), (SELECT MAX(id_usuario) FROM usuarios)))`
+    );
     await client.query('COMMIT');
   } catch (err) {
     await client.query('ROLLBACK');
