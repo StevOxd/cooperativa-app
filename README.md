@@ -228,6 +228,21 @@ Puntos de acceso en el entorno local:
 
 La base de datos (5432) y el Core Banking (5002) se publican solo en `127.0.0.1`: se puede llegar a ellos desde la misma máquina, para las pruebas, pero no desde la red.
 
+### 9.4.1 Primer Usuario
+La base se crea sin usuarios ni contraseñas.
+
+**Producción.** El primer administrador se crea con el script incluido en la imagen del backend. Muestra una sola vez el código de usuario y una contraseña temporal, que el sistema obliga a cambiar al iniciar sesión. Ese administrador da de alta al resto del personal desde **Usuarios**. El script se niega a correr si ya hay un administrador activo.
+```bash
+docker compose exec backend node scripts/crearAdministrador.js \
+  --cui=1234567890101 --nombres="Ana María" --apellidos="López Pérez" \
+  --email=ana.lopez@cooperativa.com --nacimiento=1990-01-31
+```
+
+**Desarrollo y pruebas.** Las pruebas inician sesión con las cuentas de prueba AD-1, AD-2, EJ-1, OP-1 y OP-2. En una base nueva, agregue `USUARIOS_PRUEBA_PASSWORD=admin123` a `backend/.env` y créelas una vez desde `backend/`. El script no corre con `NODE_ENV=production` y no modifica las cuentas que ya existen.
+```bash
+cd backend && node scripts/crearUsuariosPrueba.js
+```
+
 ### 9.5 Detencion de los Servicios
 Para detener los contenedores preservando los datos:
 ```bash
@@ -333,6 +348,8 @@ El archivo `.env` de la raíz (copia de `.env.example`) centraliza los parametro
 | `UPLOADS_DIR` | Solo en producción: carpeta de los archivos subidos, fuera del código (uid 1000) | `/srv/cooperativa/uploads` |
 
 Para ejecutar el backend o el banco fuera de Docker, `backend/.env` y `banco-backend/.env` (copias de sus `.env.example`) deben tener la misma `BANCO_INTERNAL_API_KEY`.
+
+`backend/.env` lleva además `USUARIOS_PRUEBA_PASSWORD`, la contraseña de las cuentas de prueba del personal (sección 9.4.1). En producción no se usa.
 
 ---
 

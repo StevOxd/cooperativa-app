@@ -24,6 +24,8 @@ RUN npm ci --omit=dev --ignore-scripts && npm cache clean --force
 # Copiar el código fuente y scripts necesarios
 COPY src/ ./src/
 COPY database.sql ./
+# Único script que se usa en producción: crea el primer administrador de una instalación nueva
+COPY scripts/crearAdministrador.js ./scripts/
 
 # Otorgar propiedad de los archivos al usuario no privilegiado 'node' incorporado en Alpine
 RUN chown -R node:node /app

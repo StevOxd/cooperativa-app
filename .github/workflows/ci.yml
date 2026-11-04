@@ -123,6 +123,13 @@ jobs:
         run: |
           node -e "require('./src/config/migrations').runMigrations().then((ok) => process.exit(ok ? 0 : 1))"
 
+      # La base nace sin usuarios. Las pruebas inician sesión con estas cuentas de prueba y su contraseña conocida.
+      - name: Crear las cuentas de prueba del personal
+        working-directory: backend
+        env:
+          USUARIOS_PRUEBA_PASSWORD: admin123
+        run: node scripts/crearUsuariosPrueba.js
+
       - name: Pruebas de integración de la API (Jest y Supertest)
         working-directory: backend
         run: npm run test:integracion
@@ -201,7 +208,8 @@ jobs:
         run: |
           backend/node_modules/.bin/prettier --check \
             .github/workflows/ci.yml backend/tests backend/jest.config.js backend/eslint.config.js \
-            backend/scripts/regresion.js banco-backend/eslint.config.js frontend/src/test
+            backend/scripts/regresion.js backend/scripts/crearUsuariosPrueba.js backend/scripts/crearAdministrador.js \
+            banco-backend/eslint.config.js frontend/src/test
 
       - name: Vulnerabilidades críticas o altas en dependencias
         run: |

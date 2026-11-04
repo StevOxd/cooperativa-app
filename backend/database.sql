@@ -436,37 +436,10 @@ INSERT INTO tipos_cuenta (id_tipo_cuenta, nombre, tasa_interes_anual, monto_mini
 
 SELECT setval('tipos_cuenta_id_tipo_cuenta_seq', 5, true);
 
--- 8.5 Colaboradores Institucionales Autorizados (Exactamente 5 Usuarios Oficiales)
--- Contraseña general para entorno institucional: admin123
--- Hash bcrypt (salt rounds = 10): $2a$10$vNPUEupr.jaRBJ/2vUE4CurM.mZqeEc1PTGrA8Pds020v2tm0T1Ey
-
-INSERT INTO personas (id_persona, cui_dpi, primer_nombre, segundo_nombre, primer_apellido, segundo_apellido, telefono, direccion, fecha_nacimiento) VALUES
--- Administradores (2)
-(1, '1000000000001', 'Steven', 'Alejandro', 'Ortiz', 'Gómez', '55110001', 'Ciudad de Guatemala', '1995-03-12'),
-(2, '1000000000002', 'Lucía', 'Fernanda', 'Morales', 'Castillo', '55110002', 'Ciudad de Guatemala', '1996-07-25'),
-
--- Ejecutivo de Créditos (1)
-(3, '6000000000001', 'Carlos', 'Eduardo', 'Mendoza', 'Gómez', '55110003', 'Ciudad de Guatemala', '1992-11-18'),
-
--- Operadores de Ventanilla (2)
-(4, '2000000000001', 'Juan', 'Carlos', 'Martínez', 'Pérez', '55110004', 'Ciudad de Guatemala', '1994-05-14'),
-(5, '2000000000002', 'María', 'Elena', 'Gutiérrez', 'Castro', '55110005', 'Ciudad de Guatemala', '1997-09-08');
-
-SELECT setval('personas_id_persona_seq', 5, true);
-
-INSERT INTO usuarios (id_usuario, id_persona, id_rol, codigo_corporativo, email, password_hash, estado, intentos_fallidos, bloqueado_hasta, sesion_activa_id, mfa_enabled, debe_cambiar_password) VALUES
--- Administradores (AD-1, AD-2)
-(1, 1, 1, 'AD-1', 'admin@cooperativa.com', '$2a$10$vNPUEupr.jaRBJ/2vUE4CurM.mZqeEc1PTGrA8Pds020v2tm0T1Ey', 'ACTIVO', 0, NULL, NULL, false, false),
-(2, 2, 1, 'AD-2', 'admin.lucia@cooperativa.com', '$2a$10$vNPUEupr.jaRBJ/2vUE4CurM.mZqeEc1PTGrA8Pds020v2tm0T1Ey', 'ACTIVO', 0, NULL, NULL, false, false),
-
--- Ejecutivo de Créditos (EJ-1)
-(3, 3, 4, 'EJ-1', 'ejecutivo@cooperativa.com', '$2a$10$vNPUEupr.jaRBJ/2vUE4CurM.mZqeEc1PTGrA8Pds020v2tm0T1Ey', 'ACTIVO', 0, NULL, NULL, false, false),
-
--- Operadores de Ventanilla (OP-1, OP-2)
-(4, 4, 2, 'OP-1', 'operador@cooperativa.com', '$2a$10$vNPUEupr.jaRBJ/2vUE4CurM.mZqeEc1PTGrA8Pds020v2tm0T1Ey', 'ACTIVO', 0, NULL, NULL, false, false),
-(5, 5, 2, 'OP-2', 'operador.maria@cooperativa.com', '$2a$10$vNPUEupr.jaRBJ/2vUE4CurM.mZqeEc1PTGrA8Pds020v2tm0T1Ey', 'ACTIVO', 0, NULL, NULL, false, false);
-
-SELECT setval('usuarios_id_usuario_seq', 5, true);
+-- 8.5 Personal de la cooperativa
+-- La base nace sin usuarios ni contraseñas. En producción, el primer administrador se crea con
+-- scripts/crearAdministrador.js y él da de alta al resto desde la aplicación. En desarrollo y en el CI, las cuentas
+-- de prueba (AD-1, AD-2, EJ-1, OP-1 y OP-2) se crean con scripts/crearUsuariosPrueba.js.
 
 -- NOTA INSTITUCIONAL: La base de datos inicia con 0 asociados, 0 cuentas y 0 transacciones cooperativas,
 -- garantizando que toda membresía y apertura se origine mediante los flujos oficiales de afiliación presencial

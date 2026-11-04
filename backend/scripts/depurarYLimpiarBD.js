@@ -15,6 +15,7 @@ const fs = require('fs');
 const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '../.env') });
 const { Pool } = require('pg');
+const bcrypt = require('bcryptjs');
 
 // Borra datos de las dos bases: nunca en producción y solo si se pide de forma explícita
 if (process.env.NODE_ENV === 'production') {
@@ -36,6 +37,11 @@ if (!process.env.DB_OWNER_USER || !process.env.DB_OWNER_PASSWORD) {
   console.error('[ERROR] Faltan DB_OWNER_USER o DB_OWNER_PASSWORD en backend/.env (vea .env.example).');
   process.exit(1);
 }
+// La contraseña del personal de prueba no está en el código: es la misma de scripts/crearUsuariosPrueba.js
+if (!process.env.USUARIOS_PRUEBA_PASSWORD) {
+  console.error('[ERROR] Falta USUARIOS_PRUEBA_PASSWORD en backend/.env (vea .env.example).');
+  process.exit(1);
+}
 
 const dbConfigCoop = {
   host: process.env.DB_HOST || 'localhost',
@@ -50,15 +56,14 @@ const dbConfigBanco = {
   database: 'banco_db',
 };
 
-// Hash bcrypt de 'admin123' (Cooperativa)
-const COOP_PASSWORD_HASH = '$2a$10$vNPUEupr.jaRBJ/2vUE4CurM.mZqeEc1PTGrA8Pds020v2tm0T1Ey';
-// Hash bcrypt de 'Banco123!' (Entidad Bancaria)
-const BANCO_PASSWORD_HASH = '$2a$10$c.ezlTlClo7c0X8/52PO6uNFL8oGSv9QBP0EMIWo7MuRMnoBsSL6u';
-
 async function main() {
   console.log('================================================================');
   console.log(' INICIANDO SANEAMIENTO Y LIMPIEZA DE BASES DE DATOS (ACID)');
   console.log('================================================================\n');
+
+  const COOP_PASSWORD_HASH = await bcrypt.hash(process.env.USUARIOS_PRUEBA_PASSWORD, 10);
+  // La misma contraseña de banca en línea que usa banco-backend/src/config/initBancoDb.js
+  const BANCO_PASSWORD_HASH = await bcrypt.hash('Banco123!', 10);
 
   const poolCoop = new Pool(dbConfigCoop);
   const poolBanco = new Pool(dbConfigBanco);
