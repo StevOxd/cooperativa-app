@@ -187,7 +187,7 @@ const testServer = server.listen(0, async () => {
       && !fs.existsSync(path.join(carpeta, archivoCancelada)),
       'La purga borra los documentos de solicitudes canceladas o pendientes por más de 30 días, no los de una reciente ni los de una que se está atendiendo');
 
-    // Tope en línea por solicitud: con lo ya subido, otro archivo grande no cabe
+    // Tope en línea por solicitud: solo cuenta lo vigente, así que cerca del tope todavía se reemplaza un documento (#109)
     const casi = DOCUMENTOS.MAX_BYTES_SOLICITUD_EN_LINEA - 100;
     const tipos84 = ['DPI_REVERSO', 'RECIBO_SERVICIOS', 'FOTO_CON_DPI', 'CONSTANCIA_INGRESOS', 'DPI_FRENTE'];
     let restante = casi;
@@ -200,11 +200,21 @@ const testServer = server.listen(0, async () => {
       })).status);
       restante -= tam;
     }
-    const pasaTope = await request('/api/afiliacion/documentos', 'POST', {
+    const reemplazo = await request('/api/afiliacion/documentos', 'POST', {
       carga_token: reciente.token, tipo_documento: 'DPI_REVERSO', archivo: pdfGrande(`extra-${sufijo}`, 3 * 1024 * 1024),
     });
-    assert(resultados.every((s) => s === 201) && pasaTope.status === 409,
-      'Sin sesión, a una solicitud no se le suben más de 25 MB en total (H-84)');
+    assert(resultados.every((s) => s === 201) && reemplazo.status === 201,
+      'Sin sesión, cerca de los 25 MB se puede reemplazar un documento: las versiones reemplazadas no cuentan (#109)');
+    // Cada tipo tiene su propio tope de versiones; el reverso ya lleva dos
+    const subirReverso = async (marca) => (await request('/api/afiliacion/documentos', 'POST', {
+      carga_token: reciente.token, tipo_documento: 'DPI_REVERSO', archivo: pdfDePrueba(`${marca}-${sufijo}`),
+    })).status;
+    const hastaElTope = [];
+    for (let version = 3; version <= DOCUMENTOS.MAX_VERSIONES_POR_TIPO_SOLICITUD; version++) {
+      hastaElTope.push(await subirReverso(`reverso-${version}`));
+    }
+    assert(hastaElTope.every((s) => s === 201) && (await subirReverso('reverso-extra')) === 409,
+      `Sin sesión, un documento admite ${DOCUMENTOS.MAX_VERSIONES_POR_TIPO_SOLICITUD} versiones; después se lleva a la agencia (#109)`);
   } catch (error) {
     console.error('\n[ERROR INESPERADO]', error);
     errorInesperado = true;

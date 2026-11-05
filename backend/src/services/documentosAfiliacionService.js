@@ -283,7 +283,8 @@ const vincularExpedienteAPersona = async (cliente, idExpediente, idPersona) => {
  * Sube una versión de un documento. Si ya había uno vigente de ese tipo, lo reemplaza.
  *
  * El interesado (en línea, el personal que se afilia o el asociado) no reemplaza un documento ya aceptado ni sube
- * más de `DOCUMENTOS.MAX_VERSIONES_POR_TIPO` versiones propias de un tipo; en ventanilla, el operador sí. Nadie sube
+ * más de `DOCUMENTOS.MAX_VERSIONES_POR_TIPO` versiones propias de un tipo (`MAX_VERSIONES_POR_TIPO_SOLICITUD` con el
+ * permiso de una solicitud); en ventanilla, el operador sí. Nadie sube
  * el mismo archivo que ya está vigente ni el mismo archivo para dos tipos (por ejemplo, frente y reverso).
  *
  * @async
@@ -335,7 +336,10 @@ const subirDocumento = async ({
       throw errorDeNegocio(409, 'Este documento ya fue aceptado. Si necesita cambiarlo, pídalo en la agencia.');
     }
     const propias = versiones.filter((v) => CANALES_DEL_INTERESADO.includes(v.canal_carga)).length;
-    if (delInteresado && propias >= DOCUMENTOS.MAX_VERSIONES_POR_TIPO) {
+    const maxVersiones = afiliacion?.soloSolicitud
+      ? DOCUMENTOS.MAX_VERSIONES_POR_TIPO_SOLICITUD
+      : DOCUMENTOS.MAX_VERSIONES_POR_TIPO;
+    if (delInteresado && propias >= maxVersiones) {
       throw errorDeNegocio(409, 'Ya subió este documento varias veces. Llévelo a la agencia para que lo escaneen.');
     }
     if (vigente?.sha256 === leido.sha256) {
@@ -353,11 +357,13 @@ const subirDocumento = async ({
         throw errorDeNegocio(503, 'Por ahora no recibimos documentos en línea. Llévelos a la agencia o intente más tarde.');
       }
     }
-    // Sin sesión, a una solicitud de agencia se le sube un total acotado (H-84); en ventanilla, el operador sí puede más
+    // Sin sesión, a una solicitud de agencia se le sube un total acotado (H-84); en ventanilla, el operador sí puede más.
+    // Cuenta lo vigente de los otros tipos: el documento que se reemplaza y las versiones anteriores no (#109)
     if (afiliacion?.soloSolicitud) {
       const usados = Number((await client.query(
-        'SELECT COALESCE(sum(tamano_bytes), 0) AS bytes FROM documentos_afiliacion WHERE id_expediente = $1',
-        [id]
+        `SELECT COALESCE(sum(tamano_bytes), 0) AS bytes FROM documentos_afiliacion
+         WHERE id_expediente = $1 AND tipo_documento <> $2 AND estado <> 'REEMPLAZADO'`,
+        [id, tipo]
       )).rows[0].bytes);
       if (usados + leido.buffer.length > DOCUMENTOS.MAX_BYTES_SOLICITUD_EN_LINEA) {
         throw errorDeNegocio(409, 'Ya subió el máximo de archivos permitido en línea. Lleve los documentos que falten a la agencia.');

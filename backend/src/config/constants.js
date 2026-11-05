@@ -85,9 +85,12 @@ module.exports = Object.freeze({
     TAMANO_MAXIMO_BYTES: 5 * 1024 * 1024,
     // Versiones de un mismo tipo que puede subir el interesado; después, el documento se escanea en ventanilla
     MAX_VERSIONES_POR_TIPO: 8,
+    // Lo mismo sin sesión, con el permiso de una solicitud de agencia (el DPI no está comprobado)
+    MAX_VERSIONES_POR_TIPO_SOLICITUD: 3,
     // Días que se guardan los documentos de una afiliación que se empezó y no se completó; después se borran
     DIAS_CARGA_PREVIA: 30,
-    // Lo que se puede subir sin sesión a una solicitud de agencia (permiso de 30 minutos), sumando todas las versiones
+    // Lo que se puede subir sin sesión a una solicitud de agencia (permiso de 30 minutos), sumando solo lo vigente:
+    // reemplazar un documento libera su espacio (#109)
     MAX_BYTES_SOLICITUD_EN_LINEA: 25 * 1024 * 1024,
     // Todo lo que se subió sin sesión y todavía no pertenece a un asociado (H-84): pasado este total, la carga en línea
     // se suspende (se puede llevar a la agencia) hasta que la purga diaria libere espacio
