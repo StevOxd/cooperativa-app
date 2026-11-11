@@ -16,6 +16,11 @@ const { expedienteDePersona, documentosConResumen } = require('../services/docum
 // Página del listado de asociados: de 1 a 100 registros, y un número de página con tope
 const MAX_POR_PAGINA = 100;
 const MAX_PAGINA = 1000000;
+// Tamaño de página de la pantalla del padrón: una página más grande no viene de la interfaz y queda registrada (#110)
+const TAMANO_PAGINA_INTERFAZ = 10;
+// Largo máximo de la búsqueda y del filtro de estado que se guardan en el registro de consultas
+const LARGO_MAXIMO_BUSQUEDA_REGISTRADA = 200;
+const LARGO_MAXIMO_ESTADO_REGISTRADO = 20;
 
 /**
  * Consulta el padrón institucional de asociados con soporte para paginación, filtros de estado y métricas consolidadas.
@@ -115,6 +120,19 @@ const listarAsociados = async (req, res) => {
     `;
 
     const result = await pool.query(query, queryParams);
+
+    // Una página más grande que la de la pantalla sirve para sacar el padrón en bloque: queda registrada antes de
+    // entregarla (#110). Si el registro falla, responde 500 sin entregar la página. Las páginas de 10 no se registran:
+    // recorrer el padrón así lo frena el límite por usuario de la ruta (riesgo aceptado). `page` es la ya ajustada.
+    if (limit > TAMANO_PAGINA_INTERFAZ) {
+      await pool.query(
+        `INSERT INTO consultas_padron (id_usuario, parametros, filas, ip_origen, user_agent)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [req.user.id_usuario,
+          { search: search.trim().slice(0, LARGO_MAXIMO_BUSQUEDA_REGISTRADA), estado: estado.trim().slice(0, LARGO_MAXIMO_ESTADO_REGISTRADO), page, limit },
+          result.rowCount, ipDelCliente(req), userAgentDe(req)]
+      );
+    }
 
     return res.status(200).json({
       success: true,

@@ -90,6 +90,13 @@ async function runTests() {
       assert(indexNames.has(idx), `Índice de alto rendimiento presente: ${idx}`);
     }
 
+    // #111: el índice del banco de origen de los traslados es parcial, igual en database.sql y en las migraciones
+    const resBcoOrigen = await db.query(
+      "SELECT indexdef FROM pg_indexes WHERE schemaname = 'public' AND indexname = 'idx_solicitudes_traslado_bco_origen'"
+    );
+    assert(/WHERE \(?id_cuenta_bancaria_origen IS NOT NULL\)?/.test(resBcoOrigen.rows[0]?.indexdef || ''),
+      'idx_solicitudes_traslado_bco_origen es parcial (WHERE id_cuenta_bancaria_origen IS NOT NULL)');
+
     // -----------------------------------------------------------------
     // TEST 4: Verificación de Triggers y Secuencias Anti-Concurrencia
     // -----------------------------------------------------------------

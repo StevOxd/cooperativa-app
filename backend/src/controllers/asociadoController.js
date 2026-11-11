@@ -3,7 +3,7 @@ const bancoApiService = require('../services/bancoApiService');
 const creditScoringService = require('../services/creditScoringService');
 const { saveBase64File, eliminarArchivoGuardado, eliminarPdfDeCreditoSinUso } = require('../utils/fileStorage');
 const socketService = require('../services/socketService');
-const { FINANCIERO } = require('../config/constants');
+const { FINANCIERO, CANDADOS } = require('../config/constants');
 const { normalizarParentesco } = require('../utils/parentesco');
 const { respuestaDeError } = require('../utils/errores');
 const { movimientoSinRegistrar, revertirMovimientoSinRegistrar } = require('../services/reversionesService');
@@ -905,8 +905,8 @@ const createSolicitudTraslado = async (req, res) => {
     let result;
     try {
       await client.query('BEGIN');
-      // Candado 4 (el 1 son los códigos corporativos, el 2 el efectivo de ventanilla y el 3 la purga diaria)
-      await client.query('SELECT pg_advisory_xact_lock(4, $1)', [id_asociado]);
+      // Candado por asociado: lo comparte con la aprobación del operador
+      await client.query('SELECT pg_advisory_xact_lock($1, $2)', [CANDADOS.CUENTAS_DEL_ASOCIADO, id_asociado]);
 
       if (tipo_operacion === 'APERTURA_Y_TRASLADO') {
         const yaTiene = await client.query(

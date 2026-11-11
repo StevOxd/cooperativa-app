@@ -104,4 +104,12 @@ module.exports = Object.freeze({
     MAX_FILAS: 10000,
     MAX_DIAS_PERIODO: 366,
   }),
+  // Espacios de los candados de PostgreSQL (pg_advisory_xact_lock(espacio, llave)), issue #111. Cada uso tiene el
+  // suyo: un número repetido haría que dos operaciones sin relación se esperen. Uno nuevo se agrega aquí.
+  CANDADOS: Object.freeze({
+    CODIGOS_CORPORATIVOS: 1,
+    EFECTIVO_VENTANILLA: 2,
+    PURGA_DOCUMENTOS: 3,
+    CUENTAS_DEL_ASOCIADO: 4,
+  }),
 });

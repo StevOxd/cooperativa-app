@@ -5,7 +5,7 @@
  * Cada entrada queda registrada (`efectivo_ventanilla`, o `depositos_ventanilla_banco` para el depósito) y entre
  * todas no pueden pasar el tope del día por persona (`FINANCIERO.EFECTIVO_VENTANILLA_DIARIO_POR_PERSONA`).
  */
-const { FINANCIERO } = require('../config/constants');
+const { FINANCIERO, CANDADOS } = require('../config/constants');
 const { errorDeNegocio } = require('../utils/errores');
 const { formatoQ, leerMonto } = require('../utils/montos');
 
@@ -38,8 +38,8 @@ const leerMontoEfectivo = (valor) => {
 const bloquearEfectivoDePersona = async (client, cui) => {
   await client.query("SET LOCAL lock_timeout = '15s'");
   try {
-    // Espacio 2 de los candados (el 1 es el de los códigos de usuario: utils/codeGenerator)
-    await client.query('SELECT pg_advisory_xact_lock(2, hashtext($1))', [`efectivo-ventanilla:${cui}`]);
+    await client.query('SELECT pg_advisory_xact_lock($1, hashtext($2))',
+      [CANDADOS.EFECTIVO_VENTANILLA, `efectivo-ventanilla:${cui}`]);
   } catch (error) {
     if (error.code === '55P03') {
       throw errorDeNegocio(409, 'Hay otra operación en efectivo en curso para esta persona. Espere un momento y vuelva a intentarlo.');

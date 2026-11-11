@@ -10,21 +10,27 @@ const { prohibirAutoatencion } = require('../middlewares/segregacion');
 router.use(verifyToken);
 router.use(checkRole('OPERADOR'));
 
-// Padrón por usuario (issue #104): cada página trae hasta 100 asociados. El tope deja buscar y paginar con normalidad
-// (cada búsqueda es una consulta), pero no descargar el padrón completo una y otra vez.
+// Límites por usuario (issues #104 y #110). El padrón trae hasta 100 asociados por página: el tope deja buscar y
+// paginar con normalidad (cada búsqueda es una consulta), pero no descargar el padrón completo. El expediente 360° lo
+// piden la ficha y la apertura de cuentas, y se vuelve a pedir tras cada revisión de documentos: su tope es mayor.
 const isTestOrDev = process.env.NODE_ENV === 'test' || process.env.NODE_ENV === 'development';
-const padronLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: isTestOrDev ? 1000 : 300,
+const VENTANA_LIMITE_MS = 15 * 60 * 1000;
+const LIMITE_PRUEBAS = 1000;
+const MAX_CONSULTAS_PADRON = 60;
+const MAX_CONSULTAS_EXPEDIENTE = 120;
+
+const limitePorUsuario = (max, message) => rateLimit({
+  windowMs: VENTANA_LIMITE_MS,
+  max: isTestOrDev ? LIMITE_PRUEBAS : max,
   keyGenerator: (req) => `usuario:${req.user.id_usuario}`,
   standardHeaders: true,
   legacyHeaders: false,
-  message: {
-    success: false,
-    message: 'Consultó el padrón demasiadas veces seguidas. Espere 15 minutos e intente de nuevo.',
-    error: 'RATE_LIMIT_EXCEEDED',
-  },
+  message: { success: false, message, error: 'RATE_LIMIT_EXCEEDED' },
 });
+const padronLimiter = limitePorUsuario(MAX_CONSULTAS_PADRON,
+  'Consultó el padrón demasiadas veces seguidas. Espere 15 minutos e intente de nuevo.');
+const expedienteLimiter = limitePorUsuario(MAX_CONSULTAS_EXPEDIENTE,
+  'Consultó expedientes demasiadas veces seguidas. Espere 15 minutos e intente de nuevo.');
 
 /**
  * @route   GET /api/admin/asociados
@@ -34,9 +40,9 @@ router.get('/', padronLimiter, asociadosAdminController.listarAsociados);
 
 /**
  * @route   GET /api/admin/asociados/:id/expediente
- * @desc    Consultar expediente integral 360° del asociado (cuentas, aportaciones y beneficiarios)
+ * @desc    Consultar expediente integral 360° del asociado (cuentas, aportaciones y beneficiarios; con límite por usuario)
  */
-router.get('/:id/expediente', asociadosAdminController.getExpedienteAsociado);
+router.get('/:id/expediente', expedienteLimiter, asociadosAdminController.getExpedienteAsociado);
 
 /**
  * @route   POST /api/admin/asociados/:id/acceso-portal

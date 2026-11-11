@@ -513,7 +513,7 @@ PostgreSQL 16 gestiona dos bases de datos relacionales: `cooperativa_db` (entida
    - `id_cuenta` (SERIAL PK), `numero_cuenta` (VARCHAR(30) UNIQUE NOT NULL), `id_asociado` (INT FK asociados), `id_tipo_cuenta` (INT FK tipos_cuenta), `saldo_disponible` (NUMERIC(14,2) DEFAULT 0.00), `saldo_reserva` (NUMERIC(14,2) DEFAULT 0.00), `estado` (VARCHAR(20) DEFAULT 'ACTIVA').
 10. **`beneficiarios`:** Distribución testamentaria de las cuentas del socio (`porcentaje` con regla estricta de suma = 100.00%).
 11. **`solicitudes_afiliacion_agencia`:** Solicitudes emitidas por personas no bancarizadas (Escenario 2).
-    - `id_solicitud` (SERIAL PK), `numero_caso` (VARCHAR(30) UNIQUE NOT NULL), `cui_dpi`, `primer_nombre`, `primer_apellido`, `fecha_nacimiento` (DATE NOT NULL), `monto_estimado`, `estado` (PENDIENTE_AGENCIA, ATENDIDA, CANCELADA), `id_operador_bloqueo` (INT FK usuarios), `fecha_bloqueo`.
+    - `id_solicitud` (SERIAL PK), `numero_caso` (VARCHAR(30) UNIQUE NOT NULL), `cui_dpi`, `primer_nombre`, `primer_apellido`, `fecha_nacimiento` (DATE NOT NULL), `monto_estimado`, `estado` (PENDIENTE_AGENCIA, ATENDIDA, CANCELADA, EXPIRADA), `id_operador_bloqueo` (INT FK usuarios), `fecha_bloqueo`. Un trigger impide que una solicitud cerrada (ATENDIDA, CANCELADA o EXPIRADA) cambie de estado y que cambie la `fecha_solicitud` (#108).
 12. **`solicitudes_traslado_apertura`:** Casos de traslado de nómina a ahorro (`numero_caso` formato `CASO-YYYY-XXXX`).
 13. **`solicitudes_credito`:** Préstamos radicados por los asociados (`monto_solicitado`, `plazo_meses`, `cuota_mensual_estimada`, `documento_firmado_url`, `id_ejecutivo_resuelve`).
 14. **`transacciones`:** Libro mayor contable de doble partida (`tipo_transaccion`, `monto`, `saldo_anterior`, `saldo_nuevo`, `referencia`).
@@ -525,6 +525,7 @@ PostgreSQL 16 gestiona dos bases de datos relacionales: `cooperativa_db` (entida
 20. **`accesos_documento`:** Quién abrió cada documento, desde dónde y cuándo (`id_documento`, `id_usuario`, `ip_origen`, `user_agent`, `fecha_acceso`). Registro de solo agregar.
 21. **`reportes_generados`:** Cada reporte de gestión que sacó el personal (`id_reporte` PK, que forma el folio `REP-XXXXXX`, `id_usuario` FK, `id_rol` con que lo sacó, `tipo_reporte`, `formato` PDF/CSV, `parametros` JSONB con los filtros, `filas`, `resumen` JSONB con sus totales para cotejar un reporte impreso, `ip_origen`, `user_agent`, `fecha_generacion`). Registro de solo agregar.
 22. **`resoluciones_credito`:** Cada resolución del comité de crédito (`id_resolucion` PK, `id_solicitud_credito` FK, `id_usuario_resuelve` FK, `resolucion` APROBADA/DEVUELTA/DENEGADA, `observaciones` obligatorias al devolver o denegar, `carga_inicial`, `fecha_resolucion`), en la misma transacción que la aplica. Registro de solo agregar; el acta del comité lo lee. Al crear la tabla se carga la última resolución de cada crédito anterior al historial, marcada con `carga_inicial = TRUE`.
+23. **`consultas_padron`:** Cada página del padrón de más de 10 asociados (más grande que la de la pantalla) (`id_consulta` PK, `id_usuario` FK, `parametros` JSONB con búsqueda, estado y página, `filas`, `ip_origen`, `user_agent`, `fecha_consulta`). Registro de solo agregar (#110); la crea `migrations.js` al arrancar.
 
 ---
 

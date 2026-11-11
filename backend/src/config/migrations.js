@@ -4,7 +4,7 @@ const { crearPoolDueno } = require('./db');
 // Registros que solo se agregan (auditoría y movimientos de dinero): el rol de la aplicación no los modifica
 const TABLAS_SOLO_INSERCION = [
   'historial_estados_usuario', 'historial_cambios_beneficiarios', 'transacciones', 'efectivo_ventanilla',
-  'revisiones_documento', 'accesos_documento', 'reportes_generados', 'resoluciones_credito',
+  'revisiones_documento', 'accesos_documento', 'reportes_generados', 'resoluciones_credito', 'consultas_padron',
 ];
 // Las únicas tablas en que el código borra filas; en el resto, la desvinculación es por estado (borrado lógico)
 const TABLAS_CON_BORRADO = ['beneficiarios', 'roles_permisos', 'codigos_verificacion_correo'];
@@ -267,7 +267,16 @@ const runMigrations = async () => {
       ALTER TABLE solicitudes_traslado_apertura ALTER COLUMN id_cuenta_origen DROP NOT NULL;
       ALTER TABLE solicitudes_traslado_apertura DROP CONSTRAINT IF EXISTS solicitudes_traslado_apertura_id_cuenta_bancaria_origen_fkey;
       ALTER TABLE solicitudes_traslado_apertura ADD COLUMN IF NOT EXISTS id_cuenta_bancaria_origen INT;
-      CREATE INDEX IF NOT EXISTS idx_solicitudes_traslado_bco_origen ON solicitudes_traslado_apertura(id_cuenta_bancaria_origen);
+      -- Parcial, igual que en database.sql (issue #111): una base migrada que lo tenía completo se corrige una vez
+      DO $$
+      BEGIN
+          IF EXISTS (SELECT 1 FROM pg_index i
+                     WHERE i.indexrelid = to_regclass('public.idx_solicitudes_traslado_bco_origen') AND i.indpred IS NULL) THEN
+              DROP INDEX idx_solicitudes_traslado_bco_origen;
+          END IF;
+      END $$;
+      CREATE INDEX IF NOT EXISTS idx_solicitudes_traslado_bco_origen ON solicitudes_traslado_apertura(id_cuenta_bancaria_origen)
+          WHERE id_cuenta_bancaria_origen IS NOT NULL;
 
       -- Restricción: No trasladar fondos hacia la misma cuenta de origen
       ALTER TABLE solicitudes_traslado_apertura 
@@ -1336,6 +1345,64 @@ const runMigrations = async () => {
       $$ LANGUAGE plpgsql;
       REVOKE ALL ON FUNCTION purgar_cargas_previas_vencidas() FROM PUBLIC;
       GRANT EXECUTE ON FUNCTION purgar_cargas_previas_vencidas() TO ${appEjecuta};
+    `);
+
+    // 15.2 Transiciones de una solicitud de agencia (issue #108). La purga diaria decide por el estado y la fecha de la
+    //      solicitud, así que una solicitud cerrada (ATENDIDA, CANCELADA o EXPIRADA) no vuelve a otro estado y la fecha
+    //      de solicitud no cambia. Lo demás (bloqueo, datos corregidos en la formalización) sigue igual.
+    await pool.query(`
+      CREATE OR REPLACE FUNCTION trg_solicitudes_afiliacion_transicion()
+      RETURNS TRIGGER
+      SET search_path = pg_catalog, pg_temp
+      AS $$
+      BEGIN
+          -- Las pruebas preparan solicitudes viejas o cerradas solo con el rol dueño y la marca de pruebas
+          IF pg_catalog.current_setting('cooperativa.purga_pruebas', true) = 'on'
+             AND pg_catalog.pg_has_role(current_user,
+                   (SELECT c.relowner FROM pg_catalog.pg_class c WHERE c.oid = TG_RELID), 'MEMBER') THEN
+              RETURN NEW;
+          END IF;
+          IF OLD.fecha_solicitud IS NOT NULL AND NEW.fecha_solicitud IS DISTINCT FROM OLD.fecha_solicitud THEN
+              RAISE EXCEPTION 'solicitudes_afiliacion_agencia: la fecha de solicitud no cambia'
+                  USING ERRCODE = 'restrict_violation';
+          END IF;
+          IF OLD.estado IN ('ATENDIDA', 'CANCELADA', 'EXPIRADA') AND NEW.estado IS DISTINCT FROM OLD.estado THEN
+              RAISE EXCEPTION 'solicitudes_afiliacion_agencia: una solicitud cerrada no cambia de estado'
+                  USING ERRCODE = 'restrict_violation';
+          END IF;
+          RETURN NEW;
+      END;
+      $$ LANGUAGE plpgsql;
+
+      DROP TRIGGER IF EXISTS trg_solicitudes_afiliacion_transicion ON solicitudes_afiliacion_agencia;
+      CREATE TRIGGER trg_solicitudes_afiliacion_transicion
+          BEFORE UPDATE OF estado, fecha_solicitud ON solicitudes_afiliacion_agencia
+          FOR EACH ROW EXECUTE FUNCTION trg_solicitudes_afiliacion_transicion();
+    `);
+
+    // 15.3 Consultas grandes del padrón (issue #110): cada página de más de 10 asociados queda registrada (quién, con qué
+    //      filtros, cuántas filas, desde dónde). Es un registro de auditoría: solo se inserta.
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS consultas_padron (
+        id_consulta SERIAL PRIMARY KEY,
+        id_usuario INT NOT NULL REFERENCES usuarios(id_usuario) ON DELETE RESTRICT,
+        parametros JSONB NOT NULL DEFAULT '{}'::jsonb CHECK (jsonb_typeof(parametros) = 'object'),
+        filas INT NOT NULL CHECK (filas >= 0),
+        ip_origen VARCHAR(45),
+        user_agent TEXT,
+        fecha_consulta TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE INDEX IF NOT EXISTS idx_consultas_padron_usuario ON consultas_padron (id_usuario, fecha_consulta DESC);
+      CREATE INDEX IF NOT EXISTS idx_consultas_padron_fecha ON consultas_padron (fecha_consulta);
+
+      DROP TRIGGER IF EXISTS trg_consultas_padron_inmutable ON consultas_padron;
+      CREATE TRIGGER trg_consultas_padron_inmutable
+          BEFORE UPDATE OR DELETE ON consultas_padron
+          FOR EACH ROW EXECUTE FUNCTION trg_registro_solo_insercion();
+      DROP TRIGGER IF EXISTS trg_consultas_padron_sin_truncate ON consultas_padron;
+      CREATE TRIGGER trg_consultas_padron_sin_truncate
+          BEFORE TRUNCATE ON consultas_padron
+          FOR EACH STATEMENT EXECUTE FUNCTION trg_registro_solo_insercion();
     `);
 
     // 16. Permisos del rol de la aplicación sobre lo que haya quedado en la base (al final, con todas las tablas)
