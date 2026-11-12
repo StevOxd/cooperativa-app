@@ -7,7 +7,8 @@ process.env.NODE_ENV = 'test';
  *
  * Lote de los issues #99 a #106 y H-84: tope del cuerpo por ruta (igual en nginx), traslados repetidos o que pasan el
  * saldo, uno de cada tipo de cuenta, cuenta de origen inactiva al aprobar, la ruta de la planilla quitada, límite por
- * usuario del padrón y la purga de documentos de solicitudes que no se completaron (con su tope en línea).
+ * usuario del padrón y la purga de documentos de solicitudes que no se completaron (con su tope en línea y las
+ * transiciones de la solicitud, #108).
  */
 const fs = require('fs');
 const path = require('path');
@@ -125,6 +126,54 @@ const testServer = server.listen(0, async () => {
     const padron = await request('/api/admin/asociados?limit=1', 'GET', null, loginOp.body.token);
     assert(padron.status === 200 && padron.headers['ratelimit-limit'] !== undefined,
       'El padrón del personal tiene límite por usuario (#104)');
+    // #110: el expediente 360° también tiene límite, y una página más grande que la de la pantalla queda registrada
+    const idOpPadron = (await db.query("SELECT id_usuario FROM usuarios WHERE codigo_corporativo = 'OP-1'")).rows[0].id_usuario;
+    const consultasAntes = (await db.query('SELECT COUNT(*)::int AS n FROM consultas_padron WHERE id_usuario = $1', [idOpPadron])).rows[0].n;
+    const padron10 = await request('/api/admin/asociados?limit=10', 'GET', null, loginOp.body.token);
+    const padron11 = await request('/api/admin/asociados?limit=11', 'GET', null, loginOp.body.token);
+    const padron100 = await request('/api/admin/asociados?limit=100', 'GET', null, loginOp.body.token);
+    const consultasDespues = (await db.query('SELECT COUNT(*)::int AS n FROM consultas_padron WHERE id_usuario = $1', [idOpPadron])).rows[0].n;
+    assert(padron10.status === 200 && padron11.status === 200 && padron100.status === 200
+      && consultasDespues === consultasAntes + 2,
+      'Las páginas del padrón de más de 10 asociados quedan registradas en consultas_padron; la de la pantalla no (#110)');
+    const idAsociadoPadron = padron10.body.data[0]?.id_asociado ?? 0;
+    const expediente = await request(`/api/admin/asociados/${idAsociadoPadron}/expediente`, 'GET', null, loginOp.body.token);
+    assert(expediente.headers['ratelimit-limit'] !== undefined, 'El expediente 360° tiene límite por usuario (#110)');
+    // Lo registrado: la última consulta es la de 100, con sus filtros y filas
+    const ultimaConsulta = (await db.query(
+      'SELECT id_consulta, parametros, filas FROM consultas_padron WHERE id_usuario = $1 ORDER BY id_consulta DESC LIMIT 1',
+      [idOpPadron])).rows[0];
+    assert(ultimaConsulta?.parametros?.limit === 100 && ultimaConsulta.parametros.page === 1
+      && ultimaConsulta.filas === padron100.body.data.length,
+      'consultas_padron guarda los filtros y las filas entregadas (#110)');
+    // Es de solo agregar: ni el rol de la aplicación (sin permiso) ni el dueño sin la marca de purga (trigger) la cambian
+    // Intentos del rol dueño en una transacción que siempre se deshace: si un trigger faltara, no queda nada cambiado
+    const enTransaccionDueno = async (conMarca, pasos) => {
+      const cliente = await poolDueno(db.pool).connect();
+      try {
+        await cliente.query('BEGIN');
+        if (conMarca) await cliente.query("SET LOCAL cooperativa.purga_pruebas = 'on'");
+        return await pasos(cliente);
+      } catch (error) {
+        return error.code ?? error.message;
+      } finally {
+        await cliente.query('ROLLBACK').catch(() => {});
+        cliente.release();
+      }
+    };
+    const intentarPadron = (cliente, sql) =>
+      cliente.query(sql, [ultimaConsulta.id_consulta]).then(() => 'ok', (e) => e.code ?? e.message);
+    const duenoPadron = (sql, params = [ultimaConsulta.id_consulta]) =>
+      enTransaccionDueno(false, (c) => c.query(sql, params).then(() => 'ok'));
+    const cambiosPadron = [
+      await intentarPadron(db, 'UPDATE consultas_padron SET filas = 0 WHERE id_consulta = $1'),
+      await intentarPadron(db, 'DELETE FROM consultas_padron WHERE id_consulta = $1'),
+      await duenoPadron('UPDATE consultas_padron SET filas = 0 WHERE id_consulta = $1'),
+      await duenoPadron('DELETE FROM consultas_padron WHERE id_consulta = $1'),
+    ];
+    const truncarDueno = await duenoPadron('TRUNCATE consultas_padron', []);
+    assert(cambiosPadron.join() === '42501,42501,23001,23001' && truncarDueno === '23001',
+      'consultas_padron no se modifica, borra ni vacía: 42501 para la aplicación y 23001 para el dueño sin la marca (#110)');
 
     // -------------------------------------------------------------------------
     console.log('\n--- H-84 Documentos de solicitudes que no se completaron ---');
@@ -169,9 +218,7 @@ const testServer = server.listen(0, async () => {
     const atendiendose = await nuevaSolicitud('956', 'PENDIENTE_AGENCIA', 31);
     const idOp1 = (await db.query("SELECT id_usuario FROM usuarios WHERE codigo_corporativo = 'OP-1'")).rows[0].id_usuario;
     await poolDueno(db.pool).query(
-      `UPDATE solicitudes_afiliacion_agencia SET id_operador_bloqueo = $2, fecha_bloqueo = CURRENT_TIMESTAMP,
-         fecha_solicitud = CURRENT_TIMESTAMP - INTERVAL '31 days'
-       WHERE id_solicitud = $1`,
+      'UPDATE solicitudes_afiliacion_agencia SET id_operador_bloqueo = $2, fecha_bloqueo = CURRENT_TIMESTAMP WHERE id_solicitud = $1',
       [atendiendose.id_solicitud, idOp1]
     );
     const archivosDe = async (idSolicitud) => (await db.query(
@@ -186,6 +233,40 @@ const testServer = server.listen(0, async () => {
       && (await archivosDe(reciente.id_solicitud)).length === 1 && (await archivosDe(atendiendose.id_solicitud)).length === 1
       && !fs.existsSync(path.join(carpeta, archivoCancelada)),
       'La purga borra los documentos de solicitudes canceladas o pendientes por más de 30 días, no los de una reciente ni los de una que se está atendiendo');
+
+    // #108: con el rol de la aplicación, una solicitud cerrada no se reabre y la fecha de solicitud no cambia
+    const rechazaUpdate = async (sql, params) => {
+      try {
+        await db.query(sql, params);
+        return false;
+      } catch (error) {
+        return error.code === '23001';
+      }
+    };
+    const reabrir = await rechazaUpdate(
+      "UPDATE solicitudes_afiliacion_agencia SET estado = 'PENDIENTE_AGENCIA' WHERE id_solicitud = $1", [cancelada.id_solicitud]);
+    const retrasar = await rechazaUpdate(
+      "UPDATE solicitudes_afiliacion_agencia SET fecha_solicitud = fecha_solicitud - INTERVAL '31 days' WHERE id_solicitud = $1",
+      [reciente.id_solicitud]);
+    const bloqueo = await db.query(
+      'UPDATE solicitudes_afiliacion_agencia SET id_operador_bloqueo = NULL, fecha_bloqueo = NULL WHERE id_solicitud = $1',
+      [reciente.id_solicitud]);
+    assert(reabrir && retrasar && bloqueo.rowCount === 1,
+      'Una solicitud cerrada no vuelve a pendiente y la fecha de solicitud no cambia; el bloqueo sí se libera (#108)');
+    // El dueño de la tabla tampoco, salvo con la marca de pruebas (transacciones que se deshacen al final)
+    const reabrirSql = "UPDATE solicitudes_afiliacion_agencia SET estado = 'PENDIENTE_AGENCIA' WHERE id_solicitud = $1";
+    const duenoSinMarca = await enTransaccionDueno(false,
+      (c) => c.query(reabrirSql, [cancelada.id_solicitud]).then(() => 'ok'));
+    const duenoConMarca = await enTransaccionDueno(true,
+      (c) => c.query(reabrirSql, [cancelada.id_solicitud]).then((r) => (r.rowCount === 1 ? 'ok' : 'sin-fila')));
+    // Una pendiente sí expira, pero una expirada no vuelve a pendiente
+    const expiradaReabierta = await enTransaccionDueno(false, async (c) => {
+      await c.query("UPDATE solicitudes_afiliacion_agencia SET estado = 'EXPIRADA' WHERE id_solicitud = $1", [reciente.id_solicitud]);
+      await c.query(reabrirSql, [reciente.id_solicitud]);
+      return 'ok';
+    });
+    assert(duenoSinMarca === '23001' && duenoConMarca === 'ok' && expiradaReabierta === '23001',
+      'El dueño de la tabla solo cambia una solicitud cerrada con la marca de pruebas; una expirada no se reabre (#108)');
 
     // Tope en línea por solicitud: solo cuenta lo vigente, así que cerca del tope todavía se reemplaza un documento (#109)
     const casi = DOCUMENTOS.MAX_BYTES_SOLICITUD_EN_LINEA - 100;

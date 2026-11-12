@@ -8,9 +8,7 @@
  */
 
 const { errorDeNegocio } = require('./errores');
-
-// Espacio de los candados de códigos de usuario (el efectivo por persona usa el 2: efectivoVentanillaService)
-const CANDADO_CODIGOS = 1;
+const { CANDADOS } = require('../config/constants');
 
 /**
  * Calcula el siguiente código libre de un prefijo (el número más alto de `PREFIJO-número` más uno), sin bloquear.
@@ -63,7 +61,7 @@ const getNextCorporateCode = async (client, prefix = 'EX') => {
   // guardó el alta que lo tenía
   await client.query("SET LOCAL lock_timeout = '15s'");
   try {
-    await client.query('SELECT pg_advisory_xact_lock($1, hashtext($2))', [CANDADO_CODIGOS, `codigo-corporativo:${cleanPrefix}`]);
+    await client.query('SELECT pg_advisory_xact_lock($1, hashtext($2))', [CANDADOS.CODIGOS_CORPORATIVOS, `codigo-corporativo:${cleanPrefix}`]);
   } catch (error) {
     if (error.code === '55P03') {
       throw errorDeNegocio(409, 'Hay otra alta del mismo tipo de usuario en curso. Espere un momento y vuelva a intentarlo.');

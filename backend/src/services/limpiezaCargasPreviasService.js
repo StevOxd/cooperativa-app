@@ -1,5 +1,6 @@
 const db = require('../config/db');
 const { eliminarDocumentoSinUso } = require('../utils/documentoArchivo');
+const { CANDADOS } = require('../config/constants');
 
 /**
  * Borra los documentos que ya no sirven para afiliar: cargas previas de una afiliación que se empezó y no se completó en
@@ -10,9 +11,6 @@ const { eliminarDocumentoSinUso } = require('../utils/documentoArchivo');
  */
 
 const UN_DIA_MS = 24 * 60 * 60 * 1000;
-// Candado de la purga (espacio 3; el 1 son los códigos corporativos y el 2 el efectivo de ventanilla): dos procesos
-// del backend no la corren a la vez
-const CANDADO_PURGA = 3;
 
 /**
  * Una pasada de la purga.
@@ -25,7 +23,8 @@ const purgarCargasPreviasVencidas = async () => {
   let archivos = [];
   try {
     await client.query('BEGIN');
-    const candado = await client.query("SELECT pg_try_advisory_xact_lock($1, hashtext('purga-cargas-previas')) AS tomado", [CANDADO_PURGA]);
+    // Dos procesos del backend no corren la purga a la vez
+    const candado = await client.query("SELECT pg_try_advisory_xact_lock($1, hashtext('purga-cargas-previas')) AS tomado", [CANDADOS.PURGA_DOCUMENTOS]);
     if (!candado.rows[0].tomado) {
       await client.query('ROLLBACK');
       return 0;

@@ -511,11 +511,11 @@ async function main() {
     console.log('\n--- 2. Depurando y limpiando cooperativa_db ---');
     await clientCoop.query('BEGIN');
 
-    // El efectivo, los depósitos al banco, las reversiones, los documentos de afiliación y los reportes generados son
-    // registros de auditoría: sus operaciones y personas se borran aquí, así que se purgan primero; si no, sus llaves
-    // foráneas detienen la limpieza (issue #71). La purga la permiten los triggers al rol dueño con la marca cooperativa.purga_pruebas.
+    // El efectivo, los depósitos al banco, las reversiones, los documentos de afiliación, los reportes generados y las
+    // consultas del padrón son registros de auditoría: sus operaciones y personas se borran aquí, así que se purgan
+    // primero; si no, sus llaves foráneas detienen la limpieza (issue #71). La purga la permiten los triggers al rol dueño con la marca cooperativa.purga_pruebas.
     // Los archivos de los documentos (backend/uploads/afiliaciones) se borran después de confirmar.
-    console.log('  * Purgando efectivo de ventanilla, depósitos al banco, reversiones, documentos de afiliación y reportes...');
+    console.log('  * Purgando efectivo de ventanilla, depósitos al banco, reversiones, documentos de afiliación, reportes y consultas del padrón...');
     await clientCoop.query("SET LOCAL cooperativa.purga_pruebas = 'on'");
     archivosDocumentos = (await clientCoop.query('SELECT archivo FROM documentos_afiliacion')).rows.map((f) => f.archivo);
     await clientCoop.query('DELETE FROM efectivo_ventanilla;');
@@ -524,6 +524,7 @@ async function main() {
     await clientCoop.query('DELETE FROM codigos_verificacion_correo;');
     await clientCoop.query('DELETE FROM accesos_documento;');
     await clientCoop.query('DELETE FROM reportes_generados;');
+    await clientCoop.query('DELETE FROM consultas_padron;');
     await clientCoop.query('DELETE FROM resoluciones_credito;');
     await clientCoop.query('DELETE FROM revisiones_documento;');
     await clientCoop.query('DELETE FROM documentos_afiliacion;');

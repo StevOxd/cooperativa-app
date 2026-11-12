@@ -4,6 +4,7 @@ const bancoApiService = require('../services/bancoApiService');
 const operadorAfiliacionService = require('../services/operadorAfiliacionService');
 const operadorCreditoService = require('../services/operadorCreditoService');
 const { errorDeNegocio, respuestaDeError, estadoPorFalloDelBanco } = require('../utils/errores');
+const { CANDADOS } = require('../config/constants');
 const {
   revertirOAnotar,
   errorTrasCommitFallido,
@@ -161,9 +162,10 @@ const resolverSolicitud = async (req, res) => {
     const client = await db.pool.connect();
     try {
       await client.query('BEGIN');
-      // Mismo candado que la creación de solicitudes (4, por asociado): dos aprobaciones a la vez no abren dos cuentas
+      // Mismo candado que la creación de solicitudes (por asociado): dos aprobaciones a la vez no abren dos cuentas
       // del mismo tipo (issue #101)
-      await client.query('SELECT pg_advisory_xact_lock(4, $1)', [solicitud.id_asociado]);
+      await client.query('SELECT pg_advisory_xact_lock($1, $2)',
+        [CANDADOS.CUENTAS_DEL_ASOCIADO, solicitud.id_asociado]);
 
       // Se bloquea la solicitud y se vuelve a revisar: si dos operadores aprueban a la vez, el segundo se
       // detiene aquí, antes de mover dinero.

@@ -234,6 +234,7 @@ async function borrarPersonaDePrueba(db, idPersona) {
     ...pasosPurgaDocumentos(deLaPersona),
     `DELETE FROM accesos_documento WHERE id_usuario IN (${usuarios})`,
     `DELETE FROM reportes_generados WHERE id_usuario IN (${usuarios})`,
+    `DELETE FROM consultas_padron WHERE id_usuario IN (${usuarios})`,
     `DELETE FROM depositos_ventanilla_banco WHERE id_usuario_operador IN (${usuarios})
        OR titular_cui = (SELECT cui_dpi FROM personas WHERE id_persona = $1)`,
     `DELETE FROM efectivo_ventanilla WHERE id_usuario_operador IN (${usuarios})
