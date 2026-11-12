@@ -9,7 +9,7 @@ const { app } = require('./src/server');
 const { pool } = require('./src/config/db');
 const {
   purgarEfectivoDePrueba, purgarDocumentosDePrueba, borrarPersonaDePrueba, borrarClienteBancoDePrueba, poolDueno,
-  escanearDocumentosObligatorios, pdfDePrueba,
+  escanearDocumentosObligatorios, pdfDePrueba, purgarConsultasExpedienteDePrueba,
 } = require('./testHelper');
 // Limpieza con el rol dueño: el de la aplicación no borra filas (salvo en las pocas tablas que el código limpia)
 const comoDueno = (sql, params) => poolDueno(pool).query(sql, params);
@@ -85,6 +85,12 @@ const server = app.listen(0, async () => {
   };
 
   try {
+    // Las consultas del expediente de una corrida anterior (#119) detienen el borrado de estos asociados
+    const personasPrevias = await pool.query(
+      "SELECT id_persona FROM personas WHERE cui_dpi IN ('4000000000001', '2000000000002', '1000000000004')"
+    );
+    await purgarConsultasExpedienteDePrueba({ pool }, personasPrevias.rows.map((p) => p.id_persona));
+
     // Limpiar afiliación previa de prueba para Marcos Castillo (4000000000001) para idempotencia
     const pMarcos = await pool.query("SELECT id_persona FROM personas WHERE cui_dpi = '4000000000001'");
     if (pMarcos.rows.length > 0) {

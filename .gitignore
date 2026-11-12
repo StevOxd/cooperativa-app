@@ -35,3 +35,5 @@ backend/uploads/**
 !backend/uploads/**/.gitkeep
 # Reportes de cobertura
 coverage/
+# PDFs generados a mano o por pruebas en la raíz del frontend (#122)
+frontend/*.pdf

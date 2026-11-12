@@ -1,23 +1,18 @@
 const express = require('express');
 const router = express.Router();
-const rateLimit = require('express-rate-limit');
 const asociadoController = require('../controllers/asociadoController');
 const documentosController = require('../controllers/documentosAfiliacionController');
 const { verifyToken, checkRole } = require('../middlewares/authMiddleware');
+const { limitePorUsuario } = require('../middlewares/limitePorUsuario');
 
-// Cargas de documentos por asociado (no por conexión: va después de verifyToken)
-const isTestOrDev = process.env.NODE_ENV === 'test' || process.env.NODE_ENV === 'development';
-const cargaDocumentosLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutos
-  max: isTestOrDev ? 200 : 20,
-  keyGenerator: (req) => `usuario:${req.user.id_usuario}`,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: {
-    success: false,
-    message: 'Subió demasiados documentos seguidos. Espere 15 minutos e intente de nuevo.',
-    error: 'RATE_LIMIT_EXCEEDED',
-  },
+// Límites por asociado (no por conexión: van después de verifyToken)
+const MAX_CARGAS_DOCUMENTOS = 20;
+const MAX_SOLICITUDES_TRASLADO = 20;
+const LIMITE_PRUEBAS = 200;
+const cargaDocumentosLimiter = limitePorUsuario({
+  max: MAX_CARGAS_DOCUMENTOS,
+  maxPruebas: LIMITE_PRUEBAS,
+  mensaje: 'Subió demasiados documentos seguidos. Espere 15 minutos e intente de nuevo.',
 });
 
 // Proteger todas las rutas del portal de asociado con autenticación JWT y rol exclusivo de ASOCIADO
@@ -95,17 +90,10 @@ router.get('/mis-cuentas-destino', asociadoController.getMisCuentasDestino);
  * @access  Privado
  */
 // Por usuario: cada solicitud llega a la bandeja de los operadores (un asociado no la llena de casos)
-const solicitudesTrasladoLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: isTestOrDev ? 200 : 20,
-  keyGenerator: (req) => `usuario:${req.user.id_usuario}`,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: {
-    success: false,
-    message: 'Envió demasiadas solicitudes seguidas. Espere 15 minutos e intente de nuevo.',
-    error: 'RATE_LIMIT_EXCEEDED',
-  },
+const solicitudesTrasladoLimiter = limitePorUsuario({
+  max: MAX_SOLICITUDES_TRASLADO,
+  maxPruebas: LIMITE_PRUEBAS,
+  mensaje: 'Envió demasiadas solicitudes seguidas. Espere 15 minutos e intente de nuevo.',
 });
 router.post('/solicitudes-traslado', solicitudesTrasladoLimiter, asociadoController.createSolicitudTraslado);
 

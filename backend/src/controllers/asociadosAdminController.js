@@ -159,7 +159,8 @@ const listarAsociados = async (req, res) => {
 };
 
 /**
- * Consulta el expediente integral 360° del asociado con sus cuentas y beneficiarios
+ * Consulta el expediente integral 360° del asociado con sus cuentas y beneficiarios. Cada consulta queda en
+ * `consultas_expediente` (#119).
  */
 const getExpedienteAsociado = async (req, res) => {
   try {
@@ -273,6 +274,13 @@ const getExpedienteAsociado = async (req, res) => {
     });
     // Si el expediente es del propio operador, la pantalla no ofrece escanear ni revisar (el backend lo impide)
     asociado.es_propio = Number(asociado.id_persona) === Number(req.user.id_persona);
+
+    // Cada consulta queda registrada antes de entregar el expediente (#119). Si el registro falla, responde 500 sin
+    // entregarlo. Un asociado que no existe (404) no se registra.
+    await pool.query(
+      'INSERT INTO consultas_expediente (id_usuario, id_asociado, ip_origen, user_agent) VALUES ($1, $2, $3, $4)',
+      [req.user.id_usuario, asociado.id_asociado, ipDelCliente(req), userAgentDe(req)]
+    );
 
     return res.status(200).json({
       success: true,

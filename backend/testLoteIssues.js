@@ -8,7 +8,8 @@ process.env.NODE_ENV = 'test';
  * Lote de los issues #99 a #106 y H-84: tope del cuerpo por ruta (igual en nginx), traslados repetidos o que pasan el
  * saldo, uno de cada tipo de cuenta, cuenta de origen inactiva al aprobar, la ruta de la planilla quitada, límite por
  * usuario del padrón y la purga de documentos de solicitudes que no se completaron (con su tope en línea y las
- * transiciones de la solicitud, #108).
+ * transiciones de la solicitud, #108). También el registro de las consultas del expediente 360° (#119), la fecha de
+ * una solicitud de agencia al crearla (#120) y los límites por usuario compartidos entre las rutas (#121).
  */
 const fs = require('fs');
 const path = require('path');
@@ -136,9 +137,15 @@ const testServer = server.listen(0, async () => {
     assert(padron10.status === 200 && padron11.status === 200 && padron100.status === 200
       && consultasDespues === consultasAntes + 2,
       'Las páginas del padrón de más de 10 asociados quedan registradas en consultas_padron; la de la pantalla no (#110)');
-    const idAsociadoPadron = padron10.body.data[0]?.id_asociado ?? 0;
-    const expediente = await request(`/api/admin/asociados/${idAsociadoPadron}/expediente`, 'GET', null, loginOp.body.token);
+    // El expediente del socio de la prueba: su consulta queda registrada (#119) y se borra con él al final
+    const expediente = await request(`/api/admin/asociados/${idAsociado}/expediente`, 'GET', null, loginOp.body.token);
     assert(expediente.headers['ratelimit-limit'] !== undefined, 'El expediente 360° tiene límite por usuario (#110)');
+    // #121: con el middleware compartido, cada ruta conserva su tope de pruebas
+    const cargaSinArchivo = await request('/api/asociado/documentos', 'POST', {}, login.body.token);
+    const reporteInexistente = await request('/api/reportes/no-existe', 'GET', null, loginOp.body.token);
+    const topes = [padron, expediente, cargaSinArchivo, primera, reporteInexistente].map((r) => r.headers['ratelimit-limit']);
+    assert(topes.join() === '1000,1000,200,200,300',
+      `Los límites por usuario conservan sus topes de pruebas: padrón, expediente, documentos, traslados y reportes (#121): ${topes.join()}`);
     // Lo registrado: la última consulta es la de 100, con sus filtros y filas
     const ultimaConsulta = (await db.query(
       'SELECT id_consulta, parametros, filas FROM consultas_padron WHERE id_usuario = $1 ORDER BY id_consulta DESC LIMIT 1',
@@ -161,19 +168,43 @@ const testServer = server.listen(0, async () => {
         cliente.release();
       }
     };
-    const intentarPadron = (cliente, sql) =>
-      cliente.query(sql, [ultimaConsulta.id_consulta]).then(() => 'ok', (e) => e.code ?? e.message);
-    const duenoPadron = (sql, params = [ultimaConsulta.id_consulta]) =>
-      enTransaccionDueno(false, (c) => c.query(sql, params).then(() => 'ok'));
+    const comoAplicacion = (sql, params) => db.query(sql, params).then(() => 'ok', (e) => e.code ?? e.message);
+    const duenoSinMarca = (sql, params) => enTransaccionDueno(false, (c) => c.query(sql, params).then(() => 'ok'));
+    const idPadron = [ultimaConsulta.id_consulta];
     const cambiosPadron = [
-      await intentarPadron(db, 'UPDATE consultas_padron SET filas = 0 WHERE id_consulta = $1'),
-      await intentarPadron(db, 'DELETE FROM consultas_padron WHERE id_consulta = $1'),
-      await duenoPadron('UPDATE consultas_padron SET filas = 0 WHERE id_consulta = $1'),
-      await duenoPadron('DELETE FROM consultas_padron WHERE id_consulta = $1'),
+      await comoAplicacion('UPDATE consultas_padron SET filas = 0 WHERE id_consulta = $1', idPadron),
+      await comoAplicacion('DELETE FROM consultas_padron WHERE id_consulta = $1', idPadron),
+      await duenoSinMarca('UPDATE consultas_padron SET filas = 0 WHERE id_consulta = $1', idPadron),
+      await duenoSinMarca('DELETE FROM consultas_padron WHERE id_consulta = $1', idPadron),
     ];
-    const truncarDueno = await duenoPadron('TRUNCATE consultas_padron', []);
+    const truncarDueno = await duenoSinMarca('TRUNCATE consultas_padron', []);
     assert(cambiosPadron.join() === '42501,42501,23001,23001' && truncarDueno === '23001',
       'consultas_padron no se modifica, borra ni vacía: 42501 para la aplicación y 23001 para el dueño sin la marca (#110)');
+
+    // #119: cada consulta del expediente 360° queda registrada con quién, qué asociado y desde dónde. La de un asociado
+    // que no existe responde 404: la llave foránea no deja registrarla, así que un registro previo daría 500
+    const consultasDelSocio = async () => (await db.query(
+      `SELECT id_consulta, id_usuario, ip_origen FROM consultas_expediente WHERE id_asociado = $1
+       ORDER BY id_consulta DESC`, [idAsociado])).rows;
+    const delSocioAntes = await consultasDelSocio();
+    const otraVez = await request(`/api/admin/asociados/${idAsociado}/expediente`, 'GET', null, loginOp.body.token);
+    const inexistente = await request('/api/admin/asociados/2147483646/expediente', 'GET', null, loginOp.body.token);
+    const delSocioDespues = await consultasDelSocio();
+    const registrada = delSocioDespues[0];
+    assert(expediente.status === 200 && otraVez.status === 200 && inexistente.status === 404
+      && delSocioAntes.length === 1 && delSocioDespues.length === 2
+      && registrada.id_usuario === idOpPadron && !!registrada.ip_origen,
+      'Cada consulta del expediente 360° queda en consultas_expediente (usuario, asociado e IP); la de uno que no existe no (#119)');
+    const idExpediente = [registrada.id_consulta];
+    const cambiosExpediente = [
+      await comoAplicacion('UPDATE consultas_expediente SET ip_origen = NULL WHERE id_consulta = $1', idExpediente),
+      await comoAplicacion('DELETE FROM consultas_expediente WHERE id_consulta = $1', idExpediente),
+      await duenoSinMarca('UPDATE consultas_expediente SET ip_origen = NULL WHERE id_consulta = $1', idExpediente),
+      await duenoSinMarca('DELETE FROM consultas_expediente WHERE id_consulta = $1', idExpediente),
+      await duenoSinMarca('TRUNCATE consultas_expediente', []),
+    ];
+    assert(cambiosExpediente.join() === '42501,42501,23001,23001,23001',
+      `consultas_expediente no se modifica, borra ni vacía: 42501 para la aplicación y 23001 para el dueño sin la marca (#119): ${cambiosExpediente.join()}`);
 
     // -------------------------------------------------------------------------
     console.log('\n--- H-84 Documentos de solicitudes que no se completaron ---');
@@ -255,9 +286,9 @@ const testServer = server.listen(0, async () => {
       'Una solicitud cerrada no vuelve a pendiente y la fecha de solicitud no cambia; el bloqueo sí se libera (#108)');
     // El dueño de la tabla tampoco, salvo con la marca de pruebas (transacciones que se deshacen al final)
     const reabrirSql = "UPDATE solicitudes_afiliacion_agencia SET estado = 'PENDIENTE_AGENCIA' WHERE id_solicitud = $1";
-    const duenoSinMarca = await enTransaccionDueno(false,
+    const reabrirSinMarca = await enTransaccionDueno(false,
       (c) => c.query(reabrirSql, [cancelada.id_solicitud]).then(() => 'ok'));
-    const duenoConMarca = await enTransaccionDueno(true,
+    const reabrirConMarca = await enTransaccionDueno(true,
       (c) => c.query(reabrirSql, [cancelada.id_solicitud]).then((r) => (r.rowCount === 1 ? 'ok' : 'sin-fila')));
     // Una pendiente sí expira, pero una expirada no vuelve a pendiente
     const expiradaReabierta = await enTransaccionDueno(false, async (c) => {
@@ -265,8 +296,24 @@ const testServer = server.listen(0, async () => {
       await c.query(reabrirSql, [reciente.id_solicitud]);
       return 'ok';
     });
-    assert(duenoSinMarca === '23001' && duenoConMarca === 'ok' && expiradaReabierta === '23001',
+    assert(reabrirSinMarca === '23001' && reabrirConMarca === 'ok' && expiradaReabierta === '23001',
       'El dueño de la tabla solo cambia una solicitud cerrada con la marca de pruebas; una expirada no se reabre (#108)');
+
+    // #120: al crear una solicitud, la fecha es la del momento aunque el INSERT traiga una pasada; solo el dueño con la
+    // marca de pruebas la elige (la transacción del dueño se deshace al final)
+    const crearConFechaPasada = (cliente, prefijo) => cliente.query(
+      `INSERT INTO solicitudes_afiliacion_agencia
+         (numero_caso, cui_dpi, primer_nombre, primer_apellido, telefono, fecha_nacimiento, email, fecha_solicitud)
+       VALUES ('', $1, 'Fecha', 'Lote', '55550957', '1990-03-03', $2, CURRENT_TIMESTAMP - INTERVAL '40 days')
+       RETURNING id_solicitud, fecha_solicitud = CURRENT_TIMESTAMP AS fecha_del_momento`,
+      [dpi(prefijo), `fecha.${prefijo}.${sufijo}@example.com`]
+    ).then((r) => r.rows[0]);
+    const comoAplicacionConFecha = await crearConFechaPasada(db, '957');
+    solicitudesAgencia.push(comoAplicacionConFecha.id_solicitud);
+    const duenoConFecha = await enTransaccionDueno(true,
+      async (c) => (await crearConFechaPasada(c, '958')).fecha_del_momento);
+    assert(comoAplicacionConFecha.fecha_del_momento === true && duenoConFecha === false,
+      'Una solicitud de agencia se crea con la fecha del momento aunque el INSERT traiga otra; solo el dueño con la marca la elige (#120)');
 
     // Tope en línea por solicitud: solo cuenta lo vigente, así que cerca del tope todavía se reemplaza un documento (#109)
     const casi = DOCUMENTOS.MAX_BYTES_SOLICITUD_EN_LINEA - 100;

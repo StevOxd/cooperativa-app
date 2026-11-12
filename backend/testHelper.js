@@ -235,6 +235,7 @@ async function borrarPersonaDePrueba(db, idPersona) {
     `DELETE FROM accesos_documento WHERE id_usuario IN (${usuarios})`,
     `DELETE FROM reportes_generados WHERE id_usuario IN (${usuarios})`,
     `DELETE FROM consultas_padron WHERE id_usuario IN (${usuarios})`,
+    `DELETE FROM consultas_expediente WHERE id_usuario IN (${usuarios}) OR id_asociado IN (${asociados})`,
     `DELETE FROM depositos_ventanilla_banco WHERE id_usuario_operador IN (${usuarios})
        OR titular_cui = (SELECT cui_dpi FROM personas WHERE id_persona = $1)`,
     `DELETE FROM efectivo_ventanilla WHERE id_usuario_operador IN (${usuarios})
@@ -325,6 +326,38 @@ async function purgarEfectivoDePrueba(db, dpis) {
     await client.query("SET LOCAL cooperativa.purga_pruebas = 'on'");
     await client.query('DELETE FROM efectivo_ventanilla WHERE cui_dpi = ANY($1)', [lista]);
     await client.query('DELETE FROM depositos_ventanilla_banco WHERE titular_cui = ANY($1)', [lista]);
+    await client.query('COMMIT');
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => {});
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+/**
+ * Borra las consultas del expediente 360° (#119) hechas por los usuarios de unas personas de prueba o sobre sus
+ * asociados. Va antes de borrar esos usuarios o asociados a mano: su llave foránea detiene el borrado. Es registro de
+ * auditoría: solo se borra con la marca de purga de pruebas y el rol dueño (poolDueno). `borrarPersonaDePrueba` ya
+ * lo hace.
+ *
+ * @param {{ pool: import('pg').Pool }} db
+ * @param {number[]} idPersonas
+ * @returns {Promise<void>}
+ */
+async function purgarConsultasExpedienteDePrueba(db, idPersonas) {
+  const lista = idPersonas.filter(Boolean);
+  if (lista.length === 0) return;
+  const client = await poolDueno(db.pool).connect();
+  try {
+    await client.query('BEGIN');
+    await client.query("SET LOCAL cooperativa.purga_pruebas = 'on'");
+    await client.query(
+      `DELETE FROM consultas_expediente
+       WHERE id_usuario IN (SELECT id_usuario FROM usuarios WHERE id_persona = ANY($1))
+          OR id_asociado IN (SELECT id_asociado FROM asociados WHERE id_persona = ANY($1))`,
+      [lista]
+    );
     await client.query('COMMIT');
   } catch (error) {
     await client.query('ROLLBACK').catch(() => {});
@@ -461,6 +494,7 @@ module.exports = {
   borrarClienteBancoDePrueba,
   purgarDepositosDePrueba,
   purgarEfectivoDePrueba,
+  purgarConsultasExpedienteDePrueba,
   purgarReversionesDePrueba,
   purgarDocumentosDePrueba,
   createTestReporter,

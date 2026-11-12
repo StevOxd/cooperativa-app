@@ -17,7 +17,10 @@ const http = require('http');
 const jwt = require('jsonwebtoken');
 const { server } = require('./src/server');
 const db = require('./src/config/db');
-const { purgarEfectivoDePrueba, purgarDocumentosDePrueba, poolDueno, escanearDocumentosObligatorios, pdfDePrueba } = require('./testHelper');
+const {
+  purgarEfectivoDePrueba, purgarDocumentosDePrueba, poolDueno, escanearDocumentosObligatorios, pdfDePrueba,
+  purgarConsultasExpedienteDePrueba,
+} = require('./testHelper');
 // Limpieza con el rol dueño: el de la aplicación no borra filas (salvo en las pocas tablas que el código limpia)
 const comoDueno = (sql, params) => poolDueno(db.pool).query(sql, params);
 const mailerService = require('./src/services/mailerService');
@@ -610,6 +613,7 @@ const testServer = server.listen(0, async () => {
       await purgarDocumentosDePrueba(db, [dpiSoloPersonal, dpiVentanilla, dpiAjeno]);
       await comoDueno('DELETE FROM solicitudes_afiliacion_agencia WHERE cui_dpi = ANY($1)', [[dpiSoloPersonal, dpiVentanilla, dpiAjeno]]);
       await purgarEfectivoDePrueba(db, [dpi, dpiSoloPersonal, dpiVentanilla, dpiAjeno]);
+      await purgarConsultasExpedienteDePrueba(db, [idPersona, idPersonaSoloPersonal, idPersonaVentanilla]);
       for (const id of [idPersona, idPersonaSoloPersonal, idPersonaVentanilla].filter(Boolean)) {
         await comoDueno(
           `DELETE FROM historial_estados_usuario

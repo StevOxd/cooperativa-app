@@ -5,6 +5,7 @@ const { crearPoolDueno } = require('./db');
 const TABLAS_SOLO_INSERCION = [
   'historial_estados_usuario', 'historial_cambios_beneficiarios', 'transacciones', 'efectivo_ventanilla',
   'revisiones_documento', 'accesos_documento', 'reportes_generados', 'resoluciones_credito', 'consultas_padron',
+  'consultas_expediente',
 ];
 // Las únicas tablas en que el código borra filas; en el resto, la desvinculación es por estado (borrado lógico)
 const TABLAS_CON_BORRADO = ['beneficiarios', 'roles_permisos', 'codigos_verificacion_correo'];
@@ -1347,9 +1348,10 @@ const runMigrations = async () => {
       GRANT EXECUTE ON FUNCTION purgar_cargas_previas_vencidas() TO ${appEjecuta};
     `);
 
-    // 15.2 Transiciones de una solicitud de agencia (issue #108). La purga diaria decide por el estado y la fecha de la
-    //      solicitud, así que una solicitud cerrada (ATENDIDA, CANCELADA o EXPIRADA) no vuelve a otro estado y la fecha
-    //      de solicitud no cambia. Lo demás (bloqueo, datos corregidos en la formalización) sigue igual.
+    // 15.2 Transiciones de una solicitud de agencia (issues #108 y #120). La purga diaria decide por el estado y la fecha
+    //      de la solicitud, así que la fecha es la del momento en que se crea, no cambia después, y una solicitud cerrada
+    //      (ATENDIDA, CANCELADA o EXPIRADA) no vuelve a otro estado. Lo demás (bloqueo, datos corregidos en la
+    //      formalización) sigue igual.
     await pool.query(`
       CREATE OR REPLACE FUNCTION trg_solicitudes_afiliacion_transicion()
       RETURNS TRIGGER
@@ -1360,6 +1362,12 @@ const runMigrations = async () => {
           IF pg_catalog.current_setting('cooperativa.purga_pruebas', true) = 'on'
              AND pg_catalog.pg_has_role(current_user,
                    (SELECT c.relowner FROM pg_catalog.pg_class c WHERE c.oid = TG_RELID), 'MEMBER') THEN
+              RETURN NEW;
+          END IF;
+          -- Al crearla, la fecha es la del momento aunque el INSERT traiga otra (#120): una fecha pasada la purgaría
+          -- antes de los 30 días
+          IF TG_OP = 'INSERT' THEN
+              NEW.fecha_solicitud := CURRENT_TIMESTAMP;
               RETURN NEW;
           END IF;
           IF OLD.fecha_solicitud IS NOT NULL AND NEW.fecha_solicitud IS DISTINCT FROM OLD.fecha_solicitud THEN
@@ -1376,7 +1384,7 @@ const runMigrations = async () => {
 
       DROP TRIGGER IF EXISTS trg_solicitudes_afiliacion_transicion ON solicitudes_afiliacion_agencia;
       CREATE TRIGGER trg_solicitudes_afiliacion_transicion
-          BEFORE UPDATE OF estado, fecha_solicitud ON solicitudes_afiliacion_agencia
+          BEFORE INSERT OR UPDATE OF estado, fecha_solicitud ON solicitudes_afiliacion_agencia
           FOR EACH ROW EXECUTE FUNCTION trg_solicitudes_afiliacion_transicion();
     `);
 
@@ -1402,6 +1410,30 @@ const runMigrations = async () => {
       DROP TRIGGER IF EXISTS trg_consultas_padron_sin_truncate ON consultas_padron;
       CREATE TRIGGER trg_consultas_padron_sin_truncate
           BEFORE TRUNCATE ON consultas_padron
+          FOR EACH STATEMENT EXECUTE FUNCTION trg_registro_solo_insercion();
+    `);
+
+    // 15.4 Consultas del expediente 360° (issue #119): cada una queda registrada (quién, qué asociado, desde dónde),
+    //      como los accesos a documentos y las páginas grandes del padrón. Es un registro de auditoría: solo se inserta.
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS consultas_expediente (
+        id_consulta SERIAL PRIMARY KEY,
+        id_usuario INT NOT NULL REFERENCES usuarios(id_usuario) ON DELETE RESTRICT,
+        id_asociado INT NOT NULL REFERENCES asociados(id_asociado) ON DELETE RESTRICT,
+        ip_origen VARCHAR(45),
+        user_agent TEXT,
+        fecha_consulta TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE INDEX IF NOT EXISTS idx_consultas_expediente_usuario ON consultas_expediente (id_usuario, fecha_consulta DESC);
+      CREATE INDEX IF NOT EXISTS idx_consultas_expediente_asociado ON consultas_expediente (id_asociado, fecha_consulta DESC);
+
+      DROP TRIGGER IF EXISTS trg_consultas_expediente_inmutable ON consultas_expediente;
+      CREATE TRIGGER trg_consultas_expediente_inmutable
+          BEFORE UPDATE OR DELETE ON consultas_expediente
+          FOR EACH ROW EXECUTE FUNCTION trg_registro_solo_insercion();
+      DROP TRIGGER IF EXISTS trg_consultas_expediente_sin_truncate ON consultas_expediente;
+      CREATE TRIGGER trg_consultas_expediente_sin_truncate
+          BEFORE TRUNCATE ON consultas_expediente
           FOR EACH STATEMENT EXECUTE FUNCTION trg_registro_solo_insercion();
     `);
 
