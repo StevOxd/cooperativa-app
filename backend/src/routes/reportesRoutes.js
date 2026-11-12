@@ -1,22 +1,16 @@
 const express = require('express');
-const rateLimit = require('express-rate-limit');
 const router = express.Router();
 const reportesController = require('../controllers/reportesController');
 const { verifyToken, checkRole } = require('../middlewares/authMiddleware');
+const { limitePorUsuario } = require('../middlewares/limitePorUsuario');
 
 // Reportes por usuario (no por conexión: va después de verifyToken). Cada uno recorre un período completo.
-const isTestOrDev = process.env.NODE_ENV === 'test' || process.env.NODE_ENV === 'development';
-const reportesLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutos
-  max: isTestOrDev ? 300 : 30,
-  keyGenerator: (req) => `usuario:${req.user.id_usuario}`,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: {
-    success: false,
-    message: 'Generó demasiados reportes seguidos. Espere 15 minutos e intente de nuevo.',
-    error: 'RATE_LIMIT_EXCEEDED',
-  },
+const MAX_REPORTES = 30;
+const MAX_REPORTES_PRUEBAS = 300;
+const reportesLimiter = limitePorUsuario({
+  max: MAX_REPORTES,
+  maxPruebas: MAX_REPORTES_PRUEBAS,
+  mensaje: 'Generó demasiados reportes seguidos. Espere 15 minutos e intente de nuevo.',
 });
 
 // Reportes de gestión (issue #85): solo el personal. Qué rol saca cada uno lo decide su definición en

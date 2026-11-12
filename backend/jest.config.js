@@ -17,6 +17,7 @@ module.exports = {
     'src/utils/parentesco.js',
     'src/utils/passwordPolicy.js',
     'src/middlewares/validationMiddleware.js',
+    'src/middlewares/limitePorUsuario.js',
   ],
   coverageThreshold: { global: { lines: 60 } },
 };

@@ -82,6 +82,11 @@ describe('documentos PDF', () => {
     esPdfValido(generateAccountStatementPdf({ asociado: ASOCIADO, cuenta: CUENTA }));
   });
 
+  test('el PDF se entrega con su nombre de archivo sin escribirlo en disco (#122)', () => {
+    const doc = generateAccountStatementPdf({ asociado: ASOCIADO, cuenta: CUENTA });
+    expect(doc.save).toHaveBeenLastCalledWith(expect.stringMatching(/^Estado_de_cuenta_1001_\d{4}-\d{2}-\d{2}\.pdf$/));
+  });
+
   test('la solicitud de crédito se genera', () => {
     esPdfValido(generateCreditApplicationPdf({ asociado: ASOCIADO, credito: CREDITO, cuentaDestino: CUENTA }));
   });
