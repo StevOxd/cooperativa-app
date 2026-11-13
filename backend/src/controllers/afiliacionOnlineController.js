@@ -7,7 +7,13 @@ const { revertirOAnotar, anotarSinConfirmar } = require('../services/reversiones
 const { errorDeNegocio, respuestaDeError } = require('../utils/errores');
 const { getNextCorporateCode, resolvePrefix } = require('../utils/codeGenerator');
 const { validatePassword } = require('../utils/passwordPolicy');
-const { firmarAfiliacionToken, verificarAfiliacionToken, firmarCargaDocumentosToken } = require('../utils/afiliacionToken');
+const {
+  identidadDelBanco, firmarAfiliacionToken, verificarAfiliacionToken, firmarCargaDocumentosToken,
+} = require('../utils/afiliacionToken');
+const { cumplioEdad } = require('../utils/fechas');
+
+// Edad mínima para afiliarse como asociado titular (regla 4.3)
+const EDAD_MINIMA_TITULAR = 18;
 const documentosAfiliacion = require('../services/documentosAfiliacionService');
 const codigoVerificacion = require('../services/codigoVerificacionService');
 const { verificarDominioCorreo } = require('../utils/correoDominio');
@@ -148,6 +154,16 @@ const validarCredencialesBanco = async (req, res) => {
     );
     const usuarioExistente = usuarioRes.rows[0] || null;
 
+    // La persona se registra con lo que el banco tiene del titular, nunca con datos de relleno (issue #124)
+    const identidad = identidadDelBanco(cliente);
+    if (!identidad) {
+      return res.status(422).json({
+        success: false,
+        error: 'DATOS_BANCO_INCOMPLETOS',
+        message: 'El banco no tiene completos su nombre o su fecha de nacimiento. Acérquese a una agencia para afiliarse.',
+      });
+    }
+
     const tipoSujeto = cliente.tipo_cliente === 'EMPLEADO_PLANILLA' ? 'EMPLEADO_BANCO' : 'CLIENTE_BANCO';
     const tipoSujetoDescripcion = cliente.tipo_cliente === 'EMPLEADO_PLANILLA'
       ? 'Colaborador / Empleado de la Corporación Bancaria'
@@ -160,12 +176,14 @@ const validarCredencialesBanco = async (req, res) => {
       tipo_sujeto_descripcion: tipoSujetoDescripcion,
       persona: {
         cui_dpi: cliente.cui_dpi,
-        primer_nombre: cliente.primer_nombre,
-        primer_apellido: cliente.primer_apellido,
+        primer_nombre: identidad.primer_nombre,
+        segundo_nombre: identidad.segundo_nombre,
+        primer_apellido: identidad.primer_apellido,
+        segundo_apellido: identidad.segundo_apellido,
         nombre_completo: cliente.nombre_completo,
-        telefono: cliente.telefono,
-        direccion: cliente.direccion,
-        fecha_nacimiento: cliente.fecha_nacimiento,
+        telefono: identidad.telefono,
+        direccion: identidad.direccion,
+        fecha_nacimiento: identidad.fecha_nacimiento,
         email: cliente.email,
         codigo_corporativo: cliente.codigo_bancario,
         nombre_usuario: cliente.nombre_usuario,
@@ -173,10 +191,11 @@ const validarCredencialesBanco = async (req, res) => {
       cuentas_bancarias: cuentas,
       tiene_usuario_portal: Boolean(usuarioExistente),
       codigo_corporativo_portal: usuarioExistente ? usuarioExistente.codigo_corporativo : null,
-      // Comprobante para /procesar-existente: solo sirve para este DPI y estas cuentas.
+      // Comprobante para /procesar-existente: solo sirve para este DPI y estas cuentas, y lleva la identidad del banco.
       afiliacion_token: firmarAfiliacionToken({
         cui_dpi: cuiLimpio,
         tipo_asociado: cliente.tipo_cliente === 'EMPLEADO_PLANILLA' ? 'EB' : 'EX',
+        identidad,
         cuentas,
       }),
     });
@@ -249,6 +268,15 @@ const procesarAfiliacionExistente = async (req, res) => {
       });
     }
 
+    // Mayoría de edad con la fecha de nacimiento del banco (regla 4.3), antes de debitar
+    if (!cumplioEdad(comprobante.identidad.fecha_nacimiento, EDAD_MINIMA_TITULAR)) {
+      return res.status(400).json({
+        success: false,
+        error: 'MENOR_DE_EDAD',
+        message: 'Debe tener 18 años cumplidos para afiliarse como asociado titular.',
+      });
+    }
+
     // Quien ya tiene usuario de asociado conserva su acceso: no se cambia su contraseña ni su 2FA.
     // El usuario del personal de la misma persona no cuenta: el de asociado es otro (issue #32).
     const usuarioPrevioRes = await client.query(
@@ -317,30 +345,15 @@ const procesarAfiliacionExistente = async (req, res) => {
     );
 
     if (personaRes.rows.length === 0) {
-      // Si la persona aún no estaba en la cooperativa (ej. cliente externo del banco), la traemos del Banco API
-      const bcoCheck = await bancoApiService.verificarDpi(cuiLimpio);
-      if (!bcoCheck.success || !bcoCheck.existe_en_banco) {
-        await client.query('ROLLBACK');
-        return res.status(404).json({
-          success: false,
-          message: 'No encontramos este DPI en el banco.',
-        });
-      }
-
-      const cli = bcoCheck.cliente || {};
-      const pNom = cli.primer_nombre || 'Cliente';
-      const sNom = cli.segundo_nombre || null;
-      const pApe = cli.primer_apellido || 'Bancario';
-      const sApe = cli.segundo_apellido || null;
-      const tel = cli.telefono || '55550000';
-      const dir = cli.direccion || 'Ciudad de Guatemala';
-      const fNac = cli.fecha_nacimiento || '1990-01-01';
-
+      // La persona aún no estaba en la cooperativa: se registra con la identidad que el banco devolvió al validar la
+      // Banca en Línea, que viaja firmada en el comprobante (issue #124)
+      const { identidad } = comprobante;
       personaRes = await client.query(
         `INSERT INTO personas (cui_dpi, primer_nombre, segundo_nombre, primer_apellido, segundo_apellido, telefono, direccion, fecha_nacimiento)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
          RETURNING id_persona, cui_dpi, primer_nombre, segundo_nombre, primer_apellido, segundo_apellido, nombre_completo, fecha_nacimiento`,
-        [cuiLimpio, pNom, sNom, pApe, sApe, tel, dir, fNac]
+        [cuiLimpio, identidad.primer_nombre, identidad.segundo_nombre, identidad.primer_apellido, identidad.segundo_apellido,
+          identidad.telefono, identidad.direccion, identidad.fecha_nacimiento]
       );
     }
 
@@ -621,27 +634,29 @@ const registrarSolicitudAgencia = async (req, res) => {
       });
     }
 
-    // Validación de nombres y apellidos: SOLO LETRAS Y ESPACIOS
+    // Validación de nombres y apellidos: SOLO LETRAS Y ESPACIOS. Los que vienen del banco (terminar en una agencia)
+    // no se revisan: el solicitante no podría corregirlos (issue #124)
     const nameRegex = /^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s]+$/;
-    if (!nameRegex.test(primer_nombre.trim())) {
+    const nombreInvalido = (valor) => !req.identidadDelBanco && !nameRegex.test(valor.trim());
+    if (nombreInvalido(primer_nombre)) {
       return res.status(400).json({
         success: false,
         message: 'El primer nombre solo puede llevar letras.',
       });
     }
-    if (!nameRegex.test(primer_apellido.trim())) {
+    if (nombreInvalido(primer_apellido)) {
       return res.status(400).json({
         success: false,
         message: 'El primer apellido solo puede llevar letras.',
       });
     }
-    if (segundo_nombre && segundo_nombre.trim() && !nameRegex.test(segundo_nombre.trim())) {
+    if (segundo_nombre && segundo_nombre.trim() && nombreInvalido(segundo_nombre)) {
       return res.status(400).json({
         success: false,
         message: 'El segundo nombre solo puede llevar letras.',
       });
     }
-    if (segundo_apellido && segundo_apellido.trim() && !nameRegex.test(segundo_apellido.trim())) {
+    if (segundo_apellido && segundo_apellido.trim() && nombreInvalido(segundo_apellido)) {
       return res.status(400).json({
         success: false,
         message: 'El segundo apellido solo puede llevar letras.',
@@ -901,8 +916,14 @@ const terminarEnVentanilla = async (req, res) => {
       message: 'Su validación con la Banca en Línea venció o no es válida. Vuelva a ingresar sus datos del banco.',
     });
   }
-  // Marca del servidor (no viene del cliente): el DPI quedó comprobado y su carga previa pasa a la solicitud
+  // El nombre y la fecha de nacimiento del caso son los del banco, no los del cuerpo de la petición (issue #124).
+  // El teléfono, la dirección y el correo son datos de contacto: los elige el solicitante.
+  const { primer_nombre, segundo_nombre, primer_apellido, segundo_apellido, fecha_nacimiento } = comprobante.identidad;
+  req.body = { ...req.body, primer_nombre, segundo_nombre, primer_apellido, segundo_apellido, fecha_nacimiento };
+  // Marcas del servidor (no vienen del cliente): el DPI quedó comprobado, su carga previa pasa a la solicitud y los
+  // nombres son los del banco
   req.adoptarCargaPrevia = true;
+  req.identidadDelBanco = true;
   return registrarSolicitudAgencia(req, res);
 };
 
