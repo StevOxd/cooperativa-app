@@ -93,8 +93,13 @@ const testServer = server.listen(0, async () => {
     // -------------------------------------------------------------------------
     console.log('\n--- 1. Cliente del banco que termina en ventanilla y paga con débito ---');
     const cuentaDebito = await clienteDelBanco(dpis.debito, 'Debora');
+    // La identidad es la del cliente que creó clienteDelBanco: el comprobante lleva la que devuelve el banco (#124)
     const comprobante = firmarAfiliacionToken({
       cui_dpi: dpis.debito, tipo_asociado: 'EX', cuentas: [{ id_cuenta_bancaria: 1, numero_cuenta_bancaria: cuentaDebito }],
+      identidad: {
+        primer_nombre: 'Debora', segundo_nombre: null, primer_apellido: 'Cobro', segundo_apellido: null,
+        telefono: '55559100', direccion: 'Guatemala', fecha_nacimiento: '1990-05-05',
+      },
     });
     const previo = await request('/api/afiliacion/documentos', 'POST', {
       afiliacion_token: comprobante, tipo_documento: 'DPI_FRENTE', archivo: pdfDePrueba(`debito-${sufijo}`),

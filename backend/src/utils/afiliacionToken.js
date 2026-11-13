@@ -13,19 +13,50 @@ const EXPIRES_IN = '15m';
 
 const getSecret = () => `${process.env.JWT_SECRET}:afiliacion-online`;
 
+const FECHA_ISO = /^\d{4}-\d{2}-\d{2}$/;
+
 /**
- * El tipo de asociado (EB o EX) viaja en el comprobante porque lo decide el banco (regla 4.6),
- * nunca el cuerpo de la solicitud.
+ * Identidad del titular tal como la tiene el banco, con los campos que usa `personas`. Los opcionales vacíos quedan
+ * en null.
  *
- * @param {{cui_dpi: string, tipo_asociado: 'EB'|'EX', cuentas: Array<{id_cuenta_bancaria: number, numero_cuenta_bancaria: string}>}} datos
+ * @param {object} cliente - `cliente` de la respuesta de la Banca en Línea.
+ * @returns {{primer_nombre: string, segundo_nombre: string|null, primer_apellido: string, segundo_apellido: string|null,
+ *   telefono: string|null, direccion: string|null, fecha_nacimiento: string}|null} null si al banco le falta el nombre, el
+ *   apellido o la fecha de nacimiento.
+ */
+const identidadDelBanco = (cliente) => {
+  const texto = (valor) => (typeof valor === 'string' && valor.trim() ? valor.trim() : null);
+  const fecha = texto(cliente?.fecha_nacimiento)?.slice(0, 10) || null;
+  const identidad = {
+    primer_nombre: texto(cliente?.primer_nombre),
+    segundo_nombre: texto(cliente?.segundo_nombre),
+    primer_apellido: texto(cliente?.primer_apellido),
+    segundo_apellido: texto(cliente?.segundo_apellido),
+    telefono: texto(cliente?.telefono),
+    direccion: texto(cliente?.direccion),
+    fecha_nacimiento: fecha && FECHA_ISO.test(fecha) ? fecha : null,
+  };
+  if (!identidad.primer_nombre || !identidad.primer_apellido || !identidad.fecha_nacimiento) return null;
+  return identidad;
+};
+
+/**
+ * El tipo de asociado (EB o EX) y la identidad del titular viajan en el comprobante porque los decide el banco
+ * (regla 4.6), nunca el cuerpo de la solicitud. La identidad es la que el banco devolvió al validar la Banca en Línea:
+ * con ella se registra a la persona (issue #124). El comprobante va firmado, no cifrado: solo lo recibe el titular,
+ * que ya ve esos mismos datos en la respuesta.
+ *
+ * @param {{cui_dpi: string, tipo_asociado: 'EB'|'EX', identidad: ReturnType<typeof identidadDelBanco>,
+ *   cuentas: Array<{id_cuenta_bancaria: number, numero_cuenta_bancaria: string}>}} datos
  * @returns {string}
  */
-const firmarAfiliacionToken = ({ cui_dpi, tipo_asociado, cuentas }) =>
+const firmarAfiliacionToken = ({ cui_dpi, tipo_asociado, identidad, cuentas }) =>
   jwt.sign(
     {
       purpose: PURPOSE,
       cui_dpi,
       tipo_asociado,
+      identidad,
       cuentas: cuentas.map((c) => ({ id: c.id_cuenta_bancaria, numero: c.numero_cuenta_bancaria })),
     },
     getSecret(),
@@ -34,7 +65,9 @@ const firmarAfiliacionToken = ({ cui_dpi, tipo_asociado, cuentas }) =>
 
 /**
  * @param {string} token
- * @returns {{cui_dpi: string, tipo_asociado: 'EB'|'EX', cuentas: Array<{id: number, numero: string}>}|null} null si es inválido o venció.
+ * @returns {{cui_dpi: string, tipo_asociado: 'EB'|'EX', identidad: NonNullable<ReturnType<typeof identidadDelBanco>>,
+ *   cuentas: Array<{id: number, numero: string}>}|null} null si es inválido, venció o no trae la identidad (los
+ *   emitidos antes del issue #124).
  */
 const verificarAfiliacionToken = (token) => {
   if (!token || typeof token !== 'string') return null;
@@ -42,6 +75,7 @@ const verificarAfiliacionToken = (token) => {
     const payload = jwt.verify(token, getSecret());
     if (payload.purpose !== PURPOSE || !payload.cui_dpi || !Array.isArray(payload.cuentas)) return null;
     if (!['EB', 'EX'].includes(payload.tipo_asociado)) return null;
+    if (!identidadDelBanco(payload.identidad)) return null;
     return payload;
   } catch {
     return null;
@@ -80,6 +114,7 @@ const verificarCargaDocumentosToken = (token) => {
 };
 
 module.exports = {
+  identidadDelBanco,
   firmarAfiliacionToken,
   verificarAfiliacionToken,
   firmarCargaDocumentosToken,

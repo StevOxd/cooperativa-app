@@ -27,8 +27,11 @@ const validarCredenciales = async (req, res) => {
     // 1. Buscar cliente y usuario de banca web
     const query = `
       SELECT 
-        c.id_cliente, c.cui_dpi, c.nombre_completo, c.primer_nombre, c.primer_apellido,
-        c.email, c.telefono, c.direccion, c.fecha_nacimiento, c.tipo_cliente, c.estado AS estado_cliente,
+        c.id_cliente, c.cui_dpi, c.nombre_completo, c.primer_nombre, c.segundo_nombre, c.primer_apellido,
+        c.segundo_apellido, c.email, c.telefono, c.direccion,
+        -- Como texto AAAA-MM-DD: un DATE pasa por la zona horaria del proceso y podría cambiar de día
+        to_char(c.fecha_nacimiento, 'YYYY-MM-DD') AS fecha_nacimiento,
+        c.tipo_cliente, c.estado AS estado_cliente,
         u.id_usuario_banca, u.nombre_usuario, u.codigo_bancario, u.password_hash, u.estado AS estado_usuario
       FROM clientes_banco c
       JOIN usuarios_banca_en_linea u ON c.id_cliente = u.id_cliente
@@ -84,7 +87,9 @@ const validarCredenciales = async (req, res) => {
         cui_dpi: record.cui_dpi,
         nombre_completo: record.nombre_completo,
         primer_nombre: record.primer_nombre,
+        segundo_nombre: record.segundo_nombre,
         primer_apellido: record.primer_apellido,
+        segundo_apellido: record.segundo_apellido,
         email: record.email,
         telefono: record.telefono,
         direccion: record.direccion,

@@ -1,10 +1,15 @@
 const { errorDeNegocio, respuestaDeError, estadoPorFalloDelBanco } = require('../../src/utils/errores');
-const { fechaValida, diasEntre, entreDiasGuatemala } = require('../../src/utils/fechas');
+const { fechaValida, diasEntre, entreDiasGuatemala, hoyEnGuatemala, cumplioEdad } = require('../../src/utils/fechas');
 const { esId, filtroUsuario } = require('../../src/utils/identificadores');
 const { formatoQ, leerMonto } = require('../../src/utils/montos');
 const { PARENTESCOS, normalizarParentesco } = require('../../src/utils/parentesco');
 const { validatePassword, PASSWORD_MIN_LENGTH } = require('../../src/utils/passwordPolicy');
 const { ipDelCliente, userAgentDe } = require('../../src/utils/ipCliente');
+const {
+  identidadDelBanco,
+  firmarAfiliacionToken,
+  verificarAfiliacionToken,
+} = require('../../src/utils/afiliacionToken');
 
 describe('errores', () => {
   test('un error de negocio conserva su estado, mensaje y código', () => {
@@ -146,5 +151,70 @@ describe('datos del cliente para la auditoría', () => {
     expect(userAgentDe({ headers: { 'user-agent': 'a'.repeat(600) } })).toHaveLength(500);
     expect(userAgentDe('Mozilla')).toBe('Mozilla');
     expect(userAgentDe(undefined)).toBeNull();
+  });
+});
+
+describe('identidad del banco en el comprobante de afiliación (#124)', () => {
+  const cliente = {
+    primer_nombre: ' Ana ',
+    segundo_nombre: '',
+    primer_apellido: 'López',
+    segundo_apellido: 'Pérez',
+    telefono: '55440000',
+    direccion: null,
+    fecha_nacimiento: '1990-02-03T00:00:00.000Z',
+  };
+
+  test('toma los datos del banco, deja en null los opcionales vacíos y corta la fecha a AAAA-MM-DD', () => {
+    expect(identidadDelBanco(cliente)).toEqual({
+      primer_nombre: 'Ana',
+      segundo_nombre: null,
+      primer_apellido: 'López',
+      segundo_apellido: 'Pérez',
+      telefono: '55440000',
+      direccion: null,
+      fecha_nacimiento: '1990-02-03',
+    });
+  });
+
+  test.each([
+    ['sin primer nombre', { primer_nombre: '' }],
+    ['sin primer apellido', { primer_apellido: undefined }],
+    ['sin fecha de nacimiento', { fecha_nacimiento: null }],
+    ['con una fecha que no es válida', { fecha_nacimiento: 'ayer' }],
+  ])('no inventa datos: %s devuelve null', (_caso, cambio) => {
+    expect(identidadDelBanco({ ...cliente, ...cambio })).toBeNull();
+  });
+
+  test('el comprobante solo es válido con la identidad', () => {
+    process.env.JWT_SECRET = process.env.JWT_SECRET || 'secreto-de-prueba-unitaria';
+    const base = {
+      cui_dpi: '1234567890123',
+      tipo_asociado: 'EX',
+      cuentas: [{ id_cuenta_bancaria: 1, numero_cuenta_bancaria: 'C-1' }],
+    };
+    const conIdentidad = verificarAfiliacionToken(
+      firmarAfiliacionToken({ ...base, identidad: identidadDelBanco(cliente) })
+    );
+    expect(conIdentidad.identidad.primer_nombre).toBe('Ana');
+    expect(verificarAfiliacionToken(firmarAfiliacionToken(base))).toBeNull();
+  });
+});
+
+describe('edad en hora de Guatemala (#124)', () => {
+  // 14 de noviembre a las 03:00 UTC: en Guatemala todavía es el 13 a las 21:00
+  const nocheEnGuatemala = new Date('2026-11-14T03:00:00Z');
+
+  test('la fecha de hoy es la de Guatemala, no la de UTC', () => {
+    expect(hoyEnGuatemala(nocheEnGuatemala)).toBe('2026-11-13');
+  });
+
+  test.each([
+    ['cumple 18 mañana en Guatemala', '2008-11-14', false],
+    ['cumple 18 hoy', '2008-11-13', true],
+    ['tiene 17', '2009-01-01', false],
+    ['fecha que no existe', '2008-02-30', false],
+  ])('%s', (_caso, nacimiento, esperado) => {
+    expect(cumplioEdad(nacimiento, 18, nocheEnGuatemala)).toBe(esperado);
   });
 });
