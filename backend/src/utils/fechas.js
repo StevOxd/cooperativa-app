@@ -46,8 +46,23 @@ const hoyEnGuatemala = (ahora = new Date()) =>
     .format(ahora);
 
 /**
- * Si quien nació en `fechaNacimiento` ya cumplió `anios` hoy en Guatemala. Compara año, mes y día del texto: no pasa la
+ * Años cumplidos hoy en Guatemala por quien nació en `fechaNacimiento`. Compara año, mes y día del texto: no pasa la
  * fecha de nacimiento por `Date`, que la tomaría en UTC y podría adelantar el cumpleaños un día.
+ *
+ * @param {string} fechaNacimiento - AAAA-MM-DD.
+ * @param {Date} [ahora]
+ * @returns {number|null} null si la fecha no es válida.
+ */
+const edadEnGuatemala = (fechaNacimiento, ahora = new Date()) => {
+  if (!fechaValida(fechaNacimiento)) return null;
+  const [anio, mes, dia] = fechaNacimiento.split('-').map(Number);
+  const [anioHoy, mesHoy, diaHoy] = hoyEnGuatemala(ahora).split('-').map(Number);
+  const yaCumplioEsteAnio = mesHoy > mes || (mesHoy === mes && diaHoy >= dia);
+  return anioHoy - anio - (yaCumplioEsteAnio ? 0 : 1);
+};
+
+/**
+ * Si quien nació en `fechaNacimiento` ya cumplió `anios` hoy en Guatemala.
  *
  * @param {string} fechaNacimiento - AAAA-MM-DD.
  * @param {number} anios
@@ -55,11 +70,8 @@ const hoyEnGuatemala = (ahora = new Date()) =>
  * @returns {boolean} false también si la fecha no es válida.
  */
 const cumplioEdad = (fechaNacimiento, anios, ahora = new Date()) => {
-  if (!fechaValida(fechaNacimiento)) return false;
-  const [anio, mes, dia] = fechaNacimiento.split('-').map(Number);
-  const [anioHoy, mesHoy, diaHoy] = hoyEnGuatemala(ahora).split('-').map(Number);
-  const yaCumplioEsteAnio = mesHoy > mes || (mesHoy === mes && diaHoy >= dia);
-  return anioHoy - anio - (yaCumplioEsteAnio ? 0 : 1) >= anios;
+  const edad = edadEnGuatemala(fechaNacimiento, ahora);
+  return edad !== null && edad >= anios;
 };
 
-module.exports = { fechaValida, diasEntre, entreDiasGuatemala, hoyEnGuatemala, cumplioEdad };
+module.exports = { fechaValida, diasEntre, entreDiasGuatemala, hoyEnGuatemala, edadEnGuatemala, cumplioEdad };

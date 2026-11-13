@@ -1545,40 +1545,57 @@ const getEmailServiceStatus = async (req, res) => {
 };
 
 /**
- * Configura y valida en tiempo real las credenciales de Google Mail (Gmail SMTP)
+ * Configura y verifica el correo del sistema: Gmail con contraseña de aplicación (`provider: 'google'`, el valor por
+ * omisión) o un servidor SMTP cualquiera (`provider: 'smtp'`, issue #126). Solo se guarda si la verificación pasa.
  */
 const updateEmailServiceConfig = async (req, res) => {
   try {
-    const { gmail_user, gmail_app_password, email_from } = req.body;
+    const { provider = 'google', email_from } = req.body;
+    const from = typeof email_from === 'string' ? email_from.trim() : undefined;
+    let result;
 
-    if (!gmail_user || !gmail_app_password) {
-      return res.status(400).json({
-        success: false,
-        message: 'Escriba la cuenta de Gmail y la contraseña de aplicación de 16 caracteres.',
+    if (provider === 'smtp') {
+      const { smtp_host, smtp_port, smtp_secure, smtp_user, smtp_pass } = req.body;
+      result = await mailerService.configureSmtpService({
+        host: smtp_host,
+        port: smtp_port,
+        secure: smtp_secure === true,
+        user: smtp_user,
+        password: smtp_pass,
+        from,
       });
+    } else if (provider === 'google') {
+      const { gmail_user, gmail_app_password } = req.body;
+      if (!gmail_user || !gmail_app_password) {
+        return res.status(400).json({
+          success: false,
+          message: 'Escriba la cuenta de Gmail y la contraseña de aplicación de 16 caracteres.',
+        });
+      }
+      result = await mailerService.configureGoogleService({
+        user: gmail_user.trim(),
+        appPassword: gmail_app_password.trim(),
+        from,
+      });
+    } else {
+      return res.status(400).json({ success: false, message: 'Elija Gmail u otro servidor de correo (SMTP).' });
     }
-
-    const result = await mailerService.configureGoogleService({
-      user: gmail_user.trim(),
-      appPassword: gmail_app_password.trim(),
-      from: email_from ? email_from.trim() : undefined,
-    });
 
     if (!result.success) {
       return res.status(400).json({
         success: false,
-        message: result.message || 'No se pudo conectar con el servicio de Google Mail.',
+        message: result.message || 'No se pudo conectar con el servicio de correo.',
       });
     }
 
     return res.status(200).json({
       success: true,
-      message: 'Gmail quedó conectado y verificado.',
+      message: result.message,
       data: result.status,
     });
   } catch (error) {
-    console.error('Error en updateEmailServiceConfig:', error);
-    const { status, message } = respuestaDeError(error, 'No se pudo configurar el servicio de Google Mail. Intente de nuevo.');
+    console.error('Error en updateEmailServiceConfig:', error.message);
+    const { status, message } = respuestaDeError(error, 'No se pudo configurar el servicio de correo. Intente de nuevo.');
     return res.status(status).json({ success: false, message });
   }
 };
@@ -1600,8 +1617,8 @@ const sendTestEmail = async (req, res) => {
     return res.status(200).json({
       success: true,
       message: result.simulado
-        ? 'Correo despachado en Modo Demostrativo (Servicio de Google no verificado aún).'
-        : `Correo de prueba enviado exitosamente a ${to.trim()} a través del servicio de Google.`,
+        ? 'El correo no salió: no hay un servicio de correo verificado.'
+        : `Correo de prueba enviado a ${to.trim()} ${result.provider === 'google' ? 'con Gmail' : 'por el servidor SMTP'}.`,
       // El detalle de un fallo del envío queda en la consola, no en la respuesta
       data: { simulado: result.simulado, messageId: result.messageId, provider: result.provider },
     });
@@ -1609,7 +1626,7 @@ const sendTestEmail = async (req, res) => {
     console.error('Error en sendTestEmail:', error);
     return res.status(500).json({
       success: false,
-      message: 'No se pudo enviar el correo de prueba. Revise la cuenta de Google y la contraseña de aplicación.',
+      message: 'No se pudo enviar el correo de prueba. Revise la configuración del correo y vuelva a intentarlo.',
     });
   }
 };

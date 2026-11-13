@@ -3,6 +3,8 @@
  * Centraliza las validaciones de entrada para CUI/DPI, mayoría de edad, montos numéricos y beneficiarios.
  */
 
+const { edadEnGuatemala } = require('../utils/fechas');
+
 /**
  * Valida formato estándar de CUI / DPI guatemalteco (exactamente 13 dígitos numéricos)
  * @param {string} cui
@@ -19,26 +21,43 @@ const validateCui = (cui) => {
   return { valid: true, clean };
 };
 
+const EDAD_MINIMA = 18;
+
 /**
- * Valida que una fecha de nacimiento corresponda a una persona mayor de 18 años
- * @param {string|Date} fechaNacimiento
- * @returns {{ valid: boolean, message?: string }}
+ * Fecha de nacimiento como texto AAAA-MM-DD, o null si no se puede leer.
+ * - Texto: toma los primeros 10 caracteres («1990-05-20» o «1990-05-20T00:00:00Z»).
+ * - Date: usa la fecha local del proceso, que es como `pg` arma las columnas DATE (medianoche local); así no se
+ *   corre un día al pasarla a UTC.
+ *
+ * @param {string|Date} valor
+ * @returns {string|null}
  */
-const validateAge18 = (fechaNacimiento) => {
+const fechaComoTexto = (valor) => {
+  if (valor instanceof Date) {
+    if (Number.isNaN(valor.getTime())) return null;
+    const dosDigitos = (n) => String(n).padStart(2, '0');
+    return `${valor.getFullYear()}-${dosDigitos(valor.getMonth() + 1)}-${dosDigitos(valor.getDate())}`;
+  }
+  if (typeof valor === 'string' && /^\d{4}-\d{2}-\d{2}/.test(valor.trim())) return valor.trim().slice(0, 10);
+  return null;
+};
+
+/**
+ * Valida que una fecha de nacimiento corresponda a una persona mayor de 18 años, contando la edad con la fecha de hoy
+ * en Guatemala (issue #127): no depende de la zona horaria del servidor.
+ * @param {string|Date} fechaNacimiento
+ * @param {Date} [ahora] - Momento de referencia (para pruebas).
+ * @returns {{ valid: boolean, age?: number, message?: string }}
+ */
+const validateAge18 = (fechaNacimiento, ahora = new Date()) => {
   if (!fechaNacimiento) {
     return { valid: false, message: 'Escriba la fecha de nacimiento.' };
   }
-  const birth = new Date(fechaNacimiento);
-  if (isNaN(birth.getTime())) {
+  const age = edadEnGuatemala(fechaComoTexto(fechaNacimiento), ahora);
+  if (age === null) {
     return { valid: false, message: 'La fecha de nacimiento no es válida.' };
   }
-  const today = new Date();
-  let age = today.getFullYear() - birth.getFullYear();
-  const m = today.getMonth() - birth.getMonth();
-  if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) {
-    age--;
-  }
-  if (age < 18) {
+  if (age < EDAD_MINIMA) {
     return { valid: false, message: 'La persona debe ser mayor de edad (18 años cumplidos).' };
   }
   return { valid: true, age };
