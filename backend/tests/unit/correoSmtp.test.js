@@ -38,3 +38,35 @@ describe('configureSmtpService valida antes de conectarse', () => {
     await expect(mailerService.configureSmtpService({ ...base, ...cambio })).rejects.toMatchObject({ statusCode: 400 });
   });
 });
+
+describe('configureSmtpService sin red interna permitida', () => {
+  const original = process.env.SMTP_PERMITIR_RED_INTERNA;
+  afterAll(() => {
+    if (original === undefined) delete process.env.SMTP_PERMITIR_RED_INTERNA;
+    else process.env.SMTP_PERMITIR_RED_INTERNA = original;
+  });
+
+  test('rechaza un servidor de la red interna sin intentar conectarse', async () => {
+    delete process.env.SMTP_PERMITIR_RED_INTERNA;
+    const respuesta = await mailerService.configureSmtpService({
+      host: '127.0.0.1',
+      port: 587,
+      user: 'avisos@coop.com',
+      password: 'secreta',
+      from: '',
+    });
+    expect(respuesta.success).toBe(false);
+    expect(respuesta.message).toMatch(/dirección interna/);
+  });
+});
+
+describe('esCorreoValido', () => {
+  test.each([
+    ['avisos@coop.com', true],
+    ['avisos@coop', false],
+    ['avisos@coop.com\r\nBcc: x@y.com', false],
+    ['<avisos@coop.com>', false],
+  ])('%p → %p', (correo, esperado) => {
+    expect(mailerService.esCorreoValido(correo)).toBe(esperado);
+  });
+});

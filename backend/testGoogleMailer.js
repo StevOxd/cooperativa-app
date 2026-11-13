@@ -86,7 +86,24 @@ async function runTests() {
       throw new Error(`Se esperaba HTTP 400 pero se recibió ${invRes.status}`);
     }
 
-    // 5. Validar configuración con credenciales simuladas inválidas (Google debe rechazar autenticación de forma segura)
+    // 5. Cambiar el correo sin confirmar la contraseña del administrador se rechaza (403)
+    total++;
+    const sinConfirmarRes = await fetch(`${API_URL}/usuarios/email/config`, {
+      method: 'POST',
+      headers: authHeaders,
+      body: JSON.stringify({
+        gmail_user: 'cuenta.prueba.inexistente.2026@gmail.com',
+        gmail_app_password: 'abcd efgh ijkl mnop',
+      }),
+    });
+    if (sinConfirmarRes.status === 403) {
+      printPass('Cambiar el correo sin la contraseña del administrador se rechaza (HTTP 403)');
+      passed++;
+    } else {
+      throw new Error(`Se esperaba HTTP 403 pero se recibió ${sinConfirmarRes.status}`);
+    }
+
+    // 6. Validar configuración con credenciales simuladas inválidas (Google debe rechazar autenticación de forma segura)
     total++;
     const cfgRes = await fetch(`${API_URL}/usuarios/email/config`, {
       method: 'POST',
@@ -94,6 +111,7 @@ async function runTests() {
       body: JSON.stringify({
         gmail_user: 'cuenta.prueba.inexistente.2026@gmail.com',
         gmail_app_password: 'abcd efgh ijkl mnop',
+        password_actual: 'admin123',
       }),
     });
     const cfgData = await cfgRes.json();
@@ -107,7 +125,7 @@ async function runTests() {
       throw new Error(`Código inesperado: ${cfgRes.status}`);
     }
 
-    // 6. Verificar que el estado del servicio sigue protegido por RBAC (no accesible sin admin)
+    // 7. Verificar que el estado del servicio sigue protegido por RBAC (no accesible sin admin)
     total++;
     const unauthRes = await fetch(`${API_URL}/usuarios/email/status`, {
       method: 'GET',

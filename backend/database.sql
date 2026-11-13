@@ -10,8 +10,9 @@
 
 -- Limpieza previa en cascada para reejecución limpia
 -- (depositos_ventanilla_banco, efectivo_ventanilla, reversiones_pendientes, codigos_verificacion_correo, las
--- tablas de documentos de afiliación, reportes_generados, resoluciones_credito, consultas_padron y
--- consultas_expediente las crea migrations.js al arrancar)
+-- tablas de documentos de afiliación, reportes_generados, resoluciones_credito, consultas_padron,
+-- consultas_expediente y cambios_correo_sistema las crea migrations.js al arrancar)
+DROP TABLE IF EXISTS cambios_correo_sistema CASCADE;
 DROP TABLE IF EXISTS consultas_expediente CASCADE;
 DROP TABLE IF EXISTS consultas_padron CASCADE;
 DROP TABLE IF EXISTS resoluciones_credito CASCADE;

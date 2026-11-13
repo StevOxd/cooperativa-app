@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { ExternalLink, RefreshCw, Send } from 'lucide-react';
 import api from '../../services/api';
 import { useToast } from '../../context/ToastContext';
+import { useAuth } from '../../context/AuthContext';
 import { Alert, Badge, Button, cn, Field, Input, Modal, PasswordInput, Select, TabPanel, Tabs } from '../ui';
 
 const CONFIG_FORM_ID = 'config-correo';
@@ -24,6 +25,54 @@ const PUERTO_SMTP_POR_DEFECTO = 587;
 const PUERTO_SMTP_SSL = 465;
 const REMITENTE_POR_DEFECTO = 'Cooperativa Corporativa';
 const NOMBRES_PROVEEDOR = { google: 'Gmail', smtp: 'el servidor SMTP' };
+const LARGO_CODIGO_2FA = 6;
+
+/**
+ * Campos para confirmar la identidad antes de cambiar el correo: por ese correo salen las contraseñas temporales y
+ * los códigos, así que se pide la contraseña del administrador y su código 2FA si lo tiene activo.
+ */
+const ConfirmacionIdentidad = ({ conMfa, password, onPassword, codigo, onCodigo, visible, onVisible, error, passwordRef }) => (
+  <fieldset className="space-y-3 rounded-md border border-line bg-surface-muted p-4">
+    <legend className="px-1 text-sm font-semibold text-ink">Confirme que es usted</legend>
+    <p className="!mt-0 text-sm text-ink-muted">
+      Por seguridad: por este correo salen las contraseñas temporales y los códigos de verificación. Para cambiarlo,
+      escriba la contraseña con la que ingresa a la cooperativa
+      {conMfa ? ' y el código de su aplicación de autenticación' : ''}. Se le pedirá en cada intento.
+    </p>
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+      <Field label="Su contraseña de ingreso" error={error} required>
+        <PasswordInput
+          ref={passwordRef}
+          value={password}
+          onChange={(e) => onPassword(e.target.value)}
+          visible={visible}
+          onVisibleChange={onVisible}
+          autoComplete="current-password"
+          required
+        />
+      </Field>
+      {conMfa && (
+        <Field
+          label="Código de verificación"
+          hint="6 dígitos de su aplicación de autenticación (Google o Microsoft Authenticator)."
+          required
+        >
+          <Input
+            value={codigo}
+            maxLength={LARGO_CODIGO_2FA}
+            pattern="\d{6}"
+            title="Escriba los 6 dígitos."
+            onChange={(e) => onCodigo(e.target.value.replace(/\D/g, '').slice(0, LARGO_CODIGO_2FA))}
+            inputMode="numeric"
+            autoComplete="one-time-code"
+            className="font-mono"
+            required
+          />
+        </Field>
+      )}
+    </div>
+  </fieldset>
+);
 
 /** «Nombre <correo>» con un nombre sin los caracteres que cambian cómo se lee el remitente. */
 const armarRemitente = (nombre, correo) =>
@@ -42,6 +91,8 @@ const separarRemitente = (from) => {
  */
 export const GoogleEmailConfigModal = ({ isOpen, onClose, onConfigSaved }) => {
   const { toast } = useToast();
+  const { user } = useAuth();
+  const conMfa = Boolean(user?.mfa_enabled);
   const [loading, setLoading] = useState(false);
   const [fetchingStatus, setFetchingStatus] = useState(false);
   const [sendingTest, setSendingTest] = useState(false);
@@ -61,6 +112,12 @@ export const GoogleEmailConfigModal = ({ isOpen, onClose, onConfigSaved }) => {
   const [smtpPass, setSmtpPass] = useState('');
   const [smtpFrom, setSmtpFrom] = useState('');
   const [showSmtpPass, setShowSmtpPass] = useState(false);
+
+  const [passwordActual, setPasswordActual] = useState('');
+  const [codigo2fa, setCodigo2fa] = useState('');
+  const [showPasswordActual, setShowPasswordActual] = useState(false);
+  const [errorConfirmacion, setErrorConfirmacion] = useState('');
+  const passwordActualRef = useRef(null);
 
   const [testRecipient, setTestRecipient] = useState('');
   const [testResult, setTestResult] = useState(null);
@@ -101,11 +158,24 @@ export const GoogleEmailConfigModal = ({ isOpen, onClose, onConfigSaved }) => {
 
   if (!isOpen) return null;
 
-  /** Guarda y verifica la configuración; `limpiar` borra la contraseña del formulario si salió bien. */
+  /**
+   * Guarda y verifica la configuración con la confirmación de identidad; `limpiar` borra la contraseña del correo si
+   * salió bien. La contraseña y el código de confirmación se borran siempre.
+   */
   const guardarConfig = async (datos, limpiar) => {
+    if (!passwordActual || (conMfa && codigo2fa.length !== LARGO_CODIGO_2FA)) {
+      toast.warning(conMfa ? 'Escriba su contraseña y el código de 6 dígitos.' : 'Escriba su contraseña para confirmar.');
+      return;
+    }
+    let limpiarConfirmacion = true;
     try {
       setLoading(true);
-      const res = await api.post('/usuarios/email/config', datos);
+      setErrorConfirmacion('');
+      const res = await api.post('/usuarios/email/config', {
+        ...datos,
+        password_actual: passwordActual,
+        ...(conMfa ? { codigo_2fa: codigo2fa } : {}),
+      });
       if (res.data?.success) {
         toast.success(res.data.message || 'El correo quedó conectado y verificado.');
         setServiceStatus(res.data.data);
@@ -113,11 +183,38 @@ export const GoogleEmailConfigModal = ({ isOpen, onClose, onConfigSaved }) => {
         if (onConfigSaved) onConfigSaved(res.data.data);
       }
     } catch (err) {
-      toast.error(err.response?.data?.message || 'No se pudo conectar con el servicio de correo. Revise los datos.');
+      const mensaje = err.response?.data?.message || 'No se pudo conectar con el servicio de correo. Revise los datos.';
+      if (err.response?.status === 403) {
+        // La confirmación falló: el aviso va junto al campo y el foco vuelve a la contraseña
+        setErrorConfirmacion(mensaje);
+        setTimeout(() => passwordActualRef.current?.focus(), 0);
+      } else {
+        // Falló el correo, no la identidad: se conserva lo escrito para corregir los datos del servidor
+        limpiarConfirmacion = false;
+        toast.error(mensaje);
+      }
     } finally {
+      if (limpiarConfirmacion) {
+        setPasswordActual('');
+        setCodigo2fa('');
+      }
       setLoading(false);
     }
   };
+
+  const confirmacion = (
+    <ConfirmacionIdentidad
+      conMfa={conMfa}
+      password={passwordActual}
+      onPassword={setPasswordActual}
+      codigo={codigo2fa}
+      onCodigo={setCodigo2fa}
+      visible={showPasswordActual}
+      onVisible={setShowPasswordActual}
+      error={errorConfirmacion}
+      passwordRef={passwordActualRef}
+    />
+  );
 
   const handleSaveConfig = (e) => {
     e.preventDefault();
@@ -322,6 +419,7 @@ export const GoogleEmailConfigModal = ({ isOpen, onClose, onConfigSaved }) => {
               <Field label="Nombre del remitente" hint="Opcional. Es el nombre que verá quien reciba el correo.">
                 <Input value={senderName} onChange={(e) => setSenderName(e.target.value)} placeholder="Cooperativa" />
               </Field>
+              {confirmacion}
               <div className="flex flex-col items-end gap-2 sm:flex-row sm:items-center sm:justify-end">
                 {avisoCambio('google') && <p className="text-sm text-warning-800">{avisoCambio('google')}</p>}
                 <Button type="submit" loading={loading} loadingText="Verificando con Google…">
@@ -391,13 +489,13 @@ export const GoogleEmailConfigModal = ({ isOpen, onClose, onConfigSaved }) => {
                     required
                   />
                 </Field>
-                <Field label="Contraseña" required>
+                <Field label="Contraseña del servidor de correo" required>
                   <PasswordInput
                     value={smtpPass}
                     onChange={(e) => setSmtpPass(e.target.value)}
                     visible={showSmtpPass}
                     onVisibleChange={setShowSmtpPass}
-                    autoComplete="new-password"
+                    autoComplete="off"
                     required
                   />
                 </Field>
@@ -415,6 +513,7 @@ export const GoogleEmailConfigModal = ({ isOpen, onClose, onConfigSaved }) => {
                   />
                 </Field>
               </div>
+              {confirmacion}
               <div className="flex flex-col items-end gap-2 sm:flex-row sm:items-center sm:justify-end">
                 {avisoCambio('smtp') && <p className="text-sm text-warning-800">{avisoCambio('smtp')}</p>}
                 <Button type="submit" loading={loading} loadingText="Verificando el servidor…">

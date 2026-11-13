@@ -7,6 +7,7 @@ const { filtroUsuario } = require('../utils/identificadores');
 const { respuestaDeError } = require('../utils/errores');
 const { ipDelCliente, userAgentDe } = require('../utils/ipCliente');
 const { SEGURIDAD } = require('../config/constants');
+const { PROVEEDORES, confirmarIdentidad, datosDelIntento, registrarCambioCorreo } = require('../services/cambiosCorreoService');
 
 // Motivo con que queda en la auditoría el cambio de correo; el reinicio de contraseña lo busca
 const MOTIVO_CAMBIO_CORREO = 'Correo cambiado';
@@ -1547,13 +1548,32 @@ const getEmailServiceStatus = async (req, res) => {
 /**
  * Configura y verifica el correo del sistema: Gmail con contraseña de aplicación (`provider: 'google'`, el valor por
  * omisión) o un servidor SMTP cualquiera (`provider: 'smtp'`, issue #126). Solo se guarda si la verificación pasa.
+ *
+ * Por ese correo salen las contraseñas temporales y los códigos, así que exige la contraseña del administrador
+ * (`password_actual`) y su código 2FA (`codigo_2fa`) si lo tiene activo. Cada intento queda en `cambios_correo_sistema`.
  */
 const updateEmailServiceConfig = async (req, res) => {
+  const { provider = 'google', email_from, password_actual, codigo_2fa } = req.body;
+  if (!PROVEEDORES.includes(provider)) {
+    return res.status(400).json({ success: false, message: 'Elija Gmail u otro servidor de correo (SMTP).' });
+  }
+  const intento = datosDelIntento(provider, req.body);
+
   try {
-    const { provider = 'google', email_from } = req.body;
+    if (!(await confirmarIdentidad(req.user.id_usuario, password_actual, codigo_2fa))) {
+      await registrarCambioCorreo(req, intento, 'CONFIRMACION_FALLIDA');
+      return res.status(403).json({
+        success: false,
+        error: 'CONFIRMACION_REQUERIDA',
+        message: 'Para cambiar el correo, confirme con su contraseña y, si tiene la verificación en dos pasos, con su código. Los datos no coinciden.',
+      });
+    }
+
+    // Queda registrado antes de tocar el correo: si no se puede registrar, no se cambia
+    await registrarCambioCorreo(req, intento, 'SOLICITADO');
+
     const from = typeof email_from === 'string' ? email_from.trim() : undefined;
     let result;
-
     if (provider === 'smtp') {
       const { smtp_host, smtp_port, smtp_secure, smtp_user, smtp_pass } = req.body;
       result = await mailerService.configureSmtpService({
@@ -1564,9 +1584,10 @@ const updateEmailServiceConfig = async (req, res) => {
         password: smtp_pass,
         from,
       });
-    } else if (provider === 'google') {
+    } else {
       const { gmail_user, gmail_app_password } = req.body;
-      if (!gmail_user || !gmail_app_password) {
+      if (typeof gmail_user !== 'string' || typeof gmail_app_password !== 'string' || !gmail_user || !gmail_app_password) {
+        await registrarCambioCorreo(req, intento, 'DATOS_INVALIDOS');
         return res.status(400).json({
           success: false,
           message: 'Escriba la cuenta de Gmail y la contraseña de aplicación de 16 caracteres.',
@@ -1577,23 +1598,25 @@ const updateEmailServiceConfig = async (req, res) => {
         appPassword: gmail_app_password.trim(),
         from,
       });
-    } else {
-      return res.status(400).json({ success: false, message: 'Elija Gmail u otro servidor de correo (SMTP).' });
     }
 
     if (!result.success) {
+      await registrarCambioCorreo(req, intento, 'VERIFICACION_FALLIDA');
       return res.status(400).json({
         success: false,
         message: result.message || 'No se pudo conectar con el servicio de correo.',
       });
     }
 
+    await registrarCambioCorreo(req, intento, 'APLICADO');
+    console.log(`[INFO] ${req.user.codigo_corporativo || req.user.id_usuario} cambió el correo del sistema a ${provider}.`);
     return res.status(200).json({
       success: true,
       message: result.message,
       data: result.status,
     });
   } catch (error) {
+    await registrarCambioCorreo(req, intento, error.statusCode === 400 ? 'DATOS_INVALIDOS' : 'ERROR');
     console.error('Error en updateEmailServiceConfig:', error.message);
     const { status, message } = respuestaDeError(error, 'No se pudo configurar el servicio de correo. Intente de nuevo.');
     return res.status(status).json({ success: false, message });
@@ -1606,7 +1629,7 @@ const updateEmailServiceConfig = async (req, res) => {
 const sendTestEmail = async (req, res) => {
   try {
     const { to } = req.body;
-    if (!to || !to.includes('@')) {
+    if (!mailerService.esCorreoValido(typeof to === 'string' ? to.trim() : '')) {
       return res.status(400).json({
         success: false,
         message: 'Escriba un correo válido.',

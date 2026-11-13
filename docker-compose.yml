@@ -154,6 +154,7 @@ services:
       SMTP_SECURE: ${SMTP_SECURE:-true}
       SMTP_USER: ${SMTP_USER:-}
       SMTP_PASS: ${SMTP_PASS:-}
+      SMTP_PERMITIR_RED_INTERNA: ${SMTP_PERMITIR_RED_INTERNA:-false}
     volumes:
       - ./backend/uploads:/app/uploads
     ports:

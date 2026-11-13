@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const authController = require('../controllers/authController');
+const { limiteConfirmacionIdentidad } = require('../middlewares/limiteConfirmacionIdentidad');
 const { verifyToken } = require('../middlewares/authMiddleware');
 
 const rateLimit = require('express-rate-limit');
@@ -60,7 +61,7 @@ router.patch('/perfil', verifyToken, authController.updateProfile);
  * @desc    Cambio seguro de contraseña para el usuario autenticado
  * @access  Privado (requiere verifyToken)
  */
-router.post('/cambiar-password', verifyToken, authController.changePassword);
+router.post('/cambiar-password', verifyToken, limiteConfirmacionIdentidad, authController.changePassword);
 
 /**
  * @route   GET /api/auth/2fa/status
@@ -85,10 +86,10 @@ router.post('/2fa/enable', verifyToken, authController.enable2fa);
 
 /**
  * @route   POST /api/auth/2fa/disable
- * @desc    Desactivar 2FA con confirmación de contraseña
+ * @desc    Desactivar 2FA con la contraseña y el código vigente de la aplicación
  * @access  Privado (requiere verifyToken)
  */
-router.post('/2fa/disable', verifyToken, authController.disable2fa);
+router.post('/2fa/disable', verifyToken, limiteConfirmacionIdentidad, authController.disable2fa);
 
 module.exports = router;
 

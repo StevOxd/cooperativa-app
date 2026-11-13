@@ -4,6 +4,7 @@ const jwt = require('jsonwebtoken');
 const db = require('../config/db');
 const socketService = require('../services/socketService');
 const mfaService = require('../services/mfaService');
+const { confirmarIdentidad } = require('../services/confirmacionIdentidadService');
 const { idUsuarioDelToken } = require('../utils/tokenUsuario');
 const { ipDelCliente, userAgentDe } = require('../utils/ipCliente');
 require('dotenv').config();
@@ -806,37 +807,25 @@ const enable2fa = async (req, res) => {
 };
 
 /**
- * Desactiva el 2FA solicitando confirmación de la contraseña actual del usuario.
+ * Desactiva el 2FA. Pide la contraseña y el código vigente de la aplicación: con solo la contraseña, una sesión robada
+ * podría quitar el segundo factor y pasar después las acciones que lo exigen.
  */
 const disable2fa = async (req, res) => {
   try {
     const idUsuario = req.user.id_usuario;
-    const { password } = req.body;
+    const { password, totp_code } = req.body;
 
-    if (!password) {
+    if (!password || !totp_code) {
       return res.status(400).json({
         success: false,
-        message: 'Escriba su contraseña actual para confirmar.',
+        message: 'Escriba su contraseña y el código de 6 dígitos de su aplicación de autenticación.',
       });
     }
 
-    const result = await db.query(
-      'SELECT password_hash FROM usuarios WHERE id_usuario = $1',
-      [idUsuario]
-    );
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: 'Usuario no encontrado.',
-      });
-    }
-
-    const passwordValida = await bcrypt.compare(password, result.rows[0].password_hash);
-    if (!passwordValida) {
+    if (!(await confirmarIdentidad(idUsuario, password, totp_code))) {
       return res.status(401).json({
         success: false,
-        message: 'La contraseña no es correcta.',
+        message: 'La contraseña o el código no son correctos.',
       });
     }
 

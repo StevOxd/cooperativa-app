@@ -3,11 +3,11 @@ const router = express.Router();
 const userController = require('../controllers/userController');
 const { verifyToken, checkRole } = require('../middlewares/authMiddleware');
 const { prohibirAutoatencion } = require('../middlewares/segregacion');
+const { limiteConfirmacionIdentidad } = require('../middlewares/limiteConfirmacionIdentidad');
 
 // Proteger todas las rutas de usuarios con autenticación JWT y rol exclusivo de ADMINISTRADOR
 router.use(verifyToken);
 router.use(checkRole('ADMINISTRADOR'));
-
 
 /**
  * @route   GET /api/usuarios
@@ -56,7 +56,7 @@ router.get('/email/status', userController.getEmailServiceStatus);
  * @desc    Configurar y verificar el correo del sistema: Gmail o un servidor SMTP (issue #126)
  * @access  Privado (ADMINISTRADOR)
  */
-router.post('/email/config', userController.updateEmailServiceConfig);
+router.post('/email/config', limiteConfirmacionIdentidad, userController.updateEmailServiceConfig);
 
 /**
  * @route   POST /api/usuarios/email/test
