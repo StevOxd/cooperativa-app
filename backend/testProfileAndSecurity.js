@@ -1,5 +1,7 @@
 // Las pruebas nunca envían correo real (ver mailerService): debe ir antes de cargar el servidor.
 process.env.MAIL_ENABLED = 'false';
+// Modo de pruebas: el límite compartido de confirmar la contraseña (5 intentos) no corta las 6 pruebas de cambio
+process.env.NODE_ENV = 'test';
 
 const http = require('http');
 const { server } = require('./src/server');
