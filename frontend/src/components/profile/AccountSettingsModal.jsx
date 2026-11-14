@@ -38,6 +38,7 @@ export const AccountSettingsModal = ({ isOpen, onClose, initialTab = '2fa' }) =>
   const [verifyingCode, setVerifyingCode] = useState(false);
   const [isDisabling2fa, setIsDisabling2fa] = useState(false);
   const [disablePassword, setDisablePassword] = useState('');
+  const [disableCode, setDisableCode] = useState('');
   const [showDisablePassword, setShowDisablePassword] = useState(false);
   const [disablingLoading, setDisablingLoading] = useState(false);
 
@@ -190,14 +191,14 @@ export const AccountSettingsModal = ({ isOpen, onClose, initialTab = '2fa' }) =>
     }
   };
 
-  // Desactivar 2FA con confirmación de contraseña
+  // Desactivar 2FA: con la contraseña y el código vigente de la aplicación
   const handleDisable2faSubmit = async (e) => {
     e.preventDefault();
     setErrorMsg('');
     setSuccessMsg('');
 
-    if (!disablePassword) {
-      setErrorMsg('Escriba su contraseña actual para confirmar.');
+    if (!disablePassword || !/^\d{6}$/.test(disableCode)) {
+      setErrorMsg('Escriba su contraseña actual y el código de 6 dígitos de su aplicación de autenticación.');
       return;
     }
 
@@ -205,12 +206,14 @@ export const AccountSettingsModal = ({ isOpen, onClose, initialTab = '2fa' }) =>
     try {
       const response = await api.post('/auth/2fa/disable', {
         password: disablePassword,
+        totp_code: disableCode,
       });
 
       if (response.data?.success) {
         setMfaEnabled(false);
         setIsDisabling2fa(false);
         setDisablePassword('');
+        setDisableCode('');
         updateUserData({ mfa_enabled: false });
         setSuccessMsg('Verificación en dos pasos desactivada.');
         toast?.success('Verificación en dos pasos desactivada.');
@@ -219,7 +222,8 @@ export const AccountSettingsModal = ({ isOpen, onClose, initialTab = '2fa' }) =>
       }
     } catch (err) {
       console.error('Error al desactivar 2FA:', err);
-      setErrorMsg(err.response?.data?.message || 'La contraseña no es correcta.');
+      setErrorMsg(err.response?.data?.message || 'La contraseña o el código no son correctos.');
+      setDisableCode('');
     } finally {
       setDisablingLoading(false);
     }
@@ -400,7 +404,10 @@ export const AccountSettingsModal = ({ isOpen, onClose, initialTab = '2fa' }) =>
                 <form onSubmit={handleDisable2faSubmit} className="space-y-4 rounded-md border border-line bg-surface-muted p-4">
                   <div>
                     <h4 className="text-sm font-semibold text-ink">Desactivar la verificación en dos pasos</h4>
-                    <p className="text-sm text-ink-muted">Para confirmar, escriba su contraseña actual.</p>
+                    <p className="text-sm text-ink-muted">
+                      Para confirmar, escriba su contraseña actual y el código que muestra ahora su aplicación de
+                      autenticación.
+                    </p>
                   </div>
                   <Field label="Contraseña actual">
                     <PasswordInput
@@ -412,12 +419,26 @@ export const AccountSettingsModal = ({ isOpen, onClose, initialTab = '2fa' }) =>
                       required
                     />
                   </Field>
+                  <Field label="Código de verificación" hint="6 dígitos de Google o Microsoft Authenticator.">
+                    <Input
+                      value={disableCode}
+                      onChange={(e) => setDisableCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                      inputMode="numeric"
+                      autoComplete="one-time-code"
+                      maxLength={6}
+                      pattern="\d{6}"
+                      title="Escriba los 6 dígitos."
+                      className="font-mono"
+                      required
+                    />
+                  </Field>
                   <div className="flex justify-end gap-2">
                     <Button
                       variant="secondary"
                       onClick={() => {
                         setIsDisabling2fa(false);
                         setDisablePassword('');
+                        setDisableCode('');
                         setErrorMsg('');
                       }}
                     >

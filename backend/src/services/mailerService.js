@@ -1,6 +1,8 @@
 const nodemailer = require('nodemailer');
 const { pool } = require('../config/db');
 const { errorDeNegocio } = require('../utils/errores');
+const { cifrar, descifrar, estaCifrado } = require('../utils/cifradoConfiguracion');
+const { resolverDireccionPublica } = require('../utils/direccionesInternas');
 
 /**
  * Servicio Institucional de Despacho de Correo Electrónico
@@ -14,6 +16,137 @@ const { errorDeNegocio } = require('../utils/errores');
 // Tiempos máximos del servidor de correo: algunos envíos ocurren dentro de una transacción
 // (activar el acceso al portal, issue #27) y no deben retenerla indefinidamente.
 const TIEMPOS_SMTP = { connectionTimeout: 10000, greetingTimeout: 10000, socketTimeout: 15000 };
+
+// Puertos que acepta un servidor SMTP configurado desde la pantalla: los de correo (25, 465 con SSL, 587 con
+// STARTTLS, 2525 alterno) y 1025 de los buzones de prueba. Evita que el formulario sirva para tocar otros servicios
+// de la red interna (la base, el banco).
+const PUERTOS_SMTP_PERMITIDOS = [25, 465, 587, 1025, 2525];
+const PUERTO_SMTP_SSL = 465;
+// Buzón de prueba (Mailpit): no ofrece STARTTLS. Solo se usa sin cifrado donde se permite la red interna.
+const PUERTO_SMTP_PRUEBAS = 1025;
+// Contraseñas del correo que se guardan cifradas en configuracion_sistema
+const CLAVES_SECRETAS = ['GMAIL_APP_PASSWORD', 'SMTP_PASS'];
+const MENSAJE_SERVIDOR_INTERNO =
+  'Ese servidor de correo no se encontró o es una dirección interna. Use el servidor que le indicó su proveedor de correo.';
+
+/**
+ * Con `SMTP_PERMITIR_RED_INTERNA=true` (solo en desarrollo, para el buzón de prueba) se aceptan servidores de la red
+ * interna y el puerto de prueba sin cifrado. Sin la variable, un servidor guardado desde la pantalla debe ser público.
+ */
+const redInternaPermitida = () => String(process.env.SMTP_PERMITIR_RED_INTERNA || '').trim().toLowerCase() === 'true';
+// Nombre de servidor o IPv4: letras, números, puntos y guiones (RFC 1123), hasta 253 caracteres
+const SERVIDOR_SMTP_VALIDO = /^(?=.{1,253}$)[a-zA-Z0-9](?:[a-zA-Z0-9.-]*[a-zA-Z0-9])?$/;
+const LARGO_MAXIMO_CREDENCIAL = 256;
+// Un solo correo: usuario, arroba y un dominio con al menos un punto, sin espacios, saltos de línea, < > ni las comas o
+// punto y coma que separan varias direcciones. Las partes del dominio no llevan puntos, así que la expresión no tiene
+// dos formas de leer el mismo texto y su tiempo crece en línea con el largo (sin retroceso exponencial).
+const CORREO_VALIDO = /^[^\s@<>,;]+@[^\s@<>,;.]+(?:\.[^\s@<>,;.]+)+$/;
+
+const REMITENTE_SMTP_POR_DEFECTO = 'Cooperativa Corporativa';
+// Caracteres que en el nombre visible harían leer otra dirección en el remitente
+const NOMBRE_REMITENTE_INVALIDO = /[,;"<>@]/;
+
+/**
+ * Transporte de nodemailer para un SMTP genérico. Sin SSL desde el inicio exige STARTTLS (`requireTLS`): si el servidor
+ * no lo ofrece, no se envían el usuario ni la contraseña sin cifrar. Solo el buzón de prueba, donde se permite la red
+ * interna, queda sin esa exigencia. Si se conecta a una IP ya resuelta, `servername` es el nombre con que se valida el
+ * certificado.
+ */
+const crearTransporteSmtp = ({ host, port, secure, user, pass, servername }) =>
+  nodemailer.createTransport({
+    ...TIEMPOS_SMTP,
+    ...(servername ? { tls: { servername } } : {}),
+    host,
+    port,
+    auth: { user, pass },
+    secure,
+    requireTLS: !secure && !(port === PUERTO_SMTP_PRUEBAS && redInternaPermitida()),
+  });
+
+/**
+ * Transporte de nodemailer para Gmail: SSL desde el inicio (puerto 465) y el certificado de Google se valida (sin
+ * `rejectUnauthorized: false`).
+ */
+const crearTransporteGmail = ({ user, pass }) =>
+  nodemailer.createTransport({ ...TIEMPOS_SMTP, service: 'gmail', auth: { user, pass }, secure: true });
+
+/**
+ * Guarda la configuración de un proveedor en configuracion_sistema, con las contraseñas (CLAVES_SECRETAS) cifradas, y
+ * vacía en la misma transacción la contraseña del proveedor que se deja de usar. Si algo falla, no queda nada a medias
+ * y el error sube: el proveedor en memoria no se cambia.
+ *
+ * @param {Array<[string, string, string]>} filas - [clave, valor, descripción].
+ * @param {string} secretoAnterior - Clave de la contraseña del otro proveedor.
+ */
+const guardarConfiguracion = async (filas, secretoAnterior) => {
+  const valores = [];
+  const marcadores = filas.map(([clave, valor, descripcion], i) => {
+    valores.push(clave, CLAVES_SECRETAS.includes(clave) ? cifrar(valor) : valor, descripcion);
+    return `($${i * 3 + 1}, $${i * 3 + 2}, $${i * 3 + 3}, NOW())`;
+  });
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query(
+      `INSERT INTO configuracion_sistema (clave, valor, descripcion, actualizado_en)
+       VALUES ${marcadores.join(', ')}
+       ON CONFLICT (clave) DO UPDATE SET valor = EXCLUDED.valor, actualizado_en = NOW()`,
+      valores
+    );
+    await client.query("UPDATE configuracion_sistema SET valor = '', actualizado_en = NOW() WHERE clave = $1", [
+      secretoAnterior,
+    ]);
+    await client.query('COMMIT');
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => {});
+    console.error('[MAILER ERROR] No se pudo guardar la configuración del correo:', error.message);
+    throw error;
+  } finally {
+    client.release();
+  }
+};
+
+/**
+ * Lee las contraseñas guardadas: descifra las cifradas y vuelve a guardar cifradas las que quedaron en claro de
+ * versiones anteriores.
+ *
+ * @param {Object<string, string>} mapa - clave → valor leído de configuracion_sistema; se modifica en el lugar.
+ */
+const leerSecretosGuardados = async (mapa) => {
+  for (const clave of CLAVES_SECRETAS) {
+    const valor = mapa[clave];
+    if (!valor) continue;
+    if (estaCifrado(valor)) {
+      mapa[clave] = descifrar(valor);
+      if (mapa[clave] === null) {
+        console.warn(`[MAILER WARNING] No se pudo descifrar ${clave} (¿cambió JWT_SECRET?). Configure el correo de nuevo.`);
+      }
+    } else {
+      try {
+        await pool.query('UPDATE configuracion_sistema SET valor = $1, actualizado_en = NOW() WHERE clave = $2', [
+          cifrar(valor),
+          clave,
+        ]);
+        console.log(`[MAILER] ${clave} guardada en claro se volvió a guardar cifrada.`);
+      } catch (error) {
+        console.warn(`[MAILER WARNING] ${clave} sigue guardada en claro: no se pudo cifrar (${error.message}).`);
+      }
+    }
+  }
+};
+
+/** Mensaje para el administrador cuando Gmail no se verifica al arrancar; el detalle queda solo en la consola. */
+const MENSAJE_ERROR_GMAIL =
+  'Google no aceptó la cuenta o la contraseña de aplicación guardadas. Vuelva a configurar Gmail.';
+
+/** Mensaje para el administrador cuando un SMTP no se verifica; el detalle técnico queda solo en la consola. */
+const mensajeErrorSmtp = (error) =>
+  error.code === 'EAUTH'
+    ? 'El servidor de correo rechazó el usuario o la contraseña.'
+    : 'No se pudo conectar con el servidor de correo de forma segura. Revise el servidor, el puerto y la conexión segura.';
+
+/** Un correo con forma válida y sin espacios ni saltos de línea (también para el destinatario de la prueba). */
+const esCorreoValido = (correo) => typeof correo === 'string' && correo.length <= 254 && CORREO_VALIDO.test(correo);
 
 const isMailDisabled = () => String(process.env.MAIL_ENABLED || '').trim().toLowerCase() === 'false';
 
@@ -31,6 +164,8 @@ class MailerService {
     this.currentUser = null;
     this.from = null;
     this.lastError = null;
+    // Servidor del SMTP genérico activo (sin usuario ni contraseña), para mostrarlo en el estado
+    this.smtp = null;
   }
 
   /**
@@ -43,6 +178,7 @@ class MailerService {
       this.isVerified = false;
       this.activeProvider = 'demo';
       this.currentUser = null;
+      this.smtp = null;
       this.lastError = null;
       console.log('[MAILER] Envío de correos desactivado (MAIL_ENABLED=false). Ningún correo saldrá de este proceso.');
       return;
@@ -58,6 +194,9 @@ class MailerService {
       let smtpPass = process.env.SMTP_PASS || null;
       let smtpSecure = process.env.SMTP_SECURE === 'true';
 
+      // Si el servidor SMTP viene de la base (guardado desde la pantalla), se revisa que no sea interno al conectar
+      let smtpDesdeBase = false;
+
       // Intentar leer de la base de datos si la tabla existe
       try {
         const dbConfig = await pool.query(
@@ -68,11 +207,18 @@ class MailerService {
           dbConfig.rows.forEach((r) => {
             map[r.clave] = r.valor;
           });
+          await leerSecretosGuardados(map);
+          // Una contraseña guardada que no se pudo descifrar deja ese proveedor sin configurar: no se mezcla con .env
+          if (map.GMAIL_APP_PASSWORD === null) gmailPass = null;
+          if (map.SMTP_PASS === null) smtpPass = null;
           if (map.GMAIL_USER) gmailUser = map.GMAIL_USER;
           if (map.GMAIL_APP_PASSWORD) gmailPass = map.GMAIL_APP_PASSWORD;
           if (map.MAIL_SERVICE) mailService = map.MAIL_SERVICE;
           if (map.EMAIL_FROM) emailFrom = map.EMAIL_FROM;
-          if (map.SMTP_HOST) smtpHost = map.SMTP_HOST;
+          if (map.SMTP_HOST) {
+            smtpHost = map.SMTP_HOST;
+            smtpDesdeBase = true;
+          }
           if (map.SMTP_PORT) smtpPort = map.SMTP_PORT;
           if (map.SMTP_USER) smtpUser = map.SMTP_USER;
           if (map.SMTP_PASS) smtpPass = map.SMTP_PASS;
@@ -80,6 +226,7 @@ class MailerService {
         }
       } catch (dbErr) {
         // La tabla aún no existe o la BD se está levantando; recurrir a process.env
+        console.warn('[MAILER WARNING] No se leyó la configuración del correo de la base; se usa .env:', dbErr.message);
       }
 
       // 1. Prioridad: Servicio de Google (Gmail / Google Workspace)
@@ -90,22 +237,13 @@ class MailerService {
 
       if (isGoogleActive) {
         const cleanPass = gmailPass.replace(/\s+/g, '');
-        const transport = nodemailer.createTransport({
-          ...TIEMPOS_SMTP,
-          service: 'gmail',
-          auth: {
-            user: gmailUser,
-            pass: cleanPass,
-          },
-          tls: {
-            rejectUnauthorized: false, // Compatibilidad con entornos contenedores
-          },
-        });
+        const transport = crearTransporteGmail({ user: gmailUser, pass: cleanPass });
 
         this.transporter = transport;
         this.isConfigured = true;
         this.activeProvider = 'google';
         this.currentUser = gmailUser;
+        this.smtp = null;
         this.from = emailFrom || `Cooperativa Corporativa <${gmailUser}>`;
 
         // Verificación en segundo plano sin bloquear el arranque del servidor
@@ -116,7 +254,7 @@ class MailerService {
           console.log(`[MAILER] Conectado y verificado exitosamente con Google Mail (${gmailUser}).`);
         } catch (verifyErr) {
           this.isVerified = false;
-          this.lastError = verifyErr.message;
+          this.lastError = MENSAJE_ERROR_GMAIL;
           console.warn(`[MAILER WARNING] Credenciales de Google cargadas pero no verificadas (${verifyErr.message}).`);
         }
         return;
@@ -124,21 +262,35 @@ class MailerService {
 
       // 2. Servidor SMTP genérico
       if (smtpHost && smtpUser && smtpPass) {
-        const transport = nodemailer.createTransport({
-          ...TIEMPOS_SMTP,
-          host: smtpHost,
-          port: parseInt(smtpPort, 10),
-          secure: smtpSecure || parseInt(smtpPort, 10) === 465,
-          auth: {
-            user: smtpUser,
-            pass: smtpPass,
-          },
+        const puerto = Number.parseInt(smtpPort, 10);
+        const conexionSegura = smtpSecure || puerto === PUERTO_SMTP_SSL;
+        // Un servidor guardado desde la pantalla se resuelve otra vez: si ahora apunta a la red interna, no se usa
+        const ip = smtpDesdeBase && !redInternaPermitida() ? await resolverDireccionPublica(smtpHost) : null;
+        if (smtpDesdeBase && !redInternaPermitida() && !ip) {
+          this.transporter = null;
+          this.isConfigured = true;
+          this.isVerified = false;
+          this.activeProvider = 'smtp';
+          this.currentUser = smtpUser;
+          this.smtp = { host: smtpHost, port: puerto, secure: conexionSegura };
+          this.lastError = MENSAJE_SERVIDOR_INTERNO;
+          console.warn(`[MAILER WARNING] El servidor SMTP guardado (${smtpHost}) no se resuelve o es una dirección interna.`);
+          return;
+        }
+        const transport = crearTransporteSmtp({
+          host: ip || smtpHost,
+          port: puerto,
+          secure: conexionSegura,
+          user: smtpUser,
+          pass: smtpPass,
+          servername: ip ? smtpHost : undefined,
         });
 
         this.transporter = transport;
         this.isConfigured = true;
         this.activeProvider = 'smtp';
         this.currentUser = smtpUser;
+        this.smtp = { host: smtpHost, port: puerto, secure: conexionSegura };
         this.from = emailFrom || `Cooperativa Financiera <${smtpUser}>`;
 
         try {
@@ -148,7 +300,7 @@ class MailerService {
           console.log(`[MAILER] Conectado exitosamente a servidor SMTP (${smtpHost}).`);
         } catch (verifyErr) {
           this.isVerified = false;
-          this.lastError = verifyErr.message;
+          this.lastError = mensajeErrorSmtp(verifyErr);
           console.warn(`[MAILER WARNING] Servidor SMTP configurado pero verificación falló (${verifyErr.message}).`);
         }
         return;
@@ -160,6 +312,7 @@ class MailerService {
       this.isVerified = false;
       this.activeProvider = 'demo';
       this.currentUser = null;
+      this.smtp = null;
       this.lastError = null;
       console.log('[MAILER] Modo demostrativo activo (sin credenciales de Google/SMTP configuradas). Los correos no se envían; solo se registra en consola que no salieron.');
     } catch (err) {
@@ -185,20 +338,14 @@ class MailerService {
       throw errorDeNegocio(400, 'Debe proporcionar la Contraseña de Aplicación de 16 caracteres de Google.');
     }
 
+    if (!esCorreoValido(user.trim())) {
+      throw errorDeNegocio(400, 'Debe proporcionar una cuenta de correo de Google válida.');
+    }
     const cleanPass = appPassword.replace(/\s+/g, '');
-    const sender = from && from.trim() ? from.trim() : `Cooperativa Corporativa <${user.trim()}>`;
+    const sender = this.remitenteSmtp(from, user.trim());
 
     // 1. Probar la conexión con Google antes de guardar
-    const testTransporter = nodemailer.createTransport({
-      service: 'gmail',
-      auth: {
-        user: user.trim(),
-        pass: cleanPass,
-      },
-      tls: {
-        rejectUnauthorized: false,
-      },
-    });
+    const testTransporter = crearTransporteGmail({ user: user.trim(), pass: cleanPass });
 
     try {
       await testTransporter.verify();
@@ -211,22 +358,16 @@ class MailerService {
       };
     }
 
-    // 2. Persistir en la base de datos PostgreSQL
-    try {
-      await pool.query(
-        `INSERT INTO configuracion_sistema (clave, valor, descripcion, actualizado_en)
-         VALUES 
-          ('GMAIL_USER', $1, 'Cuenta de correo de Google para envíos corporativos', NOW()),
-          ('GMAIL_APP_PASSWORD', $2, 'Contraseña de aplicación de Google de 16 caracteres', NOW()),
-          ('MAIL_SERVICE', 'google', 'Proveedor de servicio de correo activo', NOW()),
-          ('EMAIL_FROM', $3, 'Nombre y remitente visible del correo', NOW())
-         ON CONFLICT (clave) DO UPDATE 
-         SET valor = EXCLUDED.valor, actualizado_en = NOW()`,
-        [user.trim(), cleanPass, sender]
-      );
-    } catch (dbErr) {
-      console.warn('[MAILER WARNING] No se pudo persistir en configuracion_sistema:', dbErr.message);
-    }
+    // 2. Persistir en la base de datos PostgreSQL (contraseña cifrada) y olvidar la del SMTP
+    await guardarConfiguracion(
+      [
+        ['GMAIL_USER', user.trim(), 'Cuenta de correo de Google para envíos corporativos'],
+        ['GMAIL_APP_PASSWORD', cleanPass, 'Contraseña de aplicación de Google de 16 caracteres (cifrada)'],
+        ['MAIL_SERVICE', 'google', 'Proveedor de servicio de correo activo'],
+        ['EMAIL_FROM', sender, 'Nombre y remitente visible del correo'],
+      ],
+      'SMTP_PASS'
+    );
 
     // 3. Actualizar estado en memoria
     this.transporter = testTransporter;
@@ -234,6 +375,7 @@ class MailerService {
     this.isVerified = true;
     this.activeProvider = 'google';
     this.currentUser = user.trim();
+    this.smtp = null;
     this.from = sender;
     this.lastError = null;
 
@@ -242,6 +384,7 @@ class MailerService {
     process.env.GMAIL_APP_PASSWORD = cleanPass;
     process.env.MAIL_SERVICE = 'google';
     process.env.EMAIL_FROM = sender;
+    delete process.env.SMTP_PASS;
 
     console.log(`[MAILER] Servicio de Google Mail configurado y activado exitosamente para ${user.trim()}.`);
 
@@ -250,6 +393,142 @@ class MailerService {
       message: 'Gmail quedó conectado y verificado.',
       status: this.getStatus(),
     };
+  }
+
+  /**
+   * Configura un servidor SMTP cualquiera (Outlook, el del hosting, un buzón de prueba), verifica la conexión y, si
+   * responde, lo guarda en `configuracion_sistema` como proveedor activo (issue #126). Si la verificación falla no
+   * cambia nada: sigue el proveedor anterior.
+   *
+   * @param {Object} datos
+   * @param {string} datos.host - Servidor, por ejemplo smtp.office365.com.
+   * @param {number|string} datos.port - Uno de PUERTOS_SMTP_PERMITIDOS.
+   * @param {boolean} [datos.secure] - SSL desde el inicio; con el puerto 465 siempre lo es.
+   * @param {string} datos.user
+   * @param {string} datos.password
+   * @param {string} [datos.from] - «Nombre <correo>»; si falta, se usa el usuario cuando es un correo.
+   * @returns {Promise<{success: boolean, message: string, status?: Object}>}
+   * @throws {Error} 400 si los datos no son válidos.
+   */
+  async configureSmtpService({ host, port, secure, user, password, from }) {
+    if (isMailDisabled()) {
+      return {
+        success: false,
+        message: 'El envío de correos está desactivado en este entorno (MAIL_ENABLED=false).',
+      };
+    }
+    const servidor = typeof host === 'string' ? host.trim() : '';
+    if (!SERVIDOR_SMTP_VALIDO.test(servidor)) {
+      throw errorDeNegocio(400, 'Escriba el servidor de correo, por ejemplo smtp.office365.com.');
+    }
+    const puerto = Number(port);
+    if (!PUERTOS_SMTP_PERMITIDOS.includes(puerto)) {
+      throw errorDeNegocio(400, `El puerto debe ser uno de estos: ${PUERTOS_SMTP_PERMITIDOS.join(', ')}.`);
+    }
+    const usuario = typeof user === 'string' ? user.trim() : '';
+    if (!usuario || usuario.length > LARGO_MAXIMO_CREDENCIAL) {
+      throw errorDeNegocio(400, 'Escriba el usuario del servidor de correo.');
+    }
+    if (typeof password !== 'string' || !password || password.length > LARGO_MAXIMO_CREDENCIAL) {
+      throw errorDeNegocio(400, 'Escriba la contraseña del servidor de correo.');
+    }
+    const remitente = this.remitenteSmtp(from, usuario);
+    const conexionSegura = secure === true || puerto === PUERTO_SMTP_SSL;
+
+    // Fuera del buzón de prueba, el servidor debe ser público; se conecta a la IP revisada, no otra vez al nombre
+    const ip = redInternaPermitida() ? null : await resolverDireccionPublica(servidor);
+    if (!redInternaPermitida() && !ip) {
+      return { success: false, message: MENSAJE_SERVIDOR_INTERNO };
+    }
+
+    const transporte = crearTransporteSmtp({
+      host: ip || servidor,
+      port: puerto,
+      secure: conexionSegura,
+      user: usuario,
+      pass: password,
+      servername: ip ? servidor : undefined,
+    });
+
+    try {
+      await transporte.verify();
+    } catch (verifyErr) {
+      // El detalle (que puede incluir direcciones internas) queda solo en la consola
+      console.error('[MAILER ERROR] No se pudo verificar el servidor SMTP:', verifyErr.message);
+      return { success: false, message: mensajeErrorSmtp(verifyErr) };
+    }
+
+    await guardarConfiguracion(
+      [
+        ['SMTP_HOST', servidor, 'Servidor SMTP para envíos corporativos'],
+        ['SMTP_PORT', String(puerto), 'Puerto del servidor SMTP'],
+        ['SMTP_SECURE', String(conexionSegura), 'SSL desde el inicio (true) o STARTTLS (false)'],
+        ['SMTP_USER', usuario, 'Usuario del servidor SMTP'],
+        ['SMTP_PASS', password, 'Contraseña del servidor SMTP (cifrada)'],
+        ['MAIL_SERVICE', 'smtp', 'Proveedor de servicio de correo activo'],
+        ['EMAIL_FROM', remitente, 'Nombre y remitente visible del correo'],
+      ],
+      'GMAIL_APP_PASSWORD'
+    );
+
+    this.transporter = transporte;
+    this.isConfigured = true;
+    this.isVerified = true;
+    this.activeProvider = 'smtp';
+    this.currentUser = usuario;
+    this.smtp = { host: servidor, port: puerto, secure: conexionSegura };
+    this.from = remitente;
+    this.lastError = null;
+
+    process.env.SMTP_HOST = servidor;
+    process.env.SMTP_PORT = String(puerto);
+    process.env.SMTP_SECURE = String(conexionSegura);
+    process.env.SMTP_USER = usuario;
+    process.env.SMTP_PASS = password;
+    process.env.MAIL_SERVICE = 'smtp';
+    process.env.EMAIL_FROM = remitente;
+    delete process.env.GMAIL_APP_PASSWORD;
+
+    console.log(`[MAILER] Servidor SMTP configurado y activado (${servidor}:${puerto}).`);
+
+    return {
+      success: true,
+      message: 'El servidor de correo quedó conectado y verificado.',
+      status: this.getStatus(),
+    };
+  }
+
+  /**
+   * Remitente visible de un SMTP: el que se escribió («Nombre <correo>» o un correo) o, si no hay, el usuario cuando
+   * es un correo. Sin saltos de línea, que permitirían agregar cabeceras al mensaje, ni comas o comillas en el nombre,
+   * que harían leer otra dirección.
+   *
+   * @param {string} [from]
+   * @param {string} usuario
+   * @returns {string}
+   * @throws {Error} 400 si no hay un correo de remitente válido.
+   */
+  remitenteSmtp(from, usuario) {
+    const texto = typeof from === 'string' ? from.trim() : '';
+    if (/[\r\n]/.test(texto)) {
+      throw errorDeNegocio(400, 'El remitente no es válido.');
+    }
+    const partes = /^([^<>]*)<([^<>]+)>$/.exec(texto);
+    const [nombre, correo] = partes ? [partes[1].trim(), partes[2].trim()] : ['', texto];
+    if (NOMBRE_REMITENTE_INVALIDO.test(nombre)) {
+      throw errorDeNegocio(400, 'El nombre del remitente no puede llevar comas, comillas, arroba ni los signos < >.');
+    }
+    if (texto && CORREO_VALIDO.test(correo)) return texto;
+    if (!texto && CORREO_VALIDO.test(usuario)) return `${REMITENTE_SMTP_POR_DEFECTO} <${usuario}>`;
+    throw errorDeNegocio(400, 'Escriba el correo del remitente, por ejemplo notificaciones@cooperativa.com.');
+  }
+
+  /**
+   * @param {string} correo
+   * @returns {boolean} true si tiene forma de correo (sin espacios, saltos de línea ni < >).
+   */
+  esCorreoValido(correo) {
+    return esCorreoValido(correo);
   }
 
   /**
@@ -295,6 +574,7 @@ class MailerService {
       from: this.from,
       lastError: this.lastError,
       disabled: isMailDisabled(),
+      smtp: this.activeProvider === 'smtp' ? this.smtp : null,
     };
   }
 
@@ -302,7 +582,7 @@ class MailerService {
    * Envía un correo de prueba para validar el despacho en tiempo real
    */
   async sendTestEmail({ to }) {
-    const subject = '[PRUEBA DE SERVICIO] Verificación Exitosa de Correo Google - Cooperativa Corporativa';
+    const subject = '[PRUEBA DE SERVICIO] Verificación del correo de notificaciones - Cooperativa Corporativa';
     const timestamp = new Date().toLocaleString('es-GT', { timeZone: 'America/Guatemala' });
 
     const htmlContent = `
@@ -335,7 +615,7 @@ class MailerService {
           <div class="content">
             <div class="status-box">
               <div class="status-title">✓ Servicio de Correo Verificado</div>
-              <p class="status-desc">El despacho de notificaciones a través de Google Mail está funcionando correctamente.</p>
+              <p class="status-desc">${this.activeProvider === 'smtp' ? 'El despacho de notificaciones por el servidor SMTP' : 'El despacho de notificaciones a través de Google Mail'} está funcionando correctamente.</p>
             </div>
             
             <p style="font-size: 14px; line-height: 1.6; color: #334155;">
@@ -345,15 +625,15 @@ class MailerService {
             <table class="meta-table">
               <tr>
                 <td>Proveedor Activo:</td>
-                <td><strong>${this.activeProvider === 'google' ? 'Google Mail (Gmail SMTP)' : this.activeProvider.toUpperCase()}</strong></td>
+                <td><strong>${this.activeProvider === 'google' ? 'Google Mail (Gmail SMTP)' : this.activeProvider === 'smtp' ? `Servidor SMTP (${escaparHtml(this.smtp?.host)})` : 'Modo demostrativo'}</strong></td>
               </tr>
               <tr>
                 <td>Cuenta Remitente:</td>
-                <td><code>${this.currentUser || 'Modo Demostrativo'}</code></td>
+                <td><code>${escaparHtml(this.currentUser || 'Modo Demostrativo')}</code></td>
               </tr>
               <tr>
                 <td>Destinatario:</td>
-                <td><code>${to}</code></td>
+                <td><code>${escaparHtml(to)}</code></td>
               </tr>
               <tr>
                 <td>Fecha y Hora (GT):</td>

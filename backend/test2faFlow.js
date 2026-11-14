@@ -139,9 +139,9 @@ async function test2FA() {
     }
     assert(verify2FARes.status === 200 && verify2FARes.data?.token, 'Login con 2FA completado exitosamente y JWT corporativo emitido');
 
-    // 8. Desactivar 2FA para restaurar el estado limpio del usuario con contraseña
+    // 8. Desactivar 2FA para restaurar el estado limpio: pide la contraseña y el código vigente
     const freshToken = verify2FARes.data?.token;
-    const disableRes = await httpRequest({
+    const sinCodigoRes = await httpRequest({
       hostname: 'localhost',
       port: 5001,
       path: '/api/auth/2fa/disable',
@@ -151,10 +151,22 @@ async function test2FA() {
         'Content-Type': 'application/json',
       },
     }, { password: 'admin123' });
+    assert(sinCodigoRes.status === 400 && sinCodigoRes.data?.success === false, 'Sin el código de la aplicación no se desactiva el 2FA');
+
+    const disableRes = await httpRequest({
+      hostname: 'localhost',
+      port: 5001,
+      path: '/api/auth/2fa/disable',
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${freshToken}`,
+        'Content-Type': 'application/json',
+      },
+    }, { password: 'admin123', totp_code: speakeasy.totp({ secret, encoding: 'base32' }) });
     if (!disableRes.data?.success) {
       console.log('disableRes debug:', disableRes.status, disableRes.data);
     }
-    assert(disableRes.status === 200 && disableRes.data?.success === true, '2FA desactivado exitosamente con contraseña y estado limpio restaurado');
+    assert(disableRes.status === 200 && disableRes.data?.success === true, '2FA desactivado con la contraseña y el código, y estado limpio restaurado');
 
     console.log('\n===============================================================');
     console.log(` [RESULTADOS] PRUEBAS SUPERADAS: ${passed} / ${total}`);

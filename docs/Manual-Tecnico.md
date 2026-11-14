@@ -87,5 +87,4 @@ Las pruebas de integración y de regresión usan la base local y el banco de `do
 | El pull request espera checks que nunca terminan | Se renombró un trabajo del CI | Actualizar los checks obligatorios de `main` |
 | SonarCloud falla con un aviso de análisis automático | Se volvió a activar en SonarCloud | Desactivarlo en Analysis Method |
 | Falla `npm audit` sin cambios en el código | Se publicó una vulnerabilidad nueva | Ejecutar `npm audit fix` y volver a probar |
-| Las pruebas del frontend fallan en local con `localStorage` | Node 26 trae su propio `localStorage` | Usar Node 22 o 24 |
 | Un merge queda esperando en Despliegue | El ambiente `production` pide aprobación | Aprobar si cambió código de la aplicación; rechazar si solo cambiaron pruebas o documentos |

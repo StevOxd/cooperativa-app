@@ -7,6 +7,7 @@ const { filtroUsuario } = require('../utils/identificadores');
 const { respuestaDeError } = require('../utils/errores');
 const { ipDelCliente, userAgentDe } = require('../utils/ipCliente');
 const { SEGURIDAD } = require('../config/constants');
+const { PROVEEDORES, confirmarIdentidad, datosDelIntento, registrarCambioCorreo } = require('../services/cambiosCorreoService');
 
 // Motivo con que queda en la auditoría el cambio de correo; el reinicio de contraseña lo busca
 const MOTIVO_CAMBIO_CORREO = 'Correo cambiado';
@@ -1545,40 +1546,80 @@ const getEmailServiceStatus = async (req, res) => {
 };
 
 /**
- * Configura y valida en tiempo real las credenciales de Google Mail (Gmail SMTP)
+ * Configura y verifica el correo del sistema: Gmail con contraseña de aplicación (`provider: 'google'`, el valor por
+ * omisión) o un servidor SMTP cualquiera (`provider: 'smtp'`, issue #126). Solo se guarda si la verificación pasa.
+ *
+ * Por ese correo salen las contraseñas temporales y los códigos, así que exige la contraseña del administrador
+ * (`password_actual`) y su código 2FA (`codigo_2fa`) si lo tiene activo. Cada intento queda en `cambios_correo_sistema`.
  */
 const updateEmailServiceConfig = async (req, res) => {
-  try {
-    const { gmail_user, gmail_app_password, email_from } = req.body;
+  const { provider = 'google', email_from, password_actual, codigo_2fa } = req.body;
+  if (!PROVEEDORES.includes(provider)) {
+    return res.status(400).json({ success: false, message: 'Elija Gmail u otro servidor de correo (SMTP).' });
+  }
+  const intento = datosDelIntento(provider, req.body);
 
-    if (!gmail_user || !gmail_app_password) {
-      return res.status(400).json({
+  try {
+    if (!(await confirmarIdentidad(req.user.id_usuario, password_actual, codigo_2fa))) {
+      await registrarCambioCorreo(req, intento, 'CONFIRMACION_FALLIDA');
+      return res.status(403).json({
         success: false,
-        message: 'Escriba la cuenta de Gmail y la contraseña de aplicación de 16 caracteres.',
+        error: 'CONFIRMACION_REQUERIDA',
+        message: 'Para cambiar el correo, confirme con su contraseña y, si tiene la verificación en dos pasos, con su código. Los datos no coinciden.',
       });
     }
 
-    const result = await mailerService.configureGoogleService({
-      user: gmail_user.trim(),
-      appPassword: gmail_app_password.trim(),
-      from: email_from ? email_from.trim() : undefined,
-    });
+    // Queda registrado antes de tocar el correo: si no se puede registrar, no se cambia
+    await registrarCambioCorreo(req, intento, 'SOLICITADO');
+
+    const from = typeof email_from === 'string' ? email_from.trim() : undefined;
+    let result;
+    if (provider === 'smtp') {
+      const { smtp_host, smtp_port, smtp_secure, smtp_user, smtp_pass } = req.body;
+      result = await mailerService.configureSmtpService({
+        host: smtp_host,
+        port: smtp_port,
+        secure: smtp_secure === true,
+        user: smtp_user,
+        password: smtp_pass,
+        from,
+      });
+    } else {
+      const { gmail_user, gmail_app_password } = req.body;
+      if (typeof gmail_user !== 'string' || typeof gmail_app_password !== 'string' || !gmail_user || !gmail_app_password) {
+        await registrarCambioCorreo(req, intento, 'DATOS_INVALIDOS');
+        return res.status(400).json({
+          success: false,
+          message: 'Escriba la cuenta de Gmail y la contraseña de aplicación de 16 caracteres.',
+        });
+      }
+      result = await mailerService.configureGoogleService({
+        user: gmail_user.trim(),
+        appPassword: gmail_app_password.trim(),
+        from,
+      });
+    }
 
     if (!result.success) {
+      await registrarCambioCorreo(req, intento, 'VERIFICACION_FALLIDA');
       return res.status(400).json({
         success: false,
-        message: result.message || 'No se pudo conectar con el servicio de Google Mail.',
+        message: result.message || 'No se pudo conectar con el servicio de correo.',
       });
     }
 
+    // Quién lo cambió, a qué servidor y desde dónde queda en cambios_correo_sistema; la consola no repite datos de la
+    // petición
+    await registrarCambioCorreo(req, intento, 'APLICADO');
     return res.status(200).json({
       success: true,
-      message: 'Gmail quedó conectado y verificado.',
+      message: result.message,
       data: result.status,
     });
   } catch (error) {
-    console.error('Error en updateEmailServiceConfig:', error);
-    const { status, message } = respuestaDeError(error, 'No se pudo configurar el servicio de Google Mail. Intente de nuevo.');
+    await registrarCambioCorreo(req, intento, error.statusCode === 400 ? 'DATOS_INVALIDOS' : 'ERROR');
+    console.error('Error en updateEmailServiceConfig:', error.message);
+    const { status, message } = respuestaDeError(error, 'No se pudo configurar el servicio de correo. Intente de nuevo.');
     return res.status(status).json({ success: false, message });
   }
 };
@@ -1589,7 +1630,7 @@ const updateEmailServiceConfig = async (req, res) => {
 const sendTestEmail = async (req, res) => {
   try {
     const { to } = req.body;
-    if (!to || !to.includes('@')) {
+    if (!mailerService.esCorreoValido(typeof to === 'string' ? to.trim() : '')) {
       return res.status(400).json({
         success: false,
         message: 'Escriba un correo válido.',
@@ -1600,8 +1641,8 @@ const sendTestEmail = async (req, res) => {
     return res.status(200).json({
       success: true,
       message: result.simulado
-        ? 'Correo despachado en Modo Demostrativo (Servicio de Google no verificado aún).'
-        : `Correo de prueba enviado exitosamente a ${to.trim()} a través del servicio de Google.`,
+        ? 'El correo no salió: no hay un servicio de correo verificado.'
+        : `Correo de prueba enviado a ${to.trim()} ${result.provider === 'google' ? 'con Gmail' : 'por el servidor SMTP'}.`,
       // El detalle de un fallo del envío queda en la consola, no en la respuesta
       data: { simulado: result.simulado, messageId: result.messageId, provider: result.provider },
     });
@@ -1609,7 +1650,7 @@ const sendTestEmail = async (req, res) => {
     console.error('Error en sendTestEmail:', error);
     return res.status(500).json({
       success: false,
-      message: 'No se pudo enviar el correo de prueba. Revise la cuenta de Google y la contraseña de aplicación.',
+      message: 'No se pudo enviar el correo de prueba. Revise la configuración del correo y vuelva a intentarlo.',
     });
   }
 };

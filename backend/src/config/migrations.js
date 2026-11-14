@@ -5,7 +5,7 @@ const { crearPoolDueno } = require('./db');
 const TABLAS_SOLO_INSERCION = [
   'historial_estados_usuario', 'historial_cambios_beneficiarios', 'transacciones', 'efectivo_ventanilla',
   'revisiones_documento', 'accesos_documento', 'reportes_generados', 'resoluciones_credito', 'consultas_padron',
-  'consultas_expediente',
+  'consultas_expediente', 'cambios_correo_sistema',
 ];
 // Las únicas tablas en que el código borra filas; en el resto, la desvinculación es por estado (borrado lógico)
 const TABLAS_CON_BORRADO = ['beneficiarios', 'roles_permisos', 'codigos_verificacion_correo'];
@@ -1434,6 +1434,40 @@ const runMigrations = async () => {
       DROP TRIGGER IF EXISTS trg_consultas_expediente_sin_truncate ON consultas_expediente;
       CREATE TRIGGER trg_consultas_expediente_sin_truncate
           BEFORE TRUNCATE ON consultas_expediente
+          FOR EACH STATEMENT EXECUTE FUNCTION trg_registro_solo_insercion();
+    `);
+
+    // 15.5 Cambios del correo del sistema: cada intento de configurar Gmail o un SMTP queda registrado (quién, qué
+    //      servidor, desde dónde y cómo terminó), también los rechazados. Nunca se guarda la contraseña. Solo se inserta.
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS cambios_correo_sistema (
+        id_cambio SERIAL PRIMARY KEY,
+        id_usuario INT NOT NULL REFERENCES usuarios(id_usuario) ON DELETE RESTRICT,
+        proveedor VARCHAR(10) NOT NULL CHECK (proveedor IN ('google', 'smtp')),
+        servidor VARCHAR(253),
+        puerto INT,
+        usuario_correo VARCHAR(256),
+        resultado VARCHAR(30) NOT NULL,
+        ip_origen VARCHAR(45),
+        user_agent TEXT,
+        fecha_cambio TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+      -- SOLICITADO se registra antes de aplicar; luego queda el resultado del mismo intento
+      ALTER TABLE cambios_correo_sistema
+        DROP CONSTRAINT IF EXISTS cambios_correo_sistema_resultado_check,
+        ADD CONSTRAINT cambios_correo_sistema_resultado_check CHECK (resultado IN (
+          'SOLICITADO', 'APLICADO', 'CONFIRMACION_FALLIDA', 'DATOS_INVALIDOS', 'VERIFICACION_FALLIDA', 'ERROR')),
+        DROP CONSTRAINT IF EXISTS cambios_correo_sistema_puerto_check,
+        ADD CONSTRAINT cambios_correo_sistema_puerto_check CHECK (puerto IS NULL OR puerto BETWEEN 1 AND 65535);
+      CREATE INDEX IF NOT EXISTS idx_cambios_correo_sistema_usuario ON cambios_correo_sistema (id_usuario, fecha_cambio DESC);
+
+      DROP TRIGGER IF EXISTS trg_cambios_correo_sistema_inmutable ON cambios_correo_sistema;
+      CREATE TRIGGER trg_cambios_correo_sistema_inmutable
+          BEFORE UPDATE OR DELETE ON cambios_correo_sistema
+          FOR EACH ROW EXECUTE FUNCTION trg_registro_solo_insercion();
+      DROP TRIGGER IF EXISTS trg_cambios_correo_sistema_sin_truncate ON cambios_correo_sistema;
+      CREATE TRIGGER trg_cambios_correo_sistema_sin_truncate
+          BEFORE TRUNCATE ON cambios_correo_sistema
           FOR EACH STATEMENT EXECUTE FUNCTION trg_registro_solo_insercion();
     `);
 

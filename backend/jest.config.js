@@ -16,8 +16,14 @@ module.exports = {
     'src/utils/montos.js',
     'src/utils/parentesco.js',
     'src/utils/passwordPolicy.js',
+    'src/utils/cifradoConfiguracion.js',
+    'src/utils/direccionesInternas.js',
     'src/middlewares/validationMiddleware.js',
     'src/middlewares/limitePorUsuario.js',
+    // Correo del sistema (issue #126): se prueba sin red ni base, con nodemailer y la base falsos
+    'src/services/mailerService.js',
+    'src/services/cambiosCorreoService.js',
+    'src/services/confirmacionIdentidadService.js',
   ],
   coverageThreshold: { global: { lines: 60 } },
 };
