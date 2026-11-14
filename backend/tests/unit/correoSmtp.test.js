@@ -66,7 +66,22 @@ describe('esCorreoValido', () => {
     ['avisos@coop', false],
     ['avisos@coop.com\r\nBcc: x@y.com', false],
     ['<avisos@coop.com>', false],
+    ['a@b.co', true],
+    ['avisos@mail.coop.com.gt', true],
+    ['avisos@coop..com', false],
+    ['avisos@coop.com.', false],
+    ['avisos@.coop.com', false],
+    ['avisos@coop.com,otro@coop.com', false],
+    ['avisos@coop.com;otro@coop.com', false],
   ])('%p → %p', (correo, esperado) => {
     expect(mailerService.esCorreoValido(correo)).toBe(esperado);
+  });
+
+  test('un texto largo que no es correo se rechaza enseguida (sin retroceso)', () => {
+    const inicio = process.hrtime.bigint();
+    expect(mailerService.esCorreoValido(`a@${'b'.repeat(240)}`)).toBe(false);
+    expect(mailerService.esCorreoValido(`a@${'b.'.repeat(120)}`)).toBe(false);
+    const milisegundos = Number(process.hrtime.bigint() - inicio) / 1e6;
+    expect(milisegundos).toBeLessThan(50);
   });
 });

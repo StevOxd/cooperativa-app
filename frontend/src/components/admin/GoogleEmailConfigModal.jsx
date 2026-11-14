@@ -9,6 +9,7 @@ const CONFIG_FORM_ID = 'config-correo';
 const TEST_FORM_ID = 'prueba-correo';
 const SMTP_FORM_ID = 'config-correo-smtp';
 const PROVEEDOR_TABS_ID = 'proveedor-correo';
+const SMTP_SSL_ID = 'smtp-ssl';
 const PROVEEDORES = [
   { id: 'google', label: 'Gmail' },
   { id: 'smtp', label: 'Otro servidor (SMTP)' },
@@ -459,26 +460,28 @@ export const GoogleEmailConfigModal = ({ isOpen, onClose, onConfigSaved }) => {
                   </Select>
                 </Field>
               </div>
-              <label
-                className={cn(
-                  'flex items-start gap-3 text-sm',
-                  puertoSsl ? 'text-ink-muted' : 'cursor-pointer text-ink'
-                )}
-              >
+              <div className="flex items-start gap-3 text-sm">
                 <input
+                  id={SMTP_SSL_ID}
                   type="checkbox"
+                  aria-describedby={`${SMTP_SSL_ID}-ayuda`}
                   className="mt-0.5 h-4 w-4 rounded border-line-strong text-brand-700 focus-visible:ring-2 focus-visible:ring-brand-700"
                   checked={smtpSecure || puertoSsl}
                   disabled={puertoSsl}
                   onChange={(e) => setSmtpSecure(e.target.checked)}
                 />
-                <span>
-                  <span className="font-medium">Conexión segura desde el inicio (SSL)</span>
-                  <span className="mt-0.5 block text-ink-muted">
+                <div>
+                  <label
+                    htmlFor={SMTP_SSL_ID}
+                    className={cn('font-medium', puertoSsl ? 'text-ink-muted' : 'cursor-pointer text-ink')}
+                  >
+                    Conexión segura desde el inicio (SSL)
+                  </label>
+                  <p id={`${SMTP_SSL_ID}-ayuda`} className="mt-0.5 text-ink-muted">
                     Con el puerto 465 siempre va activada. Con 587 déjela sin marcar: la conexión se asegura después.
-                  </span>
-                </span>
-              </label>
+                  </p>
+                </div>
+              </div>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <Field label="Usuario" required>
                   <Input

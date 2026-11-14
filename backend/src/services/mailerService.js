@@ -37,30 +37,38 @@ const redInternaPermitida = () => String(process.env.SMTP_PERMITIR_RED_INTERNA |
 // Nombre de servidor o IPv4: letras, números, puntos y guiones (RFC 1123), hasta 253 caracteres
 const SERVIDOR_SMTP_VALIDO = /^(?=.{1,253}$)[a-zA-Z0-9](?:[a-zA-Z0-9.-]*[a-zA-Z0-9])?$/;
 const LARGO_MAXIMO_CREDENCIAL = 256;
-const CORREO_VALIDO = /^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/;
+// Un solo correo: usuario, arroba y un dominio con al menos un punto, sin espacios, saltos de línea, < > ni las comas o
+// punto y coma que separan varias direcciones. Las partes del dominio no llevan puntos, así que la expresión no tiene
+// dos formas de leer el mismo texto y su tiempo crece en línea con el largo (sin retroceso exponencial).
+const CORREO_VALIDO = /^[^\s@<>,;]+@[^\s@<>,;.]+(?:\.[^\s@<>,;.]+)+$/;
 
 const REMITENTE_SMTP_POR_DEFECTO = 'Cooperativa Corporativa';
 // Caracteres que en el nombre visible harían leer otra dirección en el remitente
 const NOMBRE_REMITENTE_INVALIDO = /[,;"<>@]/;
 
 /**
- * Opciones de nodemailer para un SMTP genérico. Sin SSL desde el inicio exige STARTTLS (`requireTLS`): si el servidor
+ * Transporte de nodemailer para un SMTP genérico. Sin SSL desde el inicio exige STARTTLS (`requireTLS`): si el servidor
  * no lo ofrece, no se envían el usuario ni la contraseña sin cifrar. Solo el buzón de prueba, donde se permite la red
  * interna, queda sin esa exigencia. Si se conecta a una IP ya resuelta, `servername` es el nombre con que se valida el
  * certificado.
  */
-const opcionesTransporteSmtp = ({ host, port, secure, user, pass, servername }) => ({
-  ...TIEMPOS_SMTP,
-  host,
-  port,
-  secure,
-  requireTLS: !secure && !(port === PUERTO_SMTP_PRUEBAS && redInternaPermitida()),
-  auth: { user, pass },
-  ...(servername ? { tls: { servername } } : {}),
-});
+const crearTransporteSmtp = ({ host, port, secure, user, pass, servername }) =>
+  nodemailer.createTransport({
+    ...TIEMPOS_SMTP,
+    ...(servername ? { tls: { servername } } : {}),
+    host,
+    port,
+    auth: { user, pass },
+    secure,
+    requireTLS: !secure && !(port === PUERTO_SMTP_PRUEBAS && redInternaPermitida()),
+  });
 
-/** Opciones de nodemailer para Gmail; el certificado de Google se valida (sin `rejectUnauthorized: false`). */
-const opcionesTransporteGmail = ({ user, pass }) => ({ ...TIEMPOS_SMTP, service: 'gmail', auth: { user, pass } });
+/**
+ * Transporte de nodemailer para Gmail: SSL desde el inicio (puerto 465) y el certificado de Google se valida (sin
+ * `rejectUnauthorized: false`).
+ */
+const crearTransporteGmail = ({ user, pass }) =>
+  nodemailer.createTransport({ ...TIEMPOS_SMTP, service: 'gmail', auth: { user, pass }, secure: true });
 
 /**
  * Guarda la configuración de un proveedor en configuracion_sistema, con las contraseñas (CLAVES_SECRETAS) cifradas, y
@@ -229,7 +237,7 @@ class MailerService {
 
       if (isGoogleActive) {
         const cleanPass = gmailPass.replace(/\s+/g, '');
-        const transport = nodemailer.createTransport(opcionesTransporteGmail({ user: gmailUser, pass: cleanPass }));
+        const transport = crearTransporteGmail({ user: gmailUser, pass: cleanPass });
 
         this.transporter = transport;
         this.isConfigured = true;
@@ -254,7 +262,7 @@ class MailerService {
 
       // 2. Servidor SMTP genérico
       if (smtpHost && smtpUser && smtpPass) {
-        const puerto = parseInt(smtpPort, 10);
+        const puerto = Number.parseInt(smtpPort, 10);
         const conexionSegura = smtpSecure || puerto === PUERTO_SMTP_SSL;
         // Un servidor guardado desde la pantalla se resuelve otra vez: si ahora apunta a la red interna, no se usa
         const ip = smtpDesdeBase && !redInternaPermitida() ? await resolverDireccionPublica(smtpHost) : null;
@@ -269,16 +277,14 @@ class MailerService {
           console.warn(`[MAILER WARNING] El servidor SMTP guardado (${smtpHost}) no se resuelve o es una dirección interna.`);
           return;
         }
-        const transport = nodemailer.createTransport(
-          opcionesTransporteSmtp({
-            host: ip || smtpHost,
-            port: puerto,
-            secure: conexionSegura,
-            user: smtpUser,
-            pass: smtpPass,
-            servername: ip ? smtpHost : undefined,
-          })
-        );
+        const transport = crearTransporteSmtp({
+          host: ip || smtpHost,
+          port: puerto,
+          secure: conexionSegura,
+          user: smtpUser,
+          pass: smtpPass,
+          servername: ip ? smtpHost : undefined,
+        });
 
         this.transporter = transport;
         this.isConfigured = true;
@@ -339,7 +345,7 @@ class MailerService {
     const sender = this.remitenteSmtp(from, user.trim());
 
     // 1. Probar la conexión con Google antes de guardar
-    const testTransporter = nodemailer.createTransport(opcionesTransporteGmail({ user: user.trim(), pass: cleanPass }));
+    const testTransporter = crearTransporteGmail({ user: user.trim(), pass: cleanPass });
 
     try {
       await testTransporter.verify();
@@ -435,16 +441,14 @@ class MailerService {
       return { success: false, message: MENSAJE_SERVIDOR_INTERNO };
     }
 
-    const transporte = nodemailer.createTransport(
-      opcionesTransporteSmtp({
-        host: ip || servidor,
-        port: puerto,
-        secure: conexionSegura,
-        user: usuario,
-        pass: password,
-        servername: ip ? servidor : undefined,
-      })
-    );
+    const transporte = crearTransporteSmtp({
+      host: ip || servidor,
+      port: puerto,
+      secure: conexionSegura,
+      user: usuario,
+      pass: password,
+      servername: ip ? servidor : undefined,
+    });
 
     try {
       await transporte.verify();

@@ -1609,7 +1609,9 @@ const updateEmailServiceConfig = async (req, res) => {
     }
 
     await registrarCambioCorreo(req, intento, 'APLICADO');
-    console.log(`[INFO] ${req.user.codigo_corporativo || req.user.id_usuario} cambió el correo del sistema a ${provider}.`);
+    // El registro lleva un texto fijo y no el valor que llegó en la petición, que podría traer saltos de línea
+    const proveedorAplicado = provider === 'smtp' ? 'SMTP' : 'Gmail';
+    console.log(`[INFO] ${req.user.codigo_corporativo || req.user.id_usuario} cambió el correo del sistema a ${proveedorAplicado}.`);
     return res.status(200).json({
       success: true,
       message: result.message,

@@ -1,37 +1,37 @@
 const dns = require('dns').promises;
 const net = require('net');
+const redesEspeciales = require('../config/redesEspeciales.json');
 
 /**
- * Direcciones que no son de Internet: la propia máquina, la red local, los contenedores de Docker, link-local y el
- * servicio de metadatos de la nube (169.254.169.254). Un servidor configurado desde la pantalla no debe llegar ahí.
+ * Lista de redes a partir de su notación CIDR («red/prefijo»).
+ *
+ * @param {string[]} redes
+ * @param {'ipv4'|'ipv6'} familia
+ * @param {import('net').BlockList} [lista] - Lista a la que se agregan; si falta, se crea una nueva.
+ * @returns {import('net').BlockList}
  */
-const internas = new net.BlockList();
-[
-  ['0.0.0.0', 8],
-  ['10.0.0.0', 8],
-  ['100.64.0.0', 10],
-  ['127.0.0.0', 8],
-  ['169.254.0.0', 16],
-  ['172.16.0.0', 12],
-  ['192.0.0.0', 24],
-  ['192.168.0.0', 16],
-  ['198.18.0.0', 15],
-  ['224.0.0.0', 4],
-  ['240.0.0.0', 4],
-].forEach(([red, prefijo]) => internas.addSubnet(red, prefijo, 'ipv4'));
-// IPv6: solo las direcciones globales (2000::/3) son de Internet. Dentro de ellas se excluyen las que llevan a una
-// IPv4 por traducción (NAT64 y 6to4), que podría ser interna.
-const ipv6Globales = new net.BlockList();
-ipv6Globales.addSubnet('2000::', 3, 'ipv6');
-[
-  ['2002::', 16],
-  ['2001:db8::', 32],
-].forEach(([red, prefijo]) => internas.addSubnet(red, prefijo, 'ipv6'));
-const ipv6Traducidas = new net.BlockList();
-[
-  ['64:ff9b::', 96],
-  ['64:ff9b:1::', 48],
-].forEach(([red, prefijo]) => ipv6Traducidas.addSubnet(red, prefijo, 'ipv6'));
+const listaDeRedes = (redes, familia, lista = new net.BlockList()) => {
+  redes.forEach((cidr) => {
+    const [red, prefijo] = cidr.split('/');
+    lista.addSubnet(red, Number(prefijo), familia);
+  });
+  return lista;
+};
+
+/*
+ * Las redes salen de `config/redesEspeciales.json`, tomadas del registro de direcciones de uso especial de la IANA
+ * (RFC 6890).
+ *
+ * Internas: direcciones que no son de Internet (la propia máquina, la red local, los contenedores de Docker, link-local
+ * y el servicio de metadatos de la nube, 169.254.169.254). Un servidor configurado desde la pantalla no debe llegar ahí.
+ *
+ * IPv6: solo las direcciones globales (2000::/3) son de Internet. Dentro de ellas se excluyen las de documentación y las
+ * que llevan a una IPv4 por traducción (NAT64 y 6to4), que podría ser interna.
+ */
+const internas = listaDeRedes(redesEspeciales.ipv4Internas, 'ipv4');
+listaDeRedes(redesEspeciales.ipv6Internas, 'ipv6', internas);
+const ipv6Globales = listaDeRedes(redesEspeciales.ipv6Globales, 'ipv6');
+const ipv6Traducidas = listaDeRedes(redesEspeciales.ipv6Traducidas, 'ipv6');
 
 /**
  * @param {string} ip
